@@ -12,12 +12,22 @@ import argparse, concurrent.futures, hashlib, html.parser, io, json, pathlib, su
 
 PAGES = ['index.html', 'rules.html', 'releases.html', 'transparency.html', 'docs.html']
 
-def get(url, limit=200_000_000):
-    req = urllib.request.Request(url, headers={'User-Agent': 'macguard-verify-live/1', 'Cache-Control': 'no-cache'})
-    with urllib.request.urlopen(req, timeout=40) as r:
-        data = r.read(limit + 1)
-        if len(data) > limit: raise RuntimeError(f'{url} exceeds {limit} bytes')
-        return r.status, data
+def get(url, limit=200_000_000, attempts=4):
+    """GET with a few retries for transient CDN errors (5xx, timeouts); a wrong answer is never retried into a pass: bytes are still compared by the caller."""
+    last = None
+    for i in range(attempts):
+        try:
+            req = urllib.request.Request(url, headers={'User-Agent': 'macguard-verify-live/1', 'Cache-Control': 'no-cache'})
+            with urllib.request.urlopen(req, timeout=40) as r:
+                data = r.read(limit + 1)
+                if len(data) > limit: raise RuntimeError(f'{url} exceeds {limit} bytes')
+                return r.status, data
+        except urllib.error.HTTPError as e:
+            if e.code < 500: raise
+            last = e
+        except (urllib.error.URLError, TimeoutError, ConnectionError) as e: last = e
+        import time; time.sleep(1 + i)
+    raise last
 
 def status(url):
     req = urllib.request.Request(url, headers={'User-Agent': 'macguard-verify-live/1'}, method='GET')

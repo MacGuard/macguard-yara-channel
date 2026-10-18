@@ -104,7 +104,11 @@ final class AppBundleTests: XCTestCase {
         XCTAssertEqual(find(r, "Stapled notarization ticket")?.state, .passed)
         XCTAssertTrue(find(r, "Bundle identifier")?.detail.contains("com.objective-see.donotdisturb.installer") == true)
         XCTAssertNotNil(find(r, "Installer role"))
-        XCTAssertEqual(r.findings.filter { $0.title == "YARA match" }.count, 0)
-        XCTAssertTrue(find(r, "YARA")?.state == .unknown, "no YARA engine is bundled: it must say so, not pretend a clean scan")
+        if YARAEngine.status().ready {
+            XCTAssertNotNil(find(r, "YARA scan coverage"), "with the engine present the scan must report what it covered")
+            XCTAssertNil(find(r, "YARA engine unavailable"))
+        } else {
+            XCTAssertEqual(find(r, "YARA engine unavailable")?.state, .unknown, "no engine: say so, never present a clean scan")
+        }
     }
 }

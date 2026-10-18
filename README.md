@@ -22,6 +22,16 @@ Nothing in the pipeline needs Claude, a Mac or an interactive session. It runs o
 
 Every release is the full current rule set: it installs on its own, without earlier releases. A correction is a new release; tags are never reused.
 
+## Public addresses
+| What | GitHub Pages (primary) | Cloudflare Pages (mirror) |
+|---|---|---|
+| Web | https://macguard.github.io/macguard-yara-channel/ | https://macguard-rules.pages.dev/ |
+| YARA rules | …/rules.html | https://macguard-rules.pages.dev/rules |
+| Transparency log | …/transparency.html | https://macguard-rules.pages.dev/transparency |
+| Raw log, checkpoint, proofs | …/logs/log.jsonl, …/logs/checkpoint.txt, …/inclusion-proof.json | the same paths on the mirror |
+
+Both serve the same bytes: `scripts/verify_live.py <base URL> --identity … --repo … --external` passes on both (package, 1,184 rule files, catalog, signatures, proofs, links).
+
 ## Release contents
 `rules-release.tar.gz`, `manifest.json` (signed; includes `rules_root` and `stats`: files, yara_rules, expanded_bytes), `manifest.sigstore.json`, `inclusion-proof.json`, `checkpoint.txt`, `checkpoint.sigstore.json`, `release.json`, `changes.json`, `CHANGELOG.md`, and `consistency.json` when a previous release exists.
 
@@ -29,7 +39,7 @@ Every release is the full current rule set: it installs on its own, without earl
 1. Settings → Pages → GitHub Actions.
 2. Protected environment `stable-signing` with a required reviewer and `main`-only deployments.
 3. **Recommended:** enable GitHub *immutable releases* (`gh api -X PUT repos/<owner>/<repo>/immutable-releases`). The workflow already creates the release as a draft and publishes it after all assets are attached, which is the flow that setting requires. It is a repository security setting, so it is not changed automatically.
-4. Cloudflare (optional mirror): secrets `CLOUDFLARE_API_TOKEN` (Account → Cloudflare Pages → Edit) and `CLOUDFLARE_ACCOUNT_ID`; the expected account id is public in `config/cloudflare_account_id.txt`. `scripts/cf_preflight.sh` classifies a bad credential (format, account id, validity, permission) without printing it and the deploy is skipped, never retried blindly.
+4. Cloudflare (optional mirror). The project `macguard-rules` lives in the account whose id is in `config/cloudflare_account_id.txt` (`070e63e8…`, the account of the maintainer's own Cloudflare login). CI needs two secrets from THAT account: `CLOUDFLARE_ACCOUNT_ID` (that id) and `CLOUDFLARE_API_TOKEN` (a custom token, Account → Cloudflare Pages → Edit). Until then the mirror is updated by hand: `wrangler pages deploy site --project-name=macguard-rules --branch=main` after `python3 scripts/build_site.py`. `scripts/cf_preflight.sh` classifies a bad credential (format, account id, validity, permission) without printing it and the deploy is skipped, never retried blindly.
 
 ## Verify a release yourself
 ```

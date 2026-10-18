@@ -71,6 +71,18 @@ final class YARAEngineTests: XCTestCase {
         let findings = YARAScanner.inspect([], status: YARAEngine.verify(dir)); XCTAssertEqual(findings.first?.state, .failed); XCTAssertTrue(findings.first?.title.contains("failed verification") == true)
     }
 
+    func testVerifyingTheEngineNeverBlocksTheMainThread() throws {
+        _ = try engine(); YARAEngine.reset()
+        RunLoop.main.run(until: Date().addingTimeInterval(1.5))   // let the host app's own start-up settle
+        var last = Date(), worst: TimeInterval = 0
+        let timer = Timer.scheduledTimer(withTimeInterval: 0.01, repeats: true) { _ in let n = Date(); worst = max(worst, n.timeIntervalSince(last)); last = n }
+        last = Date()
+        let m = YARARuleManager(channelBase: URL(string: "http://127.0.0.1:9/")!, rulesDirectory: tmp.appendingPathComponent("rm/YARARules"), trustStore: MemoryTrustStore(), signatureCheck: nil, useStandardVerifier: false)
+        RunLoop.main.run(until: Date().addingTimeInterval(4)); timer.invalidate()
+        XCTAssertLessThan(worst, 0.25, "main thread stalled \(worst) s while the engine was verified")
+        XCTAssertEqual(m.engineSummary?.ready, true, "the verified engine must be published to the UI")
+    }
+
     // MARK: scanning
     func testAMatchIsFoundAndACleanFileIsNot() throws {
         let rules = try rulesDir(["a.yar": "rule HitMe { strings: $a = \"NEEDLE-123\" condition: $a }"])

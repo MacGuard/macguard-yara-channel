@@ -16,6 +16,8 @@ final class YARARuleManager: NSObject, ObservableObject {
     @Published private(set) var availableRevision: String?
     @Published private(set) var updateAvailable = false
     @Published private(set) var installedCount = 0
+    /// Engine verification runs codesign and a self-test, so it is done once in the background and only the result is published; views never call `YARAEngine.status()`.
+    @Published private(set) var engineSummary: (ready: Bool, version: String, reason: String)? = nil
     /// True only when the last `update` installed a verified release.
     private(set) var lastResultOK = false
     private let customRulesDirectory: URL?
@@ -48,6 +50,7 @@ final class YARARuleManager: NSObject, ObservableObject {
         installer.recoverIfNeeded()
         installStarterRulesIfNeeded()
         refreshInstalledCount()
+        DispatchQueue.global(qos: .utility).async { let st = YARAEngine.status(); DispatchQueue.main.async { self.engineSummary = (st.ready, st.version, st.reason) } }
     }
     var rulesDirectory: URL {
         customRulesDirectory ?? AppPaths.dataRoot.appendingPathComponent("YARARules", isDirectory: true)
