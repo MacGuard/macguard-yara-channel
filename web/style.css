@@ -29,3 +29,5 @@ a:focus-visible,button:focus-visible,select:focus-visible,input:focus-visible,su
 
 main{min-width:0}td.sha{font-family:ui-monospace,Menlo,monospace;font-size:11px;min-width:34ch;word-break:break-all}
 .dl li,.verbox,.facts dd,.muted{overflow-wrap:anywhere}
+
+.block{margin:18px 0}.block h3{margin:0 0 6px;font-size:15px}.tiles{grid-template-columns:repeat(auto-fit,minmax(160px,1fr))}

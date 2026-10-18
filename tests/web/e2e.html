@@ -19,7 +19,9 @@ async function main(){
  rec('index: chart bars drawn',d.querySelectorAll('#act-chart rect.b-ok').length>=1);
  rec('index: 30 day window in the table',d.querySelectorAll('#act-table tbody tr').length===30);
  rec('index: unobserved days are marked, not zero',d.querySelectorAll('#act-chart rect.nodata').length>=1&&/Sin observaci|No observado/.test(d.querySelector('#act-table tbody').textContent));
- rec('index: six metric tiles',d.querySelectorAll('#act-tiles .tile').length===6);
+ rec('index: metrics are separated into analysis, release changes and distribution',d.querySelectorAll('#tiles-run .tile').length===4&&d.querySelectorAll('#tiles-rel .tile').length===3&&d.querySelectorAll('#tiles-dist .tile').length===3);
+ rec('index: quarantine is shown with an explanation and the sum is checked',/uarantin|uarentena/.test(d.getElementById('tiles-run').textContent)&&d.getElementById('run-quar').textContent.length>40&&/=/.test(d.getElementById('run-sum').textContent+'='));
+ rec('index: real downloads are declared as not measured',/no se miden|not measured/.test(d.getElementById('dl-real').textContent));
  d.getElementById('act-range').value='7';d.getElementById('act-range').dispatchEvent(new f.contentWindow.Event('change'));
  rec('index: 7 day range',d.querySelectorAll('#act-table tbody tr').length===7);
  d.getElementById('act-view').value='changes';d.getElementById('act-view').dispatchEvent(new f.contentWindow.Event('change'));

@@ -11,7 +11,7 @@ Rules that cannot be bent
 """
 import argparse, json, pathlib, sys
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
-import catalog, tlog
+import accounting, catalog, tlog
 VALIDATED, QUARANTINED, REJECTED, DEPRECATED = 'VALIDATED', 'QUARANTINED', 'REJECTED', 'DEPRECATED'
 WAIVABLE = {'costly-regex', 'filesize-loop', 'many-loops', 'unknown-module', 'include', 'license-unchecked', 'matches-benign-corpus', 'dependency-not-validated'}
 APPROVING = {'APPROVED_PENDING_VALIDATION', 'RELEASED'}
@@ -86,7 +86,13 @@ def decide(classified, previous=None, decisions=None, dynamic=None, benign_hits=
     res['publishable'] = not why; res['blockers'] = why
     counts = {s: 0 for s in (VALIDATED, QUARANTINED, REJECTED, DEPRECATED)}
     for e in res['excluded']: counts[e['state']] += 1
-    res['public_stats'] = {'examined': len(classified), 'accepted': len(res['approved']), 'quarantined': counts[QUARANTINED], 'rejected': counts[REJECTED], 'retired': len(res['retired']), 'previously_published_failing': len(res['previously_published_failing'])}
+    ledger = accounting.build_ledger(res['approved'], res['excluded'])
+    res['ledger'] = ledger                                   # private: unique id, hash, source, final state of every examined file
+    res['public_stats'] = {'examined': len(classified), 'accepted': len(res['approved']), 'quarantined': counts[QUARANTINED], 'rejected': counts[REJECTED], 'deprecated': counts[DEPRECATED],
+                           'retired': len(res['retired']), 'previously_published_failing': len(res['previously_published_failing']), 'ledger_root': accounting.ledger_root(ledger)}
+    broken = accounting.violations(res['public_stats'])
+    if broken or accounting.counts(ledger) != {'accepted': res['public_stats']['accepted'], 'quarantined': counts[QUARANTINED], 'rejected': counts[REJECTED], 'deprecated': counts[DEPRECATED]}:
+        res['blockers'].append('accounting invariant violated: ' + ('; '.join(broken) or 'ledger and counters disagree')); res['publishable'] = False
     return res
 
 if __name__ == '__main__':

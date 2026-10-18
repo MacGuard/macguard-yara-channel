@@ -91,7 +91,8 @@ class DecideTests(unittest.TestCase):
     def test_public_stats_hold_only_counts(self):
         files = [f('rules/a.yar'), f('rules/q.yar', 'QUARANTINED', reasons=[r('costly-regex', 'review')])]
         s = decide.decide(files, dynamic_required=False)['public_stats']
-        self.assertEqual(s, {'examined': 2, 'accepted': 1, 'quarantined': 1, 'rejected': 0, 'retired': 0, 'previously_published_failing': 0})
+        self.assertEqual({k: v for k, v in s.items() if k != 'ledger_root'}, {'examined': 2, 'accepted': 1, 'quarantined': 1, 'rejected': 0, 'deprecated': 0, 'retired': 0, 'previously_published_failing': 0})
+        self.assertRegex(s['ledger_root'], '^[0-9a-f]{64}$')
 
 ANOMALY = {'max_removed_fraction': 0.15, 'max_changed_fraction': 0.40}
 class AnomalyTests(unittest.TestCase):

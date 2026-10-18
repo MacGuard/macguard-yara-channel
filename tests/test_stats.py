@@ -16,8 +16,8 @@ class StatsTests(unittest.TestCase):
         log = [acc('1', '2026-10-17T03:00:00Z', 100), bad('2', '2026-10-17T05:00:00Z'), bad('2', '2026-10-17T05:00:01Z'), rej('2', '2026-10-17T05:00:02Z', 120),
                acc('3', '2026-10-18T03:00:00Z', 130)]
         d = {x['date']: x for x in stats.daily(log, date(2026, 10, 18))}
-        self.assertEqual(d['2026-10-17'], {'date': '2026-10-17', 'observed': True, 'examined': 120, 'accepted': 118, 'quarantined': None, 'rejected': 2, 'performance': None, 'new': None, 'modified': None, 'removed': None})
-        self.assertEqual(d['2026-10-18'], {'date': '2026-10-18', 'observed': True, 'examined': 130, 'accepted': 130, 'quarantined': None, 'rejected': 0, 'performance': None, 'new': None, 'modified': None, 'removed': None})
+        self.assertEqual(d['2026-10-17'], {'date': '2026-10-17', 'observed': True, 'examined': 120, 'accepted': 118, 'quarantined': None, 'rejected': 2, 'deprecated': None, 'accounting_ok': None, 'performance': None, 'new': None, 'modified': None, 'removed': None})
+        self.assertEqual(d['2026-10-18'], {'date': '2026-10-18', 'observed': True, 'examined': 130, 'accepted': 130, 'quarantined': None, 'rejected': 0, 'deprecated': None, 'accounting_ok': None, 'performance': None, 'new': None, 'modified': None, 'removed': None})
     def test_days_older_than_a_month_drop_out(self):
         d = stats.daily([acc('1', '2026-08-01T00:00:00Z', 50)], date(2026, 10, 18))
         self.assertEqual(sum(x['examined'] or 0 for x in d), 0)

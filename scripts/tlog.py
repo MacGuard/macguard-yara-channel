@@ -270,14 +270,15 @@ def events_for_candidate(candidate: dict, validation: dict, run_id: str, time: s
 def events_for_decision(candidate: dict, decision: dict, run_id: str, time: str, perf: dict = None) -> list:
     """Public-safe events for the autonomous flow: counts only, never the names or findings of quarantined rules."""
     st = decision['public_stats']
+    import accounting; accounting.require(st)   # statistics that break the invariant are never logged, so they can never be shown
     out = [event('INFO', 'sources.fetched', f"Fetched {len(candidate['sources'])} upstream sources at pinned commits.", run_id, time,
                  sources=[{'repository': x['repository'], 'commit': x['commit']} for x in candidate['sources']])]
-    out.append(event('INFO', 'candidate.classified', f"Examined {st['examined']} rule files: {st['accepted']} accepted, {st['quarantined']} quarantined for review, {st['rejected']} rejected, {st['retired']} retired.", run_id, time, **st, **(perf or {})))
+    out.append(event('INFO', 'candidate.classified', f"Examined {st['examined']} rule files: {st['accepted']} accepted, {st['quarantined']} quarantined for review, {st['rejected']} rejected, {st['deprecated']} deprecated; {st['retired']} files of the previous release are no longer upstream.", run_id, time, **st, **(perf or {})))
     if st.get('previously_published_failing'):
         out.append(event('WARNING', 'rules.withheld', f"{st['previously_published_failing']} previously published rule files no longer pass the checks and are withheld until resolved.", run_id, time, count=st['previously_published_failing']))
     if decision['publishable'] or decision['approved']:
         out.append(event('INFO' if decision['publishable'] else 'WARNING', 'candidate.accepted', f"{st['accepted']} rule files passed every mandatory check. Candidate rules root is {decision['rules_root'][:16]}...", run_id, time,
-                         rules_root=decision['rules_root'], file_count=st['accepted'], examined=st['examined'], quarantined=st['quarantined'], rejected=st['rejected']))
+                         rules_root=decision['rules_root'], file_count=st['accepted'], examined=st['examined'], quarantined=st['quarantined'], rejected=st['rejected'], deprecated=st['deprecated']))
     if not decision['publishable']:
         out.append(event('WARNING', 'candidate.not_publishable', 'No release from this run: ' + '; '.join(decision['blockers']), run_id, time, blockers=decision['blockers']))
     return out
