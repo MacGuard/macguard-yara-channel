@@ -62,4 +62,6 @@ shutil.copy(root / 'scripts' / 'verify_public_release.py', site / 'verify_public
 import build_docs
 report = build_docs.build(site / 'docs', site)
 print(f"Documentation built: {report['pages']} pages")   # recomputed on every deploy; keeps the last 30 days
+import csp
+print(f'Content Security Policy written to {csp.inject(site)} pages')   # GitHub Pages cannot send headers, so the policy travels in each page
 print(f'Site assembled in {site}')

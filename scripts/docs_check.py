@@ -19,7 +19,7 @@ Exit 0 only if everything passes."""
 import argparse, json, os, pathlib, shutil, signal, socket, subprocess, sys, tempfile, time, re, html
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / 'scripts'))
-import build_docs
+import build_docs, csp
 
 PROBE = r"""<!doctype html><meta charset=utf-8><title>probe</title><pre id=result>RUNNING</pre><script>
 var JOBS=%(jobs)s, FULL=%(full)s, out=[], W=0;
@@ -82,6 +82,7 @@ def main(argv=None):
         for f in ('docs.css', 'docs.js', 'style.css', 'common.js'): shutil.copy(ROOT / 'web' / f, site / f)
         shutil.copytree(ROOT / 'web' / 'vendor', site / 'vendor', dirs_exist_ok=True)
         shutil.rmtree(site / 'docs', ignore_errors=True); rep = build_docs.build(site / 'docs', site)
+        csp.inject(site)   # the pages are checked under the policy they are served with: a violation breaks a diagram here, not in a reader's browser
         pages = [p for p in rep['files'] if p.endswith('.html') and '/' in p]
         full = a.mode == 'full'
         jobs = [{'w': w, 'u': f'docs/{p}'} for w in ((1280, 390) if full else (1280,)) for p in pages if full or p.startswith('en/')]
