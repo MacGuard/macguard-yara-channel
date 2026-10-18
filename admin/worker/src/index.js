@@ -1,7 +1,7 @@
 // MacGuard quarantine service: private API + admin UI assets. The public site never talks to this worker.
-import { MAX_BATCH, atLeast, publicStats, validateDecisionRequest, validateSubmission, verifyChain } from './core.js';
+import { MAX_BATCH, atLeast, blobError, publicStats, validateDecisionRequest, validateSubmission, verifyChain } from './core.js';
 import * as store from './store.js';
-import { clearCookie, createSession, destroySession, effectiveRole, finishLogin, getSession, sessionCookie, startLogin, timingSafeEqual, verifyActionsToken } from './auth.js';
+import { STATE_COOKIE, clearCookie, clearStateCookie, createSession, destroySession, effectiveRole, finishLogin, getSession, parseCookies, sessionCookie, startLogin, stateCookie, timingSafeEqual, verifyActionsToken } from './auth.js';
 
 const HEADERS = {
   'Content-Security-Policy': "default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'",
@@ -25,7 +25,8 @@ export async function handle(request, env, deps) {
         if (v.workflow !== 'daily.yml') return err(403, 'only the daily review submits candidates');
         if (!Array.isArray(body.candidates) || body.candidates.length > 2000) return err(400, 'candidates (max 2000) required');
         const results = [];
-        for (const item of body.candidates) { const bad = validateSubmission(item); if (bad) return err(400, `${bad} (${String(item && item.path).slice(0, 80)})`); results.push({ sha256: item.sha256, ...(await store.upsertCandidate(db, item, new Date(now * 1000).toISOString(), deps.uuid)) }); }
+        for (const item of body.candidates) { const bad = validateSubmission(item) || await blobError(item); if (bad) return err(400, `${bad} (${String(item && item.path).slice(0, 80)}); nothing was stored`); }   // validate everything before writing anything
+        for (const item of body.candidates) results.push({ sha256: item.sha256, ...(await store.upsertCandidate(db, item, new Date(now * 1000).toISOString(), deps.uuid)) });
         await store.appendAudit(db, { actor, role: 'PIPELINE', action: 'pipeline.submit', target: String(body.run_id || 'run'), detail: { count: results.length, created: results.filter((r) => r.status === 'created').length, run_url: body.run_url || null } }, new Date(now * 1000).toISOString());
         if (Array.isArray(body.retested)) await store.clearRetest(db, body.retested.filter((i) => typeof i === 'string'));
         return json({ schema: 1, results });
@@ -43,12 +44,19 @@ export async function handle(request, env, deps) {
     if (method === 'GET' && path === '/public/stats') return json(publicStats(await store.counts(db)), 200, { 'Cache-Control': 'public, max-age=300' });
 
     // ---- login flow ----
-    if (path === '/auth/login' && method === 'GET') return new Response(null, { status: 302, headers: { ...HEADERS, Location: await startLogin(db, env, now) } });
+    if (path === '/auth/login' && method === 'GET') {
+      await store.purgeExpired(db, now);
+      const { location, state } = await startLogin(db, env, now);
+      return new Response(null, { status: 302, headers: { ...HEADERS, Location: location, 'Set-Cookie': stateCookie(state) } });   // the state is also bound to this browser
+    }
     if (path === '/auth/callback' && method === 'GET') {
-      const r = await finishLogin(db, env, url.searchParams.get('code'), url.searchParams.get('state'), deps, now); if (!r.ok) return err(400, r.error);
+      const bound = parseCookies(request.headers.get('Cookie'))[STATE_COOKIE] || '';
+      const given = url.searchParams.get('state') || '';
+      if (!given || !timingSafeEqual(bound, given)) return err(400, 'login state does not belong to this browser');
+      const r = await finishLogin(db, env, url.searchParams.get('code'), given, deps, now); if (!r.ok) return err(400, r.error);
       const s = await createSession(db, r.user, now);
       await store.appendAudit(db, { actor: r.user.login, role: 'NONE', action: 'session.login', target: 'session', detail: {} }, new Date(now * 1000).toISOString());
-      return new Response(null, { status: 302, headers: { ...HEADERS, Location: '/', 'Set-Cookie': sessionCookie(s.id, s.ttl) } });
+      return new Response(null, { status: 302, headers: (() => { const h = new Headers(HEADERS); h.set('Location', '/'); h.append('Set-Cookie', sessionCookie(s.id, s.ttl)); h.append('Set-Cookie', clearStateCookie()); return h; })() });
     }
 
     // ---- authenticated API ----
@@ -71,7 +79,7 @@ export async function handle(request, env, deps) {
       const m = path.match(/^\/api\/candidates\/([0-9a-f-]{8,64})$/);
       if (method === 'GET' && m) {
         const c = await store.getCandidate(db, m[1]); if (!c) return err(404, 'not found');
-        await store.appendAudit(db, { actor: session.login, role, action: 'access.view', target: c.id, detail: { path: c.path, sha256: c.sha256 } }, iso);   // who looked at which rule
+        if (!(await store.viewedRecently(db, session.login, c.id, iso))) await store.appendAudit(db, { actor: session.login, role, action: 'access.view', target: c.id, detail: { path: c.path, sha256: c.sha256 } }, iso);   // who looked at which rule (once per 10 minutes)
         return json(c);
       }
       if (method === 'GET' && path === '/api/stats') return json({ counts: await store.counts(db), public: publicStats(await store.counts(db)) });
@@ -84,7 +92,7 @@ export async function handle(request, env, deps) {
       const rt = path.match(/^\/api\/candidates\/([0-9a-f-]{8,64})\/retest$/);
       if (method === 'POST' && rt) { if (!atLeast(role, 'REVIEWER')) return err(403, 'reviewer role required'); return (await store.requestRetest(db, rt[1], actor, iso)) ? json({ ok: true, note: 'the next pipeline run will test it again' }) : err(404, 'not found'); }
       if (method === 'GET' && path === '/api/audit') { if (!atLeast(role, 'REVIEWER')) return err(403, 'reviewer role required'); return json({ entries: await store.auditTail(db, Math.min(+url.searchParams.get('limit') || 50, 200)) }); }
-      if (method === 'GET' && path === '/api/audit/verify') { if (!atLeast(role, 'ADMIN')) return err(403, 'admin role required'); return json(await verifyChain(await store.auditRows(db, 100000))); }
+      if (method === 'GET' && path === '/api/audit/verify') { if (!atLeast(role, 'ADMIN')) return err(403, 'admin role required'); const rows = await store.auditRows(db, 100001); if (rows.length > 100000) return json({ ok: false, error: 'the audit log is longer than one verification pass covers; it was NOT verified' }); return json(await verifyChain(rows)); }
       if (path === '/api/members') {
         if (!atLeast(role, 'ADMIN')) return err(403, 'admin role required');
         if (method === 'GET') return json({ members: await store.listMembers(db) });

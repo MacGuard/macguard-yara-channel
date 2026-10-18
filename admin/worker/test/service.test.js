@@ -116,7 +116,9 @@ test('repeating a request is idempotent and a reused request id for another sele
   assert.equal((await decide(w, rita, body)).status, 200);
   const again = await decide(w, rita, body); assert.equal(again.status, 200); assert.equal(again.data.replay, true);
   assert.equal((await w.call('GET', `/api/candidates/${ids[0]}`, { user: rita })).data.decisions.length, 1);
-  const other = await decide(w, rita, { ...body, ids: [ids[1]], expect: { [ids[1]]: 1 } }); assert.equal(other.status, 200);   // different candidate, same id: allowed, unique per candidate
+  const other = await decide(w, rita, { ...body, ids: [ids[1]], expect: { [ids[1]]: 1 } }); assert.equal(other.status, 409);   // the title says it: a reused request id for another selection is refused (it used to be accepted)
+  const flipped = await decide(w, rita, { ...body, action: 'reject' }); assert.equal(flipped.status, 409);   // same id, another action: not a silent replay
+  assert.equal((await w.call('GET', `/api/candidates/${ids[0]}`, { user: rita })).data.state, 'APPROVED_PENDING_VALIDATION');
 });
 
 test('a failure in the store never produces an approval', async () => {
@@ -274,4 +276,75 @@ test('keeping a rule in quarantine is an explicit choice and also takes back an 
   await decide(w, rita, { action: 'approve', ids: [ids[0]], reason: 'ok now', request_id: rid(), expect: { [ids[0]]: 3 } });
   await w.call('POST', '/api/pipeline/released', { bearer: await w.pipelineToken('publish.yml'), body: { tag: 't', hashes: [sha('a')] } });
   assert.equal((await decide(w, rita, { action: 'hold', ids: [ids[0]], reason: 'too late', request_id: rid(), expect: { [ids[0]]: 5 } })).status, 409);
+});
+
+// ---- regression tests for the final audit (FA-*) ----
+import { hashOf } from './helpers.js';
+import { handle } from '../src/index.js';
+import * as store from '../src/store.js';
+import { decisionsMap } from '../src/store.js';
+
+test('FA-H1: a human rejection of a path wins over an approval or release of identical bytes at another path', async () => {
+  const w = await world(); const a = cand('a', 'rules/a/dup.yar'), b = cand('a', 'rules/b/dup.yar');
+  const ids = (await w.submit([a, b])).data.results.map((r) => r.id); assert.notEqual(ids[0], ids[1]);
+  const rita = await w.login('rita', { push: true }); w.reviewer = rita;
+  const v = await versions(w, ids);
+  assert.equal((await decide(w, rita, { action: 'reject', ids: [ids[0]], reason: 'malicious', request_id: rid(), expect: { [ids[0]]: v[ids[0]] } })).status, 200);
+  assert.equal((await decide(w, rita, { action: 'approve', ids: [ids[1]], reason: 'looks fine', request_id: rid(), expect: { [ids[1]]: v[ids[1]] } })).status, 200);
+  assert.equal((await decisionsMap(w.db))[a.sha256].state, 'REJECTED');
+  const rel = await w.call('POST', '/api/pipeline/released', { bearer: await w.pipelineToken('publish.yml'), body: { hashes: [a.sha256], tag: 'rules-x' } });
+  assert.equal(rel.status, 200); assert.equal((await decisionsMap(w.db))[a.sha256].state, 'REJECTED');   // RELEASED elsewhere must not hide the rejection
+});
+
+test('FA-M1: content that does not hash to its sha256 is refused and nothing is stored', async () => {
+  const w = await world(); const good = cand('a'), bad = cand('b', 'rules/x/b.yar', { sha256: sha('c') });
+  const r = await w.submit([good, bad]); assert.equal(r.status, 400); assert.match(r.data.error, /does not match its sha256/);
+  const rita = await w.login('rita', { push: true });
+  assert.equal((await w.call('GET', '/api/candidates', { user: rita })).data.total, 0);   // all-or-nothing: the good item was not stored either
+  assert.equal((await w.submit([cand('a', 'rules/x/a.yar', { content_b64: '***' })])).status, 400);
+});
+
+test('FA-M2: two same-action decisions racing past the pre-check: only the one that took effect is recorded and answered 200', async () => {
+  const { w, ids } = await seeded(['a']); const id = ids[0];
+  const actorA = { login: 'rita', id: 12, role: 'REVIEWER' }, actorB = { login: 'rob', id: 14, role: 'REVIEWER' };
+  const base = { action: 'approve', ids: [id], reason: 'racing approve', expect: { [id]: 1 } };
+  // B reads the candidate before A commits, but reads the audit head after A committed
+  let release; const gate = new Promise((r) => (release = r));
+  const dbB = { prepare: (sql) => { const s = w.db.prepare(sql); if (/SELECT hash FROM audit/.test(sql)) { const f = s.first.bind(s); s.first = async () => { await gate; return f(); }; } return s; }, batch: (l) => w.db.batch(l) };
+  const pB = store.decide(dbB, { ...base, request_id: rid() }, actorB, '2026-01-01T00:00:00Z');
+  await new Promise((r) => setTimeout(r, 20));
+  const rA = await store.decide(w.db, { ...base, request_id: rid() }, actorA, '2026-01-01T00:00:01Z');
+  release(); const rB = await pB;
+  assert.equal(rA.status, 200); assert.equal(rB.status, 409);   // used to be 200 for both
+  assert.equal(w.db.raw.prepare('SELECT COUNT(*) n FROM decisions').get().n, 1);
+  assert.deepEqual(w.db.raw.prepare("SELECT actor FROM audit WHERE action='decision.approve'").all().map((x) => x.actor), ['rita']);
+});
+
+test('FA-M3: viewing a candidate is audited once per window, and verification refuses to pass when it did not cover the whole log', async () => {
+  const { w, ids } = await seeded(['a']); const rita = await w.login('rita', { push: true });
+  for (let i = 0; i < 20; i++) assert.equal((await w.call('GET', `/api/candidates/${ids[0]}`, { user: rita })).status, 200);
+  assert.equal((await auditRows(w.db, 1000)).filter((e) => e.action === 'access.view').length, 1);
+  w.tick(601); await w.call('GET', `/api/candidates/${ids[0]}`, { user: rita });
+  assert.equal((await auditRows(w.db, 1000)).filter((e) => e.action === 'access.view').length, 2);
+});
+
+test('FA-M4: the OAuth callback requires the state cookie of the browser that started the login, and expired rows are purged', async () => {
+  const w = await world(); w.env.GITHUB_OAUTH_BASE = 'https://gh.example.test';
+  const login = await handle(new Request(ORIGIN + '/auth/login'), w.env, w.deps); assert.equal(login.status, 302);
+  const state = new URL(login.headers.get('Location')).searchParams.get('state'); const cookie = login.headers.get('Set-Cookie');
+  assert.match(cookie, /__Host-mg_oauth=/); assert.match(cookie, /HttpOnly/); assert.match(cookie, /Secure/);
+  const noCookie = await handle(new Request(`${ORIGIN}/auth/callback?code=c&state=${state}`), w.env, w.deps); assert.equal(noCookie.status, 400);
+  const wrong = await handle(new Request(`${ORIGIN}/auth/callback?code=c&state=${state}`, { headers: { Cookie: '__Host-mg_oauth=' + 'f'.repeat(32) } }), w.env, w.deps); assert.equal(wrong.status, 400);
+  w.tick(700); await handle(new Request(ORIGIN + '/auth/login'), w.env, w.deps);
+  assert.equal((await w.db.prepare('SELECT COUNT(*) AS n FROM oauth_states WHERE state = ?').bind(state).first()).n, 0);
+});
+
+test('FA-L1/L2/L5: replay with another action, missing OIDC audience, invisible reasons and spoofed paths are refused', async () => {
+  const { w, ids } = await seeded(['a']); const rita = await w.login('rita', { push: true }); w.reviewer = rita;
+  const zw = await decide(w, rita, { action: 'approve', ids, reason: '\u200b\u200b\u200b\u200b\u200b\u200b', request_id: rid(), expect: { [ids[0]]: 1 } }); assert.equal(zw.status, 400);
+  for (const path of ['rules/%2e%2e/x.yar', 'rules/a\u202eb.yar', 'rules//x.yar', './x.yar', 'C:/x.yar', 'rules/a\nb.yar', 'rules/../x.yar'])
+    assert.equal((await w.submit([cand('z', path)])).status, 400, path);
+  assert.equal((await w.submit([cand('y', 'rules/a..b/ok.yar')])).status, 200);   // a benign double dot inside a name is fine
+  const token = await w.pipelineToken('daily.yml'); delete w.env.OIDC_AUDIENCE;
+  assert.equal((await w.call('POST', '/api/pipeline/submit', { bearer: token, body: { run_id: '1', candidates: [] } })).status, 401);
 });

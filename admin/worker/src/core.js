@@ -45,7 +45,7 @@ export function validateDecisionRequest(body, role) {
   if (ids.length > MAX_BATCH) return err(`at most ${MAX_BATCH} candidates per request`);
   if (!ids.every((i) => typeof i === 'string' && /^[0-9a-f-]{8,64}$/.test(i))) return err('malformed id');
   if (typeof request_id !== 'string' || !/^[A-Za-z0-9_-]{16,80}$/.test(request_id)) return err('request_id (16-80 url-safe chars) required: it makes the request idempotent');
-  if (['approve', 'reject', 'hold'].includes(action) && (typeof reason !== 'string' || reason.trim().length < 5 || reason.length > 2000)) return err('a reason of 5 to 2000 characters is required');
+  if (['approve', 'reject', 'hold'].includes(action) && (typeof reason !== 'string' || reason.replace(/[\s\p{Cf}]/gu, '').length < 5 || reason.length > 2000)) return err('a reason of 5 to 2000 visible characters is required');
   if (ids.length > 1 && confirm_count !== ids.length) return err(`confirm_count must equal the exact number of affected candidates (${ids.length})`);
   if (!expect || typeof expect !== 'object' || !ids.every((i) => Number.isInteger(expect[i]))) return err('expect must give the version you saw for every id (concurrency check)');
   return { ok: true, value: { action, ids, reason: (reason || '').trim(), request_id, expect } };
@@ -54,11 +54,20 @@ export function validateDecisionRequest(body, role) {
 export function validateSubmission(item) {
   if (!item || typeof item !== 'object') return 'item must be an object';
   if (!/^[0-9a-f]{64}$/.test(item.sha256 || '')) return 'sha256 must be 64 hex characters';
-  if (typeof item.path !== 'string' || !item.path || item.path.length > 400 || item.path.includes('..') || item.path.startsWith('/')) return 'unsafe path';
+  if (typeof item.path !== 'string' || !item.path || item.path.length > 400 || !/^[A-Za-z0-9._\-/]+$/.test(item.path) || item.path.split('/').some((s) => s === '' || s === '.' || s === '..')) return 'unsafe path';
   if (typeof item.source !== 'string' || item.source.length > 80) return 'source required';
   if (!Array.isArray(item.reasons) || item.reasons.some((r) => typeof r !== 'string')) return 'reasons must be codes';
   if (item.content_b64 !== undefined && (typeof item.content_b64 !== 'string' || item.content_b64.length > 1_400_000)) return 'content too large (1 MB max)';
+  if (item.commit !== undefined && (typeof item.commit !== 'string' || item.commit.length > 80)) return 'commit must be a short string';
+  if (item.metrics !== undefined && (typeof item.metrics !== 'object' || item.metrics === null || JSON.stringify(item.metrics).length > 4000)) return 'metrics must be a small object';
   return null;
+}
+/** The reviewer must see exactly the bytes the hash names: the content is decoded and hashed here, before anything is stored. */
+export async function blobError(item) {
+  if (item.content_b64 === undefined) return null;
+  let bytes; try { bytes = Uint8Array.from(atob(item.content_b64), (c) => c.charCodeAt(0)); } catch { return 'content_b64 is not valid base64'; }
+  const d = new Uint8Array(await crypto.subtle.digest('SHA-256', bytes));
+  return [...d].map((b) => b.toString(16).padStart(2, '0')).join('') === item.sha256 ? null : 'content does not match its sha256';
 }
 
 // ---- audit chain ------------------------------------------------------------------------------

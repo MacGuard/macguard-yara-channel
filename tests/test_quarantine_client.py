@@ -63,3 +63,37 @@ class ClientTests(unittest.TestCase):
         self.assertIn('content_b64', items[0])
         (self.d / 'rules/a.yar').write_bytes(b'x' * 1_100_000); self.assertNotIn('content_b64', qc.build_submissions(dec, self.d)[0])
 if __name__ == '__main__': unittest.main()
+
+
+class ClientSafetyTests(unittest.TestCase):
+    def test_the_token_is_only_sent_over_https_or_to_loopback(self):
+        self.assertTrue(qc.insecure('http://example.com')); self.assertTrue(qc.insecure('ftp://x')); self.assertTrue(qc.insecure('http://127.0.0.1.evil.test'))
+        self.assertFalse(qc.insecure('https://admin.example.test')); self.assertFalse(qc.insecure('http://127.0.0.1:8080')); self.assertFalse(qc.insecure('http://localhost:9'))
+        os.environ['QUARANTINE_URL'] = 'http://admin.example.test'
+        try: st, data = qc.call('GET', '/api/pipeline/decisions')
+        finally: os.environ.pop('QUARANTINE_URL')
+        self.assertEqual(st, 0); self.assertIn('https', data['error'])
+
+    def test_redirects_are_not_followed_so_the_authorization_header_stays_with_the_service(self):
+        import http.server, threading
+        seen = []
+        class H(http.server.BaseHTTPRequestHandler):
+            def do_GET(self):
+                seen.append((self.path, self.headers.get('Authorization')))
+                if self.path == '/start': self.send_response(302); self.send_header('Location', '/elsewhere'); self.end_headers()
+                else: self.send_response(200); self.end_headers(); self.wfile.write(b'{}')
+            def log_message(self, *a): pass
+        srv = http.server.HTTPServer(('127.0.0.1', 0), H); threading.Thread(target=srv.serve_forever, daemon=True).start()
+        try:
+            req = urllib.request.Request(f'http://127.0.0.1:{srv.server_port}/start', headers={'Authorization': 'Bearer secret'})
+            with self.assertRaises(urllib.error.HTTPError) as cm: qc.OPENER.open(req, timeout=5)
+            self.assertEqual(cm.exception.code, 302); self.assertEqual([p for p, _ in seen], ['/start'])
+        finally: srv.shutdown(); srv.server_close()
+
+    def test_a_submission_path_cannot_leave_the_candidate_folder(self):
+        d = pathlib.Path(tempfile.mkdtemp())
+        try:
+            (d / 'dist').mkdir(); (d / 'secret.txt').write_text('private')
+            for bad in ('../secret.txt', str(d / 'secret.txt')):
+                with self.assertRaises(ValueError): qc.build_submissions({'submissions': [{'path': bad, 'sha256': 'a' * 64, 'bytes': 1, 'source': 's', 'reasons': []}]}, d / 'dist')
+        finally: shutil.rmtree(d, ignore_errors=True)

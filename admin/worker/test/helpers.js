@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import { handle } from '../src/index.js';
 import { newDb } from './d1shim.js';
 import { createSession } from '../src/auth.js';
@@ -59,6 +60,12 @@ export async function world() {
   };
   return w;
 }
-export const sha = (c) => c.repeat(64).slice(0, 64);
-export const cand = (c, path = `rules/x/${c}.yar`, extra = {}) => ({ sha256: sha(c), path, source: 'nextron', commit: 'abc', reasons: ['costly-regex'], bytes: 120, metrics: { cpu_s: 1.2, rss_mb: 40 }, content_b64: Buffer.from(`rule R_${c} { condition: true }`).toString('base64'), ...extra });
+// The service now checks that content hashes to its sha256, so the fixtures use the real hash of their content.
+const contentFor = (c) => `rule R_${c} { condition: true }`;
+export const hashOf = (text) => createHash('sha256').update(text).digest('hex');
+export const sha = (c) => hashOf(contentFor(c));
+export const cand = (c, path = `rules/x/${c}.yar`, extra = {}) => {
+  const content_b64 = extra.content_b64 ?? Buffer.from(contentFor(c)).toString('base64');
+  return { sha256: extra.sha256 ?? hashOf(Buffer.from(content_b64, 'base64')), path, source: 'nextron', commit: 'abc', reasons: ['costly-regex'], bytes: 120, metrics: { cpu_s: 1.2, rss_mb: 40 }, ...extra, content_b64 };
+};
 export const rid = () => 'req_' + Math.random().toString(36).slice(2).padEnd(20, 'x');

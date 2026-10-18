@@ -10,22 +10,34 @@ usage: quarantine_client.py submit    --decision dist/decision.json --dist dist 
        quarantine_client.py failed    --hashes-file hashes.json --reason TEXT"""
 import argparse, base64, json, os, pathlib, sys, urllib.error, urllib.parse, urllib.request
 
+CHUNK = 100
+
 def base_url(): return (os.environ.get('QUARANTINE_URL') or '').rstrip('/')
+
+def insecure(url):
+    """The bearer token is only ever sent over HTTPS (plain HTTP only to the local test server)."""
+    u = urllib.parse.urlsplit(url)
+    return not (u.scheme == 'https' or (u.scheme == 'http' and u.hostname in ('127.0.0.1', 'localhost', '::1')))
+
+class _NoRedirect(urllib.request.HTTPRedirectHandler):
+    def redirect_request(self, *a, **k): return None   # a redirect would re-send the Authorization header to another host
+OPENER = urllib.request.build_opener(_NoRedirect)
 
 def oidc_token(audience):
     url, tok = os.environ.get('ACTIONS_ID_TOKEN_REQUEST_URL'), os.environ.get('ACTIONS_ID_TOKEN_REQUEST_TOKEN')
     if not url or not tok: raise RuntimeError('this is not a GitHub Actions job with id-token: write')
     req = urllib.request.Request(url + ('&' if '?' in url else '?') + urllib.parse.urlencode({'audience': audience}), headers={'Authorization': f'bearer {tok}', 'Accept': 'application/json'})
-    with urllib.request.urlopen(req, timeout=20) as r: return json.load(r)['value']
+    with OPENER.open(req, timeout=20) as r: return json.load(r)['value']
 
 def call(method, path, body=None):
     """Returns (status, json). status 0 means the service could not be reached."""
     base = base_url()
     if not base: return 0, {'error': 'QUARANTINE_URL is not configured'}
+    if insecure(base): return 0, {'error': 'QUARANTINE_URL must be https; the token is not sent'}
     try:
         data = None if body is None else json.dumps(body).encode()
         req = urllib.request.Request(base + path, data=data, method=method, headers={'Authorization': f'Bearer {oidc_token(os.environ.get("QUARANTINE_AUDIENCE") or base)}', 'Content-Type': 'application/json', 'User-Agent': 'macguard-pipeline'})
-        with urllib.request.urlopen(req, timeout=60) as r: return r.status, json.load(r)
+        with OPENER.open(req, timeout=60) as r: return r.status, json.load(r)
     except urllib.error.HTTPError as e:
         try: return e.code, json.load(e)
         except Exception: return e.code, {'error': str(e)}
@@ -35,7 +47,8 @@ def build_submissions(decision, dist, dynamic=None):
     per_file = (dynamic or {}).get('per_file', {})
     out = []
     for s in decision.get('submissions', []):
-        p = pathlib.Path(dist) / s['path']
+        root = pathlib.Path(dist).resolve(); p = (root / s['path']).resolve()
+        if root != p and root not in p.parents: raise ValueError(f"submission path escapes the candidate folder: {s['path']!r}")
         item = {'sha256': s['sha256'], 'path': s['path'], 'source': s['source'], 'bytes': s['bytes'], 'reasons': s['reasons'], 'depends_on': s.get('depends_on', []), 'metrics': per_file.get(s['path'], {})}
         if p.exists() and p.stat().st_size <= 1_000_000: item['content_b64'] = base64.b64encode(p.read_bytes()).decode()
         out.append(item)
@@ -57,9 +70,13 @@ def main():
         if status_file.exists():
             try: retested = [r['id'] for r in json.loads(status_file.read_text()).get('retest', [])]
             except Exception: retested = []
-        st, data = call('POST', '/api/pipeline/submit', {'run_id': a.run_id, 'run_url': a.run_url, 'candidates': items, 'retested': retested})
-        if st == 200: print(f"quarantine: {sum(1 for x in data['results'] if x['status'] == 'created')} new, {sum(1 for x in data['results'] if x['status'] != 'created')} already known")
-        else: print(f"quarantine UNAVAILABLE (status {st}): {data.get('error')}. {len(items)} candidates stay out of the release and will be seen again on the next run.")
+        results, st, data = [], 200, {}
+        for i in range(0, len(items), CHUNK):   # one request per CHUNK candidates: the service caps body size and each item carries its content
+            st, data = call('POST', '/api/pipeline/submit', {'run_id': a.run_id, 'run_url': a.run_url, 'candidates': items[i:i + CHUNK], 'retested': retested if i == 0 else []})
+            if st != 200: break
+            results += data['results']
+        if st == 200: print(f"quarantine: {sum(1 for x in results if x['status'] == 'created')} new, {sum(1 for x in results if x['status'] != 'created')} already known")
+        else: print(f"quarantine UNAVAILABLE (status {st}): {data.get('error')}. {len(items) - len(results)} of {len(items)} candidates were not recorded; they stay out of the release and will be seen again on the next run.")
     elif a.cmd == 'decisions':
         st, data = call('GET', '/api/pipeline/decisions')
         out = {'available': st == 200, 'decisions': data.get('decisions', {}) if st == 200 else {}, 'retest': data.get('retest', []) if st == 200 else []}

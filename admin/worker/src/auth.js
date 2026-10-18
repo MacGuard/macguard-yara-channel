@@ -11,6 +11,9 @@ export function timingSafeEqual(a, b) {
 }
 export function parseCookies(header) { const out = {}; for (const part of (header || '').split(/;\s*/)) { const i = part.indexOf('='); if (i > 0) out[part.slice(0, i)] = part.slice(i + 1); } return out; }
 export function sessionCookie(id, maxAge) { return `${COOKIE}=${id}; Path=/; HttpOnly; Secure; SameSite=Strict; Max-Age=${maxAge}`; }
+export const STATE_COOKIE = '__Host-mg_oauth';
+export function stateCookie(state) { return `${STATE_COOKIE}=${state}; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=600`; }   // Lax: GitHub returns with a cross-site top-level GET
+export function clearStateCookie() { return `${STATE_COOKIE}=; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=0`; }
 export function clearCookie() { return `${COOKIE}=; Path=/; HttpOnly; Secure; SameSite=Strict; Max-Age=0`; }
 
 export async function createSession(db, user, now, ttl = 8 * 3600) {
@@ -48,7 +51,7 @@ export async function startLogin(db, env, now) {
   const state = randomToken(16);
   await db.prepare('INSERT INTO oauth_states (state, expires_at) VALUES (?,?)').bind(state, now + 600).run();
   const q = new URLSearchParams({ client_id: env.GITHUB_CLIENT_ID, redirect_uri: `${env.PUBLIC_URL}/auth/callback`, state, scope: 'read:user', allow_signup: 'false' });
-  return `${env.GITHUB_OAUTH_BASE || 'https://github.com'}/login/oauth/authorize?${q}`;
+  return { location: `${env.GITHUB_OAUTH_BASE || 'https://github.com'}/login/oauth/authorize?${q}`, state };
 }
 export async function finishLogin(db, env, code, state, deps, now) {
   const row = await db.prepare('SELECT * FROM oauth_states WHERE state = ?').bind(state || '').first();
@@ -74,7 +77,7 @@ export async function verifyActionsToken(token, env, deps, now) {
   const key = await crypto.subtle.importKey('jwk', { kty: jwk.kty, n: jwk.n, e: jwk.e, alg: 'RS256', ext: true }, { name: 'RSASSA-PKCS1-v1_5', hash: 'SHA-256' }, false, ['verify']);
   if (!(await crypto.subtle.verify('RSASSA-PKCS1-v1_5', key, b64u(parts[2]), enc.encode(parts[0] + '.' + parts[1])))) return fail('bad signature');
   if (claims.iss !== (env.OIDC_ISSUER || 'https://token.actions.githubusercontent.com')) return fail('wrong issuer');
-  if (claims.aud !== env.OIDC_AUDIENCE) return fail('wrong audience');
+  if (!env.OIDC_AUDIENCE || claims.aud !== env.OIDC_AUDIENCE) return fail('wrong audience');
   if (!(claims.exp > now - 30)) return fail('token expired'); if (claims.nbf && claims.nbf > now + 30) return fail('token not yet valid');
   if (claims.repository !== env.REPO) return fail('wrong repository');
   if (claims.ref !== 'refs/heads/main') return fail('only the main branch may call the pipeline API');

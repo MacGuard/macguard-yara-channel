@@ -19,6 +19,15 @@ export async function appendAudit(db, { actor, role, action, target, detail }, n
   throw new Error('audit chain is contended');
 }
 export async function auditRows(db, limit = 200) { return (await db.prepare('SELECT * FROM audit ORDER BY seq ASC LIMIT ?').bind(limit).all()).results; }
+/** True when this actor already looked at this candidate in the last `seconds`: views are audited once per window, not per request. */
+export async function viewedRecently(db, actor, target, nowIso, seconds = 600) {
+  const since = new Date(Date.parse(nowIso) - seconds * 1000).toISOString();
+  return !!(await db.prepare("SELECT 1 AS x FROM audit WHERE action = 'access.view' AND actor = ? AND target = ? AND at > ? LIMIT 1").bind(actor, target, since).first());
+}
+export async function purgeExpired(db, now) {
+  await db.prepare('DELETE FROM oauth_states WHERE expires_at < ?').bind(now).run();
+  await db.prepare('DELETE FROM sessions WHERE expires_at < ?').bind(now).run();
+}
 export async function auditTail(db, limit = 50) { return (await db.prepare('SELECT seq, at, actor, role, action, target FROM audit ORDER BY seq DESC LIMIT ?').bind(limit).all()).results; }
 
 export async function upsertCandidate(db, item, now, newId) {
@@ -67,13 +76,19 @@ export async function counts(db) {
 /** Apply one human action to a set of candidates. All-or-nothing on the pre-check; each update is also guarded by version. */
 export async function decide(db, req, actor, now) {
   const { action, ids, reason, request_id, expect } = req;
-  const placeholders = ids.map(() => '?').join(',');
-  const rows = (await db.prepare(`SELECT * FROM candidates WHERE id IN (${placeholders})`).bind(...ids).all()).results;
+  const rows = [];
+  for (let i = 0; i < ids.length; i += 50) {   // D1 limits bound parameters per statement
+    const part = ids.slice(i, i + 50);
+    rows.push(...(await db.prepare(`SELECT * FROM candidates WHERE id IN (${part.map(() => '?').join(',')})`).bind(...part).all()).results);
+  }
   if (rows.length !== ids.length) return { status: 404, error: 'some candidates do not exist', missing: ids.filter((i) => !rows.find((r) => r.id === i)) };
   // idempotent replay: the same request id already produced decisions for these candidates
-  const done = (await db.prepare(`SELECT candidate_id FROM decisions WHERE request_id = ? AND candidate_id IN (${placeholders})`).bind(request_id, ...ids).all()).results;
-  if (done.length === ids.length) return { status: 200, replay: true, applied: [], message: 'this request was already applied' };
-  if (done.length) return { status: 409, error: 'request id reused for a different selection' };
+  const wanted = new Set(ids);
+  const done = (await db.prepare('SELECT candidate_id, action FROM decisions WHERE request_id = ?').bind(request_id).all()).results;
+  if (done.length) {
+    if (done.length === ids.length && done.every((d) => wanted.has(d.candidate_id) && d.action === action)) return { status: 200, replay: true, applied: [], message: 'this request was already applied' };
+    return { status: 409, error: 'request id reused for a different selection or action' };
+  }
   const conflicts = [];
   for (const r of rows) {
     const t = humanTransition(action, r.state);
@@ -91,8 +106,9 @@ export async function decide(db, req, actor, now) {
       .bind(r.id, r.sha256, action, r.state, to, r.version + 1, actor.login, actor.id, actor.role, reason, ids.length > 1 ? request_id : null, request_id, now));
     applied.push({ id: r.id, sha256: r.sha256, from: r.state, to, version: r.version + 1 });
   }
-  const guard = applied.map(() => '(SELECT COUNT(*) FROM candidates WHERE id = ? AND state = ? AND version = ?) = 1').join(' AND ');
-  stmts.push(db.prepare(`SELECT CASE WHEN ${guard} THEN 1 ELSE json('not-json') END`).bind(...applied.flatMap((a) => [a.id, a.to, a.version])));
+  // The guard counts the decision rows THIS request wrote: a concurrent writer that reached the same state first leaves ours at zero,
+  // so no audit entry can claim a decision that did not take effect.
+  stmts.push(db.prepare(`SELECT CASE WHEN (SELECT COUNT(*) FROM decisions WHERE request_id = ?) = ${applied.length} THEN 1 ELSE json('not-json') END`).bind(request_id));
   const last = await db.prepare('SELECT hash FROM audit ORDER BY seq DESC LIMIT 1').first();
   const prev = last ? last.hash : GENESIS;
   const entry = { at: now, actor: actor.login, role: actor.role, action: `decision.${action}`, target: ids.length === 1 ? ids[0] : `batch:${ids.length}`,
@@ -111,9 +127,13 @@ export async function requestRetest(db, id, actor, now) {
 
 // ---- pipeline side ---------------------------------------------------------------------------
 export async function decisionsMap(db) {
+  // The pipeline asks by content hash, but a hash can sit at several paths. A human rejection of ANY of them wins, so identical bytes
+  // approved or released elsewhere can never override it; otherwise the result must not depend on row order.
   const out = {};
-  for (const r of (await db.prepare("SELECT c.sha256, c.state, d.actor, d.at, d.reason FROM candidates c LEFT JOIN decisions d ON d.candidate_id = c.id AND d.id = (SELECT MAX(id) FROM decisions WHERE candidate_id = c.id) WHERE c.state IN ('APPROVED_PENDING_VALIDATION','REJECTED','RELEASED')").all()).results)
+  for (const r of (await db.prepare("SELECT c.sha256, c.state, d.actor, d.at, d.reason FROM candidates c LEFT JOIN decisions d ON d.candidate_id = c.id AND d.id = (SELECT MAX(id) FROM decisions WHERE candidate_id = c.id) WHERE c.state IN ('APPROVED_PENDING_VALIDATION','REJECTED','RELEASED') ORDER BY c.sha256, c.path").all()).results) {
+    if (out[r.sha256] && !(r.state === 'REJECTED' && out[r.sha256].state !== 'REJECTED')) continue;   // first row wins, except that a rejection replaces an approval
     out[r.sha256] = { state: r.state, by: r.actor, at: r.at, reason: r.reason };
+  }
   return out;
 }
 export async function retestList(db) { return (await db.prepare('SELECT id, sha256, path FROM candidates WHERE retest_requested = 1').all()).results; }
