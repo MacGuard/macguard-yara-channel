@@ -47,6 +47,12 @@ final class ChannelUpdateTests: XCTestCase {
     }
     var installed: URL { support.appendingPathComponent("community/src/x.yar") }
 
+    func testProductionManagerUsesGitHubPagesFirstThenTheCloudflareMirror() {
+        let hosts = YARARuleManager.shared.installer.channelBases.map { $0.host ?? "" }
+        XCTAssertEqual(hosts, ["macguard.github.io", "macguard-rules.pages.dev"])
+        XCTAssertTrue(YARARuleManager.shared.installer.channelBases.allSatisfy { $0.scheme == "https" })
+    }
+
     func testVerifiedReleaseIsInstalled() {
         UserDefaults.standard.removeObject(forKey: "yaraInstalledRulesRoot")
         let m = manager { _, _ in nil }

@@ -5,8 +5,11 @@ import CryptoKit
 /// accepts it: signed manifest and checkpoint, every file hash, the rules root and the log inclusion proof.
 /// Anything else leaves the installed rules untouched. User consent is required before any download.
 final class YARARuleManager: NSObject, ObservableObject {
-    static let shared = YARARuleManager()
+    /// The production manager tries GitHub Pages first and, only if that origin cannot be reached, the Cloudflare Pages mirror. Each attempt installs
+    /// from ONE origin end to end (see `RuleInstaller.install`); both serve the same signed bytes and every release is verified the same way.
+    static let shared = YARARuleManager(extraBases: [YARARuleManager.mirrorChannelBase])
     static let defaultChannelBase = URL(string: "https://macguard.github.io/macguard-yara-channel/")!
+    static let mirrorChannelBase = URL(string: "https://macguard-rules.pages.dev/")!
     let channelBase: URL
     @Published private(set) var downloading = false
     @Published private(set) var checking = false

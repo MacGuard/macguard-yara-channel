@@ -237,6 +237,15 @@ class RealData(Base):
         import verify_public_release as v
         for a in v.REQUIRED: self.assertIn(f'{{{{release.download}}}}/{a}', md('en', 'verification'))
 
+class AppConfig(Base):
+    def test_origins_in_docs_are_the_ones_the_app_uses(self):
+        swift = (ROOT / 'DMGTrustAuditor/DMGTrustAuditor/Core/YARARuleManager.swift').read_text()
+        primary = re.search(r'defaultChannelBase = URL\(string: "([^"]+)"', swift).group(1); mirror = re.search(r'mirrorChannelBase = URL\(string: "([^"]+)"', swift).group(1)
+        self.assertIn('extraBases: [YARARuleManager.mirrorChannelBase]', swift)
+        for l in LANGS:
+            t = md(l, 'client-update'); self.assertIn(primary, t); self.assertIn(mirror, t)
+        self.assertEqual(primary, build_docs.SITE_BASE)
+
 class Honesty(Base):
     def test_no_slsa_or_intoto_claims(self):
         for l in LANGS:
