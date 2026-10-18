@@ -26,6 +26,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
+          ref: ${{ github.ref_name }}
           persist-credentials: false
       - name: Fetch latest signed release
         env:
@@ -63,6 +64,8 @@ jobs:
       DEPLOY_JOB: ${{ needs.deploy.result }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.ref_name }}
       - name: Record result in transparency log
         run: |
           RUN="${{ github.run_id }}"
