@@ -16,3 +16,4 @@ dist-public/
 previous/
 build/
 DMGTrustAuditor/build/
+.wrangler/

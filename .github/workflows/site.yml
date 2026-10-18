@@ -209,6 +209,15 @@ jobs:
       - name: Point the share preview at the mirror's own address
         if: steps.creds.outputs.status == 'present'
         run: python3 scripts/og_inject.py site https://macguard-rules.pages.dev/
+      - name: Create the Pages project if the account does not have it yet
+        if: steps.creds.outputs.status == 'present'
+        continue-on-error: true   # fails harmlessly when the project already exists
+        uses: cloudflare/wrangler-action@9acf94ace14e7dc412b076f2c5c20b8ce93c79cd # v3.15.0
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          wranglerVersion: '4.151.1'
+          command: pages project create macguard-rules --production-branch=main
       - name: Deploy to Cloudflare Pages
         if: steps.creds.outputs.status == 'present'
         uses: cloudflare/wrangler-action@9acf94ace14e7dc412b076f2c5c20b8ce93c79cd # v3.15.0
