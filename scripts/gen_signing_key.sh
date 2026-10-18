@@ -4,7 +4,11 @@
 set -euo pipefail
 REPO="${1:-MacGuard/macguard-yara-channel}"
 cd "$(dirname "$0")/.."
-python3 - "$REPO" <<'PY'
+VENV="$(mktemp -d)"
+trap 'rm -rf "$VENV"' EXIT
+python3 -m venv "$VENV"
+"$VENV/bin/pip" install -q 'cryptography==44.0.2'
+"$VENV/bin/python" - "$REPO" <<'PY'
 import base64, subprocess, sys
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 from cryptography.hazmat.primitives import serialization as s
