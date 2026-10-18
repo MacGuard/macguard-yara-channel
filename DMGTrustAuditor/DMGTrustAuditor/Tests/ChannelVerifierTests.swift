@@ -68,10 +68,10 @@ final class ChannelVerifierTests: XCTestCase {
     }
     /// End to end against the real published release, when the machine has cosign and network.
     func testRealPublishedReleaseIfAvailable() throws {
-        guard let cosign = ChannelVerifier.findCosign(), let rel = ProcessInfo.processInfo.environment["MACGUARD_RELEASE_DIR"] else {
+        guard let located = SigstoreVerifier.locate().0, let rel = ProcessInfo.processInfo.environment["MACGUARD_RELEASE_DIR"] else {
             throw XCTSkip("set MACGUARD_RELEASE_DIR to a downloaded release and install cosign")
         }
-        let s = try ChannelVerifier(signatureCheck: ChannelVerifier.cosignCheck(cosign: cosign)).verify(directory: URL(fileURLWithPath: rel))
+        let s = try ChannelVerifier(signatureCheck: SigstoreVerifier.check(located)).verify(directory: URL(fileURLWithPath: rel))
         XCTAssertGreaterThan(s.fileCount, 0)
     }
 }
@@ -86,7 +86,9 @@ func buildSampleRelease(in dir: URL, tamperRule: Bool = false) throws {
     let sha = ChannelVerifier.hex(Data(SHA256.hash(data: rule)))
     let rr = ChannelVerifier.rulesRoot([(rulePath, sha)])
     let entry = "{\"details\":{\"rules_root\":\"\(rr)\"},\"event\":\"candidate.accepted\",\"seq\":1}"
-    let leaves = ["{\"event\":\"sources.fetched\",\"seq\":0}", entry, "{\"event\":\"release.approved\",\"seq\":2}"].map { ChannelVerifier.leafHash(Data($0.utf8)) }
+    let logLines = ["{\"event\":\"sources.fetched\",\"seq\":0}", entry, "{\"event\":\"release.approved\",\"seq\":2}"]
+    try (logLines.joined(separator: "\n") + "\n").write(to: dir.appendingPathComponent("logs/log.jsonl"), atomically: true, encoding: .utf8)
+    let leaves = logLines.map { ChannelVerifier.leafHash(Data($0.utf8)) }
     let root = ChannelVerifier.root(leaves)
     let path = [leaves[0], leaves[2]]   // index 1 of 3: left sibling 0, then the right subtree {2}
     let manifest: [String: Any] = ["files": [["path": rulePath, "sha256": sha]], "rules_root": rr,

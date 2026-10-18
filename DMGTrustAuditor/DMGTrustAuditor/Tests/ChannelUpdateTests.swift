@@ -3,9 +3,9 @@ import XCTest
 
 /// Runs the manager against a real local HTTP server serving a sample channel layout.
 final class ChannelUpdateTests: XCTestCase {
-    private var root: URL!, site: URL!, support: URL!
-    private var server: Process?
-    private var port = 0
+    var root: URL!, site: URL!, support: URL!
+    var server: Process?
+    var port = 0
 
     override func setUpWithError() throws {
         root = FileManager.default.temporaryDirectory.appendingPathComponent("cu-\(UUID().uuidString)", isDirectory: true)
@@ -15,7 +15,7 @@ final class ChannelUpdateTests: XCTestCase {
         try buildSampleRelease(in: release)
         try AuditEngine.run("/usr/bin/tar", ["-czf", site.appendingPathComponent("rules-release.tar.gz").path, "-C", release.path, "rules", "manifest.json"])
         for f in ["manifest.json", "manifest.sigstore.json", "inclusion-proof.json"] { try FileManager.default.copyItem(at: release.appendingPathComponent(f), to: site.appendingPathComponent(f)) }
-        for f in ["checkpoint.txt", "checkpoint.sigstore.json"] { try FileManager.default.copyItem(at: release.appendingPathComponent("logs/\(f)"), to: site.appendingPathComponent("logs/\(f)")) }
+        for f in ["checkpoint.txt", "checkpoint.sigstore.json", "log.jsonl"] { try FileManager.default.copyItem(at: release.appendingPathComponent("logs/\(f)"), to: site.appendingPathComponent("logs/\(f)")) }
         let m = try JSONSerialization.jsonObject(with: Data(contentsOf: site.appendingPathComponent("manifest.json"))) as! [String: Any]
         try JSONSerialization.data(withJSONObject: ["schema": 1, "rules_root": m["rules_root"]!]).write(to: site.appendingPathComponent("latest.json"))
         port = Int.random(in: 20000...40000)
@@ -31,10 +31,10 @@ final class ChannelUpdateTests: XCTestCase {
     }
     override func tearDownWithError() throws { server?.terminate(); try? FileManager.default.removeItem(at: root) }
 
-    private func manager(check: @escaping ChannelVerifier.SignatureCheck) -> YARARuleManager {
-        YARARuleManager(channelBase: URL(string: "http://127.0.0.1:\(port)/")!, rulesDirectory: support, signatureCheck: check)
+    func manager(check: @escaping ChannelVerifier.SignatureCheck, trust: TrustStore = MemoryTrustStore()) -> YARARuleManager {
+        YARARuleManager(channelBase: URL(string: "http://127.0.0.1:\(port)/")!, rulesDirectory: support, trustStore: trust, signatureCheck: check)
     }
-    private func checkAndUpdate(_ m: YARARuleManager) -> String {
+    func checkAndUpdate(_ m: YARARuleManager) -> String {
         let checked = expectation(description: "checked")
         m.checkForUpdates()
         DispatchQueue.global().async { for _ in 0..<80 where m.checking || !m.updateAvailable { Thread.sleep(forTimeInterval: 0.1) }; checked.fulfill() }
@@ -45,7 +45,7 @@ final class ChannelUpdateTests: XCTestCase {
         wait(for: [done], timeout: 20)
         return result
     }
-    private var installed: URL { support.appendingPathComponent("community/src/x.yar") }
+    var installed: URL { support.appendingPathComponent("community/src/x.yar") }
 
     func testVerifiedReleaseIsInstalled() {
         UserDefaults.standard.removeObject(forKey: "yaraInstalledRulesRoot")
@@ -63,7 +63,7 @@ final class ChannelUpdateTests: XCTestCase {
     }
     func testMissingVerifierInstallsNothing() {
         UserDefaults.standard.removeObject(forKey: "yaraInstalledRulesRoot")
-        let m = YARARuleManager(channelBase: URL(string: "http://127.0.0.1:\(port)/")!, rulesDirectory: support, signatureCheck: nil)
+        let m = YARARuleManager(channelBase: URL(string: "http://127.0.0.1:\(port)/")!, rulesDirectory: support, trustStore: MemoryTrustStore(), signatureCheck: nil, useStandardVerifier: false)
         _ = checkAndUpdate(m)
         XCTAssertFalse(FileManager.default.fileExists(atPath: installed.path))
     }
@@ -99,11 +99,11 @@ final class ChannelUpdateTests: XCTestCase {
 /// Opt-in end to end check against the live site with the real cosign: MACGUARD_LIVE=1.
 final class LiveChannelTests: XCTestCase {
     func testLiveChannelInstallsWithRealSignatures() throws {
-        guard ProcessInfo.processInfo.environment["MACGUARD_LIVE"] == "1", ChannelVerifier.findCosign() != nil else { throw XCTSkip("set MACGUARD_LIVE=1 and install cosign") }
+        guard ProcessInfo.processInfo.environment["MACGUARD_LIVE"] == "1", SigstoreVerifier.standard().check != nil else { throw XCTSkip("set MACGUARD_LIVE=1 and install cosign") }
         let dir = FileManager.default.temporaryDirectory.appendingPathComponent("live-\(UUID().uuidString)/YARARules")
         defer { try? FileManager.default.removeItem(at: dir.deletingLastPathComponent()) }
         UserDefaults.standard.removeObject(forKey: "yaraInstalledRulesRoot")
-        let m = YARARuleManager(rulesDirectory: dir)
+        let m = YARARuleManager(rulesDirectory: dir, trustStore: MemoryTrustStore())
         let checked = expectation(description: "checked"); m.checkForUpdates()
         DispatchQueue.global().async { for _ in 0..<100 where m.checking || !m.updateAvailable { Thread.sleep(forTimeInterval: 0.1) }; checked.fulfill() }
         wait(for: [checked], timeout: 20)

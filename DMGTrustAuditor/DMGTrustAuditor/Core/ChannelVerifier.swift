@@ -13,7 +13,7 @@ struct ChannelVerifier {
     /// Returns nil when `bundle` is a valid signature of `blob` by the expected workflow identity; otherwise a reason.
     typealias SignatureCheck = (_ blob: URL, _ bundle: URL) -> String?
 
-    struct Summary: Equatable { let fileCount: Int; let rulesRoot: String; let logSize: Int }
+    struct Summary: Equatable { let fileCount: Int; let rulesRoot: String; let logSize: Int; let logRoot: String }
     struct Failure: Error, Equatable { let reason: String }
 
     let signatureCheck: SignatureCheck
@@ -61,9 +61,24 @@ struct ChannelVerifier {
         return out
     }
 
+    /// Re-hashes every file of the manifest against `rulesDirectory` (used right before activation).
+    func recheckFiles(manifestAt manifestURL: URL, rulesDirectory: URL) throws {
+        guard let manifest = try JSONSerialization.jsonObject(with: Data(contentsOf: manifestURL)) as? [String: Any],
+              let files = manifest["files"] as? [[String: Any]] else { throw Failure(reason: "manifest is malformed") }
+        for f in files {
+            guard let path = f["path"] as? String, let sha = f["sha256"] as? String else { throw Failure(reason: "manifest file entry is malformed") }
+            let rel = path.hasPrefix("rules/") ? String(path.dropFirst("rules/".count)) : path
+            let url = rulesDirectory.appendingPathComponent(rel)
+            guard let bytes = try? Data(contentsOf: url), Self.hex(Data(SHA256.hash(data: bytes))) == sha else { throw Failure(reason: "\(path) changed after verification") }
+        }
+    }
+
     // MARK: Release
     /// `directory` holds manifest.json, manifest.sigstore.json, inclusion-proof.json, rules/ and logs/checkpoint.*
-    func verify(directory d: URL) throws -> Summary {
+    /// - Parameters:
+    ///   - prior: the newest head already trusted on this machine; a smaller or conflicting head is refused.
+    ///   - logData: the public `log.jsonl`; required when the tree grew since `prior`.
+    func verify(directory d: URL, prior: TrustState? = nil, logData: Data? = nil, rulesDirectory: URL? = nil, allowExtraRuleFiles: Bool = true) throws -> Summary {
         func fail(_ s: String) -> Failure { Failure(reason: s) }
         let manifestURL = d.appendingPathComponent("manifest.json")
         if let e = signatureCheck(manifestURL, d.appendingPathComponent("manifest.sigstore.json")) { throw fail("manifest signature: \(e)") }
@@ -75,12 +90,25 @@ struct ChannelVerifier {
         var entries: [(path: String, sha256: String)] = []
         for f in files {
             guard let path = f["path"] as? String, let sha = f["sha256"] as? String else { throw fail("manifest file entry is malformed") }
-            let std = d.appendingPathComponent(path).standardizedFileURL
-            guard !path.hasPrefix("/"), !path.contains(".."), std.path.hasPrefix(d.standardizedFileURL.path + "/") else { throw fail("unsafe path \(path)") }
+            let base = rulesDirectory ?? d
+            let relative = rulesDirectory != nil && path.hasPrefix("rules/") ? String(path.dropFirst("rules/".count)) : path
+            let std = base.appendingPathComponent(relative).standardizedFileURL
+            guard !path.hasPrefix("/"), !path.contains(".."), std.path.hasPrefix(base.standardizedFileURL.path + "/") else { throw fail("unsafe path \(path)") }
             guard let bytes = try? Data(contentsOf: std), Self.hex(Data(SHA256.hash(data: bytes))) == sha else { throw fail("\(path) does not match the manifest") }
             entries.append((path, sha))
         }
         guard Self.rulesRoot(entries) == claimedRoot else { throw fail("rules_root does not match the file list") }
+        if let rulesDirectory, !allowExtraRuleFiles {
+            let listed = Set(entries.map { $0.path.hasPrefix("rules/") ? String($0.path.dropFirst("rules/".count)) : $0.path })
+            let root = rulesDirectory.standardizedFileURL.path + "/"
+            let onDisk = (FileManager.default.enumerator(at: rulesDirectory, includingPropertiesForKeys: [.isRegularFileKey], options: [])?.allObjects as? [URL]) ?? []
+            for u in onDisk {
+                let rel = String(u.standardizedFileURL.path.dropFirst(root.count))
+                if rel.hasPrefix(".release") { continue }
+                guard (try? u.resourceValues(forKeys: [.isRegularFileKey]))?.isRegularFile == true else { continue }
+                if !listed.contains(rel) { throw fail("\(rel) is installed but is not in the signed manifest") }
+            }
+        }
 
         let cp = d.appendingPathComponent("logs/checkpoint.txt")
         if let e = signatureCheck(cp, d.appendingPathComponent("logs/checkpoint.sigstore.json")) { throw fail("checkpoint signature: \(e)") }
@@ -88,6 +116,8 @@ struct ChannelVerifier {
         guard lines.count == 4, lines[3] == "", lines[0] == Self.logOrigin, let size = Int(lines[1]), let cpRoot = Data(base64Encoded: lines[2])
         else { throw fail("checkpoint is malformed") }
         guard size == logSize, Self.hex(cpRoot) == logRoot else { throw fail("manifest log head differs from the signed checkpoint") }
+        let logLines = logData.map { $0.split(separator: 0x0A, omittingEmptySubsequences: true).map { Data($0) } }
+        try Self.checkAgainstPrior(prior, origin: Self.logOrigin, size: size, root: cpRoot, logLines: logLines)
 
         guard let proof = try JSONSerialization.jsonObject(with: Data(contentsOf: d.appendingPathComponent("inclusion-proof.json"))) as? [String: Any],
               let index = proof["index"] as? Int, let pSize = proof["size"] as? Int, let pRoot = proof["root"] as? String,
@@ -102,25 +132,8 @@ struct ChannelVerifier {
         guard path.count == hashes.count,
               Self.verifyInclusion(index: index, size: size, leaf: Self.leafHash(Data(entry.utf8)), proof: path, root: cpRoot)
         else { throw fail("inclusion proof does not verify") }
-        return Summary(fileCount: entries.count, rulesRoot: claimedRoot, logSize: size)
+        if let logLines, index < logLines.count, logLines[index] != Data(entry.utf8) { throw fail("the logged entry differs from the published log at index \(index)") }
+        return Summary(fileCount: entries.count, rulesRoot: claimedRoot, logSize: size, logRoot: Self.hex(cpRoot))
     }
 
-    // MARK: cosign-backed signature check (harness only; the shipping app needs a native Sigstore verifier)
-    static func cosignCheck(cosign: URL) -> SignatureCheck {
-        { blob, bundle in
-            guard FileManager.default.fileExists(atPath: bundle.path) else { return "signature bundle is missing" }
-            let p = Process(); p.executableURL = cosign
-            p.arguments = ["verify-blob", "--bundle", bundle.path, "--certificate-identity", identity,
-                           "--certificate-oidc-issuer", issuer, "--certificate-github-workflow-repository", repository, blob.path]
-            let err = Pipe(); p.standardError = err; p.standardOutput = Pipe()
-            do { try p.run() } catch { return "cosign could not be started" }
-            p.waitUntilExit()
-            if p.terminationStatus == 0 { return nil }
-            let text = String(decoding: err.fileHandleForReading.readDataToEndOfFile(), as: UTF8.self)
-            return text.split(separator: "\n").last.map(String.init) ?? "cosign verification failed"
-        }
-    }
-    static func findCosign() -> URL? {
-        ["/opt/homebrew/bin/cosign", "/usr/local/bin/cosign"].map { URL(fileURLWithPath: $0) }.first { FileManager.default.isExecutableFile(atPath: $0.path) }
-    }
 }

@@ -7,7 +7,7 @@ targets:
   DMGTrustAuditor:
     type: application
     platform: macOS
-    sources: [App]
+    sources: [App, Core]
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.macguard.dmgtrustauditor
@@ -33,3 +33,13 @@ targets:
         GENERATE_INFOPLIST_FILE: YES
         SWIFT_VERSION: '5.9'
         CODE_SIGNING_ALLOWED: NO
+  macguard-audit:
+    type: tool
+    platform: macOS
+    sources: [Core, CLI]
+    settings:
+      base:
+        PRODUCT_NAME: macguard-audit
+        SWIFT_VERSION: '5.9'
+        CODE_SIGNING_ALLOWED: NO
+        ENABLE_HARDENED_RUNTIME: YES
