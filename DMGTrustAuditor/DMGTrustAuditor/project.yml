@@ -8,9 +8,21 @@ targets:
     type: application
     platform: macOS
     sources: [App, Core]
+    postBuildScripts:
+      - name: Bundle the YARA engine
+        basedOnDependencyAnalysis: false
+        script: |
+          ENGINE="${ENGINE_DIR:-$SRCROOT/../../build/engine}"
+          DEST="$TARGET_BUILD_DIR/$CONTENTS_FOLDER_PATH/Helpers"
+          if [ -f "$ENGINE/yara" ] && [ -f "$ENGINE/yarac" ] && [ -f "$ENGINE/engine-manifest.json" ]; then
+            mkdir -p "$DEST" && cp -p "$ENGINE/yara" "$ENGINE/yarac" "$ENGINE/engine-manifest.json" "$DEST/"
+          else
+            echo "warning: no YARA engine at $ENGINE (build one with Scripts/build-yara-engine.sh); this build will report YARA as unavailable"
+          fi
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.macguard.dmgtrustauditor
+        ENABLE_USER_SCRIPT_SANDBOXING: NO
         SWIFT_VERSION: '5.9'
         GENERATE_INFOPLIST_FILE: YES
         CODE_SIGNING_ALLOWED: YES
@@ -37,9 +49,21 @@ targets:
     type: tool
     platform: macOS
     sources: [Core, CLI]
+    postBuildScripts:
+      - name: Bundle the YARA engine
+        basedOnDependencyAnalysis: false
+        script: |
+          ENGINE="${ENGINE_DIR:-$SRCROOT/../../build/engine}"
+          DEST="$TARGET_BUILD_DIR"
+          if [ -f "$ENGINE/yara" ] && [ -f "$ENGINE/yarac" ] && [ -f "$ENGINE/engine-manifest.json" ]; then
+            mkdir -p "$DEST" && cp -p "$ENGINE/yara" "$ENGINE/yarac" "$ENGINE/engine-manifest.json" "$DEST/"
+          else
+            echo "warning: no YARA engine at $ENGINE (build one with Scripts/build-yara-engine.sh); this build will report YARA as unavailable"
+          fi
     settings:
       base:
         PRODUCT_NAME: macguard-audit
         SWIFT_VERSION: '5.9'
         CODE_SIGNING_ALLOWED: NO
         ENABLE_HARDENED_RUNTIME: YES
+        ENABLE_USER_SCRIPT_SANDBOXING: NO

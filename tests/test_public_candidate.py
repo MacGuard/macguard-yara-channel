@@ -19,6 +19,14 @@ class PublicCandidateTests(unittest.TestCase):
         blob = ''.join(p.read_text() for p in self.out.rglob('*') if p.is_file())
         self.assertNotIn('secretly_quarantined_name', blob); self.assertTrue((self.out / 'rules/c/good.yar').exists()); self.assertFalse((self.out / 'rules/c/secretly_quarantined_name.yar').exists())
         d = json.loads((self.out / 'dynamic.json').read_text()); self.assertNotIn('culprits', d); self.assertNotIn('benign_hits_by_file', d); self.assertNotIn('iterations', d)
+    def test_dependencies_of_approved_files_travel_in_the_signed_candidate(self):
+        d = pathlib.Path(tempfile.mkdtemp()); (d / 'rules/c').mkdir(parents=True)
+        files = []
+        for name, deps in (('base', []), ('use', ['rules/c/base.yar'])):
+            (d / f'rules/c/{name}.yar').write_text(f'rule {name} {{ condition: true }}'); files.append({'path': f'rules/c/{name}.yar', 'sha256': name[0] * 64, 'bytes': 30, 'source': 'community', 'state': 'VALIDATED', 'reasons': [], 'depends_on': deps, 'rules': [name]})
+        dec = decide.decide(files, dynamic_required=False); (d / 'decision.json').write_text(json.dumps(dec)); (d / 'candidate.json').write_text(json.dumps({'sources': [], 'files': files}))
+        out = d / 'pub'; pub = mpc.build(d, out); by = {f['path']: f for f in pub['files']}
+        self.assertEqual(by['rules/c/use.yar']['depends_on'], ['rules/c/base.yar']); self.assertNotIn('depends_on', by['rules/c/base.yar'])
     def test_public_stats_are_counts(self):
         self.assertEqual(json.loads((self.out / 'public_stats.json').read_text())['quarantined'], 1)
     def test_the_set_root_of_the_artifact_matches_the_dynamic_result(self):

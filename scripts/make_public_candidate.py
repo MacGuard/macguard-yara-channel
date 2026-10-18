@@ -19,7 +19,9 @@ def build(dist: pathlib.Path, out: pathlib.Path, previous: dict = None) -> dict:
     files = []
     for f in decision['approved']:
         dst = out / f['path']; dst.parent.mkdir(parents=True, exist_ok=True); shutil.copy2(dist / f['path'], dst)
-        files.append({'source': f['source'], 'path': f['path'], 'sha256': f['sha256'], 'bytes': f['bytes']})
+        entry = {'source': f['source'], 'path': f['path'], 'sha256': f['sha256'], 'bytes': f['bytes']}
+        if f.get('depends_on'): entry['depends_on'] = sorted(f['depends_on'])   # signed with the manifest; the engine loads each file with what it needs
+        files.append(entry)
     public = {k: v for k, v in cand.items() if k not in ('files', 'rejected')}; public['files'] = files; public['rejected'] = []
     (out / 'candidate.json').write_text(json.dumps(public, indent=2, sort_keys=True) + '\n')
     (out / 'validation.json').write_text(json.dumps({'engine': 'yara', 'checked': len(files), 'failures': []}, indent=2) + '\n')

@@ -24,8 +24,7 @@ struct FileTrustStore: TrustStore {
     struct Corrupt: Error, Equatable { let reason: String }
 
     static var `default`: FileTrustStore {
-        FileTrustStore(url: FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
-            .appendingPathComponent("DMGTrustAuditor/ChannelState/trust.json"))
+        FileTrustStore(url: AppPaths.dataRoot.appendingPathComponent("ChannelState/trust.json"))
     }
     func load() throws -> TrustState? {
         guard FileManager.default.fileExists(atPath: url.path) else { return nil }

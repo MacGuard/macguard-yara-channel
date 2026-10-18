@@ -18,7 +18,7 @@ enum CLI {
     struct ScanOutput: Encodable { let schemaVersion: Int; let tool: String; let version: String; let results: [AuditReport] }
     struct StatusOutput: Encodable {
         let schemaVersion: Int; let installedFiles: Int; let verifiedRelease: Bool; let rulesRoot: String?; let logSize: Int?
-        let trustedLogSize: Int?; let sigstoreVerifier: Bool; let sigstoreDetail: String; let yaraEngine: Bool; let note: String
+        let trustedLogSize: Int?; let sigstoreVerifier: Bool; let sigstoreDetail: String; let yaraEngine: Bool; let yaraVersion: String; let yaraArchitectures: String; let yaraDetail: String; let note: String
     }
     struct VerifyOutput: Encodable { let schemaVersion: Int; let ok: Bool; let files: Int?; let rulesRoot: String?; let logSize: Int?; let error: String? }
     struct UpdateOutput: Encodable { let schemaVersion: Int; let ok: Bool; let updated: Bool; let message: String }
@@ -37,6 +37,7 @@ enum CLI {
                                          Download, verify and install the signed YARA rules (asks first unless --yes).
           verify-rules [--format json]   Re-verify the installed rules: signatures, hashes, log inclusion, no extra files.
           rules-status [--format json]   Installed rules, verifier availability and trust state.
+          engine-status [--format json]  The bundled YARA engine: version, architectures, hashes, signature, self-test.
           hash <path>                    SHA-256 of a file.
           signature <path>               codesign verification.
           identity team-id|bundle-id <path>
@@ -59,6 +60,7 @@ enum CLI {
         case "version", "--version": out("\(ToolInfo.name) \(ToolInfo.version)"); return Exit.ok
         case "scan": return scan(rest)
         case "formats": return formats()
+        case "engine-status": return engineStatus(rest)
         case "update-rules": return updateRules(rest)
         case "verify-rules": return verifyRules(rest)
         case "rules-status": return rulesStatus(rest)
@@ -136,9 +138,10 @@ enum CLI {
             ("sh / py / rb / js", "limited: pattern scan of the source, never executed"),
             ("scpt", "limited: decompiled with osadecompile and scanned, never executed"),
             ("workflow", "limited: Automator actions and embedded scripts read, never run"),
+            ("yara", "every file the engine can read is scanned with the installed rules by the bundled YARA engine"),
             ("other", "not supported: reported UNKNOWN, never assumed safe")]
         for r in rows { out("\(r.0.padding(toLength: 26, withPad: " ", startingAt: 0)) \(r.1)") }
-        out("\nNo format has complete coverage. YARA runs only with a signed bundled engine; otherwise it is reported UNKNOWN.")
+        out("\nNo format has complete coverage. YARA runs only with the verified bundled engine (see engine-status); without it the scan is reported UNAVAILABLE, never as clean.")
         return Exit.ok
     }
 
@@ -152,16 +155,24 @@ enum CLI {
         let sig = SigstoreVerifier.locate()
         let status = StatusOutput(schemaVersion: ToolInfo.jsonSchema, installedFiles: m.ruleFiles().count, verifiedRelease: v != nil,
                                   rulesRoot: v?.rulesRoot, logSize: v?.logSize, trustedLogSize: trust?.size, sigstoreVerifier: sig.0 != nil,
-                                  sigstoreDetail: sig.0 != nil ? "pinned cosign and trusted root found" : sig.1, yaraEngine: m.engineReady,
+                                  sigstoreDetail: sig.0 != nil ? "pinned cosign and trusted root found" : sig.1, yaraEngine: m.engineReady, yaraVersion: m.engineStatus.version, yaraArchitectures: m.engineStatus.architectures, yaraDetail: m.engineReady ? "verified: hashes, signature, version, architecture and self-test" : m.engineStatus.reason,
                                   note: "Verified means the installed files match a signed, logged release. It does not mean the rules or scanned files are safe.")
         if a.contains("json") || a == ["--format", "json"] { out(json(status)) } else {
             out("Installed rule files : \(status.installedFiles)")
             out("Verified release     : \(status.verifiedRelease ? "yes (rules_root \(status.rulesRoot ?? "")…, log size \(status.logSize ?? 0))" : "no")")
             out("Trusted log size     : \(status.trustedLogSize.map(String.init) ?? "none yet")")
             out("Sigstore verifier    : \(status.sigstoreVerifier ? "available" : "UNAVAILABLE — " + status.sigstoreDetail)")
-            out("YARA engine          : \(status.yaraEngine ? "bundled and signed" : "not available (scans report UNKNOWN)")")
+            out("YARA engine          : \(status.yaraEngine ? "YARA \(status.yaraVersion) (\(status.yaraArchitectures)), verified" : "UNAVAILABLE — " + status.yaraDetail)")
         }
         return Exit.ok
+    }
+
+    struct EngineOutput: Encodable { let schemaVersion: Int; let ready: Bool; let version: String; let architectures: String; let runningOn: String; let directory: String?; let detail: String }
+    static func engineStatus(_ a: [String]) -> Int32 {
+        let s = YARAEngine.status()
+        let o = EngineOutput(schemaVersion: ToolInfo.jsonSchema, ready: s.ready, version: s.version, architectures: s.architectures, runningOn: YARAEngine.currentArchitecture(), directory: s.located?.directory.path, detail: s.ready ? "verified: binaries match the manifest, valid code signature, version and architecture ok, self-test passed" : s.reason)
+        if a.contains("json") { out(json(o)) } else { out(s.ready ? "YARA \(s.version) (\(s.architectures)) at \(o.directory ?? ""): \(o.detail)" : "UNAVAILABLE — \(s.reason)") }
+        return s.ready ? Exit.ok : Exit.unavailable
     }
 
     static func verifyRules(_ a: [String]) -> Int32 {

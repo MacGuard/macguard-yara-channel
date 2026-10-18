@@ -50,15 +50,11 @@ final class YARARuleManager: NSObject, ObservableObject {
         refreshInstalledCount()
     }
     var rulesDirectory: URL {
-        customRulesDirectory ?? FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
-            .appendingPathComponent("DMGTrustAuditor/YARARules", isDirectory: true)
+        customRulesDirectory ?? AppPaths.dataRoot.appendingPathComponent("YARARules", isDirectory: true)
     }
     var isOutdated: Bool { updateAvailable || lastUpdate == nil }
-    var engineURL: URL { Bundle.main.bundleURL.appendingPathComponent("Contents/Helpers/yara") }
-    var engineReady: Bool {
-        FileManager.default.isExecutableFile(atPath: engineURL.path) &&
-        AuditEngine.command("/usr/bin/codesign", ["--verify", "--strict", engineURL.path]).0 == 0
-    }
+    var engineStatus: YARAEngine.Status { YARAEngine.status() }
+    var engineReady: Bool { engineStatus.ready }
     func refreshInstalledCount() {
         DispatchQueue.global(qos: .utility).async {
             let n = self.ruleFiles().count
@@ -167,40 +163,4 @@ final class YARARuleManager: NSObject, ObservableObject {
 
     /// Kept for tests of the archive policy; the installer uses the same extractor.
     func extractSafely(_ tarball: URL, into stage: URL) throws { try installer.extract(tarball, into: stage) }
-}
-
-// A YARA hit is a triage indicator, never an automatic malware verdict.
-enum YARAScanner {
-    static func inspect(_ candidates: [URL]) -> [AuditFinding] {
-        let manager = YARARuleManager.shared
-        // Only the signed, bundled scanner may be invoked. No Homebrew/PATH fallback.
-        let engine = Bundle.main.bundleURL.appendingPathComponent("Contents/Helpers/yara").path
-        guard FileManager.default.isExecutableFile(atPath: engine) else {
-            return [AuditFinding(title: "YARA engine unavailable", detail: "This build has no bundled YARA engine; scan skipped. Use a release with the engine included. No Homebrew installation is required.", state: .unknown, weight: 0)]
-        }
-        let verified = AuditEngine.command("/usr/bin/codesign", ["--verify", "--strict", engine])
-        guard verified.0 == 0 else {
-            return [AuditFinding(title: "YARA engine signature invalid", detail: "The bundled scanner failed code-signature verification; scan blocked.", state: .failed, weight: 0)]
-        }
-        let rules = manager.ruleFiles()
-        guard !rules.isEmpty else { return [AuditFinding(title: "YARA rules", detail: "No rules installed.", state: .unknown, weight: 0)] }
-        var findings: [AuditFinding] = []
-        var tested = 0; var errors = 0; var hits = 0
-        for rule in rules.prefix(40) {
-            for file in candidates.prefix(30) {
-                guard let attrs = try? FileManager.default.attributesOfItem(atPath: file.path),
-                      let size = attrs[.size] as? NSNumber, size.int64Value <= 25_000_000 else { continue }
-                let output = AuditEngine.command(engine, ["--timeout=5", rule.path, file.path])
-                if output.0 == 0 {
-                    tested += 1
-                    if !output.1.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                        hits += 1
-                        if hits <= 30 { findings.append(AuditFinding(title: "YARA match", detail: "Rule file: \(rule.lastPathComponent), file: \(file.lastPathComponent). \(output.1.prefix(250))", state: .warning, weight: 0)) }
-                    }
-                } else { errors += 1 }
-            }
-        }
-        findings.append(AuditFinding(title: "YARA scan coverage", detail: "\(tested) rule/file checks, \(hits) matches, \(errors) errors. Limits: first 40 rules and 30 files, max 25 MB/file; no recursive PKG payload extraction. A clean result does not prove safety.", state: errors > 0 || hits > 0 ? .warning : .unknown, weight: 0))
-        return findings
-    }
 }
