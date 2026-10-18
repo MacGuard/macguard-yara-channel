@@ -50,11 +50,10 @@ enum AuditEngine {
         guard let f = try? FileHandle(forReadingFrom: url) else { return nil }
         defer { try? f.close() }
         var h = SHA256()
-        while true {
-            guard let d = try? f.read(upToCount: 1 << 20) else { return nil }
-            if d.isEmpty { break }
-            h.update(data: d)
-        }
+        do {
+            // read(upToCount:) returns nil at end of file, so a nil chunk ends the loop; only a thrown error is a failure.
+            while let chunk = try f.read(upToCount: 1 << 20), !chunk.isEmpty { h.update(data: chunk) }
+        } catch { return nil }
         return h.finalize().map { String(format: "%02x", $0) }.joined()
     }
 

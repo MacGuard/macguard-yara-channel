@@ -59,7 +59,7 @@ enum TUI {
         var report: AuditReport?; var cancelled = false; let started = Date()
     }
 
-    static func run() -> Int32 {
+    static func run(start: String? = nil) -> Int32 {
         guard isatty(STDIN_FILENO) != 0, isatty(STDOUT_FILENO) != 0 else {
             CLI.err("The TUI needs an interactive terminal. Use 'macguard-audit scan PATH --format json' in scripts.")
             return CLI.Exit.unavailable
@@ -72,6 +72,7 @@ enum TUI {
 
         var folder = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("Downloads")
         if !isDir(folder) { folder = FileManager.default.homeDirectoryForCurrentUser }
+        if let start, isDir(CLI.expand(start)) { folder = CLI.expand(start) }
         var history: [URL] = []
         var sel = 0, offset = 0, filter = "", message = "Pick an installer or app. Nothing is executed."
         var report: AuditReport?, scroll = 0

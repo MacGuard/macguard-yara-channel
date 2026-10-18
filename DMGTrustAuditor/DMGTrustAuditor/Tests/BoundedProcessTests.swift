@@ -24,4 +24,15 @@ final class BoundedProcessTests: XCTestCase {
     func testMissingExecutable() {
         XCTAssertEqual(BoundedProcess.run("/nonexistent/tool", []).status, -1)
     }
+
+    func testSHA256OfFilesMatchesShasumForSmallEmptyAndMultiChunkFiles() throws {
+        let dir = FileManager.default.temporaryDirectory.appendingPathComponent("sha-\(UUID().uuidString)"); try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: dir) }
+        for (name, size) in [("empty", 0), ("small", 5), ("exact", 1 << 20), ("multi", (3 << 20) + 17)] {
+            let f = dir.appendingPathComponent(name); try Data((0..<size).map { UInt8($0 % 251) }).write(to: f)
+            let expected = AuditEngine.command("/usr/bin/shasum", ["-a", "256", f.path]).1.split(separator: " ").first.map(String.init)
+            XCTAssertEqual(AuditEngine.sha256(of: f), expected, name)
+        }
+        XCTAssertNil(AuditEngine.sha256(of: dir.appendingPathComponent("missing")))
+    }
 }

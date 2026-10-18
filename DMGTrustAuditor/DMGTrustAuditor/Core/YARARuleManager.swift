@@ -111,8 +111,11 @@ final class YARARuleManager: NSObject, ObservableObject {
                 }
             } catch {
                 let f = error as? Failure
+                // Build the text off the main thread: the first localizedDescription of a URLError loads
+                // localisation resources and used to stall the UI for ~0.4 s when the prompt appeared.
+                let text = f.map { AppLanguage.tr($0.es, $0.en) } ?? AppLanguage.failure("No se pudo comprobar si hay reglas nuevas. Se siguen usando las reglas actuales.", "Could not check for new rules. The current rules stay in use.", detail: error.localizedDescription)
                 publish {
-                    self.message = f.map { AppLanguage.tr($0.es, $0.en) } ?? AppLanguage.failure("No se pudo comprobar si hay reglas nuevas. Se siguen usando las reglas actuales.", "Could not check for new rules. The current rules stay in use.", detail: error.localizedDescription)
+                    self.message = text
                     self.checking = false
                 }
             }

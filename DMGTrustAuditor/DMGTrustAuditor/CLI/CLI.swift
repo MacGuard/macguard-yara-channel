@@ -41,7 +41,7 @@ enum CLI {
           signature <path>               codesign verification.
           identity team-id|bundle-id <path>
           explain team-id|bundle-id|dmg|pkg|yara
-          tui                            Full-screen file explorer (interactive terminal required).
+          tui [folder]                   Full-screen file explorer (interactive terminal required).
           version | help
 
         EXIT CODES
@@ -62,7 +62,7 @@ enum CLI {
         case "update-rules": return updateRules(rest)
         case "verify-rules": return verifyRules(rest)
         case "rules-status": return rulesStatus(rest)
-        case "tui": return TUI.run()
+        case "tui": return TUI.run(start: rest.first)
         case "hash":
             guard let p = rest.first, let h = AuditEngine.sha256(of: expand(p)) else { err("Cannot hash path"); return Exit.usage }
             out("SHA-256: \(h)"); return Exit.ok
