@@ -80,10 +80,17 @@ jobs:
         with:
           name: site-dir
           path: site
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          sparse-checkout: |
+            scripts/cf_preflight.sh
+            config/cloudflare_account_id.txt
       - name: Check credentials
         id: creds
         run: |
-          if [ -z "$CLOUDFLARE_API_TOKEN" ] || [ -z "$CLOUDFLARE_ACCOUNT_ID" ]; then echo "status=missing" >> "$GITHUB_OUTPUT"; else echo "status=present" >> "$GITHUB_OUTPUT"; fi
+          if [ -z "$CLOUDFLARE_API_TOKEN" ] || [ -z "$CLOUDFLARE_ACCOUNT_ID" ]; then echo "status=missing" >> "$GITHUB_OUTPUT"; exit 0; fi
+          if bash scripts/cf_preflight.sh; then echo "status=present" >> "$GITHUB_OUTPUT"; else echo "status=invalid" >> "$GITHUB_OUTPUT"; fi
       - name: Deploy to Cloudflare Pages
         if: steps.creds.outputs.status == 'present'
         uses: cloudflare/wrangler-action@9acf94ace14e7dc412b076f2c5c20b8ce93c79cd # v3.15.0
@@ -124,6 +131,8 @@ jobs:
             fi
             if [ "$CF_CREDENTIALS" = "missing" ]; then
               ev --level WARNING --code site.cloudflare_skipped --message "Cloudflare Pages deployment skipped: CLOUDFLARE_API_TOKEN or CLOUDFLARE_ACCOUNT_ID is not configured as a repository secret. See $RUN_URL"
+            elif [ "$CF_CREDENTIALS" = "invalid" ]; then
+              ev --level ERROR --code site.cloudflare_blocked --message "Cloudflare Pages BLOCKED: the credential preflight failed (format, account id, validity or permission; see the cf-preflight line in the job log). No deploy was attempted. See $RUN_URL"
             elif [ "$CF" = "success" ]; then
               ev --level INFO --code site.cloudflare_deployed --message "Site deployed to Cloudflare Pages project macguard-rules. See $RUN_URL"
             else
