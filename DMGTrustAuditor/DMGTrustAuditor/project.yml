@@ -3,16 +3,11 @@ options:
   bundleIdPrefix: com.macguard
   deploymentTarget:
     macOS: '13.0'
-packages:
-  MacGuardDesignKit:
-    path: ../macguard-designkit-main
 targets:
   DMGTrustAuditor:
     type: application
     platform: macOS
     sources: [App]
-    dependencies:
-      - package: MacGuardDesignKit
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.macguard.dmgtrustauditor

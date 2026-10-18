@@ -1,6 +1,6 @@
 # DMG Trust Auditor — MacGuard v4 (source prototype)
 
-Native SwiftUI macOS 13+ project, with bundled MacGuardDesignKit source. Supports Intel and Apple Silicon when built on macOS.
+Native SwiftUI macOS 13+ project, using the MacGuard design tokens and components vendored in `App/DesignSystem` (rules in `DESIGN_RULES.md`). Supports Intel and Apple Silicon when built on macOS.
 
 ## Build
 
@@ -14,7 +14,7 @@ Choose **My Mac** as the run destination, not a build-only destination. Build wi
 
 ## Added in v4
 
-- Two-pane layout inspired by the supplied MacFirewallGuard reference, with light/dark mode, Spanish/English toggle and reusable DesignKit tokens/components.
+- Two-pane layout that follows the system light/dark appearance, with a Spanish/English picker that starts from the system language, and the shared MacGuard tokens/components.
 - Optional automatic AASA lookup from the explicitly supplied HTTPS publisher host. An AASA claim is not a macOS DMG authenticity guarantee.
 - Automatic SHA-256 lookup **only when** the user provides a direct HTTPS checksum-manifest URL ending in `.sha256`, `.sha256sum`, or with `checksums` in the filename. Matching is against the exact DMG filename; no guessed hashes, arbitrary search results or crawling.
 - If no checksum manifest is available, the report explains how to obtain a publisher hash. SHA-256 comparisons from unverified sites do not prove provenance.

@@ -75,8 +75,8 @@ final class YARARuleManager: NSObject, ObservableObject, URLSessionDownloadDeleg
         URLSession(configuration: config).dataTask(with: request) { data, response, error in
             DispatchQueue.main.async {
                 defer { self.checking = false }
-                if let error { self.message = "Update check unavailable: \(error.localizedDescription)"; return }
-                guard let response = response as? HTTPURLResponse else { self.message = "Invalid update response"; return }
+                if let error { self.message = AppLanguage.failure("No se pudo comprobar si hay reglas nuevas. Se siguen usando las reglas actuales.", "Could not check for new rules. The current rules stay in use.", detail: error.localizedDescription); return }
+                guard let response = response as? HTTPURLResponse else { self.message = AppLanguage.tr("El servidor devolvió una respuesta no válida. Se siguen usando las reglas actuales.", "The server returned an invalid response. The current rules stay in use."); return }
                 if response.statusCode == 304 {
                     if let revision = UserDefaults.standard.string(forKey: "yaraKnownUpstreamRevision") {
                         self.availableRevision = revision
@@ -89,7 +89,7 @@ final class YARARuleManager: NSObject, ObservableObject, URLSessionDownloadDeleg
                       let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
                       let revision = obj["sha"] as? String,
                       revision.range(of: "^[a-fA-F0-9]{40}$", options: .regularExpression) != nil else {
-                    self.message = "Update check could not be verified"; return
+                    self.message = AppLanguage.tr("No se pudo verificar la información de la nueva versión. No se ha cambiado nada.", "The new revision information could not be verified. Nothing was changed."); return
                 }
                 if let newETag = response.value(forHTTPHeaderField: "ETag") {
                     UserDefaults.standard.set(newETag, forKey: "yaraUpstreamETag")
@@ -104,16 +104,16 @@ final class YARARuleManager: NSObject, ObservableObject, URLSessionDownloadDeleg
         guard !downloading else { return }
         guard let revision = availableRevision,
               revision.range(of: "^[a-fA-F0-9]{40}$", options: .regularExpression) != nil else {
-            message = "No verified revision metadata. Check for updates first."
+            message = AppLanguage.tr("Aún no hay una versión verificada. Busca actualizaciones primero.", "There is no verified revision yet. Check for updates first.")
             completion(message); return
         }
         guard engineReady else {
-            message = "Bundled signed YARA engine missing: rules cannot be validated or activated. Build the official app release with YARA embedded."
+            message = AppLanguage.tr("Falta el motor YARA firmado incluido en la app, así que no se pueden validar ni activar reglas. Usa la versión oficial de la app.", "The signed YARA engine bundled with the app is missing, so rules cannot be validated or activated. Use the official app release.")
             completion(message); return
         }
         targetRevision = revision
         self.completion = completion
-        downloading = true; progress = 0; message = "Downloading pinned community revision…"
+        downloading = true; progress = 0; message = AppLanguage.tr("Descargando la versión fijada de las reglas…", "Downloading the pinned rules revision…")
         let config = URLSessionConfiguration.ephemeral
         config.timeoutIntervalForResource = 120
         let s = URLSession(configuration: config, delegate: self, delegateQueue: nil)
@@ -137,7 +137,7 @@ final class YARARuleManager: NSObject, ObservableObject, URLSessionDownloadDeleg
         }
     }
     func urlSession(_ session: URLSession, downloadTask: URLSessionDownloadTask, didFinishDownloadingTo location: URL) {
-        guard let revision = targetRevision else { finish("Missing pinned revision", success: false); return }
+        guard let revision = targetRevision else { finish(AppLanguage.tr("Falta la versión fijada de las reglas. No se ha cambiado nada.", "The pinned rules revision is missing. Nothing was changed."), success: false); return }
         let fm = FileManager.default
         let base = rulesDirectory.deletingLastPathComponent()
         let stage = base.appendingPathComponent("stage-\(UUID().uuidString)")
@@ -145,11 +145,11 @@ final class YARARuleManager: NSObject, ObservableObject, URLSessionDownloadDeleg
         defer { try? fm.removeItem(at: stage); try? fm.removeItem(at: incoming) }
         guard let response = downloadTask.response as? HTTPURLResponse,
               response.statusCode == 200, response.url?.host == "codeload.github.com" else {
-            finish("Unexpected archive host or HTTP response; rules unchanged", success: false); return
+            finish(AppLanguage.tr("La descarga no vino del servidor esperado o la respuesta no fue válida. Las reglas no han cambiado.", "The download did not come from the expected server or the response was invalid. The rules were not changed."), success: false); return
         }
         guard let bytes = (try? fm.attributesOfItem(atPath: location.path)[.size] as? NSNumber)?.int64Value,
               bytes > 0 && bytes <= maxArchiveBytes else {
-            finish("Archive exceeds size limit", success: false); return
+            finish(AppLanguage.tr("El archivo descargado supera el tamaño máximo permitido. Las reglas no han cambiado.", "The downloaded archive exceeds the maximum allowed size. The rules were not changed."), success: false); return
         }
         do {
             try fm.createDirectory(at: stage, withIntermediateDirectories: true)
@@ -202,8 +202,8 @@ final class YARARuleManager: NSObject, ObservableObject, URLSessionDownloadDeleg
             if fm.fileExists(atPath: current.path) { try fm.moveItem(at: current, to: backup) }
             do { try fm.moveItem(at: incoming, to: current); try? fm.removeItem(at: backup) }
             catch { if fm.fileExists(atPath: backup.path) { try? fm.moveItem(at: backup, to: current) }; throw error }
-            finish("Installed \(valid) compatible community rule files (\(rejected) rejected; \(max(0, candidates.count-maxRules)) not assessed). Source is HTTPS GitHub, NOT a cryptographically signed rules manifest. No malware-free guarantee.", success: true)
-        } catch { finish("Update failed, previous rules retained: \(error.localizedDescription)", success: false) }
+            finish(AppLanguage.tr("Reglas instaladas: \(valid) ficheros compatibles (\(rejected) rechazados; \(max(0, candidates.count-maxRules)) sin evaluar). Proceden de GitHub por HTTPS y no tienen un manifiesto firmado; no garantizan la ausencia de malware.", "Rules installed: \(valid) compatible files (\(rejected) rejected; \(max(0, candidates.count-maxRules)) not assessed). They come from GitHub over HTTPS without a signed manifest; they do not guarantee the absence of malware."), success: true)
+        } catch { finish(AppLanguage.failure("La actualización ha fallado y se conservan las reglas anteriores.", "The update failed and the previous rules were kept.", detail: error.localizedDescription), success: false) }
     }
     func urlSession(_ session: URLSession, downloadTask: URLSessionDownloadTask, didWriteData bytesWritten: Int64, totalBytesWritten: Int64, totalBytesExpectedToWrite: Int64) {
         DispatchQueue.main.async {
@@ -212,7 +212,7 @@ final class YARARuleManager: NSObject, ObservableObject, URLSessionDownloadDeleg
         if totalBytesWritten > maxArchiveBytes { downloadTask.cancel() }
     }
     func urlSession(_ session: URLSession, task: URLSessionTask, didCompleteWithError error: Error?) {
-        if let error { finish("Download failed; existing rules retained: \(error.localizedDescription)", success: false) }
+        if let error { finish(AppLanguage.failure("La descarga ha fallado y se conservan las reglas actuales.", "The download failed and the current rules were kept.", detail: error.localizedDescription), success: false) }
     }
 }
 

@@ -1,17 +1,37 @@
 import SwiftUI
 import AppKit
-import MacGuardDesignKit
+
+// Interface rules (see DESIGN_RULES.md): headers carry the heading trait, status is never color-only,
+// text uses semantic styles so it follows Dynamic Type, spacing/colors come from DesignSystem tokens,
+// appearance and language follow the system unless the user overrides the language.
+// Motion policy: this app uses no animation on purpose, so there is nothing to reduce.
 
 @main struct DMGTrustAuditorApp: App {
-    var body: some Scene { WindowGroup { AuditorView().frame(minWidth: 790, minHeight: 680) } }
+    var body: some Scene {
+        WindowGroup { AuditorView().frame(minWidth: 900, minHeight: 640) }
+            .defaultSize(width: 980, height: 720)
+    }
+}
+
+/// Info button whose accessible name is always the subject it explains, never a bare "info".
+struct InfoButton: View {
+    let what: String
+    let help: String
+    let action: () -> Void
+    var body: some View {
+        Button(action: action) { Image(systemName: "info.circle") }
+            .buttonStyle(.plain)
+            .help(help)
+            .accessibilityLabel(what)
+            .accessibilityHint(help)
+    }
 }
 
 struct AuditorView: View {
     @StateObject private var yara = YARARuleManager.shared
     @State private var showRulePrompt = false
     @State private var showRuleResult = false
-    @State private var spanish = true
-    @State private var darkMode = false
+    @State private var spanish = AppLanguage.isSpanish
     @State private var selection = 0
     @State private var file: URL?
     @State private var name = ""
@@ -24,86 +44,96 @@ struct AuditorView: View {
     @State private var showResult = false
     @State private var helpTopic: HelpTopic?
     private func tr(_ es: String, _ en: String) -> String { spanish ? es : en }
+    private var rulesStatus: String {
+        yara.checking ? tr("Comprobando…", "Checking…")
+            : (yara.updateAvailable ? tr("Nueva versión disponible", "New revision available") : tr("Sin actualizaciones confirmadas", "No confirmed update"))
+    }
     var body: some View {
         HStack(spacing: 0) {
-            VStack(alignment: .leading, spacing: 14) {
+            VStack(alignment: .leading, spacing: MGSpacing.md) {
                 Label("DMG Trust Auditor", systemImage: "checkmark.shield.fill")
-                    .font(.headline).foregroundStyle(.primary).padding(.bottom, 16)
+                    .font(MGTypography.sectionTitle).foregroundStyle(.primary).padding(.bottom, MGSpacing.lg)
                 sidebar(tr("Analizar archivo", "Analyze file"), icon: "doc.viewfinder", index: 0)
                 sidebar(tr("Resultados", "Results"), icon: "checkmark.shield", index: 1)
                 Spacer()
                 Label(tr("Auditoría local", "Local auditing"), systemImage: "lock.shield")
-                    .font(.caption).foregroundStyle(.secondary)
+                    .font(MGTypography.caption).foregroundStyle(.secondary)
             }
-            .padding(18).frame(width: 190, alignment: .leading)
+            .padding(MGSpacing.lg).frame(width: 200, alignment: .leading)
             .background(MGColor.Surface.subtle)
+            .accessibilityElement(children: .contain)
+            .accessibilityLabel(tr("Navegación", "Navigation"))
             Divider()
             ScrollView {
             VStack(alignment: .leading, spacing: MGSpacing.lg) {
-                HStack {
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text("DMG Trust Auditor").font(.largeTitle.bold())
-                        Text(tr("Verifica procedencia, firma, paquetes y riesgos antes de instalar", "Check provenance, signatures, packages and risks before installing")).foregroundStyle(.secondary)
-                    }
-                    Spacer()
-                    VStack(alignment: .trailing) {
-                        Picker("Language", selection: $spanish) { Text("Español").tag(true); Text("English").tag(false) }.pickerStyle(.segmented).frame(width: 175)
-                        Toggle(tr("Modo oscuro", "Dark mode"), isOn: $darkMode).toggleStyle(.switch).font(.caption)
-                    }
+                HStack(alignment: .top) {
+                    MGScreenHeader(
+                        title: selection == 0 ? tr("Analizar archivo", "Analyze file") : tr("Resultados", "Results"),
+                        summary: tr("Verifica procedencia, firma, paquetes y riesgos antes de instalar", "Check provenance, signatures, packages and risks before installing"))
+                    Picker(tr("Idioma", "Language"), selection: $spanish) { Text("Español").tag(true); Text("English").tag(false) }
+                        .pickerStyle(.segmented).labelsHidden().frame(width: 175)
+                        .accessibilityLabel(tr("Idioma de la interfaz", "Interface language"))
+                        .onChange(of: spanish) { AppLanguage.set(spanish: $0) }
                 }
                 if selection == 0 {
                 MGInfoCard {
                     HStack {
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text(tr("Reglas YARA", "YARA rules")).font(.headline)
-                            Text(tr("Reglas locales: \(yara.installedCount) · \(yara.checking ? "Comprobando…" : (yara.updateAvailable ? "Nueva versión disponible" : "Sin actualizaciones confirmadas"))", "Local rule files: \(yara.installedCount) · \(yara.checking ? "Checking…" : (yara.updateAvailable ? "New revision available" : "No confirmed update"))"))
-                                .font(.caption).foregroundStyle(.secondary)
-                        }
+                        MGSectionHeader(title: tr("Reglas YARA", "YARA rules"),
+                                        subtitle: tr("Reglas locales: \(yara.installedCount) · \(rulesStatus)", "Local rule files: \(yara.installedCount) · \(rulesStatus)")) { EmptyView() }
                         Spacer()
-                        Button { showRulePrompt = true } label: { Image(systemName: "info.circle") }.buttonStyle(.plain)
+                        InfoButton(what: tr("Información sobre las reglas YARA", "About the YARA rules"),
+                                   help: tr("Origen, verificación y límites de las reglas", "Origin, verification and limits of the rules")) { showRulePrompt = true }
                         MGSecondaryButton(yara.updateAvailable ? tr("Actualizar reglas", "Update rules") : tr("Buscar actualizaciones", "Check updates")) {
                             if yara.updateAvailable { showRulePrompt = true } else { yara.checkForUpdates() }
                         }
-                            .disabled(yara.downloading || yara.checking)
+                        .keyboardShortcut("r")
+                        .disabled(yara.downloading || yara.checking)
                     }
                     if yara.downloading {
                         ProgressView(value: yara.progress, total: 1)
-                        Text(tr("Descargando y validando reglas… \(Int(yara.progress * 100)) %", "Downloading and validating rules… \(Int(yara.progress * 100)) %")).font(.caption)
+                            .accessibilityLabel(tr("Progreso de la descarga", "Download progress"))
+                            .accessibilityValue("\(Int(yara.progress * 100)) %")
+                        Text(tr("Descargando y validando reglas… \(Int(yara.progress * 100)) %", "Downloading and validating rules… \(Int(yara.progress * 100)) %")).font(MGTypography.caption)
                     }
                     Text(tr("Se comprueban nuevas versiones en segundo plano al abrir. La descarga requiere consentimiento. Las reglas comunitarias no tienen manifiesto firmado y no sustituyen un antivirus.", "Checks for new revisions in the background at launch. Downloads require consent. Community rules lack a signed manifest and are not an antivirus replacement."))
-                        .font(.caption).foregroundStyle(.secondary)
+                        .font(MGTypography.caption).foregroundStyle(.secondary)
                 }
 
                 MGInfoCard {
-                    Text(tr("Archivo que se analizará", "File to inspect")).font(.headline)
-                    HStack {
-                        Text(file?.path ?? tr("Ningún archivo seleccionado", "No file selected")).lineLimit(2).textSelection(.enabled)
-                        Spacer()
-                        MGPrimaryButton(tr("Seleccionar DMG", "Select DMG")) { choose() }
+                    MGSectionHeader(title: tr("Archivo que se analizará", "File to inspect")) {
+                        HStack {
+                            Text(file?.path ?? tr("Ningún archivo seleccionado", "No file selected")).lineLimit(2).textSelection(.enabled)
+                            Spacer()
+                            MGPrimaryButton(tr("Seleccionar DMG…", "Select DMG…")) { choose() }
+                                .keyboardShortcut("o")
+                        }
                     }
                 }
                 MGInfoCard {
-                    Text(tr("Referencias independientes (opcionales)", "Independent references (optional)")).font(.headline)
-                    field(tr("Nombre de la aplicación", "Application name"), $name,
-                          tr("Nombre publicado por el fabricante. Compruébalo en su web oficial.", "Name published by the vendor. Check its official website."), nil)
-                    field("Team ID", $team,
-                          tr("Identificador observado en la firma. Apple explica cómo localizar el Team ID propio, pero NO publica un directorio universal de fabricantes.", "Identifier observed in the signature. Apple explains how to locate your own Team ID, but does NOT provide a universal vendor directory."), "https://developer.apple.com/help/account/manage-your-team/locate-your-team-id/")
-                    field("Bundle ID", $bundle,
-                          tr("Identificador CFBundleIdentifier. Verifica su atribución con el desarrollador.", "CFBundleIdentifier. Verify attribution with the developer."), "https://developer.apple.com/documentation/bundleresources/information-property-list/cfbundleidentifier")
-                    field("SHA-256", $sha,
-                          tr("Busca el SHA-256 publicado en la web oficial del desarrollador o en una publicación autenticada. Apple no ofrece hashes de todas las aplicaciones.", "Find the SHA-256 on the vendor's official website or an authenticated release. Apple does not publish hashes for every app."), nil)
-                    field(tr("URL oficial de referencia", "Official reference URL"), $source,
-                          tr("Introduce la URL HTTPS del fabricante. Se consultará AASA del dominio. Si enlazas directamente a un manifiesto .sha256, .sha256sum o checksums, se intentará localizar el hash del nombre exacto del DMG. No hay un directorio oficial universal de hashes.", "Enter the publisher HTTPS URL. AASA will be queried on that domain. A direct .sha256, .sha256sum or checksums manifest URL can be used to look up the exact DMG filename. There is no universal official hash directory."), nil)
+                    MGSectionHeader(title: tr("Referencias independientes (opcionales)", "Independent references (optional)")) {
+                        field(tr("Nombre de la aplicación", "Application name"), $name,
+                              tr("Nombre publicado por el fabricante. Compruébalo en su web oficial.", "Name published by the vendor. Check its official website."), nil)
+                        field("Team ID", $team,
+                              tr("Identificador observado en la firma. Apple explica cómo localizar el Team ID propio, pero NO publica un directorio universal de fabricantes.", "Identifier observed in the signature. Apple explains how to locate your own Team ID, but does NOT provide a universal vendor directory."), "https://developer.apple.com/help/account/manage-your-team/locate-your-team-id/")
+                        field("Bundle ID", $bundle,
+                              tr("Identificador CFBundleIdentifier. Verifica su atribución con el desarrollador.", "CFBundleIdentifier. Verify attribution with the developer."), "https://developer.apple.com/documentation/bundleresources/information-property-list/cfbundleidentifier")
+                        field("SHA-256", $sha,
+                              tr("Busca el SHA-256 publicado en la web oficial del desarrollador o en una publicación autenticada. Apple no ofrece hashes de todas las aplicaciones.", "Find the SHA-256 on the vendor's official website or an authenticated release. Apple does not publish hashes for every app."), nil)
+                        field(tr("URL oficial de referencia", "Official reference URL"), $source,
+                              tr("Introduce la URL HTTPS del fabricante. Se consultará AASA del dominio. Si enlazas directamente a un manifiesto .sha256, .sha256sum o checksums, se intentará localizar el hash del nombre exacto del DMG. No hay un directorio oficial universal de hashes.", "Enter the publisher HTTPS URL. AASA will be queried on that domain. A direct .sha256, .sha256sum or checksums manifest URL can be used to look up the exact DMG filename. There is no universal official hash directory."), nil)
+                    }
                 }
                 HStack {
                     MGPrimaryButton(tr("Verificar", "Verify")) { verify() }
+                        .keyboardShortcut(.defaultAction)
                         .disabled(file == nil || busy)
                     MGProgressIndicator(isActive: busy)
+                        .accessibilityLabel(tr("Analizando archivo", "Analyzing file"))
                     Spacer()
-                    Text(tr("No ejecuta instaladores ni aplicaciones", "Does not execute installers or applications")).font(.caption).foregroundStyle(.secondary)
+                    Text(tr("No ejecuta instaladores ni aplicaciones", "Does not execute installers or applications")).font(MGTypography.caption).foregroundStyle(.secondary)
                 }
                 }
-                if let report {
+                if let report, selection == 0 {
                     MGInfoCard {
                         HStack {
                             Text(tr("Última auditoría: \(report.score)/10", "Last audit: \(report.score)/10"))
@@ -112,8 +142,13 @@ struct AuditorView: View {
                         }
                     }
                 }
-                if selection == 1, let report {
-                    results(report)
+                if selection == 1 {
+                    if let report { results(report) } else {
+                        MGInfoCard {
+                            MGSectionHeader(title: tr("Todavía no hay resultados", "No results yet"),
+                                            subtitle: tr("Selecciona un archivo en «Analizar archivo» y pulsa Verificar.", "Select a file under “Analyze file” and press Verify.")) { EmptyView() }
+                        }
+                    }
                 }
             }.padding(MGSpacing.lg)
             }.background(MGColor.Surface.canvas)
@@ -122,23 +157,21 @@ struct AuditorView: View {
         .onChange(of: yara.updateAvailable) { available in
             if available && !yara.downloading { showRulePrompt = true }
         }
-        .confirmationDialog(tr("Nueva versión de reglas YARA disponible", "New YARA rule revision available"), isPresented: $showRulePrompt) {
-            Button(tr("Sí, actualizar", "Yes, update")) { startRuleUpdate() }
-            Button(tr("No, ahora no", "No, not now"), role: .cancel) { }
+        .confirmationDialog(tr("Nueva versión de reglas YARA disponible", "New YARA rule revision available"), isPresented: $showRulePrompt, titleVisibility: .visible) {
+            Button(tr("Actualizar reglas", "Update rules")) { startRuleUpdate() }
+            Button(tr("Ahora no", "Not now"), role: .cancel) { }
         } message: {
             Text(tr("Puedes continuar usando las reglas locales. Las reglas proceden de GitHub comunitario mediante HTTPS y revisión fijada; NO existe firma criptográfica independiente del manifiesto. La actualización es opcional.", "You can keep using local rules. Community rules are fetched over HTTPS at a pinned GitHub revision, but no independently signed manifest exists. Updating is optional."))
         }
         .alert(tr("Actualización de YARA", "YARA update"), isPresented: $showRuleResult) {
-            Button("OK", role: .cancel) { }
+            Button(tr("Aceptar", "OK"), role: .cancel) { }
         } message: { Text(yara.message) }
-        .preferredColorScheme(darkMode ? .dark : .light)
-        .frame(minWidth: 900, minHeight: 680)
         .sheet(isPresented: $showResult) {
             if let report {
                 ScrollView { results(report).padding(MGSpacing.lg) }
                     .frame(minWidth: 780, minHeight: 600)
-                    .toolbar { ToolbarItem(placement: .confirmationAction) {
-                        Button(tr("Cerrar", "Close")) { showResult = false }
+                    .toolbar { ToolbarItem(placement: .cancellationAction) {
+                        Button(tr("Cerrar", "Close")) { showResult = false }.keyboardShortcut(.cancelAction)
                     }}
             }
         }
@@ -146,7 +179,7 @@ struct AuditorView: View {
             if let url = topic.url, let parsed = URL(string: url) {
                 return Alert(title: Text(topic.title), message: Text(topic.description + "\n\n" + url), primaryButton: .default(Text(tr("Abrir fuente oficial", "Open official source"))) { NSWorkspace.shared.open(parsed) }, secondaryButton: .cancel(Text(tr("Cerrar", "Close"))))
             }
-            return Alert(title: Text(topic.title), message: Text(topic.description), dismissButton: .default(Text("OK")))
+            return Alert(title: Text(topic.title), message: Text(topic.description), dismissButton: .default(Text(tr("Aceptar", "OK"))))
         }
     }
     private func startRuleUpdate() {
@@ -154,22 +187,23 @@ struct AuditorView: View {
     }
     private func sidebar(_ title: String, icon: String, index: Int) -> some View {
         Button { selection = index } label: {
-            Label(title, systemImage: icon).font(.subheadline.weight(selection == index ? .semibold : .regular))
-                .frame(maxWidth: .infinity, alignment: .leading).padding(10)
+            Label(title, systemImage: icon).font(selection == index ? MGTypography.bodySecondary.weight(.semibold) : MGTypography.bodySecondary)
+                .frame(maxWidth: .infinity, alignment: .leading).padding(MGSpacing.sm + MGSpacing.xxs)
                 .background(selection == index ? MGColor.Surface.overlaySelected : Color.clear)
-                .cornerRadius(8)
-        }.buttonStyle(.plain)
+                .clipShape(RoundedRectangle(cornerRadius: 8))
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityAddTraits(selection == index ? [.isSelected] : [])
     }
     @ViewBuilder private func field(_ title: String, _ value: Binding<String>, _ help: String, _ link: String?) -> some View {
         HStack(alignment: .center) {
             Text(title).frame(width: 185, alignment: .leading)
             TextField(title, text: value).textFieldStyle(.roundedBorder)
-            Button { helpTopic = HelpTopic(title: title, description: help, url: link) } label: {
-                Image(systemName: "info.circle")
+            InfoButton(what: tr("Información sobre: ", "Information about: ") + title,
+                       help: help + (link == nil ? "" : "\n" + link!)) {
+                helpTopic = HelpTopic(title: title, description: help, url: link)
             }
-            .buttonStyle(.plain)
-            .help(help + (link == nil ? "" : "\n" + link!))
-            .accessibilityLabel(help)
         }
     }
     private func choose() {
@@ -188,39 +222,38 @@ struct AuditorView: View {
     @ViewBuilder private func results(_ report: AuditReport) -> some View {
         MGInfoCard {
             HStack {
-                VStack(alignment: .leading) {
-                    Text(tr("Resultado de auditoría", "Audit results")).font(.title2.bold())
-                    Text(tr("Puntuación heurística; no es probabilidad de ausencia de malware.", "Heuristic score; not a probability of being malware-free.")).font(.caption).foregroundStyle(.secondary)
-                }
+                MGSectionHeader(title: tr("Resultado de auditoría", "Audit results"),
+                                subtitle: tr("Puntuación heurística; no es probabilidad de ausencia de malware.", "Heuristic score; not a probability of being malware-free.")) { EmptyView() }
                 Spacer()
-                Text("\(report.score)/10").font(.system(size: 38, weight: .bold, design: .rounded))
+                Text("\(report.score)/10").font(MGTypography.metric)
+                    .accessibilityLabel(tr("Puntuación \(report.score) de 10", "Score \(report.score) out of 10"))
             }
-            Text(tr("Evidencia: \(report.findings.filter { $0.state == .passed }.count) correctas · \(report.findings.filter { $0.state == .failed }.count) fallidas · \(report.findings.filter { $0.state == .warning }.count) advertencias · \(report.findings.filter { $0.state == .unknown }.count) sin verificar", "Evidence: \(report.findings.filter { $0.state == .passed }.count) passed · \(report.findings.filter { $0.state == .failed }.count) failed · \(report.findings.filter { $0.state == .warning }.count) warnings · \(report.findings.filter { $0.state == .unknown }.count) unknown"))
-                .font(.caption).foregroundStyle(.secondary)
+            let counts = Dictionary(grouping: report.findings, by: \.state).mapValues(\.count)
+            Text(tr("Evidencia: \(counts[.passed] ?? 0) correctas · \(counts[.failed] ?? 0) fallidas · \(counts[.warning] ?? 0) advertencias · \(counts[.unknown] ?? 0) sin verificar", "Evidence: \(counts[.passed] ?? 0) passed · \(counts[.failed] ?? 0) failed · \(counts[.warning] ?? 0) warnings · \(counts[.unknown] ?? 0) unknown"))
+                .font(MGTypography.caption).foregroundStyle(.secondary)
             ProgressView(value: Double(report.score), total: 10).tint(report.score >= 9 ? MGHealthStatus.protected.tint : report.score >= 5 ? MGHealthStatus.degraded.tint : MGHealthStatus.failed.tint)
-            Text(tr("Evidencias verificadas y pendientes", "Verified and outstanding evidence"))
-                .font(.headline).padding(.top, 8)
+                .accessibilityHidden(true)   // the score is already announced in words above
+            MGSectionHeader(title: tr("Evidencias verificadas y pendientes", "Verified and outstanding evidence")) { EmptyView() }
+                .padding(.top, MGSpacing.sm)
             ForEach(report.findings) { finding in
                 Divider()
                 HStack(alignment: .top) {
                     MGStatusBadge(status: status(finding.state), text: label(finding.state))
-                        .frame(width: 115, alignment: .leading)
-                    VStack(alignment: .leading, spacing: 3) {
+                        .frame(width: 130, alignment: .leading)
+                    VStack(alignment: .leading, spacing: MGSpacing.xs) {
                         Text(finding.title).fontWeight(.medium)
-                        Text(finding.detail).font(.caption).foregroundStyle(.secondary).textSelection(.enabled)
+                        Text(finding.detail).font(MGTypography.caption).foregroundStyle(.secondary).textSelection(.enabled)
                     }
                     Spacer()
-                    Button { helpTopic = FindingHelp.topic(finding.title, spanish: spanish) } label: {
-                        Image(systemName: "info.circle").font(.body)
+                    InfoButton(what: tr("Información sobre: ", "Information about: ") + finding.title,
+                               help: tr("Qué significa esta prueba y cómo interpretarla", "What this check means and how to interpret it")) {
+                        helpTopic = FindingHelp.topic(finding.title, spanish: spanish)
                     }
-                    .buttonStyle(.plain)
-                    .help(tr("Qué significa esta prueba y cómo interpretarla", "What this check means and how to interpret it"))
-                    .accessibilityLabel(tr("Información sobre: ", "Information about: ") + finding.title)
                 }
             }
             HStack {
-                MGSecondaryButton(tr("Exportar JSON", "Export JSON")) { export(report, json: true) }
-                MGSecondaryButton(tr("Exportar TXT", "Export TXT")) { export(report, json: false) }
+                MGSecondaryButton(tr("Exportar JSON…", "Export JSON…")) { export(report, json: true) }
+                MGSecondaryButton(tr("Exportar TXT…", "Export TXT…")) { export(report, json: false) }
             }
         }
     }
