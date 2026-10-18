@@ -26,13 +26,20 @@ final class YARARuleManager: NSObject, ObservableObject, URLSessionDownloadDeleg
         lastUpdate = UserDefaults.standard.object(forKey: "yaraLastUpdate") as? Date
         try? FileManager.default.createDirectory(at: rulesDirectory, withIntermediateDirectories: true)
         installStarterRulesIfNeeded()
+        refreshInstalledCount()
     }
     var rulesDirectory: URL {
         FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
             .appendingPathComponent("DMGTrustAuditor/YARARules", isDirectory: true)
     }
     var isOutdated: Bool { updateAvailable || lastUpdate == nil }
-    var installedCount: Int { ruleFiles().count }
+    @Published private(set) var installedCount = 0
+    func refreshInstalledCount() {
+        DispatchQueue.global(qos: .utility).async {
+            let n = self.ruleFiles().count
+            DispatchQueue.main.async { self.installedCount = n }
+        }
+    }
     var engineURL: URL { Bundle.main.bundleURL.appendingPathComponent("Contents/Helpers/yara") }
     var engineReady: Bool {
         FileManager.default.isExecutableFile(atPath: engineURL.path) &&
@@ -107,19 +114,27 @@ final class YARARuleManager: NSObject, ObservableObject, URLSessionDownloadDeleg
             message = AppLanguage.tr("Aún no hay una versión verificada. Busca actualizaciones primero.", "There is no verified revision yet. Check for updates first.")
             completion(message); return
         }
-        guard engineReady else {
-            message = AppLanguage.tr("Falta el motor YARA firmado incluido en la app, así que no se pueden validar ni activar reglas. Usa la versión oficial de la app.", "The signed YARA engine bundled with the app is missing, so rules cannot be validated or activated. Use the official app release.")
-            completion(message); return
+        downloading = true; progress = 0
+        message = AppLanguage.tr("Comprobando el motor YARA…", "Checking the YARA engine…")
+        // `engineReady` runs codesign and waits for it, so it must never run on the main thread.
+        DispatchQueue.global(qos: .userInitiated).async {
+            let ready = self.engineReady
+            DispatchQueue.main.async {
+                guard ready else {
+                    self.downloading = false
+                    self.message = AppLanguage.tr("Falta el motor YARA firmado incluido en la app, así que no se pueden validar ni activar reglas. Usa la versión oficial de la app.", "The signed YARA engine bundled with the app is missing, so rules cannot be validated or activated. Use the official app release.")
+                    completion(self.message); return
+                }
+                self.targetRevision = revision
+                self.completion = completion
+                self.message = AppLanguage.tr("Descargando la versión fijada de las reglas…", "Downloading the pinned rules revision…")
+                let config = URLSessionConfiguration.ephemeral
+                config.timeoutIntervalForResource = 120
+                let s = URLSession(configuration: config, delegate: self, delegateQueue: nil)
+                self.session = s
+                s.downloadTask(with: URL(string: "https://codeload.github.com/Neo23x0/signature-base/zip/\(revision)")!).resume()
+            }
         }
-        targetRevision = revision
-        self.completion = completion
-        downloading = true; progress = 0; message = AppLanguage.tr("Descargando la versión fijada de las reglas…", "Downloading the pinned rules revision…")
-        let config = URLSessionConfiguration.ephemeral
-        config.timeoutIntervalForResource = 120
-        let s = URLSession(configuration: config, delegate: self, delegateQueue: nil)
-        session = s
-        let archive = URL(string: "https://codeload.github.com/Neo23x0/signature-base/zip/\(revision)")!
-        s.downloadTask(with: archive).resume()
     }
     private func finish(_ result: String, success: Bool) {
         DispatchQueue.main.async {
@@ -128,6 +143,7 @@ final class YARARuleManager: NSObject, ObservableObject, URLSessionDownloadDeleg
             if success {
                 self.lastUpdate = Date()
                 self.updateAvailable = false
+                self.refreshInstalledCount()
                 UserDefaults.standard.set(self.lastUpdate, forKey: "yaraLastUpdate")
                 UserDefaults.standard.set(self.targetRevision, forKey: "yaraInstalledRevision")
             }
@@ -193,7 +209,7 @@ final class YARARuleManager: NSObject, ObservableObject, URLSessionDownloadDeleg
                 try data.write(to: candidate)
                 let check = AuditEngine.command(engineURL.path, ["--timeout=5", candidate.path, probe.path])
                 if check.0 == 0 { valid += 1 } else { rejected += 1; try? fm.removeItem(at: candidate) }
-                DispatchQueue.main.async { self.progress = 0.8 + 0.19 * Double(index + 1) / Double(min(candidates.count, self.maxRules)) }
+                if index % 10 == 0 { DispatchQueue.main.async { self.progress = 0.8 + 0.19 * Double(index + 1) / Double(min(candidates.count, self.maxRules)) } }
             }
             try? fm.removeItem(at: probe)
             guard valid > 0 else { throw NSError(domain: "YARA", code: 6, userInfo: [NSLocalizedDescriptionKey: "No rules passed engine validation; previous rules preserved"]) }
