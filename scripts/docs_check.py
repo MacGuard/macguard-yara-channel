@@ -1,8 +1,13 @@
 #!/usr/bin/env python3
 """Renders the built documentation in headless Chrome and checks what a reader would see.
 
-usage: docs_check.py [--site DIR] [--chrome PATH]
+usage: docs_check.py [--site DIR] [--chrome PATH] [--mode fast|full]
   --site   an assembled site (output of build_site.py: release data + web assets). The docs are rebuilt from docs-src/ into a COPY of it.
+  --mode   fast (default): the English page of each of the 20 pages at 1280 px: every diagram compiles and renders, no overflow, accessibility basics.
+                          Diagram sources are shared by both languages, so this already compiles each of the 20 diagrams; ES/EN parity is a text test.
+           full: all 40 pages at 1280 px and 390 px plus the toolbar interactions (zoom, fit, 1:1). Run it when a visual component changed and before a release.
+One Chrome instance does the whole run (all pages in one document, one after another); it runs in its own process group under a hard wall-clock limit and is
+killed with its helpers when the run ends or the limit is hit. Nothing else is started.
 
 For every page, in both languages and at desktop (1280 px) and phone (390 px) widths, loaded in an iframe of exactly that width:
   * every Mermaid diagram compiles and renders (no error, rendered == total) with the vendored Mermaid
@@ -11,19 +16,19 @@ For every page, in both languages and at desktop (1280 px) and phone (390 px) wi
   * rendered text stays legible after fit (>= 8 px effective) and the fitted diagram is not smaller than half its natural size on a phone
   * one h1, main landmark, html lang, every button/link has a name
 Exit 0 only if everything passes."""
-import argparse, json, os, pathlib, shutil, socket, subprocess, sys, tempfile, time, re, html
+import argparse, json, os, pathlib, shutil, signal, socket, subprocess, sys, tempfile, time, re, html
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / 'scripts'))
 import build_docs
 
 PROBE = r"""<!doctype html><meta charset=utf-8><title>probe</title><pre id=result>RUNNING</pre><script>
-var W=%(width)d, URLS=%(urls)s, out=[];
+var JOBS=%(jobs)s, FULL=%(full)s, out=[], W=0;
 function sleep(ms){return new Promise(function(r){setTimeout(r,ms)})}
-async function one(u){
+async function one(job){ W=job.w; var u=job.u;
   var f=document.createElement('iframe'); f.style.cssText='width:'+W+'px;height:900px;border:0'; f.src=u; document.body.appendChild(f);
   await new Promise(function(r){f.onload=r}); var w=f.contentWindow, d=f.contentDocument, t=0;
   while(!(w.__docsDiagrams&&w.__docsDiagrams.done) && t<400){await sleep(100);t++}
-  var res={url:u,problems:[],figs:0};
+  var res={url:u,width:W,problems:[],figs:0};
   var st=w.__docsDiagrams||{total:0,rendered:0,errors:[]};
   res.figs=st.total; if(!st.done) res.problems.push('diagrams did not finish'); if(st.rendered!==st.total) res.problems.push('rendered '+st.rendered+' of '+st.total); st.errors.forEach(function(e){res.problems.push('diagram error '+(e.diagram||'')+': '+e.error)});
   var de=d.documentElement; if(de.scrollWidth>W+1) res.problems.push('page scrolls horizontally: '+de.scrollWidth+' > '+W);
@@ -42,46 +47,60 @@ async function one(u){
     var scale=wd()/nat.w; if(W<700 && scale<0.5) res.problems.push(name+': fitted scale '+scale.toFixed(2)+' is below 0.5 on a phone');
     var minFont=1e9; svg.querySelectorAll('text,tspan,.nodeLabel,foreignObject').forEach(function(t){ var fs=parseFloat(getComputedStyle(t).fontSize)||0; if(fs>0) minFont=Math.min(minFont,fs) });
     if(minFont<1e9 && minFont*scale<8) res.problems.push(name+': text renders at '+(minFont*scale).toFixed(1)+' px (<8)');
-    var before=wd(), zin=fig.querySelector('.dg-bar button[aria-label="'+(JSON.parse(d.getElementById('main').dataset.ui).zoom_in)+'"]'); if(zin){ zin.click(); await sleep(20); if(!(wd()>before)) res.problems.push(name+': zoom in did not enlarge'); }
+    if(!FULL){ continue } var before=wd(), zin=fig.querySelector('.dg-bar button[aria-label="'+(JSON.parse(d.getElementById('main').dataset.ui).zoom_in)+'"]'); if(zin){ zin.click(); await sleep(20); if(!(wd()>before)) res.problems.push(name+': zoom in did not enlarge'); }
     var zout=fig.querySelector('.dg-bar button[aria-label="'+(JSON.parse(d.getElementById('main').dataset.ui).zoom_out)+'"]'); if(zout){ var b2=wd(); zout.click(); await sleep(20); if(!(wd()<b2)) res.problems.push(name+': zoom out did not shrink'); }
     var fitb=fig.querySelector('.dg-bar button[aria-label="'+(JSON.parse(d.getElementById('main').dataset.ui).fit)+'"]'); if(fitb){ fitb.click(); await sleep(20); if(Math.abs(wd()-before)>2) res.problems.push(name+': fit does not return to the fitted size'); }
     if(stage.scrollWidth>stage.clientWidth+1 && getComputedStyle(stage).overflowX==='visible') res.problems.push(name+': diagram overflows its container without scrolling');
   }
   out.push(res); f.remove();
 }
-(async function(){ for(var i=0;i<URLS.length;i++){ try{ await one(URLS[i]) }catch(e){ out.push({url:URLS[i],problems:['probe error '+e]}) } } document.getElementById('result').textContent='DONE '+JSON.stringify(out); })();
+(async function(){ for(var i=0;i<JOBS.length;i++){ try{ await one(JOBS[i]) }catch(e){ out.push({url:JOBS[i].u,width:JOBS[i].w,problems:['probe error '+e]}) } } document.getElementById('result').textContent='DONE '+JSON.stringify(out); })();
 </script>"""
 
 def free_port():
     s = socket.socket(); s.bind(('127.0.0.1', 0)); p = s.getsockname()[1]; s.close(); return p
 
+def run_chrome(cmd, limit):
+    """One Chrome in its own process group; the whole group is killed on exit or at the wall-clock limit."""
+    proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, text=True, start_new_session=True)
+    try: out, _ = proc.communicate(timeout=limit); return out, False
+    except subprocess.TimeoutExpired: return '', True
+    finally:
+        try: os.killpg(proc.pid, signal.SIGKILL)
+        except (ProcessLookupError, PermissionError): pass
+        try: proc.wait(timeout=10)
+        except Exception: pass
+
 def main(argv=None):
     ap = argparse.ArgumentParser(); ap.add_argument('--site', default=str(ROOT / 'site')); ap.add_argument('--chrome', default=os.environ.get('CHROME', ''))
-    ap.add_argument('--widths', default='1280,390'); a = ap.parse_args(argv)
+    ap.add_argument('--mode', choices=('fast', 'full'), default='fast'); ap.add_argument('--limit', type=int, default=300, help='hard wall-clock limit for the browser, seconds'); a = ap.parse_args(argv)
     chrome = a.chrome or next((c for c in ('/Applications/Google Chrome.app/Contents/MacOS/Google Chrome', shutil.which('google-chrome') or '', shutil.which('chromium') or '', shutil.which('chromium-browser') or '') if c and os.path.exists(c)), '')
     if not chrome: print('no Chrome/Chromium found (set CHROME or --chrome)'); return 2
-    tmp = pathlib.Path(tempfile.mkdtemp(prefix='docs-check-')); srv = None
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='docs-check-')); srv = None; t0 = time.time()
     try:
         site = tmp / 'site'; shutil.copytree(a.site, site)
         for f in ('docs.css', 'docs.js', 'style.css', 'common.js'): shutil.copy(ROOT / 'web' / f, site / f)
         shutil.copytree(ROOT / 'web' / 'vendor', site / 'vendor', dirs_exist_ok=True)
         shutil.rmtree(site / 'docs', ignore_errors=True); rep = build_docs.build(site / 'docs', site)
         pages = [p for p in rep['files'] if p.endswith('.html') and '/' in p]
+        full = a.mode == 'full'
+        jobs = [{'w': w, 'u': f'docs/{p}'} for w in ((1280, 390) if full else (1280,)) for p in pages if full or p.startswith('en/')]
         port = free_port(); srv = subprocess.Popen([sys.executable, '-m', 'http.server', str(port), '--bind', '127.0.0.1', '--directory', str(site)], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         for _ in range(50):
             try: socket.create_connection(('127.0.0.1', port), 0.2).close(); break
             except OSError: time.sleep(0.1)
+        (site / '__probe.html').write_text(PROBE % {'jobs': json.dumps(jobs), 'full': 'true' if full else 'false'})
+        out, timed_out = run_chrome([chrome, '--headless=new', '--disable-gpu', '--no-sandbox', '--virtual-time-budget=120000', '--dump-dom', f'http://127.0.0.1:{port}/__probe.html'], a.limit)
         failures = []; checked = 0; figs = 0
-        for width in [int(x) for x in a.widths.split(',')]:
-            urls = [f'docs/{p}' for p in pages]
-            (site / '__probe.html').write_text(PROBE % {'width': width, 'urls': json.dumps(urls)})
-            r = subprocess.run([chrome, '--headless=new', '--disable-gpu', '--no-sandbox', '--virtual-time-budget=900000', '--dump-dom', f'http://127.0.0.1:{port}/__probe.html'], capture_output=True, text=True, timeout=1500)
-            m = re.search(r'<pre id="result">(.*?)</pre>', r.stdout, re.S)
-            if not m or not html.unescape(m.group(1)).startswith('DONE'): failures.append(f'{width}px: probe did not finish: {(m.group(1) if m else r.stdout[-300:])[:300]}'); continue
+        m = re.search(r'<pre id="result">(.*?)</pre>', out, re.S)
+        if timed_out: failures.append(f'the browser did not finish within {a.limit} s (killed)')
+        elif not m or not html.unescape(m.group(1)).startswith('DONE'): failures.append(f'probe did not finish: {(m.group(1) if m else out[-300:])[:300]}')
+        else:
             for res in json.loads(html.unescape(m.group(1))[5:]):
                 checked += 1; figs += res.get('figs', 0)
-                failures += [f'{width}px {res["url"]}: {p}' for p in res['problems']]
-        print(f'docs_check: {checked} page renders ({len(pages)} pages x widths {a.widths}), {figs} diagram renders')
+                failures += [f'{res.get("width")}px {res["url"]}: {p}' for p in res['problems']]
+            if checked != len(jobs): failures.append(f'{checked} of {len(jobs)} page renders reported')
+        print(f'docs_check[{a.mode}]: {checked} page renders, {figs} diagram renders, {time.time() - t0:.1f}s, one Chrome')
         for f in failures[:80]: print('FAIL', f)
         return 1 if failures else 0
     finally:

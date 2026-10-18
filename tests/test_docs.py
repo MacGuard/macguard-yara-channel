@@ -21,13 +21,16 @@ def site_dir():
     for n in ('manifest.json', 'latest.json', 'releases.json'): (d / n).write_bytes(urllib.request.urlopen(PUBLIC + n, timeout=60).read())
     return d
 
+_CACHE = {}
 class Base(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        cls.site = site_dir(); cls.out = pathlib.Path(tempfile.mkdtemp(prefix='docs-out-'))
-        cls.report = build_docs.build(cls.out, cls.site)
-        cls.manifest = json.loads((cls.site / 'manifest.json').read_text()); cls.latest = json.loads((cls.site / 'latest.json').read_text())
-        cls.html = {(l, p['slug']): (cls.out / l / f'{p["slug"]}.html').read_text(encoding='utf-8') for l in LANGS for p in PAGES}
+        # the 40 pages are built once per test run, not once per test class
+        if not _CACHE:
+            site = site_dir(); out = pathlib.Path(tempfile.mkdtemp(prefix='docs-out-')); report = build_docs.build(out, site)
+            _CACHE.update(site=site, out=out, report=report, manifest=json.loads((site / 'manifest.json').read_text()), latest=json.loads((site / 'latest.json').read_text()),
+                          html={(l, p['slug']): (out / l / f'{p["slug"]}.html').read_text(encoding='utf-8') for l in LANGS for p in PAGES})
+        for k, v in _CACHE.items(): setattr(cls, k, v)
 
 class Structure(Base):
     def test_twenty_pages_each_language(self):

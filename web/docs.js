@@ -65,8 +65,11 @@ function renderAll() {
   if (!window.mermaid) { state.errors.push({ error: 'mermaid is not loaded' }); state.done = true; document.querySelectorAll('.dg-code').forEach(function (d) { d.open = true; }); return; }
   window.mermaid.initialize({ startOnLoad: false, securityLevel: 'strict', theme: themeName(), fontFamily: '-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif', flowchart: { useMaxWidth: false, htmlLabels: false, curve: 'basis' }, sequence: { useMaxWidth: false, wrap: true, width: 150 }, state: { useMaxWidth: false }, themeVariables: {} });
   var chain = Promise.resolve(); figs.forEach(function (f) { chain = chain.then(function () { return renderFigure(f); }); });
-  chain.then(function () { state.done = true; });
+  chain.then(function () { figs.forEach(function (f) { if (f._nat) fit(f); }); state.done = true; });   /* the page grew while rendering (scrollbar): fit once more with the final width */
 }
-window.addEventListener('resize', function () { document.querySelectorAll('figure.diagram').forEach(function (f) { if (f._nat && !document.fullscreenElement) fit(f); }); });
+/* Refit only when the window width really changed. A page scrollbar appearing or disappearing changes the stage width but not innerWidth;
+   refitting on that would flip the scrollbar again and loop forever (found by scripts/docs_check.py: Chrome never finished). */
+var lastW = window.innerWidth;
+window.addEventListener('resize', function () { if (window.innerWidth === lastW) return; lastW = window.innerWidth; document.querySelectorAll('figure.diagram').forEach(function (f) { if (f._nat && !document.fullscreenElement) fit(f); }); });
 if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', renderAll); else renderAll();
 })();

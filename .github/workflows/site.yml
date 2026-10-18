@@ -4,6 +4,11 @@ on:
     branches: [main]
     paths: ['web/**', 'docs-src/**', 'scripts/build_docs.py', 'scripts/docs_check.py', 'scripts/verify_public_release.py', 'tests/test_docs.py', 'tests/test_docs_og.py', 'scripts/og_inject.py', '.github/workflows/site.yml', 'scripts/build_site.py', 'scripts/catalog.py', 'scripts/stats.py']
   workflow_dispatch:
+    inputs:
+      full_visual:
+        description: 'Run the full visual documentation check (40 pages, desktop and phone)'
+        type: boolean
+        default: false
 permissions:
   contents: read
 # One writer at a time for logs/: every workflow that appends to the log shares this group.
@@ -94,6 +99,7 @@ jobs:
         with:
           ref: ${{ github.ref_name }}
           persist-credentials: false
+          fetch-depth: 2
       - uses: actions/download-artifact@v4
         with:
           name: site-dir
@@ -102,10 +108,21 @@ jobs:
         env:
           DOCS_SITE: site
         run: python3 -m unittest tests.test_docs tests.test_docs_og -v
-      - name: Render every page and diagram in headless Chrome (1280 px and 390 px)
+      # Quick render on every change: the 20 pages in English at 1280 px, one Chrome, every diagram compiled and drawn.
+      - name: Render check, fast
+        run: python3 scripts/docs_check.py --site site --mode fast --limit 180
+      # Full visual run (40 pages, desktop and phone, toolbar interactions) only when a visual component changed, or when asked for.
+      - name: Decide whether the full visual run is needed
+        id: depth
         run: |
-          which google-chrome chromium chromium-browser || true
-          python3 scripts/docs_check.py --site site
+          full=false
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ "${{ inputs.full_visual }}" = "true" ]; then full=true; fi
+          changed="$(git diff --name-only HEAD~1 HEAD 2>/dev/null || echo ALL)"
+          if echo "$changed" | grep -qE '^(web/docs\.(css|js)|web/style\.css|web/vendor/|docs-src/diagrams/|scripts/build_docs\.py|scripts/docs_check\.py|ALL)'; then full=true; fi
+          echo "full=$full" >> "$GITHUB_OUTPUT"; echo "full visual run: $full"
+      - name: Render check, full (40 pages x desktop and phone)
+        if: steps.depth.outputs.full == 'true'
+        run: python3 scripts/docs_check.py --site site --mode full --limit 300
 
   github-pages:
     needs: [build, docs-check]
@@ -176,6 +193,18 @@ jobs:
         run: |
           if [ -z "$CLOUDFLARE_API_TOKEN" ] || [ -z "$CLOUDFLARE_ACCOUNT_ID" ]; then echo "status=missing" >> "$GITHUB_OUTPUT"; exit 0; fi
           if bash scripts/cf_preflight.sh; then echo "status=present" >> "$GITHUB_OUTPUT"; else echo "status=invalid" >> "$GITHUB_OUTPUT"; fi
+      - name: Explain a blocked or missing Cloudflare credential (no deploy is attempted until it is replaced)
+        if: steps.creds.outputs.status != 'present'
+        run: |
+          {
+            echo "### Cloudflare Pages was NOT deployed (credential: ${{ steps.creds.outputs.status }})"
+            echo
+            echo "GitHub Pages is unaffected. To enable the automatic mirror, replace these two repository secrets (Settings, Secrets and variables, Actions):"
+            echo "- \`CLOUDFLARE_API_TOKEN\`: a Custom API token created at dash.cloudflare.com, My Profile, API Tokens, with permission **Account, Cloudflare Pages, Edit** for the account in \`config/cloudflare_account_id.txt\`. A real token is about 40 characters of letters, digits, \`-\` and \`_\`."
+            echo "- \`CLOUDFLARE_ACCOUNT_ID\`: the id in \`config/cloudflare_account_id.txt\`."
+            echo
+            echo "The preflight line above (\`cf-preflight:\`) says which check failed. Nothing else needs to change; the next run deploys by itself."
+          } >> "$GITHUB_STEP_SUMMARY"
       - name: Point the share preview at the mirror's own address
         if: steps.creds.outputs.status == 'present'
         run: python3 scripts/og_inject.py site https://macguard-rules.pages.dev/

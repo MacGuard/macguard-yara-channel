@@ -90,7 +90,7 @@ less verify_public_release.py
 python3 verify_public_release.py --latest
 ```
 
-Opciones: `--latest`, `--tag TAG`, `--directory DIR` (artefactos ya descargados), `--json`, `--previous-checkpoint FILE` o `--trust-state FILE` (protección contra retroceso), `--token` o la variable `GITHUB_TOKEN` (solo para evitar el límite anónimo de la API de GitHub, que devuelve HTTP 403 si se agota). Salida real, abreviada, sobre la última release:
+Opciones: `--latest`, `--tag TAG`, `--directory DIR` (artefactos ya descargados), `--json`, `--previous-checkpoint FILE` o `--trust-state FILE` (protección contra retroceso), `--token` o la variable `GITHUB_TOKEN` (opcional). Funciona sin token: la API anónima de GitHub admite 60 peticiones por hora y dirección IP; si se agota (HTTP 403 con `X-RateLimit-Remaining: 0`) el verificador lo dice con la hora de reinicio y, sin usar la API, resuelve `latest` con la redirección de `github.com` y descarga los mismos artefactos (se comprueba `Content-Length`, no el tamaño de la API) y lo anota en el informe. Un 403 sin cuota agotada (cortafuegos, proxy) se informa como tal. Salida real, abreviada, sobre la última release:
 
 ```
 MacGuard release verification — PASS (exit 0)

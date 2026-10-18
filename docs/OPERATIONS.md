@@ -35,3 +35,13 @@ Until then the pipeline reports the service as unavailable and publishes only wh
 
 ## Resolving a quarantined rule
 Open the panel → Quarantine → the rule. Read the reasons, resources and source. Approve (only judgement findings can be waived) or reject with a reason. Approved rules go through the technical checks again in the next run; if they fail they return to PENDING with the reason. Rejected content never returns; an edited upstream version appears as a new candidate linked to the old one.
+
+## Cloudflare Pages mirror (automatic, from GitHub Actions only)
+`site.yml` deploys the same build to GitHub Pages and to the Cloudflare Pages project `macguard-rules`, using only repository secrets; nothing depends on a maintainer's Mac or `wrangler` login. The `cloudflare-pages` job runs `scripts/cf_preflight.sh` first and never tries to deploy with a credential that failed it.
+
+State on 2026-10-18: **blocked**. The preflight prints `FORMAT: token has characters outside [A-Za-z0-9_-] (length 88)`: the secret `CLOUDFLARE_API_TOKEN` is not a Cloudflare API token (they are about 40 characters). Replace exactly these two repository secrets:
+| Secret | Value |
+|---|---|
+| `CLOUDFLARE_API_TOKEN` | a Custom API token (dash.cloudflare.com → My Profile → API Tokens), permission **Account → Cloudflare Pages → Edit**, account = the one in `config/cloudflare_account_id.txt` |
+| `CLOUDFLARE_ACCOUNT_ID` | the id in `config/cloudflare_account_id.txt` |
+Set the token without printing it: `pbpaste | tr -d '[:space:]' | gh secret set CLOUDFLARE_API_TOKEN -R MacGuard/macguard-yara-channel`. Then run `site.yml` once (Actions → Deploy site → Run workflow) and check that the log has `site.cloudflare_deployed` and that `scripts/verify_live.py https://macguard-rules.pages.dev/ …` passes. Until then every run logs `site.cloudflare_blocked` and writes the instructions to the job summary; no failing deployments are attempted. A site published to `pages.dev` by hand is not evidence that this automation works.
