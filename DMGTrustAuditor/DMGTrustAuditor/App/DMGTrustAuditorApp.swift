@@ -102,12 +102,23 @@ struct AuditorView: View {
                 MGInfoCard {
                     MGSectionHeader(title: tr("Archivo que se analizará", "File to inspect")) {
                         HStack {
-                            Text(file?.path ?? tr("Ningún archivo seleccionado", "No file selected")).lineLimit(2).textSelection(.enabled)
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(file?.path ?? tr("Ningún archivo seleccionado (también puedes arrastrarlo aquí)", "No file selected (you can also drop it here)")).lineLimit(2).textSelection(.enabled)
+                                if let file { Text(tr("Detectado: ", "Detected: ") + AuditEngine.label(ContentDetector.detect(file).kind)).font(MGTypography.caption).foregroundStyle(.secondary) }
+                            }
                             Spacer()
-                            MGPrimaryButton(tr("Seleccionar DMG…", "Select DMG…")) { choose() }
+                            MGPrimaryButton(tr("Seleccionar archivo…", "Select file…")) { choose() }
                                 .keyboardShortcut("o")
                         }
                     }
+                }
+                .onDrop(of: [.fileURL], isTargeted: nil) { providers in
+                    guard let p = providers.first else { return false }
+                    _ = p.loadObject(ofClass: URL.self) { url, _ in
+                        guard let url else { return }
+                        DispatchQueue.main.async { self.file = url; self.report = nil }   // dropped items are only read, never opened
+                    }
+                    return true
                 }
                 MGInfoCard {
                     MGSectionHeader(title: tr("Referencias independientes (opcionales)", "Independent references (optional)")) {
@@ -207,7 +218,10 @@ struct AuditorView: View {
         }
     }
     private func choose() {
-        let panel = NSOpenPanel(); panel.allowedContentTypes = [.init(filenameExtension: "dmg")!]; panel.canChooseDirectories = false
+        // Any supported container: .app bundles are packages, so they are selectable as single items.
+        let panel = NSOpenPanel(); panel.canChooseFiles = true; panel.canChooseDirectories = false; panel.allowsMultipleSelection = false
+        panel.treatsFilePackagesAsDirectories = false
+        panel.message = tr("Elige un DMG, PKG, .app, ZIP, TAR, Mach-O, script, ISO o workflow. No se ejecutará.", "Choose a DMG, PKG, .app, ZIP, TAR, Mach-O, script, ISO or workflow. It will not be run.")
         if panel.runModal() == .OK { file = panel.url; report = nil }
     }
     private func verify() {
@@ -228,6 +242,7 @@ struct AuditorView: View {
                 Text("\(report.score)/10").font(MGTypography.metric)
                     .accessibilityLabel(tr("Puntuación \(report.score) de 10", "Score \(report.score) out of 10"))
             }
+            Text(tr("Formato: ", "Format: ") + report.kind + " · " + report.coverage).font(MGTypography.caption).foregroundStyle(.secondary)
             let counts = Dictionary(grouping: report.findings, by: \.state).mapValues(\.count)
             Text(tr("Evidencia: \(counts[.passed] ?? 0) correctas · \(counts[.failed] ?? 0) fallidas · \(counts[.warning] ?? 0) advertencias · \(counts[.unknown] ?? 0) sin verificar", "Evidence: \(counts[.passed] ?? 0) passed · \(counts[.failed] ?? 0) failed · \(counts[.warning] ?? 0) warnings · \(counts[.unknown] ?? 0) unknown"))
                 .font(MGTypography.caption).foregroundStyle(.secondary)

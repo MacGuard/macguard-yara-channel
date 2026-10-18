@@ -107,6 +107,7 @@ enum AuditEngine {
             keepTemp = auditDiskImage(input, kind: kind, temp: temp, c, cancelled)
         case .app:
             if c.observedBundle.isEmpty { _ = analyzeApp(input.file, input, c) }
+            inspectBundle(input.file, input: input, temp: temp, depth: 0, c, cancelled)
             let urls = (fm.enumerator(at: input.file, includingPropertiesForKeys: [.isRegularFileKey, .isSymbolicLinkKey], options: [])?.allObjects as? [URL]) ?? []
             c.findings.append(contentsOf: YARAScanner.inspect(regularFiles(urls)))
         case .pkg, .mpkg:
@@ -192,6 +193,7 @@ enum AuditEngine {
         c.findings.append(contentsOf: YARAScanner.inspect(regularFiles(urls)))
         if apps.isEmpty && pkgs.isEmpty { c.add("Application bundles", "No .app or .pkg found. Other payload types require manual inspection.", .unknown, 25) }
         for app in apps.prefix(15) { _ = analyzeApp(app, input, c) }
+        for app in apps.prefix(3) { inspectBundle(app, input: input, temp: temp.appendingPathComponent("bundle-\(app.lastPathComponent)"), depth: depth + 1, c, cancelled) }
         if apps.count > 15 { c.add("Inspection coverage", "More than 15 apps; some were not assessed.", .warning, 8) }
         if depth < 2 {
             let nested = urls.filter { u in
@@ -306,6 +308,7 @@ enum AuditEngine {
         else { c.add("Developer Team ID", "Observed: \(team)", team == input.expectedTeam ? .passed : .failed, 16) }
         if input.expectedBundle.isEmpty { c.add("Bundle identifier", "Observed: \(bundle)", .unknown, 4) }
         else { c.add("Bundle identifier", "Observed: \(bundle)", bundle == input.expectedBundle ? .passed : .failed, 4) }
+        if let v = info["CFBundleShortVersionString"] as? String { c.add("Bundle version", "Observed: \(v)", .unknown, 0) }
         if !input.expectedName.isEmpty { c.add("Application name", name, name.localizedCaseInsensitiveContains(input.expectedName) ? .passed : .warning, 2) }
         c.add("Hardened Runtime", details.contains("flags=0x") && details.contains("runtime") ? "Runtime flag present" : "Runtime flag not established", details.contains("runtime") ? .passed : .warning, 5)
         let gate = command("/usr/sbin/spctl", ["--assess", "--type", "execute", "--verbose=4", app.path])
