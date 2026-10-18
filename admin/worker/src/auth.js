@@ -29,9 +29,9 @@ export async function getSession(db, request, now) {
 export async function destroySession(db, id) { await db.prepare('DELETE FROM sessions WHERE id = ?').bind(id).run(); }
 
 /** The role is recomputed from GitHub on every protected call (cached 60 s). Fail closed when GitHub cannot be asked. */
-export async function effectiveRole(db, session, env, deps, now) {
+export async function effectiveRole(db, session, env, deps, now, { fresh = false } = {}) {
   let perm = session.perm;
-  if (!perm || now - session.perm_at > 60) {
+  if (fresh || !perm || now - session.perm_at > 60) {   // `fresh`: a change of state always asks GitHub again, and never falls back to a stale grant
     try {
       const r = await deps.fetch(`${env.GITHUB_API || 'https://api.github.com'}/repos/${env.REPO}`, { headers: { Authorization: `Bearer ${session.token}`, Accept: 'application/vnd.github+json', 'User-Agent': 'macguard-admin' } });
       if (r.status === 401 || r.status === 403 || r.status === 404) { perm = 'none'; }
@@ -39,7 +39,7 @@ export async function effectiveRole(db, session, env, deps, now) {
       else { const p = (await r.json()).permissions || {}; perm = p.admin ? 'admin' : p.maintain ? 'maintain' : p.push ? 'write' : p.triage ? 'triage' : 'read'; }
       await db.prepare('UPDATE sessions SET perm = ?, perm_at = ? WHERE id = ?').bind(perm, now, session.id).run();
     } catch (e) {
-      if (!session.perm || now - session.perm_at > 600) return null;   // stale or unknown: no access
+      if (fresh || !session.perm || now - session.perm_at > 600) return null;   // stale or unknown: no access (reads may use a grant up to 10 minutes old, writes never)
       perm = session.perm;
     }
   }

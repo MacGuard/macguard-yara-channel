@@ -10,7 +10,7 @@ usage: quarantine_client.py submit    --decision dist/decision.json --dist dist 
        quarantine_client.py failed    --hashes-file hashes.json --reason TEXT"""
 import argparse, base64, json, os, pathlib, sys, urllib.error, urllib.parse, urllib.request
 
-CHUNK = 100
+CHUNK = 40   # 40 items of at most 1 MB each stay under the service's 64 MB request cap
 
 def base_url(): return (os.environ.get('QUARANTINE_URL') or '').rstrip('/')
 

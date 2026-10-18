@@ -197,6 +197,10 @@ test('the audit log is hash-chained: edits, deletions and reordering are detecte
   const ok = await w.call('GET', '/api/audit/verify', { user: ada }); assert.equal(ok.data.ok, true); assert.ok(ok.data.entries >= 3);
   assert.equal((await w.call('GET', '/api/audit/verify', { user: rita })).status, 403, 'only admins verify the chain');
   const rows = await auditRows(w.db); assert.equal((await verifyChain(rows)).ok, true);
+  assert.throws(() => w.db.raw.exec("UPDATE audit SET actor = 'mallory' WHERE seq = 2"), /append-only/);   // the service itself cannot rewrite its trail
+  assert.throws(() => w.db.raw.exec('DELETE FROM audit WHERE seq = 2'), /append-only/);
+  assert.throws(() => w.db.raw.exec("UPDATE decisions SET reason = 'x'"), /append-only/);
+  for (const t of ['audit_no_update', 'audit_no_delete']) w.db.raw.exec(`DROP TRIGGER ${t}`);   // someone with direct database access: the chain must still show it
   w.db.raw.exec("UPDATE audit SET actor = 'mallory' WHERE seq = 2");
   assert.equal((await w.call('GET', '/api/audit/verify', { user: ada })).data.ok, false);
   w.db.raw.exec("UPDATE audit SET actor = 'rita' WHERE seq = 2"); assert.equal((await w.call('GET', '/api/audit/verify', { user: ada })).data.ok, true);
@@ -347,4 +351,19 @@ test('FA-L1/L2/L5: replay with another action, missing OIDC audience, invisible 
   assert.equal((await w.submit([cand('y', 'rules/a..b/ok.yar')])).status, 200);   // a benign double dot inside a name is fine
   const token = await w.pipelineToken('daily.yml'); delete w.env.OIDC_AUDIENCE;
   assert.equal((await w.call('POST', '/api/pipeline/submit', { bearer: token, body: { run_id: '1', candidates: [] } })).status, 401);
+});
+
+test('FA-L3/L5: a change of state asks GitHub again and never uses a stale grant; oversized bodies and malformed members are refused', async () => {
+  const { w, ids } = await seeded(['a']); const rita = await w.login('rita', { push: true }); w.reviewer = rita;
+  assert.equal((await w.call('GET', '/api/candidates', { user: rita })).status, 200); w.tick(30);
+  const token = 'tok-rita'; w.perms[token] = { pull: true };   // write access removed 30 s ago
+  assert.equal((await w.call('GET', '/api/candidates', { user: rita })).status, 200);   // reads may use the cached grant for up to 60 s
+  const r = await decide(w, rita, { action: 'approve', ids, reason: 'reviewed carefully', request_id: rid(), expect: { [ids[0]]: 1 } });
+  assert.equal(r.status, 403); w.perms[token] = { push: true };   // restored
+  w.perms[token] = 'down';   // GitHub unreachable: a write must fail closed even though a grant is cached
+  assert.equal((await decide(w, rita, { action: 'approve', ids, reason: 'reviewed carefully', request_id: rid(), expect: { [ids[0]]: 1 } })).status, 403);
+  w.perms[token] = { push: true };
+  const big = await w.call('POST', '/api/decisions', { user: rita, body: { action: 'approve', ids, reason: 'x'.repeat(300000), request_id: rid(), expect: {} } }); assert.equal(big.status, 413);
+  const ada = await w.login('ada', { admin: true }, { id: 3 });
+  assert.equal((await w.call('POST', '/api/members', { user: ada, body: { login: ['a'], role: 'VIEWER' } })).status, 400);   // used to be a 500
 });

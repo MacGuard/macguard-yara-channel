@@ -9,6 +9,12 @@ const HEADERS = {
 };
 const json = (obj, status = 200, extra = {}) => new Response(JSON.stringify(obj), { status, headers: { ...HEADERS, 'Content-Type': 'application/json; charset=utf-8', ...extra } });
 const err = (status, message, extra = {}) => json({ error: message, ...extra }, status);
+/** JSON body with a size cap (the platform's own limit is far above what any legitimate request needs). */
+async function readJson(request, max) {
+  const declared = Number(request.headers.get('Content-Length') || 0); if (declared > max) return { tooLarge: true };
+  const text = await request.text(); if (text.length > max) return { tooLarge: true };
+  try { return { body: JSON.parse(text) }; } catch { return { body: null }; }
+}
 
 export async function handle(request, env, deps) {
   const url = new URL(request.url), now = deps.now(), db = env.DB, method = request.method, path = url.pathname;
@@ -20,7 +26,7 @@ export async function handle(request, env, deps) {
       const actor = `pipeline:${v.workflow}`;
       if (method === 'GET' && path === '/api/pipeline/decisions') return json({ schema: 1, decisions: await store.decisionsMap(db), retest: await store.retestList(db) });
       if (method !== 'POST') return err(405, 'method not allowed');
-      const body = await request.json().catch(() => null); if (!body) return err(400, 'JSON body required');
+      const read = await readJson(request, 64_000_000); if (read.tooLarge) return err(413, 'request body too large'); const body = read.body; if (!body) return err(400, 'JSON body required');
       if (path === '/api/pipeline/submit') {
         if (v.workflow !== 'daily.yml') return err(403, 'only the daily review submits candidates');
         if (!Array.isArray(body.candidates) || body.candidates.length > 2000) return err(400, 'candidates (max 2000) required');
@@ -62,10 +68,10 @@ export async function handle(request, env, deps) {
     // ---- authenticated API ----
     if (path.startsWith('/api/')) {
       const session = await getSession(db, request, now); if (!session) return err(401, 'sign in required');
-      const role = await effectiveRole(db, session, env, deps, now);
+      const unsafe = method !== 'GET' && method !== 'HEAD';
+      const role = await effectiveRole(db, session, env, deps, now, { fresh: unsafe });
       if (!role) return err(403, 'your GitHub account has no access to this panel');
       const actor = { login: session.login, id: session.user_id, role };
-      const unsafe = method !== 'GET' && method !== 'HEAD';
       if (unsafe) {   // CSRF: same-origin request carrying the per-session token
         if (request.headers.get('Origin') !== url.origin) return err(403, 'cross-origin request refused');
         if (!timingSafeEqual(request.headers.get('X-CSRF-Token') || '', session.csrf)) return err(403, 'missing or wrong CSRF token');
@@ -84,8 +90,8 @@ export async function handle(request, env, deps) {
       }
       if (method === 'GET' && path === '/api/stats') return json({ counts: await store.counts(db), public: publicStats(await store.counts(db)) });
       if (method === 'POST' && path === '/api/decisions') {
-        const body = await request.json().catch(() => null);
-        const v = validateDecisionRequest(body, role); if (!v.ok) return err(v.status, v.error);
+        const read = await readJson(request, 200_000); if (read.tooLarge) return err(413, 'request body too large');
+        const v = validateDecisionRequest(read.body, role); if (!v.ok) return err(v.status, v.error);
         const r = await store.decide(db, v.value, actor, iso);
         const { status, ...rest } = r; return json(rest, status);
       }
@@ -97,8 +103,8 @@ export async function handle(request, env, deps) {
         if (!atLeast(role, 'ADMIN')) return err(403, 'admin role required');
         if (method === 'GET') return json({ members: await store.listMembers(db) });
         if (method === 'POST') {
-          const b = await request.json().catch(() => null);
-          if (!b || !/^[A-Za-z0-9-]{1,39}$/.test(b.login || '') || !['VIEWER', 'REVIEWER', 'ADMIN', null].includes(b.role)) return err(400, 'login and role (VIEWER, REVIEWER, ADMIN or null) required');
+          const read = await readJson(request, 10_000); if (read.tooLarge) return err(413, 'request body too large'); const b = read.body;
+          if (!b || typeof b.login !== 'string' || !/^[A-Za-z0-9-]{1,39}$/.test(b.login) || !['VIEWER', 'REVIEWER', 'ADMIN', null].includes(b.role)) return err(400, 'login and role (VIEWER, REVIEWER, ADMIN or null) required');
           if (b.login.toLowerCase() === session.login.toLowerCase()) return err(400, 'you cannot change your own role');
           await store.setMember(db, b.login, b.role, session.login, iso);
           await store.appendAudit(db, { actor: session.login, role, action: 'member.set', target: b.login.toLowerCase(), detail: { role: b.role } }, iso);
