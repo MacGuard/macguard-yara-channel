@@ -2,12 +2,14 @@
 
 Generated from `logs/log.jsonl`; do not edit by hand. Times are UTC. Newest first.
 
-Entries: 19 (INFO 7, WARNING 12, ERROR 0)
+Entries: 21 (INFO 9, WARNING 12, ERROR 0)
 
-No signed checkpoint yet.
+Latest signed checkpoint: 20 entries, Merkle root `0a4cc81014bb5bf3c71cbbab077a748a1a5224ca30a4d892db5488a1e828f21a`.
 
 | # | Date (UTC) | Level | Event | Message |
 |---|---|---|---|---|
+| 20 | 2026-10-18T06:18:14Z | INFO | `release.published` | Signed release rules-20261018-39103534527 published on GitHub. The site deployment was requested. |
+| 19 | 2026-10-18T06:17:57Z | INFO | `release.approved` | Candidate from review run 39103437029 was approved for signing in workflow run 39103534527. |
 | 18 | 2026-10-18T06:17:06Z | INFO | `candidate.accepted` | All 1184 rule files compiled. Candidate rules root is 2bf5201185d1fa30... |
 | 17 | 2026-10-18T06:17:06Z | WARNING | `file.skipped` | Skipped packers/peid.yar from community: size-or-binary. |
 | 16 | 2026-10-18T06:17:06Z | WARNING | `file.skipped` | Skipped yara/yara-rules_vuln_drivers_strict_renamed.yar from nextron: size-or-binary. |
