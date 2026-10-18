@@ -14,6 +14,8 @@ import argparse, base64, hashlib, json, os, pathlib, shutil, subprocess, sys, te
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 RESULTS = []
+# The quarantine part emulates the Actions token endpoint; Sigstore signing needs the REAL one, so remember it before it is overwritten.
+REAL_OIDC = {k: os.environ[k] for k in ('ACTIONS_ID_TOKEN_REQUEST_URL', 'ACTIONS_ID_TOKEN_REQUEST_TOKEN') if k in os.environ}
 def check(name, ok, detail=''):
     RESULTS.append(ok); print(('PASS ' if ok else 'FAIL ') + name + (f' — {detail}' if detail else ''), flush=True)
     return ok
@@ -146,7 +148,11 @@ def publish(work, a, final, svc, check):
     pub = work / 'dist-public'; ws = work / 'ws'; shutil.rmtree(ws, ignore_errors=True)
     for d in ('scripts', 'config', 'web'): shutil.copytree(ROOT / d, ws / d, ignore=shutil.ignore_patterns('__pycache__'))
     (ws / 'logs').mkdir(); shutil.copytree(pub, ws / 'dist'); env = {**os.environ}
-    def sh(*cmd, **kw): return subprocess.run(cmd, cwd=ws, check=True, capture_output=True, text=True, env=env, **kw)
+    env.update(REAL_OIDC)
+    def sh(*cmd, **kw):
+        r = subprocess.run(cmd, cwd=ws, capture_output=True, text=True, env=env, **kw)
+        if r.returncode: print(f"command failed: {' '.join(cmd)[:120]}\n{r.stderr[-600:]}", flush=True); raise SystemExit(1)
+        return r
     sh(sys.executable, 'scripts/tlog.py', 'event', '--level', 'INFO', '--code', 'sources.fetched', '--run-id', 'chain', '--message', 'synthetic upstream')
     sh(sys.executable, 'scripts/tlog.py', 'entry-decision', '--dist', 'dist', '--decision', str(work / 'dist/decision.json'), '--run-id', 'chain')
     sh(sys.executable, 'scripts/tlog.py', 'event', '--level', 'INFO', '--code', 'release.approved', '--run-id', 'chain', '--message', 'chain test release')
