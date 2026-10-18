@@ -2,7 +2,7 @@
 (function () {
 'use strict';
 var $ = function (i) { return document.getElementById(i); };
-var T = { es: {}, en: { skip: 'Skip to content', title: 'Quarantine panel', logout: 'Sign out', login_h: 'Restricted access', login_p: 'This panel is private. Sign in with GitHub; your real repository permissions will be checked.', login_b: 'Sign in with GitHub', denied_h: 'No access', denied_p: 'Your GitHub account has no permission for this panel. Ask an administrator for access.', tab_q: 'Quarantine', tab_a: 'Audit', tab_m: 'Members', f_q: 'Search', f_state: 'State', f_src: 'Source', selall: 'Select page', b_approve: 'Approve selection', b_reject: 'Reject selection', cap: 'Quarantined rules', sel: 'Select', c_file: 'File', c_state: 'State', c_why: 'Reasons', c_src: 'Source', c_when: 'Detected', prev: 'Previous', next: 'Next', verify_chain: 'Verify the audit chain', c_actor: 'Who', c_action: 'Action', c_target: 'Target', m_role: 'Role', m_save: 'Save', m_note: 'Write access to the repository gives REVIEWER and repository admin gives ADMIN; here VIEWER is granted or an explicit grant is removed. Read access to a public repository gives nothing.', reason: 'Reason (required)', cancel: 'Cancel', confirm: 'Confirm' } };
+var T = { es: {}, en: { skip: 'Skip to content', title: 'Quarantine panel', logout: 'Sign out', login_h: 'Restricted access', login_p: 'This panel is private. Sign in with GitHub; your real repository permissions will be checked.', login_b: 'Sign in with GitHub', denied_h: 'No access', denied_p: 'Your GitHub account has no permission for this panel. Ask an administrator for access.', tab_q: 'Quarantine', tab_a: 'Audit', tab_m: 'Members', f_q: 'Search', f_state: 'State', f_src: 'Source', selall: 'Select page', b_approve: 'Approve selection (publish on the next run)', b_reject: 'Delete selection (reject)', b_hold: 'Keep selection in quarantine', cap: 'Quarantined rules', sel: 'Select', c_file: 'File', c_state: 'State', c_why: 'Reasons', c_src: 'Source', c_when: 'Detected', prev: 'Previous', next: 'Next', verify_chain: 'Verify the audit chain', c_actor: 'Who', c_action: 'Action', c_target: 'Target', m_role: 'Role', m_save: 'Save', m_note: 'Write access to the repository gives REVIEWER and repository admin gives ADMIN; here VIEWER is granted or an explicit grant is removed. Read access to a public repository gives nothing.', reason: 'Reason (required)', cancel: 'Cancel', confirm: 'Confirm' } };
 var S = { me: null, page: 1, total: 0, size: 25, items: [], selected: {}, tab: 'q' };
 var L = function () { return $('lang').value; };
 function tr(k, es) { var d = T[L()] || {}; return d[k] !== undefined ? d[k] : es; }
@@ -24,7 +24,7 @@ function boot() {
     S.me = r.data; $('app').hidden = false; $('who').textContent = S.me.login; $('role').hidden = false; $('role').textContent = S.me.role; $('logout').hidden = false;
     var rank = { VIEWER: 1, REVIEWER: 2, ADMIN: 3 }[S.me.role];
     document.querySelector('[data-tab=a]').hidden = rank < 2; document.querySelector('[data-tab=m]').hidden = rank < 3; $('verify-chain').hidden = rank < 3;
-    $('bulk-approve').hidden = $('bulk-reject').hidden = rank < 2; loadStats(); loadList();
+    $('bulk-approve').hidden = $('bulk-reject').hidden = $('bulk-hold').hidden = rank < 2; loadStats(); loadList();
   });
 }
 function loadStats() {
@@ -50,7 +50,7 @@ function renderList() {
     tr_.appendChild(el('td', { text: c.source })); tr_.appendChild(el('td', { text: (c.detected_at || '').slice(0, 10) })); tb.appendChild(tr_); });
   var pages = Math.max(1, Math.ceil(S.total / S.size)); $('pageinfo').textContent = S.page + ' / ' + pages + ' · ' + S.total; $('prev').disabled = S.page <= 1; $('next').disabled = S.page >= pages; syncBulk();
 }
-function syncBulk() { var n = Object.keys(S.selected).length; $('selcount').textContent = n ? String(n) : ''; $('bulk-approve').disabled = $('bulk-reject').disabled = n === 0; }
+function syncBulk() { var n = Object.keys(S.selected).length; $('selcount').textContent = n ? String(n) : ''; $('bulk-approve').disabled = $('bulk-reject').disabled = $('bulk-hold').disabled = n === 0; }
 $('selall').addEventListener('click', function () { document.querySelectorAll('#list tbody input[type=checkbox]').forEach(function (cb, i) { if (!cb.disabled && !cb.checked) { cb.checked = true; S.selected[S.items[i].id] = S.items[i].version; cb.closest('tr').className = 'sel'; } }); syncBulk(); });
 ['q', 'state', 'source'].forEach(function (i) { $(i).addEventListener(i === 'state' ? 'change' : 'input', function () { S.page = 1; clearTimeout(S.t); S.t = setTimeout(loadList, 250); }); });
 $('prev').addEventListener('click', function () { S.page--; loadList(); }); $('next').addEventListener('click', function () { S.page++; loadList(); });
@@ -80,13 +80,13 @@ function openDetail(id) {
     if (c.related && c.related.length) { d.appendChild(el('h3', { text: 'Related' })); var ul = el('ul'); c.related.forEach(function (x) { ul.appendChild(el('li', { text: x.relation + ': ' + x.state + ' ' + x.sha256.slice(0, 12) })); }); d.appendChild(ul); }
     d.appendChild(el('h3', { text: 'Decisions' })); var dl = el('ul'); (c.decisions || []).forEach(function (x) { dl.appendChild(el('li', { text: x.at.slice(0, 16) + ' · ' + x.actor + ' (' + x.role + ') · ' + x.action + ' → ' + x.to_state + ' · ' + x.reason })); }); if (!(c.decisions || []).length) dl.appendChild(el('li', { text: '—' })); d.appendChild(dl);
     if (c.release_tag) d.appendChild(el('p', { text: 'Release: ' + c.release_tag }));
-    if (S.me.role !== 'VIEWER') { var row = el('p'); [['approve', 'Approve', 'ok'], ['reject', 'Reject', 'bad']].forEach(function (a) { var b = el('button', { type: 'button', class: 'btn ' + a[2], text: a[1] }); b.addEventListener('click', function () { var sel = {}; sel[c.id] = c.version; askDecision(a[0], sel); }); row.appendChild(b); });
+    if (S.me.role !== 'VIEWER') { var row = el('p'); [['approve', 'Approve: publish on the next run', 'ok'], ['reject', 'Delete (reject for good)', 'bad'], ['hold', 'Keep in quarantine', '']].forEach(function (a) { var b = el('button', { type: 'button', class: 'btn ' + a[2], text: a[1] }); b.addEventListener('click', function () { var sel = {}; sel[c.id] = c.version; askDecision(a[0], sel); }); row.appendChild(b); });
       var rb = el('button', { type: 'button', class: 'btn', text: 'Retest' }); rb.addEventListener('click', function () { api('POST', '/api/candidates/' + c.id + '/retest').then(function (x) { say(x.status === 200 ? x.data.note : (x.data.error || 'error'), x.status !== 200); }); }); row.appendChild(rb); d.appendChild(row); }
     close.focus(); });
 }
 function askDecision(action, selection) {
-  var ids = Object.keys(selection), dlg = $('confirm'); $('confirm-h').textContent = (action === 'approve' ? 'Approve ' : 'Reject ') + ids.length + (ids.length === 1 ? ' rule' : ' rules');
-  $('confirm-p').textContent = 'This will change exactly ' + ids.length + ' rule' + (ids.length === 1 ? '' : 's') + '. ' + (action === 'approve' ? 'Approval does not skip the technical checks: the pipeline tests them again before anything is published.' : 'Rejected content is never re-added automatically.');
+  var ids = Object.keys(selection), dlg = $('confirm'); $('confirm-h').textContent = ({ approve: 'Approve ', reject: 'Delete (reject) ', hold: 'Keep in quarantine ' }[action]) + ids.length + (ids.length === 1 ? ' rule' : ' rules');
+  $('confirm-p').textContent = 'This will change exactly ' + ids.length + ' rule' + (ids.length === 1 ? '' : 's') + '. ' + ({ approve: 'The next run tests it again with every technical check and publishes it only if it passes.', reject: 'Rejected content is never re-added automatically; an edited upstream version would be a new candidate.', hold: 'It stays out of every release until you decide.' }[action]);
   $('confirm-reason').value = ''; $('confirm-err').textContent = ''; S.pending = { action: action, selection: selection, ids: ids };
   if (!dlg.open) dlg.showModal(); $('confirm-reason').focus();
 }
@@ -99,6 +99,7 @@ $('confirm-go').addEventListener('click', function (ev) {
   api('POST', '/api/decisions', body).then(function (r) { if (r.status === 200) { say((r.data.applied || []).length + ' updated.'); $('detail').hidden = true; loadStats(); loadList(); } else say((r.data.error || 'error') + (r.data.conflicts ? ' (' + r.data.conflicts.length + ' conflicts)' : ''), true); });
 });
 $('confirm').addEventListener('close', function () { if ($('confirm').returnValue !== 'ok') S.pending = null; });
+$('bulk-hold').addEventListener('click', function () { askDecision('hold', Object.assign({}, S.selected)); });
 $('bulk-approve').addEventListener('click', function () { askDecision('approve', Object.assign({}, S.selected)); });
 $('bulk-reject').addEventListener('click', function () { askDecision('reject', Object.assign({}, S.selected)); });
 document.querySelectorAll('.tabs button').forEach(function (b) { b.addEventListener('click', function () { S.tab = b.dataset.tab; document.querySelectorAll('.tabs button').forEach(function (x) { x.setAttribute('aria-selected', x === b ? 'true' : 'false'); }); ['q', 'a', 'm'].forEach(function (t) { $('tab-' + t).hidden = t !== S.tab; }); if (S.tab === 'a') loadAudit(); if (S.tab === 'm') loadMembers(); }); });

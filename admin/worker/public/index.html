@@ -16,7 +16,7 @@
 <label><span data-t="f_state">Estado</span><select id="state"><option value="">—</option><option>PENDING</option><option>UNDER_REVIEW</option><option>APPROVED_PENDING_VALIDATION</option><option>REJECTED</option><option>RELEASED</option></select></label>
 <label><span data-t="f_src">Fuente</span><input id="source" type="text" placeholder="nextron, community…"></label></div>
 <div class="bulk"><button id="selall" type="button" data-t="selall">Seleccionar página</button><span id="selcount" aria-live="polite"></span>
-<button id="bulk-approve" type="button" class="btn ok" disabled data-t="b_approve">Aprobar selección</button><button id="bulk-reject" type="button" class="btn bad" disabled data-t="b_reject">Rechazar selección</button></div>
+<button id="bulk-approve" type="button" class="btn ok" disabled data-t="b_approve">Aprobar selección (se publica en la próxima ejecución)</button><button id="bulk-reject" type="button" class="btn bad" disabled data-t="b_reject">Eliminar selección (rechazar)</button><button id="bulk-hold" type="button" class="btn" disabled data-t="b_hold">Mantener selección en cuarentena</button></div>
 <div class="tablewrap"><table id="list"><caption class="sr" data-t="cap">Reglas en cuarentena</caption><thead><tr><th scope="col"><span class="sr" data-t="sel">Seleccionar</span></th><th scope="col" data-t="c_file">Fichero</th><th scope="col" data-t="c_state">Estado</th><th scope="col" data-t="c_why">Motivos</th><th scope="col" data-t="c_src">Fuente</th><th scope="col" data-t="c_when">Detectada</th></tr></thead><tbody></tbody></table></div>
 <nav class="pager"><button id="prev" type="button" data-t="prev">Anterior</button><span id="pageinfo"></span><button id="next" type="button" data-t="next">Siguiente</button></nav>
 </section>

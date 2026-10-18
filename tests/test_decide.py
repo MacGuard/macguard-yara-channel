@@ -92,4 +92,21 @@ class DecideTests(unittest.TestCase):
         files = [f('rules/a.yar'), f('rules/q.yar', 'QUARANTINED', reasons=[r('costly-regex', 'review')])]
         s = decide.decide(files, dynamic_required=False)['public_stats']
         self.assertEqual(s, {'examined': 2, 'accepted': 1, 'quarantined': 1, 'rejected': 0, 'retired': 0, 'previously_published_failing': 0})
+
+ANOMALY = {'max_removed_fraction': 0.15, 'max_changed_fraction': 0.40}
+class AnomalyTests(unittest.TestCase):
+    def prev(self, n): return {'files': [{'path': f'rules/p{i}.yar', 'sha256': str(i % 10) * 64} for i in range(n)]}
+    def test_a_mass_removal_is_not_published_automatically(self):
+        kept = [f(f'rules/p{i}.yar', sha=str(i % 10) * 64) for i in range(50)]          # 50 of 100 survive: an upstream wipe
+        res = decide.decide(kept, previous=self.prev(100), dynamic=ok_dyn(kept), anomaly=ANOMALY)
+        self.assertFalse(res['publishable']); self.assertIn('unusually large change', res['blockers'][0]); self.assertEqual(res['change_fractions']['removed'], 0.5)
+    def test_a_person_can_allow_it_after_looking(self):
+        kept = [f(f'rules/p{i}.yar', sha=str(i % 10) * 64) for i in range(50)]
+        self.assertTrue(decide.decide(kept, previous=self.prev(100), dynamic=ok_dyn(kept), anomaly=ANOMALY, allow_large_change=True)['publishable'])
+    def test_an_ordinary_daily_change_goes_through(self):
+        kept = [f(f'rules/p{i}.yar', sha=str(i % 10) * 64) for i in range(98)] + [f('rules/new.yar')]
+        self.assertTrue(decide.decide(kept, previous=self.prev(100), dynamic=ok_dyn(kept), anomaly=ANOMALY)['publishable'])
+    def test_rewriting_most_files_counts_as_a_large_change_too(self):
+        edited = [f(f'rules/p{i}.yar', sha='f' * 64) for i in range(100)]
+        self.assertFalse(decide.decide(edited, previous=self.prev(100), dynamic=ok_dyn(edited), anomaly=ANOMALY)['publishable'])
 if __name__ == '__main__': unittest.main()

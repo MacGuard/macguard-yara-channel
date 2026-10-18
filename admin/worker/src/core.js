@@ -17,6 +17,8 @@ const HUMAN = {
   approve: { from: ['PENDING', 'UNDER_REVIEW'], to: 'APPROVED_PENDING_VALIDATION' },
   reject: { from: ['PENDING', 'UNDER_REVIEW', 'APPROVED_PENDING_VALIDATION'], to: 'REJECTED' },
   review: { from: ['PENDING'], to: 'UNDER_REVIEW' },
+  // keep it in quarantine on purpose: also takes back an approval that has not been released yet
+  hold: { from: ['PENDING', 'UNDER_REVIEW', 'APPROVED_PENDING_VALIDATION'], to: 'UNDER_REVIEW' },
   release_review: { from: ['UNDER_REVIEW'], to: 'PENDING' },
 };
 export function humanTransition(action, fromState) {
@@ -37,13 +39,13 @@ export function validateDecisionRequest(body, role) {
   if (!atLeast(role, 'REVIEWER')) return { ok: false, status: 403, error: 'reviewer role required' };
   if (!body || typeof body !== 'object') return err('JSON body required');
   const { action, ids, reason, request_id, confirm_count, expect } = body;
-  if (!['approve', 'reject', 'review', 'release_review'].includes(action)) return err('unknown action');
+  if (!['approve', 'reject', 'hold', 'review', 'release_review'].includes(action)) return err('unknown action');
   if (!Array.isArray(ids) || ids.length === 0) return err('ids must be a non-empty list');
   if (new Set(ids).size !== ids.length) return err('duplicate ids');
   if (ids.length > MAX_BATCH) return err(`at most ${MAX_BATCH} candidates per request`);
   if (!ids.every((i) => typeof i === 'string' && /^[0-9a-f-]{8,64}$/.test(i))) return err('malformed id');
   if (typeof request_id !== 'string' || !/^[A-Za-z0-9_-]{16,80}$/.test(request_id)) return err('request_id (16-80 url-safe chars) required: it makes the request idempotent');
-  if ((action === 'approve' || action === 'reject') && (typeof reason !== 'string' || reason.trim().length < 5 || reason.length > 2000)) return err('a reason of 5 to 2000 characters is required');
+  if (['approve', 'reject', 'hold'].includes(action) && (typeof reason !== 'string' || reason.trim().length < 5 || reason.length > 2000)) return err('a reason of 5 to 2000 characters is required');
   if (ids.length > 1 && confirm_count !== ids.length) return err(`confirm_count must equal the exact number of affected candidates (${ids.length})`);
   if (!expect || typeof expect !== 'object' || !ids.every((i) => Number.isInteger(expect[i]))) return err('expect must give the version you saw for every id (concurrency check)');
   return { ok: true, value: { action, ids, reason: (reason || '').trim(), request_id, expect } };

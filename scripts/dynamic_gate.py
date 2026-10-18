@@ -64,7 +64,7 @@ class Gate:
             return bool(absolute_ok(c[0], self.cfg['absolute']))
         return bench.ddmin(suspects, fails, budget=budget)
 
-def run(dist, classification, previous_dir, policy, decisions, yara, yarac, max_iter=3, previously_rejected=None, timeout_file=10):
+def run(dist, classification, previous_dir, policy, decisions, yara, yarac, max_iter=3, previously_rejected=None, timeout_file=10, allow_large_change=False):
     dist = pathlib.Path(dist); prev_manifest = None; base = None
     if previous_dir and (pathlib.Path(previous_dir) / 'manifest.json').exists():
         prev_manifest = json.loads((pathlib.Path(previous_dir) / 'manifest.json').read_text())
@@ -75,7 +75,7 @@ def run(dist, classification, previous_dir, policy, decisions, yara, yarac, max_
         td = pathlib.Path(td); corpus, canaries = bench.build_corpus(td / 'corpus'); work = td / 'work'; work.mkdir()
         gate = Gate(yara, yarac, policy, work, corpus, canaries, timeout_file)
         def decide_now(dyn=None, required=False):
-            return decide.decide(classification, prev_manifest, decisions, dyn if dyn is not None else {'culprits': sorted(culprits)}, hits_known, required, corpus_size=len(corpus), previously_rejected=previously_rejected)
+            return decide.decide(classification, prev_manifest, decisions, dyn if dyn is not None else {'culprits': sorted(culprits)}, hits_known, required, corpus_size=len(corpus), previously_rejected=previously_rejected, anomaly=policy.get('anomaly'), allow_large_change=allow_large_change)
         for it in range(1, max_iter + 1):
             dec = decide_now(); approved = dec['approved']
             cand = {'root': dist, 'files': [f['path'] for f in approved], 'deps': {f['path']: f.get('depends_on', []) for f in approved}}
@@ -128,7 +128,7 @@ def verify_only(dist, previous_dir, policy, yara, yarac, out):
 def tlog_root(files): return decide.set_root(files)
 
 if __name__ == '__main__':
-    ap = argparse.ArgumentParser(); ap.add_argument('--verify-only', action='store_true', help='measure the candidate in --dist as it is (platform check)'); ap.add_argument('--dist', default='dist'); ap.add_argument('--classification', default='dist/classification.json'); ap.add_argument('--previous'); ap.add_argument('--decisions')
+    ap = argparse.ArgumentParser(); ap.add_argument('--verify-only', action='store_true', help='measure the candidate in --dist as it is (platform check)'); ap.add_argument('--allow-large-change', action='store_true', help='a person has looked at an unusually large change'); ap.add_argument('--dist', default='dist'); ap.add_argument('--classification', default='dist/classification.json'); ap.add_argument('--previous'); ap.add_argument('--decisions')
     ap.add_argument('--policy', default='config/policy.json'); ap.add_argument('--rejected'); ap.add_argument('--out', default='dist/decision.json'); ap.add_argument('--dynamic-out', default='dist/dynamic.json'); ap.add_argument('--approved-out', default='dist/approved.json')
     a = ap.parse_args(); load = lambda p: json.loads(pathlib.Path(p).read_text()) if p and pathlib.Path(p).exists() else None
     yara, yarac = shutil.which('yara'), shutil.which('yarac')

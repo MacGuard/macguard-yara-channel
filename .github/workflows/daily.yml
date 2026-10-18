@@ -5,6 +5,11 @@ on:
   schedule:
     - cron: '17 3 * * *'
   workflow_dispatch:
+    inputs:
+      allow_large_change:
+        description: 'A person has looked at an unusually large change (more than 15% removed or 40% touched) and allows it'
+        type: boolean
+        default: false
 permissions:
   contents: read
 concurrency:
@@ -62,7 +67,7 @@ jobs:
         run: |
           start=$(date +%s)
           python3 scripts/dynamic_gate.py --dist dist --classification dist/classification.json --previous previous \
-            --decisions dist/decisions.json --out dist/decision.json --dynamic-out dist/dynamic.json >> "$GITHUB_OUTPUT"
+            --decisions dist/decisions.json --out dist/decision.json --dynamic-out dist/dynamic.json ${{ inputs.allow_large_change && '--allow-large-change' || '' }} >> "$GITHUB_OUTPUT"
           echo "seconds=$(( $(date +%s) - start ))" >> "$GITHUB_OUTPUT"
       - name: Send quarantined candidates to the private service
         if: always() && steps.gate.outcome == 'success'

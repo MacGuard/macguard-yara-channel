@@ -260,3 +260,18 @@ test('a retest request survives until the pipeline reports it done, and earlier 
   const d = (await w.call('GET', `/api/candidates/${edited.data.results[0].id}`, { user: rita })).data;
   assert.equal(d.history[0].metrics.cpu_s, 1.2);
 });
+
+test('keeping a rule in quarantine is an explicit choice and also takes back an approval that has not been released', async () => {
+  const { w, ids } = await seeded(['a', 'b']); const rita = await w.login('rita', { push: true }); w.reviewer = rita;
+  assert.equal((await decide(w, rita, { action: 'hold', ids: [ids[0]], reason: '', request_id: rid(), expect: { [ids[0]]: 1 } })).status, 400, 'a reason is required');
+  assert.equal((await decide(w, rita, { action: 'hold', ids: [ids[0]], reason: 'waiting for the vendor', request_id: rid(), expect: { [ids[0]]: 1 } })).status, 200);
+  assert.equal(await state(w, ids[0]), 'UNDER_REVIEW');
+  await decide(w, rita, { action: 'approve', ids: [ids[1]], reason: 'looks right to me', request_id: rid(), expect: { [ids[1]]: 1 } });
+  assert.equal((await decide(w, rita, { action: 'hold', ids: [ids[1]], reason: 'second thoughts', request_id: rid(), expect: { [ids[1]]: 2 } })).status, 200);
+  const dm = await w.call('GET', '/api/pipeline/decisions', { bearer: await w.pipelineToken() });
+  assert.equal(dm.data.decisions[sha('a')], undefined); assert.equal(dm.data.decisions[sha('b')], undefined, 'neither is released by the next run');
+  // and a released rule cannot be pulled back by hand
+  await decide(w, rita, { action: 'approve', ids: [ids[0]], reason: 'ok now', request_id: rid(), expect: { [ids[0]]: 3 } });
+  await w.call('POST', '/api/pipeline/released', { bearer: await w.pipelineToken('publish.yml'), body: { tag: 't', hashes: [sha('a')] } });
+  assert.equal((await decide(w, rita, { action: 'hold', ids: [ids[0]], reason: 'too late', request_id: rid(), expect: { [ids[0]]: 5 } })).status, 409);
+});

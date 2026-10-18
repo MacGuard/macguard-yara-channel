@@ -71,5 +71,10 @@
       "macos-runner": "blocking-when-job-ran",
       "independent-macos-vm": "not-available: hosted macOS runners are VMs without nested virtualization (hv_vmm_present=1, no Hypervisor.framework); needs a self-hosted bare-metal Mac"
     }
+  },
+  "anomaly": {
+    "max_removed_fraction": 0.15,
+    "max_changed_fraction": 0.4,
+    "comment": "automatic publication refuses a change that removes more than 15% of the previous release or touches more than 40% of it (an upstream force-push, a hijacked source, a broken fetch). A person looks at it and re-runs the review with allow_large_change."
   }
 }

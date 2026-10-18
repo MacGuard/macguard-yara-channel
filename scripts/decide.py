@@ -18,7 +18,7 @@ APPROVING = {'APPROVED_PENDING_VALIDATION', 'RELEASED'}
 
 def set_root(files): return tlog.rules_root([{'path': f['path'], 'sha256': f['sha256']} for f in files])
 
-def decide(classified, previous=None, decisions=None, dynamic=None, benign_hits=None, dynamic_required=True, hit_rate_limit=0.05, corpus_size=0, previously_rejected=None):
+def decide(classified, previous=None, decisions=None, dynamic=None, benign_hits=None, dynamic_required=True, hit_rate_limit=0.05, corpus_size=0, previously_rejected=None, anomaly=None, allow_large_change=False):
     previous = previous or {}; decisions = decisions or {}; previously_rejected = set(previously_rejected or [])
     prev_files = {f['path']: f['sha256'] for f in previous.get('files', [])}
     dyn_bad = set((dynamic or {}).get('culprits', []))
@@ -72,6 +72,12 @@ def decide(classified, previous=None, decisions=None, dynamic=None, benign_hits=
     why = []
     if not res['approved']: why.append('the approved set is empty')
     if previous and not (changes['added'] or changes['modified'] or changes['removed']): why.append('no effective change against the latest release')
+    prev_n = len(prev_files)
+    if anomaly and previous and prev_n and not allow_large_change:
+        removed_f = len(changes['removed']) / prev_n; changed_f = (len(changes['added']) + len(changes['modified']) + len(changes['removed'])) / prev_n
+        if removed_f > anomaly['max_removed_fraction'] or changed_f > anomaly['max_changed_fraction']:
+            why.append(f"unusually large change ({removed_f:.0%} of the previous release removed, {changed_f:.0%} touched): a person must look before it is published")
+        res['change_fractions'] = {'removed': round(removed_f, 4), 'changed': round(changed_f, 4)}
     if dynamic_required:
         if not dynamic: why.append('dynamic validation did not run')
         elif dynamic.get('set_root') != final_root: why.append('the dynamic result belongs to a different set than the one to publish')
