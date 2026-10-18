@@ -17,7 +17,7 @@ Both serve the same bytes; GitHub Releases is the canonical archive. The data sh
 
 1. Downloads the release and history, builds the site and verifies the release exactly as a client would (`verify_release.py`).
 2. Deploys GitHub Pages and then checks the public URL with `verify_live.py`: package, every rule file, catalog, signatures, proofs and links.
-3. Tries Cloudflare Pages only if the credentials exist and pass a preflight that prints no secrets.
+3. Tries Cloudflare Pages only if the credentials exist and pass a preflight that prints no secrets, sends real security headers there (`scripts/csp.py`), then downloads and verifies the public mirror with the same `verify_live.py` and checks that both hosts serve the same release (`compare_mirrors.py`). A finished deploy job is not treated as a working mirror.
 4. Records the result in the transparency log.
 
 > **CURRENT** **Cloudflare Pages is deployed automatically by the workflow** (since 2026-10-18, run with `site.cloudflare_deployed` in the log) using the `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID` secrets, with no dependence on any local machine. The project `macguard-rules` lives in the account whose id is in `config/cloudflare_account_id.txt`. The `pages.dev` site, documentation and verifier are checked with `verify_live.py` and serve the same bytes as GitHub Pages. Before that date the mirror was deployed by hand with a local `wrangler` session; that is no longer used. If the credential fails, the preflight classifies it, the workflow logs `site.cloudflare_blocked` and no deployment is attempted.

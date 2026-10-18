@@ -32,14 +32,14 @@ jobs:
       RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
       GH_TOKEN: ${{ github.token }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           ref: ${{ github.ref_name }}
       - name: Install the YARA engine and record its version
         run: |
           sudo apt-get update -qq && sudo apt-get install -y -qq yara
           yara --version | tee engine-version.txt
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: '24'
       - name: Unit and integration tests (log, classification, decisions, dynamic gate, quarantine service)
@@ -110,7 +110,7 @@ jobs:
           bash scripts/commit_logs.sh "daily review $RUN_ID"
       - name: Upload the public candidate
         if: steps.gate.outcome == 'success'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: candidate-${{ github.run_id }}
           path: dist-public/
@@ -127,17 +127,17 @@ jobs:
       contents: read
       actions: read
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           ref: ${{ github.ref_name }}
           persist-credentials: false
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
         with:
           name: candidate-${{ github.run_id }}
           path: dist-public/
       - name: Tools
-        run: brew install xcodegen autoconf automake libtool >/dev/null
-      - uses: actions/cache@v4
+        run: brew install autoconf automake libtool >/dev/null
+      - uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
         id: engine-cache
         with:
           path: engine-out
@@ -155,18 +155,52 @@ jobs:
           if gh release download --repo "$GITHUB_REPOSITORY" --dir previous --pattern manifest.json --pattern rules-release.tar.gz; then tar -xzf previous/rules-release.tar.gz -C previous rules; fi
       - name: Engine measurements on macOS (same method and thresholds as Linux)
         run: python3 scripts/dynamic_gate.py --verify-only --dist dist-public --previous previous --dynamic-out dynamic-macos.json
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        if: always()
+        with:
+          name: macos-validation-${{ github.run_id }}
+          path: dynamic-macos.json
+          retention-days: 14
+
+  # Compatibility with the MacGuard application is an EXTERNAL integration check: it reports, it never decides. A release depends on
+  # the reference YARA engine measurements above and on nothing in the application, so request-publish does not wait for this job.
+  app-compat:
+    needs: [review, macos]
+    if: needs.review.outputs.publishable == 'true' && needs.review.outputs.changed != 'false' && needs.macos.result == 'success'
+    runs-on: macos-15
+    timeout-minutes: 40
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ github.ref_name }}
+          persist-credentials: false
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: candidate-${{ github.run_id }}
+          path: dist-public/
+      - name: Tools
+        run: brew install xcodegen autoconf automake libtool >/dev/null
+      - uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        id: engine-cache
+        with:
+          path: engine-out
+          key: yara-engine-${{ hashFiles('DMGTrustAuditor/DMGTrustAuditor/Scripts/build-yara-engine.sh') }}
+      - name: The engine that ships with MacGuard
+        if: steps.engine-cache.outputs.cache-hit != 'true'
+        run: DMGTrustAuditor/DMGTrustAuditor/Scripts/build-yara-engine.sh engine-out
       - name: Build MacGuard and run it over the safe corpus
         run: |
           cd DMGTrustAuditor/DMGTrustAuditor && xcodegen generate >/dev/null
           ENGINE_DIR="$GITHUB_WORKSPACE/engine-out" xcodebuild -project DMGTrustAuditor.xcodeproj -scheme macguard-audit -configuration Release CODE_SIGNING_ALLOWED=NO CODE_SIGN_IDENTITY=- SYMROOT="$PWD/../../build" build | tail -3
           cd ../.. && build/Release/macguard-audit engine-status --format json | tee engine-status.json
           python3 scripts/macguard_smoke.py build/Release/macguard-audit --rules-from "$GITHUB_WORKSPACE/dist-public" --out macguard-smoke.json
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         if: always()
         with:
-          name: macos-validation-${{ github.run_id }}
+          name: app-compat-${{ github.run_id }}
           path: |
-            dynamic-macos.json
             macguard-smoke.json
             engine-status.json
           retention-days: 14

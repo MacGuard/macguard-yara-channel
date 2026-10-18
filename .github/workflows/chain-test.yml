@@ -18,10 +18,10 @@ jobs:
       contents: write   # create and delete the test prerelease
       id-token: write   # keyless Sigstore signing as this workflow
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           persist-credentials: false
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: '24'
       - name: YARA engine and cosign
@@ -31,7 +31,8 @@ jobs:
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
+          IDENTITY: ${{ github.server_url }}/${{ github.repository }}/.github/workflows/chain-test.yml@refs/heads/${{ github.ref_name }}
         run: |
           python3 scripts/chain_test.py --publish --repo "$GITHUB_REPOSITORY" \
-            --identity "${{ github.server_url }}/${{ github.repository }}/.github/workflows/chain-test.yml@refs/heads/${{ github.ref_name }}" | tee "$RUNNER_TEMP/chain.txt"
+            --identity "$IDENTITY" | tee "$RUNNER_TEMP/chain.txt"
           { echo '## Acceptance chain'; echo '```'; cat "$RUNNER_TEMP/chain.txt"; echo '```'; } >> "$GITHUB_STEP_SUMMARY"

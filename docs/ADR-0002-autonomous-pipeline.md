@@ -10,7 +10,7 @@ Status: accepted for implementation; **autonomous publication is OFF** until the
 | Reviewer decisions | `scripts/quarantine_client.py` → private service | approvals, rejections |
 | Decision | `scripts/decide.py` | approved set, exclusions, retired, withheld |
 | Dynamic gate | `scripts/dynamic_gate.py` + `scripts/bench.py` | CPU, memory, latency p50/p95/p99, crashes, timeouts, canary detection, benign-corpus hit rate; baseline vs candidate in the same job; culprit isolation (delta debugging), quarantine of only the culprits, re-measure of the new set |
-| macOS runner check | `daily.yml` job `macos` | the same measurements with Homebrew YARA on macOS, plus the MacGuard CLI over the safe corpus |
+| macOS runner check | `daily.yml` job `macos` | the same measurements with the reference YARA engine on macOS. The MacGuard CLI smoke runs in the separate job `app-compat`, an external report |
 | Publish | `publish.yml` | re-verification of the final set, Sigstore keyless signing, draft → public release |
 | Site | `site.yml` | verified deployment, live verification |
 
@@ -28,7 +28,8 @@ Status: accepted for implementation; **autonomous publication is OFF** until the
 | static classification of every file | blocks |
 | Linux engine dynamic gate on exactly the final set | blocks |
 | detection canaries all detected | blocks |
-| macOS runner engine check and MacGuard CLI smoke | blocks (the `request-publish` job needs it) |
+| macOS runner engine check (`macos`) | blocks (the `request-publish` job needs it) |
+| MacGuard CLI smoke (`app-compat`) | does not block: the application is not a requirement for a release |
 | independent macOS VM | **not available**: hosted macOS runners are VMs with no nested virtualization (`runner-probe.yml`: `Apple M1 (Virtual)`, 3 CPU, 7 GiB, `hv_vmm_present=1`, no Hypervisor.framework). Not blocking, reported as `not_run` in every dynamic result. A self-hosted bare-metal Mac with Tart/Virtualization.framework is needed to close it. |
 | quarantine service reachable | does not block (nothing unreviewed is published either way) |
 

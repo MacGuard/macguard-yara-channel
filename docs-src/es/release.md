@@ -16,7 +16,7 @@ summary: Cómo se construye una release completa y qué ficheros contiene.
 | Fichero | Contenido | Obligatorio |
 |---|---|---|
 | `rules-release.tar.gz` | Las reglas (`rules/`) y `manifest.json`. | sí |
-| `manifest.json` | Lista de ficheros con SHA-256, fuentes, `rules_root`, cabeza del registro y estadísticas. | sí |
+| `manifest.json` | Lista de ficheros con SHA-256, fuentes, `rules_root`, cabeza del registro, estadísticas y, en las releases posteriores a la auditoría final, `evidence` (ejecución de revisión, commit del workflow y medición dinámica de exactamente este conjunto). | sí |
 | `manifest.sigstore.json` | Firma Sigstore del manifiesto. | sí |
 | `inclusion-proof.json` | Prueba Merkle de inclusión de la entrada de la release. | sí |
 | `checkpoint.txt` | Checkpoint del registro. | sí |

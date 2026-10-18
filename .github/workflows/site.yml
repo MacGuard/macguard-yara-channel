@@ -2,7 +2,7 @@ name: Deploy site (GitHub Pages and Cloudflare Pages)
 on:
   push:
     branches: [main]
-    paths: ['web/**', 'docs-src/**', 'scripts/build_docs.py', 'scripts/docs_check.py', 'scripts/verify_public_release.py', 'tests/test_docs.py', 'tests/test_docs_og.py', 'scripts/og_inject.py', '.github/workflows/site.yml', 'scripts/build_site.py', 'scripts/catalog.py', 'scripts/stats.py']
+    paths: ['web/**', 'docs-src/**', 'scripts/build_docs.py', 'scripts/docs_check.py', 'scripts/verify_public_release.py', 'tests/test_docs.py', 'tests/test_docs_og.py', 'scripts/og_inject.py', 'scripts/csp.py', 'tests/test_csp.py', '.github/workflows/site.yml', 'scripts/build_site.py', 'scripts/catalog.py', 'scripts/stats.py']
   # Every 24 hours both sites are rebuilt from the latest signed release and verified, even if no new release was published
   # (04:17 UTC, after the 03:17 daily review and any release it requested).
   schedule:
@@ -15,9 +15,12 @@ on:
         default: false
 permissions:
   contents: read
-# One writer at a time for logs/: every workflow that appends to the log shares this group.
+# Site runs queue among themselves; the newest pending run is the only one that matters because every run rebuilds from the latest
+# signed release. They must NOT share the log group for their whole duration: a group keeps one pending run, so a long site run
+# would let a newer run silently replace a pending publish.yml (a lost release request). Only the short `record` job below takes
+# the log group.
 concurrency:
-  group: macguard-log
+  group: site-deploy
   cancel-in-progress: false
 jobs:
   build:
@@ -27,7 +30,7 @@ jobs:
       contents: read
       actions: read
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           ref: ${{ github.ref_name }}
           persist-credentials: false
@@ -60,10 +63,12 @@ jobs:
           python3 scripts/build_site.py
           python3 scripts/og_inject.py site "https://${GITHUB_REPOSITORY_OWNER,,}.github.io/${GITHUB_REPOSITORY#*/}/"
       - name: Verify the release exactly as a client would
+        env:
+          IDENTITY: ${{ github.server_url }}/${{ github.repository }}/.github/workflows/publish.yml@refs/heads/${{ github.ref_name }}
         run: |
           if [ -f site/manifest.json ]; then
             python3 scripts/verify_release.py site \
-              --identity "${{ github.server_url }}/${{ github.repository }}/.github/workflows/publish.yml@refs/heads/${{ github.ref_name }}" \
+              --identity "$IDENTITY" \
               --repo "$GITHUB_REPOSITORY"
           else
             echo 'No release yet; nothing to verify'
@@ -81,10 +86,10 @@ jobs:
             'not_checked': ['Rekor inclusion is checked by cosign as part of verify-blob; the browser does not repeat it', 'Detection quality or safety of the rules']},
             open('site/verification.json', 'w'), indent=1)
           PY
-      - uses: actions/upload-pages-artifact@v3
+      - uses: actions/upload-pages-artifact@56afc609e74202658d3ffba0e8f6dda462b719fa # v3
         with:
           path: site
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: site-dir
           path: site
@@ -99,12 +104,12 @@ jobs:
     permissions:
       contents: read
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           ref: ${{ github.ref_name }}
           persist-credentials: false
           fetch-depth: 0
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
         with:
           name: site-dir
           path: site
@@ -143,7 +148,7 @@ jobs:
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - id: deployment
-        uses: actions/deploy-pages@v4
+        uses: actions/deploy-pages@d6db90164ac5ed86f2b6aed7e0febac5b3c0c03e # v4
 
   # The public URL is checked after deployment with nothing but the bytes it serves.
   verify-live:
@@ -154,7 +159,7 @@ jobs:
     permissions:
       contents: read
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           ref: ${{ github.ref_name }}
           persist-credentials: false
@@ -182,14 +187,15 @@ jobs:
       CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
       CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           persist-credentials: false
           sparse-checkout: |
             scripts/cf_preflight.sh
             scripts/og_inject.py
+            scripts/csp.py
             config/cloudflare_account_id.txt
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
         with:
           name: site-dir
           path: site
@@ -213,6 +219,9 @@ jobs:
       - name: Point the share preview at the mirror's own address
         if: steps.creds.outputs.status == 'present'
         run: python3 scripts/og_inject.py site https://macguard-rules.pages.dev/
+      - name: Security headers (Cloudflare Pages can send real headers; GitHub Pages cannot)
+        if: steps.creds.outputs.status == 'present'
+        run: python3 scripts/csp.py headers site/_headers
       - name: Create the Pages project if the account does not have it yet
         if: steps.creds.outputs.status == 'present'
         continue-on-error: true   # fails harmlessly when the project already exists
@@ -231,11 +240,46 @@ jobs:
           wranglerVersion: '4.151.1'
           command: pages deploy site --project-name=macguard-rules --branch=main
 
+  verify-live-cloudflare:
+    needs: [build, cloudflare-pages, github-pages]
+    if: always() && needs.cloudflare-pages.result == 'success'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ github.ref_name }}
+          persist-credentials: false
+      - uses: sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6 # v4.1.2
+      # A finished deploy job is not a working site: the mirror is downloaded and verified exactly like the primary.
+      - name: Verify the published mirror
+        env:
+          URL: https://macguard-rules.pages.dev/
+          IDENTITY: ${{ github.server_url }}/${{ github.repository }}/.github/workflows/publish.yml@refs/heads/${{ github.ref_name }}
+        run: |
+          for attempt in 1 2 3 4 5 6; do
+            if python3 scripts/verify_live.py "$URL" --identity "$IDENTITY" --repo "$GITHUB_REPOSITORY" --external; then exit 0; fi
+            echo "Attempt $attempt failed; Cloudflare Pages may still be propagating"; sleep 20
+          done
+          exit 1
+      # Both hosts were deployed from the same build in this run: they must now offer the same release. Skipped when GitHub Pages failed,
+      # because then the mirror is legitimately ahead of the primary.
+      - name: Both hosts serve the same release
+        if: needs.github-pages.result == 'success'
+        env:
+          PRIMARY: ${{ needs.github-pages.outputs.url }}
+        run: python3 scripts/compare_mirrors.py "$PRIMARY" https://macguard-rules.pages.dev/
+
   record:
-    needs: [build, docs-check, github-pages, cloudflare-pages, verify-live]
+    needs: [build, docs-check, github-pages, cloudflare-pages, verify-live, verify-live-cloudflare]
     if: always()
     runs-on: ubuntu-24.04
     timeout-minutes: 5
+    concurrency:
+      group: macguard-log   # the only part of this workflow that writes logs/: one writer at a time with daily.yml and publish.yml
+      cancel-in-progress: false
     permissions:
       contents: write    # append-only commit of logs/ only; holds no Cloudflare secret
     env:
@@ -245,9 +289,10 @@ jobs:
       GHPAGES: ${{ needs.github-pages.result }}
       CF: ${{ needs.cloudflare-pages.result }}
       LIVE: ${{ needs.verify-live.result }}
+      CFLIVE: ${{ needs.verify-live-cloudflare.result }}
       CF_CREDENTIALS: ${{ needs.cloudflare-pages.outputs.credentials }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           ref: ${{ github.ref_name }}
       - name: Record result in transparency log
@@ -273,8 +318,10 @@ jobs:
               ev --level WARNING --code site.cloudflare_skipped --message "Cloudflare Pages deployment skipped: CLOUDFLARE_API_TOKEN or CLOUDFLARE_ACCOUNT_ID is not configured as a repository secret. See $RUN_URL"
             elif [ "$CF_CREDENTIALS" = "invalid" ]; then
               ev --level ERROR --code site.cloudflare_blocked --message "Cloudflare Pages BLOCKED: the credential preflight failed (format, account id, validity or permission; see the cf-preflight line in the job log). No deploy was attempted. See $RUN_URL"
+            elif [ "$CF" = "success" ] && [ "$CFLIVE" = "success" ]; then
+              ev --level INFO --code site.cloudflare_deployed --message "Site deployed to Cloudflare Pages project macguard-rules and the public mirror was downloaded and verified. See $RUN_URL"
             elif [ "$CF" = "success" ]; then
-              ev --level INFO --code site.cloudflare_deployed --message "Site deployed to Cloudflare Pages project macguard-rules. See $RUN_URL"
+              ev --level ERROR --code site.cloudflare_failed --message "The deploy to Cloudflare Pages finished but the public mirror FAILED live verification ($CFLIVE). See $RUN_URL"
             else
               ev --level ERROR --code site.cloudflare_failed --message "Deploying the site to Cloudflare Pages failed (job: $CF). The previous Cloudflare site stays online. See $RUN_URL"
             fi

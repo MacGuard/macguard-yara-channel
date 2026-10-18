@@ -142,8 +142,8 @@
  {
   "code": "site.cloudflare_deployed",
   "level": "INFO",
-  "es": "Sitio desplegado automáticamente en Cloudflare Pages desde el workflow.",
-  "en": "Site deployed to Cloudflare Pages automatically from the workflow.",
+  "es": "Sitio desplegado automáticamente en Cloudflare Pages desde el workflow y descargado y verificado después desde su dirección pública.",
+  "en": "Site deployed to Cloudflare Pages automatically from the workflow, then downloaded and verified from its public address.",
   "source": ".github/workflows/site.yml"
  },
  {
@@ -163,8 +163,8 @@
  {
   "code": "site.cloudflare_failed",
   "level": "ERROR",
-  "es": "El despliegue en Cloudflare Pages falló; sigue el sitio anterior.",
-  "en": "The Cloudflare Pages deployment failed; the previous site stays online.",
+  "es": "El despliegue en Cloudflare Pages falló, o terminó pero la verificación pública del espejo falló; el sitio anterior sigue en línea si no llegó a cambiar.",
+  "en": "The Cloudflare Pages deployment failed, or finished but the public verification of the mirror failed; the previous site stays online if it did not change.",
   "source": ".github/workflows/site.yml"
  }
 ]

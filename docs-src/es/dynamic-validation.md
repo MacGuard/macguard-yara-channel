@@ -20,7 +20,7 @@ summary: Cómo se mide el conjunto con el motor YARA y cómo se aíslan reglas p
 
 ## En macOS
 
-Un job en un runner macOS instala el motor que se distribuye con MacGuard y ejecuta `macguard_smoke.py` con el conjunto candidato. Los valores exactos están en `config/policy.json`.
+El job `macos` de `daily.yml` compila el motor YARA de referencia (la misma compilación fijada que distribuye MacGuard) en un runner macOS y repite las mediciones con el conjunto candidato; ese job condiciona la publicación. El job separado `app-compat` ejecuta además la CLI de MacGuard sobre el corpus seguro (`macguard_smoke.py`), pero es un informe externo de compatibilidad: nunca bloquea una release, porque la aplicación no es un requisito para publicar reglas. Los valores exactos están en `config/policy.json`.
 
 > **LÍMITE** Los runners de macOS de GitHub son máquinas virtuales (Apple M1 Virtual, `hv_vmm_present=1`, sin Hypervisor.framework). **No hay una máquina virtual macOS independiente**: `dynamic.json` lo declara como `not_run: independent-macos-vm`. Hace falta un Mac físico propio para eso.
 

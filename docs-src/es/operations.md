@@ -6,7 +6,7 @@ summary: Cómo se ejecuta el pipeline, qué variables lo controlan y cómo se pr
 
 | Workflow | Cuándo | Para qué |
 |---|---|---|
-| `daily.yml` | 03:17 UTC y manual | Revisión del candidato, job de macOS y solicitud de publicación. |
+| `daily.yml` | 03:17 UTC y manual | Revisión del candidato, job del motor de referencia en macOS (`macos`), solicitud de publicación; `app-compat` informa de la compatibilidad con MacGuard sin bloquear. |
 | `publish.yml` | Solicitado por `daily.yml` | Firma y publica. |
 | `site.yml` | Tras publicar y al cambiar la web o la documentación | Construye, verifica y despliega el sitio. |
 | `chain-test.yml` | Manual y en cambios del pipeline | Cadena sintética de extremo a extremo con 27 comprobaciones. |

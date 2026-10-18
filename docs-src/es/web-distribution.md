@@ -17,7 +17,7 @@ Ambos sirven los mismos bytes; GitHub Releases es el archivo canónico. Los dato
 
 1. Descarga la release y el historial, construye el sitio y verifica la release exactamente como lo haría un cliente (`verify_release.py`).
 2. Despliega GitHub Pages y después comprueba la URL pública con `verify_live.py`: paquete, cada fichero de reglas, catálogo, firmas, pruebas y enlaces.
-3. Intenta Cloudflare Pages solo si las credenciales existen y pasan una comprobación previa que no imprime secretos.
+3. Intenta Cloudflare Pages solo si las credenciales existen y pasan una comprobación previa que no imprime secretos, envía allí cabeceras de seguridad reales (`scripts/csp.py`), descarga y verifica el espejo público con el mismo `verify_live.py` y comprueba que ambos servidores sirven la misma release (`compare_mirrors.py`). Un job de despliegue terminado no se da por un espejo que funciona.
 4. Registra el resultado en el registro de transparencia.
 
 > **ACTUAL** **Cloudflare Pages se despliega automáticamente desde el workflow** (desde el 2026-10-18, ejecución con `site.cloudflare_deployed` en el registro) con los secretos `CLOUDFLARE_API_TOKEN` y `CLOUDFLARE_ACCOUNT_ID`, sin depender de ningún equipo local. El proyecto `macguard-rules` está en la cuenta cuyo id figura en `config/cloudflare_account_id.txt`. El sitio, la documentación y el verificador de `pages.dev` se comprueban con `verify_live.py` y sirven los mismos bytes que GitHub Pages. Antes de esa fecha el espejo se desplegó a mano con una sesión local de `wrangler`; eso ya no se usa. Si la credencial falla, el preflight lo clasifica, el workflow anota `site.cloudflare_blocked` y no intenta desplegar.

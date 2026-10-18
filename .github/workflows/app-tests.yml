@@ -18,12 +18,12 @@ jobs:
     runs-on: macos-15
     timeout-minutes: 45
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           persist-credentials: false
       - name: Tools
         run: brew install xcodegen autoconf automake libtool >/dev/null
-      - uses: actions/cache@v4
+      - uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
         id: engine-cache
         with:
           path: engine-out
@@ -57,7 +57,7 @@ jobs:
       - name: Report skipped tests (a skipped test is not a pass)
         if: always()
         run: grep -E "skipped|Executed [0-9]+ tests" "$RUNNER_TEMP/test.log" | tail -12 | tee -a "$GITHUB_STEP_SUMMARY"
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         if: always()
         with:
           name: swift-test-log

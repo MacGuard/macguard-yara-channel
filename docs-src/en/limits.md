@@ -26,6 +26,8 @@ Registered separately; this documentation describes the real behaviour and does 
 - The first cataloged release has no `checkpoint.txt` or signature among its artifacts; the verifier falls back to the repository checkpoint.
 - The meaning of `expanded` in the statistics is the size of the decompressed rule files, which does not equal the total bytes of the tar archive.
 
+- `evidence` in the manifest is the publishing workflow's signed statement that the dynamic measurement belongs to the published set. It is not an independent in-toto or SLSA attestation of the whole process; those are not produced.
+
 ## Blocked and waiting for a person
 
 - Workers and D1 credentials and a GitHub OAuth app to deploy the private panel; then the `QUARANTINE_URL` variable.

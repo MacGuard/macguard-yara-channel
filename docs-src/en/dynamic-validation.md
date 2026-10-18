@@ -20,7 +20,7 @@ summary: How the set is measured with the YARA engine and how problematic rules 
 
 ## On macOS
 
-A job on a macOS runner installs the engine shipped with MacGuard and runs `macguard_smoke.py` with the candidate set. The exact values are in `config/policy.json`.
+The `macos` job of `daily.yml` builds the reference YARA engine (the same pinned build MacGuard ships) on a macOS runner and repeats the measurements with the candidate set; that job gates publication. The separate `app-compat` job also runs the MacGuard CLI over the safe corpus (`macguard_smoke.py`), but it is an external compatibility report: it never blocks a release, because the application is not a requirement for publishing rules. The exact values are in `config/policy.json`.
 
 > **LIMIT** GitHub macOS runners are virtual machines (Apple M1 Virtual, `hv_vmm_present=1`, no Hypervisor.framework). **There is no independent macOS virtual machine**: `dynamic.json` declares it as `not_run: independent-macos-vm`. That needs a self-hosted physical Mac.
 

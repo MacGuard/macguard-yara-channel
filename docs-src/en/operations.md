@@ -6,7 +6,7 @@ summary: How the pipeline runs, which variables control it and how it is tested.
 
 | Workflow | When | Purpose |
 |---|---|---|
-| `daily.yml` | 03:17 UTC and manual | Candidate review, macOS job and publication request. |
+| `daily.yml` | 03:17 UTC and manual | Candidate review, reference-engine job on macOS (`macos`), publication request; `app-compat` reports MacGuard compatibility without blocking. |
 | `publish.yml` | Requested by `daily.yml` | Signs and publishes. |
 | `site.yml` | After publishing and when the web or documentation changes | Builds, verifies and deploys the site. |
 | `chain-test.yml` | Manual and on pipeline changes | Synthetic end-to-end chain with 27 checks. |

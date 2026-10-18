@@ -1,0 +1,8 @@
+# Keeps the pinned GitHub Actions current. Pull requests only: nothing is merged or deployed automatically.
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5

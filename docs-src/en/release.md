@@ -16,7 +16,7 @@ summary: How a complete release is built and which files it contains.
 | File | Content | Mandatory |
 |---|---|---|
 | `rules-release.tar.gz` | The rules (`rules/`) and `manifest.json`. | yes |
-| `manifest.json` | List of files with SHA-256, sources, `rules_root`, log head and statistics. | yes |
+| `manifest.json` | List of files with SHA-256, sources, `rules_root`, log head, statistics and, in releases made after the final audit, `evidence` (review run, workflow commit and dynamic measurement of exactly this set). | yes |
 | `manifest.sigstore.json` | Sigstore signature of the manifest. | yes |
 | `inclusion-proof.json` | Merkle inclusion proof of the release entry. | yes |
 | `checkpoint.txt` | Log checkpoint. | yes |

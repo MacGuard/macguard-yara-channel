@@ -26,6 +26,8 @@ Registrados aparte; esta documentación describe el comportamiento real y no los
 - La primera release catalogada no tiene `checkpoint.txt` ni su firma entre los artefactos; el verificador usa el checkpoint del repositorio como alternativa.
 - El significado de `expanded` en las estadísticas es el tamaño de los ficheros de reglas descomprimidos, que no coincide con el total de bytes del archivo tar.
 
+- `evidence` en el manifiesto es la declaración firmada del workflow de publicación de que la medición dinámica pertenece al conjunto publicado. No es una atestación independiente in-toto ni SLSA de todo el proceso; esas no se producen.
+
 ## Bloqueado y a la espera de una persona
 
 - Credenciales de Workers y D1 y una aplicación OAuth de GitHub para desplegar el panel privado; luego la variable `QUARANTINE_URL`.
