@@ -2,12 +2,14 @@
 
 Generated from `logs/log.jsonl`; do not edit by hand. Times are UTC. Newest first.
 
-Entries: 35 (INFO 16, WARNING 17, ERROR 2)
+Entries: 37 (INFO 17, WARNING 17, ERROR 3)
 
 Latest signed checkpoint: 20 entries, Merkle root `0a4cc81014bb5bf3c71cbbab077a748a1a5224ca30a4d892db5488a1e828f21a`.
 
 | # | Date (UTC) | Level | Event | Message |
 |---|---|---|---|---|
+| 36 | 2026-10-18T08:46:36Z | ERROR | `site.cloudflare_failed` | Deploying the site to Cloudflare Pages failed (job: failure). The previous Cloudflare site stays online. See https://github.com/MacGuard/macguard-yara-channel/actions/runs/39112707001 |
+| 35 | 2026-10-18T08:46:36Z | INFO | `site.github_pages_deployed` | Site deployed to GitHub Pages. See https://github.com/MacGuard/macguard-yara-channel/actions/runs/39112707001 |
 | 34 | 2026-10-18T08:44:27Z | ERROR | `site.cloudflare_failed` | Deploying the site to Cloudflare Pages failed (job: failure). The previous Cloudflare site stays online. See https://github.com/MacGuard/macguard-yara-channel/actions/runs/39112572891 |
 | 33 | 2026-10-18T08:44:27Z | INFO | `site.github_pages_deployed` | Site deployed to GitHub Pages. See https://github.com/MacGuard/macguard-yara-channel/actions/runs/39112572891 |
 | 32 | 2026-10-18T08:21:11Z | ERROR | `site.cloudflare_failed` | Deploying the site to Cloudflare Pages failed (job: failure). The previous Cloudflare site stays online. See https://github.com/MacGuard/macguard-yara-channel/actions/runs/39111069292 |
