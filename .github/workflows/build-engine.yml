@@ -1,0 +1,67 @@
+name: Build the YARA engine
+# Builds the universal engine that MacGuard ships, then runs it on the runner's own architecture (arm64) and, when Rosetta can be
+# installed, the x86_64 slice too. The manifest is signed keylessly so the build is traceable to this workflow.
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths: ['DMGTrustAuditor/DMGTrustAuditor/Scripts/build-yara-engine.sh', '.github/workflows/build-engine.yml']
+permissions:
+  contents: read
+jobs:
+  engine:
+    runs-on: macos-15
+    timeout-minutes: 60
+    permissions:
+      contents: read
+      id-token: write   # keyless signature of the engine manifest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/cache@v4
+        id: cache
+        with:
+          path: engine-out
+          key: yara-engine-${{ hashFiles('DMGTrustAuditor/DMGTrustAuditor/Scripts/build-yara-engine.sh') }}
+      - name: Build (universal, static OpenSSL)
+        if: steps.cache.outputs.cache-hit != 'true'
+        run: |
+          brew install autoconf automake libtool >/dev/null
+          DMGTrustAuditor/DMGTrustAuditor/Scripts/build-yara-engine.sh engine-out
+      - name: Check the build
+        run: |
+          cd engine-out
+          cat engine-manifest.json
+          lipo -archs yara yarac
+          codesign --verify --strict --verbose=2 yara yarac
+          ./yara --version
+          cat > /tmp/mods.yar <<'YAR'
+          import "hash"
+          import "pe"
+          rule Modules { condition: hash.md5(0, 3) == "900150983cd24fb0d6963f7d28e17f72" and defined pe.number_of_signatures }
+          YAR
+          printf abc > /tmp/abc.txt
+          ./yara /tmp/mods.yar /tmp/abc.txt | tee /tmp/native.out; grep -q Modules /tmp/native.out
+          echo "native $(uname -m): hash and pe modules work" | tee -a "$GITHUB_STEP_SUMMARY"
+      - name: The x86_64 slice under Rosetta (if it can be installed)
+        id: rosetta
+        continue-on-error: true
+        run: |
+          softwareupdate --install-rosetta --agree-to-license >/dev/null 2>&1 || true
+          cd engine-out
+          arch -x86_64 ./yara --version
+          arch -x86_64 ./yara /tmp/mods.yar /tmp/abc.txt | grep -q Modules
+          echo "x86_64 slice executed under Rosetta: hash and pe modules work" | tee -a "$GITHUB_STEP_SUMMARY"
+      - name: Say plainly what was and was not run
+        if: always()
+        run: |
+          if [ "${{ steps.rosetta.outcome }}" != success ]; then echo "x86_64 slice: present and signed but NOT executed on this runner (Rosetta unavailable)" | tee -a "$GITHUB_STEP_SUMMARY"; fi
+      - uses: sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6 # v4.1.2
+      - name: Sign the engine manifest (Sigstore keyless)
+        run: cosign sign-blob --yes --bundle engine-out/engine-manifest.sigstore.json engine-out/engine-manifest.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: yara-engine-universal
+          path: engine-out/
+          retention-days: 30

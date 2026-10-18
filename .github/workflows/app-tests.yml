@@ -22,7 +22,17 @@ jobs:
         with:
           persist-credentials: false
       - name: Tools
-        run: brew install xcodegen yara >/dev/null
+        run: brew install xcodegen autoconf automake libtool >/dev/null
+      - uses: actions/cache@v4
+        id: engine-cache
+        with:
+          path: engine-out
+          key: yara-engine-${{ hashFiles('DMGTrustAuditor/DMGTrustAuditor/Scripts/build-yara-engine.sh') }}
+      - name: The YARA engine that ships with the app
+        if: steps.engine-cache.outputs.cache-hit != 'true'
+        run: DMGTrustAuditor/DMGTrustAuditor/Scripts/build-yara-engine.sh engine-out
+      - name: Point the tests at the engine
+        run: echo "TEST_RUNNER_MACGUARD_YARA_DIR=$PWD/engine-out" >> "$GITHUB_ENV"
       - uses: sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6 # v4.1.2
       - name: Pinned Sigstore verifier and the published release, exactly as the app uses them
         env:

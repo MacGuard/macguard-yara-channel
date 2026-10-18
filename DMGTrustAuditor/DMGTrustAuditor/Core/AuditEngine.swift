@@ -134,7 +134,8 @@ enum AuditEngine {
         case .workflow:
             auditWorkflow(input.file, c)
         case .unknown:
-            c.add("File type", "Unsupported or unrecognized format; it is not assumed safe and was not analyzed.", .unknown, 25)
+            c.add("File type", "Unsupported or unrecognized format; it is not assumed safe. Only the YARA scan below was applied to it.", .unknown, 25)
+            if !isDir.boolValue { c.findings.append(contentsOf: YARAScanner.inspect([input.file], cancelled: cancelled)) }   // any readable file can still be matched by rules
         }
         c.findings.append(contentsOf: ExternalEvidence.inspect(input, observedBundle: c.observedBundle, observedTeam: c.observedTeam))
         return report(input, c, kind: label(kind), sha: actualSHA)

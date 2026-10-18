@@ -133,6 +133,14 @@ final class YARAEngineTests: XCTestCase {
         let clean = YARAScanner.inspect([try sample("nothing here")], rulesDirectory: rules.files[0].deletingLastPathComponent(), status: YARAEngine.verify(try engineDir()), cacheDirectory: tmp.appendingPathComponent("c3"))
         XCTAssertEqual(clean.last?.state, .passed); XCTAssertTrue(clean.last?.detail.contains("does not prove safety") == true)
     }
+    func testAFileOfAnUnknownTypeIsStillScannedByYARA() throws {
+        let dir = YARARuleManager.shared.rulesDirectory.appendingPathComponent("community/test-\(UUID().uuidString)"); try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: dir) }
+        try "rule Unknown_Canary { strings: $a = \"UNKNOWN-TYPE-CANARY\" condition: $a }".write(to: dir.appendingPathComponent("u.yar"), atomically: true, encoding: .utf8)
+        let f = try sample("plain data UNKNOWN-TYPE-CANARY plain data", name: "blob.dat")
+        let r = AuditEngine.audit(AuditInput(file: f, expectedName: "", expectedTeam: "", expectedBundle: "", expectedSHA: "", sourceURL: ""))
+        XCTAssertEqual(r.kind, "unknown"); XCTAssertTrue(r.findings.contains { $0.title == "YARA match: Unknown_Canary" }, r.findings.map(\.title).joined(separator: ", "))
+    }
     func testAScriptWithATriggerStringIsMatchedThroughTheWholeAuditEngine() throws {
         // end to end through AuditEngine.audit with the shared rules directory of this process
         let dir = YARARuleManager.shared.rulesDirectory.appendingPathComponent("community/test-\(UUID().uuidString)"); try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)

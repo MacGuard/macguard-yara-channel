@@ -131,7 +131,17 @@ jobs:
           name: candidate-${{ github.run_id }}
           path: dist-public/
       - name: Tools
-        run: brew install yara xcodegen >/dev/null && yara --version
+        run: brew install xcodegen autoconf automake libtool >/dev/null
+      - uses: actions/cache@v4
+        id: engine-cache
+        with:
+          path: engine-out
+          key: yara-engine-${{ hashFiles('DMGTrustAuditor/DMGTrustAuditor/Scripts/build-yara-engine.sh') }}
+      - name: The engine that ships with MacGuard (the measurements below use exactly this binary)
+        if: steps.engine-cache.outputs.cache-hit != 'true'
+        run: DMGTrustAuditor/DMGTrustAuditor/Scripts/build-yara-engine.sh engine-out
+      - name: Put the shipped engine first on PATH
+        run: echo "$PWD/engine-out" >> "$GITHUB_PATH"; "$PWD/engine-out/yara" --version
       - name: Previous release for the baseline
         env:
           GH_TOKEN: ${{ github.token }}
@@ -143,8 +153,9 @@ jobs:
       - name: Build MacGuard and run it over the safe corpus
         run: |
           cd DMGTrustAuditor/DMGTrustAuditor && xcodegen generate >/dev/null
-          xcodebuild -project DMGTrustAuditor.xcodeproj -scheme macguard-audit -configuration Release CODE_SIGNING_ALLOWED=NO CODE_SIGN_IDENTITY=- SYMROOT="$PWD/../../build" build | tail -3
-          cd ../.. && python3 scripts/macguard_smoke.py build/Release/macguard-audit --out macguard-smoke.json
+          ENGINE_DIR="$GITHUB_WORKSPACE/engine-out" xcodebuild -project DMGTrustAuditor.xcodeproj -scheme macguard-audit -configuration Release CODE_SIGNING_ALLOWED=NO CODE_SIGN_IDENTITY=- SYMROOT="$PWD/../../build" build | tail -3
+          cd ../.. && build/Release/macguard-audit engine-status --format json | tee engine-status.json
+          python3 scripts/macguard_smoke.py build/Release/macguard-audit --rules-from "$GITHUB_WORKSPACE/dist-public" --out macguard-smoke.json
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -152,6 +163,7 @@ jobs:
           path: |
             dynamic-macos.json
             macguard-smoke.json
+            engine-status.json
           retention-days: 14
 
   request-publish:
