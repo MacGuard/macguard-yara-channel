@@ -2,12 +2,14 @@
 
 Generated from `logs/log.jsonl`; do not edit by hand. Times are UTC. Newest first.
 
-Entries: 25 (INFO 11, WARNING 14, ERROR 0)
+Entries: 27 (INFO 12, WARNING 15, ERROR 0)
 
 Latest signed checkpoint: 20 entries, Merkle root `0a4cc81014bb5bf3c71cbbab077a748a1a5224ca30a4d892db5488a1e828f21a`.
 
 | # | Date (UTC) | Level | Event | Message |
 |---|---|---|---|---|
+| 26 | 2026-10-18T08:03:34Z | WARNING | `site.cloudflare_skipped` | Cloudflare Pages deployment skipped: CLOUDFLARE_API_TOKEN or CLOUDFLARE_ACCOUNT_ID is not configured as a repository secret. See https://github.com/MacGuard/macguard-yara-channel/actions/runs/39109948972 |
+| 25 | 2026-10-18T08:03:34Z | INFO | `site.github_pages_deployed` | Site deployed to GitHub Pages. See https://github.com/MacGuard/macguard-yara-channel/actions/runs/39109948972 |
 | 24 | 2026-10-18T07:06:04Z | WARNING | `site.cloudflare_skipped` | Cloudflare Pages deployment skipped: CLOUDFLARE_API_TOKEN or CLOUDFLARE_ACCOUNT_ID is not configured as a repository secret. See https://github.com/MacGuard/macguard-yara-channel/actions/runs/39106380134 |
 | 23 | 2026-10-18T07:06:04Z | INFO | `site.github_pages_deployed` | Site deployed to GitHub Pages. See https://github.com/MacGuard/macguard-yara-channel/actions/runs/39106380134 |
 | 22 | 2026-10-18T06:18:53Z | WARNING | `site.cloudflare_skipped` | Cloudflare Pages deployment skipped: CLOUDFLARE_API_TOKEN or CLOUDFLARE_ACCOUNT_ID is not configured as a repository secret. See https://github.com/MacGuard/macguard-yara-channel/actions/runs/39103561336 |
