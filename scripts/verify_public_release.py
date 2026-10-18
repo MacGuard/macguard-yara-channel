@@ -114,6 +114,20 @@ def _rate_limit_info(e):
 class _NoRedirect(urllib.request.HTTPRedirectHandler):
     def redirect_request(self, *a, **k): return None
 
+class _StripAuthOnOtherHost(urllib.request.HTTPRedirectHandler):
+    """urllib forwards every header on a redirect, the Authorization token included. It only belongs to the host it was given for."""
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        new = super().redirect_request(req, fp, code, msg, headers, newurl)
+        if new is not None and urllib.parse.urlsplit(newurl).netloc != urllib.parse.urlsplit(req.full_url).netloc:
+            for h in ('Authorization', 'authorization'): new.headers.pop(h, None); new.unredirected_hdrs.pop(h, None)
+        return new
+_OPENER = urllib.request.build_opener(_StripAuthOnOtherHost)
+
+def _checked(url):
+    """Only http(s) is ever fetched (urllib would also open file: and ftp: URLs)."""
+    if urllib.parse.urlsplit(url).scheme not in ('https', 'http'): raise Fail(4, f'refusing to fetch a non-HTTP URL: {url[:80]!r}')
+    return url
+
 class Net:
     def __init__(self, api_url, token=None, timeout=40, retries=3):
         self.api, self.timeout, self.retries = api_url.rstrip('/'), timeout, retries
@@ -121,7 +135,7 @@ class Net:
     def _open(self, url, headers=None):
         last = None
         for i in range(self.retries):
-            try: return urllib.request.urlopen(urllib.request.Request(url, headers={**self.headers, **(headers or {})}), timeout=self.timeout)
+            try: return _OPENER.open(urllib.request.Request(_checked(url), headers={**self.headers, **(headers or {})}), timeout=self.timeout)
             except urllib.error.HTTPError as e:
                 limited, when = _rate_limit_info(e)
                 if e.code in (403, 429) and limited:

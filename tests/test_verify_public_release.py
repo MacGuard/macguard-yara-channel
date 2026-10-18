@@ -196,3 +196,33 @@ class CommandLine(unittest.TestCase):
     def test_the_human_report_names_the_checks_and_the_limits_of_what_it_proves(self):
         code, _, out, _ = run('--directory', str(REAL)); self.assertEqual(code, 0); self.assertIn('rules_root', out); self.assertIn('do not prove the rules are good', out); self.assertIn('rollback protection is NOT established', out)
 if __name__ == '__main__': unittest.main()
+
+
+class FetchSafety(unittest.TestCase):
+    def test_a_non_http_url_is_refused_before_anything_is_opened(self):
+        for u in ('file:///etc/passwd', 'ftp://example.test/x', 'gopher://x', '/etc/passwd'):
+            with self.assertRaises(V.Fail): V._checked(u)
+        self.assertEqual(V._checked('https://example.test/x'), 'https://example.test/x')
+
+    def test_the_token_does_not_follow_a_redirect_to_another_host(self):
+        import threading
+        seen = {}
+        class Target(http.server.BaseHTTPRequestHandler):
+            def do_GET(self): seen['target'] = self.headers.get('Authorization'); self.send_response(200); self.end_headers(); self.wfile.write(b'{}')
+            def log_message(self, *a): pass
+        target = http.server.HTTPServer(('127.0.0.1', 0), Target); threading.Thread(target=target.serve_forever, daemon=True).start()
+        class Origin(http.server.BaseHTTPRequestHandler):
+            def do_GET(self):
+                seen['origin'] = self.headers.get('Authorization')
+                if self.path == '/same': self.send_response(302); self.send_header('Location', '/final'); self.end_headers()
+                elif self.path == '/final': seen['final'] = self.headers.get('Authorization'); self.send_response(200); self.end_headers(); self.wfile.write(b'{}')
+                else: self.send_response(302); self.send_header('Location', f'http://127.0.0.1:{target.server_port}/x'); self.end_headers()
+            def log_message(self, *a): pass
+        origin = http.server.HTTPServer(('127.0.0.1', 0), Origin); threading.Thread(target=origin.serve_forever, daemon=True).start()
+        try:
+            net = V.Net(f'http://127.0.0.1:{origin.server_port}', token='secret-token', retries=1)
+            net._open(f'http://127.0.0.1:{origin.server_port}/other').read()
+            self.assertEqual(seen['origin'], 'Bearer secret-token'); self.assertIsNone(seen['target'], 'the token was sent to a different host')
+            net._open(f'http://127.0.0.1:{origin.server_port}/same').read(); self.assertEqual(seen['final'], 'Bearer secret-token')   # same host keeps it
+        finally:
+            for s in (origin, target): s.shutdown(); s.server_close()
