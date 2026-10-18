@@ -1,0 +1,55 @@
+name: App tests (macOS runner)
+# Functional tests of the MacGuard engine, CLI and installer on a real macOS runner. This is the runner itself, not an
+# independent VM: hosted macOS runners cannot nest virtualization (see runner-probe.yml).
+on:
+  pull_request:
+    paths: ['DMGTrustAuditor/**', '.github/workflows/app-tests.yml']
+  push:
+    branches: [main]
+    paths: ['DMGTrustAuditor/**', '.github/workflows/app-tests.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: app-tests-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  swift:
+    runs-on: macos-15
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Tools
+        run: brew install xcodegen yara >/dev/null
+      - uses: sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6 # v4.1.2
+      - name: Pinned Sigstore verifier and the published release, exactly as the app uses them
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SITE: https://macguard.github.io/macguard-yara-channel
+        run: |
+          DMGTrustAuditor/DMGTrustAuditor/Scripts/fetch-cosign.sh arm64 "$RUNNER_TEMP/sigstore"
+          cp DMGTrustAuditor/DMGTrustAuditor/Resources/sigstore/trusted_root.json "$RUNNER_TEMP/sigstore/"
+          mkdir -p "$RUNNER_TEMP/release/logs"; cd "$RUNNER_TEMP/release"
+          for f in manifest.json manifest.sigstore.json inclusion-proof.json rules-release.tar.gz logs/checkpoint.txt logs/checkpoint.sigstore.json; do curl -sSfo "$f" "$SITE/$f"; done
+          tar -xzf rules-release.tar.gz rules
+          echo "TEST_RUNNER_MACGUARD_SIGSTORE_DIR=$RUNNER_TEMP/sigstore" >> "$GITHUB_ENV"
+          echo "TEST_RUNNER_MACGUARD_RELEASE_DIR=$RUNNER_TEMP/release" >> "$GITHUB_ENV"
+          echo "TEST_RUNNER_MACGUARD_LIVE=1" >> "$GITHUB_ENV"
+      - name: Build and test
+        working-directory: DMGTrustAuditor/DMGTrustAuditor
+        run: |
+          xcodegen generate
+          set -o pipefail
+          xcodebuild -project DMGTrustAuditor.xcodeproj -scheme DMGTrustAuditor -configuration Debug CODE_SIGNING_ALLOWED=NO CODE_SIGN_IDENTITY=- \
+            -test-timeouts-enabled YES -default-test-execution-time-allowance 120 -resultBundlePath "$RUNNER_TEMP/result.xcresult" test | tee "$RUNNER_TEMP/test.log" | tail -40
+      - name: Report skipped tests (a skipped test is not a pass)
+        if: always()
+        run: grep -E "skipped|Executed [0-9]+ tests" "$RUNNER_TEMP/test.log" | tail -12 | tee -a "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: swift-test-log
+          path: ${{ runner.temp }}/test.log
+          retention-days: 7

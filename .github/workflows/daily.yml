@@ -1,78 +1,147 @@
 name: Daily source review
+# Autonomous review of the upstream rule sources. Everything about rules that are not published (names, findings, compiler output,
+# culprits) stays inside this job and goes only to the private quarantine service: artifacts of a public repository are public.
 on:
   schedule:
     - cron: '17 3 * * *'
   workflow_dispatch:
 permissions:
-  contents: write   # append-only commit of logs/ only
-  actions: write    # request the publish workflow (which still waits for the human approval)
+  contents: read
 concurrency:
   group: macguard-log
   cancel-in-progress: false
 jobs:
   review:
     runs-on: ubuntu-24.04
-    timeout-minutes: 35
+    timeout-minutes: 60
+    permissions:
+      contents: write   # append-only commit of logs/ only
+      id-token: write   # OIDC token for the private quarantine service (no stored secret)
+      actions: read
+    outputs:
+      publishable: ${{ steps.gate.outputs.publishable }}
+      changed: ${{ steps.changes.outputs.changed }}
+    env:
+      QUARANTINE_URL: ${{ vars.QUARANTINE_URL }}
+      RUN_ID: ${{ github.run_id }}
+      RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+      GH_TOKEN: ${{ github.token }}
     steps:
       - uses: actions/checkout@v4
         with:
           ref: ${{ github.ref_name }}
-      - name: Install validation tools
+      - name: Install the YARA engine and record its version
         run: |
-          sudo apt-get update && sudo apt-get install -y yara
-      - name: Unit tests (Merkle log)
-        run: python3 -m unittest discover -s tests -v
+          sudo apt-get update -qq && sudo apt-get install -y -qq yara
+          yara --version | tee engine-version.txt
+      - name: Unit and integration tests (log, classification, decisions, dynamic gate, quarantine service)
+        run: |
+          python3 -m unittest discover -s tests -v
+          node --test admin/worker/test/
       - name: Fetch and normalize inventory
         id: prepare
         run: python3 scripts/prepare.py
-      - name: Compile and validate rules
-        id: validate
-        run: python3 scripts/validate.py
-      - name: Compare with the latest published release
+      - name: Static classification (integrity, syntax, dependencies, modules, regex cost, licences)
+        id: classify
+        run: python3 scripts/rulecheck.py --dist dist --out dist/classification.json
+      - name: Latest release and reviewer decisions
+        run: |
+          mkdir -p previous
+          if gh release download --repo "$GITHUB_REPOSITORY" --dir previous --pattern manifest.json --pattern rules-release.tar.gz; then
+            tar -xzf previous/rules-release.tar.gz -C previous rules
+          else echo 'No previous release'; fi
+          python3 scripts/quarantine_client.py decisions --out dist/decisions.json
+      - name: Dynamic gate (baseline vs candidate, isolate and quarantine culprits, re-measure)
+        id: gate
+        run: |
+          python3 scripts/dynamic_gate.py --dist dist --classification dist/classification.json --previous previous \
+            --decisions dist/decisions.json --out dist/decision.json --dynamic-out dist/dynamic.json >> "$GITHUB_OUTPUT"
+      - name: Send quarantined candidates to the private service
+        if: always() && steps.gate.outcome == 'success'
+        run: python3 scripts/quarantine_client.py submit --decision dist/decision.json --dist dist --dynamic dist/dynamic.json --run-id "$RUN_ID" --run-url "$RUN_URL"
+      - name: Public candidate (approved rules and aggregate numbers only)
         id: changes
-        if: steps.validate.outcome == 'success'
+        if: steps.gate.outcome == 'success'
+        run: |
+          python3 scripts/make_public_candidate.py --dist dist --out dist-public --previous previous/manifest.json
+          python3 scripts/changes.py --dist dist-public --previous previous/manifest.json --out dist-public/changes.json >> "$GITHUB_OUTPUT"
+      - name: Record the result in the transparency log (counts only)
+        if: always()
+        run: |
+          if [ -f dist/decision.json ]; then
+            python3 scripts/tlog.py entry-decision --dist dist --decision dist/decision.json --run-id "$RUN_ID"
+            if [ "${{ steps.changes.outputs.changed }}" = "false" ]; then
+              python3 scripts/tlog.py event --level INFO --code candidate.unchanged --run-id "$RUN_ID" --message "The approved rule files are identical to the latest release. No new release is created." --detail "run_url=$RUN_URL"
+            elif [ "${{ steps.changes.outputs.changed }}" = "true" ]; then
+              python3 scripts/tlog.py event --level INFO --code candidate.changes --run-id "$RUN_ID" --message "The approved set differs from the latest release. A new release will be requested." --detail "run_url=$RUN_URL"
+            fi
+          else
+            python3 scripts/tlog.py event --level ERROR --code run.failed --run-id "$RUN_ID" \
+              --message "The daily review stopped before a decision was reached (prepare: ${{ steps.prepare.outcome }}, classify: ${{ steps.classify.outcome }}, gate: ${{ steps.gate.outcome }}). See $RUN_URL" --detail "run_url=$RUN_URL"
+          fi
+          python3 scripts/tlog.py render
+          bash scripts/commit_logs.sh "daily review $RUN_ID"
+      - name: Upload the public candidate
+        if: steps.gate.outcome == 'success'
+        uses: actions/upload-artifact@v4
+        with:
+          name: candidate-${{ github.run_id }}
+          path: dist-public/
+          retention-days: 14
+
+  # Functional and performance checks on a real macOS runner. Hosted macOS runners are VMs without nested virtualization
+  # (see runner-probe.yml), so this is NOT an independent-VM test and is reported as such.
+  macos:
+    needs: review
+    if: needs.review.outputs.publishable == 'true' && needs.review.outputs.changed != 'false'
+    runs-on: macos-15
+    timeout-minutes: 40
+    permissions:
+      contents: read
+      actions: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.ref_name }}
+          persist-credentials: false
+      - uses: actions/download-artifact@v4
+        with:
+          name: candidate-${{ github.run_id }}
+          path: dist-public/
+      - name: Tools
+        run: brew install yara xcodegen >/dev/null && yara --version
+      - name: Previous release for the baseline
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           mkdir -p previous
-          gh release download --repo "$GITHUB_REPOSITORY" --dir previous --pattern manifest.json || echo 'No previous release'
-          python3 scripts/changes.py --dist dist --previous previous/manifest.json --out dist/changes.json >> "$GITHUB_OUTPUT"
-      - name: Record result in transparency log
-        if: always()
-        env:
-          RUN_ID: ${{ github.run_id }}
-          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          if gh release download --repo "$GITHUB_REPOSITORY" --dir previous --pattern manifest.json --pattern rules-release.tar.gz; then tar -xzf previous/rules-release.tar.gz -C previous rules; fi
+      - name: Engine measurements on macOS (same method and thresholds as Linux)
+        run: python3 scripts/dynamic_gate.py --verify-only --dist dist-public --previous previous --dynamic-out dynamic-macos.json
+      - name: Build MacGuard and run it over the safe corpus
         run: |
-          if [ -f dist/validation.json ]; then
-            python3 scripts/tlog.py entry --run-id "$RUN_ID"
-            if [ -f dist/changes.json ]; then
-              python3 - <<'PY' > /tmp/changes.env
-          import json; d = json.load(open('dist/changes.json')); c = d['counts']
-          print(f"CHANGED={'yes' if d['changed'] else 'no'}"); print(f"COUNTS='added {c['added']}, modified {c['modified']}, removed {c['removed']}, unchanged {c['unchanged']}'")
-          PY
-              . /tmp/changes.env
-              if [ "$CHANGED" = yes ]; then
-                python3 scripts/tlog.py event --level INFO --code candidate.changes --run-id "$RUN_ID" --message "The candidate differs from the latest release ($COUNTS). A new release will be requested." --detail "run_url=$RUN_URL"
-              else
-                python3 scripts/tlog.py event --level INFO --code candidate.unchanged --run-id "$RUN_ID" --message "The rule files are identical to the latest release ($COUNTS). No new release is created." --detail "run_url=$RUN_URL"
-              fi
-            fi
-          else
-            python3 scripts/tlog.py event --level ERROR --code run.failed --run-id "$RUN_ID" \
-              --message "The daily review stopped before validation finished (prepare: ${{ steps.prepare.outcome }}, validate: ${{ steps.validate.outcome }}). See $RUN_URL" \
-              --detail "run_url=$RUN_URL"
-          fi
-          python3 scripts/tlog.py render
-          bash scripts/commit_logs.sh "daily review $RUN_ID"
-      - name: Upload candidate for review
+          cd DMGTrustAuditor/DMGTrustAuditor && xcodegen generate >/dev/null
+          xcodebuild -project DMGTrustAuditor.xcodeproj -scheme macguard-audit -configuration Release CODE_SIGNING_ALLOWED=NO CODE_SIGN_IDENTITY=- SYMROOT="$PWD/../../build" build | tail -3
+          cd ../.. && python3 scripts/macguard_smoke.py build/Release/macguard-audit --out macguard-smoke.json
+      - uses: actions/upload-artifact@v4
         if: always()
-        uses: actions/upload-artifact@v4
         with:
-          name: candidate-${{ github.run_id }}
-          path: dist/
+          name: macos-validation-${{ github.run_id }}
+          path: |
+            dynamic-macos.json
+            macguard-smoke.json
           retention-days: 14
-      - name: Request publication (signing still needs the human approval)
-        if: steps.changes.outputs.changed == 'true' && steps.validate.outcome == 'success'
+
+  request-publish:
+    needs: [review, macos]
+    if: needs.review.outputs.publishable == 'true' && needs.review.outputs.changed == 'true' && needs.macos.result == 'success'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      actions: write    # request the publish workflow
+      contents: read
+    steps:
+      - name: Request publication
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh workflow run publish.yml -f candidate_run_id="${{ github.run_id }}"
+        run: gh workflow run publish.yml --repo "$GITHUB_REPOSITORY" -f candidate_run_id="${{ github.run_id }}"

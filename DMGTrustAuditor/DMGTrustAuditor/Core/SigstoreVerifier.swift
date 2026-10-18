@@ -14,7 +14,11 @@ import CryptoKit
 enum SigstoreVerifier {
     /// SHA-256 of cosign binaries this build trusts to run.
     static let pinnedCosign: [String: String] = [
-        "f5430359e5442bfcfe38310f4e6ce9e235bf36c2b917639c2f30b942e6f236e1": "cosign v3.1.1 darwin/amd64",
+        // Official release binaries, each verified against its Sigstore bundle (identity keyless@projectsigstore.iam.gserviceaccount.com).
+        "94b42a9e697be95675f6160ab031a9a5f1ec1e646d6f648d7b2f5cd59ececbc5": "cosign v3.1.1 darwin/arm64 (official release)",
+        "14d2678dfbfde18798151e86fbd91ebdadbb7424b18412a42a155dd8a2df4c7a": "cosign v3.1.1 darwin/amd64 (official release)",
+        // Homebrew build of the same version, accepted so developers can run the tests without downloading the release binary.
+        "f5430359e5442bfcfe38310f4e6ce9e235bf36c2b917639c2f30b942e6f236e1": "cosign v3.1.1 darwin/amd64 (Homebrew build, development only)",
     ]
     /// SHA-256 of the trusted root shipped with this build. Refreshing it is an app update (see Scripts/refresh-trusted-root.sh).
     static let pinnedTrustedRoots: [String: String] = [

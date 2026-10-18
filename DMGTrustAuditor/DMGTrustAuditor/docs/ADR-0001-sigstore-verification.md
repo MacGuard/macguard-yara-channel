@@ -28,5 +28,5 @@ is stale makes verification fail closed, never open.
 
 ## Consequences / residual risk
 * The helper must be code-signed and notarized with the app (release step, pending).
-* Only the darwin/amd64 cosign build is pinned today; the arm64 pin is added when the release build is made (pending).
+* Pinned today: the official v3.1.1 release binaries for darwin/arm64 and darwin/amd64 (each verified against its Sigstore bundle, identity `keyless@projectsigstore.iam.gserviceaccount.com`; `Scripts/fetch-cosign.sh` repeats that check) and the Homebrew amd64 build for development.
 * A native Swift verifier stays a possible future replacement; cosign remains the cross-check.

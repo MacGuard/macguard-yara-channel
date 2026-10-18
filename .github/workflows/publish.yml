@@ -46,9 +46,13 @@ jobs:
     needs: precheck
     if: needs.precheck.outputs.skip != 'true'
     runs-on: ubuntu-24.04
-    environment: stable-signing
-    timeout-minutes: 15
+    # Human approval stays on until the autonomous path has been demonstrated end to end. Setting the repository variable
+    # AUTO_PUBLISH=true (a deliberate, logged repository change) switches to an environment without required reviewers;
+    # branch protection, the OIDC identity and every technical check below are identical in both modes.
+    environment: ${{ vars.AUTO_PUBLISH == 'true' && 'stable-signing-auto' || 'stable-signing' }}
+    timeout-minutes: 20
     env:
+      QUARANTINE_URL: ${{ vars.QUARANTINE_URL }}
       RUN_ID: ${{ inputs.candidate_run_id }}
       IDENTITY: ${{ github.server_url }}/${{ github.repository }}/.github/workflows/publish.yml@refs/heads/${{ github.ref_name }}
       RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
@@ -69,6 +73,23 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: python3 scripts/check_run.py
+      - name: Re-verify the final set before signing (engine, classification, dynamic evidence)
+        run: |
+          sudo apt-get update -qq && sudo apt-get install -y -qq yara
+          python3 scripts/rulecheck.py --dist dist --out /tmp/classification.json
+          python3 - <<'PY'
+          import json, sys
+          sys.path.insert(0, 'scripts')
+          import tlog
+          cls = json.load(open('/tmp/classification.json')); cand = json.load(open('dist/candidate.json')); dyn = json.load(open('dist/dynamic.json'))
+          bad = [f['path'] for f in cls['files'] if f['state'] != 'VALIDATED']
+          assert not bad, f'{len(bad)} files do not pass the static checks again: {bad[:3]}'
+          root = tlog.rules_root(cand['files'])
+          assert dyn['set_root'] == root, 'the dynamic evidence belongs to a different set'
+          assert dyn['verdict'] in ('ok', 'no-baseline'), f"dynamic verdict {dyn['verdict']}"
+          assert dyn['canaries_detected'] == dyn['canaries_expected'], 'detection canaries were not all detected'
+          print('final set re-verified:', len(cand['files']), 'files, rules_root', root[:16], 'dynamic', dyn['verdict'], 'on', dyn['platform'])
+          PY
       - name: Verify the existing log before extending it
         run: python3 scripts/tlog.py verify --identity "$IDENTITY" --repo "$GITHUB_REPOSITORY"
       - name: Record approval and sign the log head
@@ -126,6 +147,9 @@ jobs:
           GOT=$(gh release view "$TAG" --json assets --jq '.assets|length')
           [ "$GOT" -ge 9 ] || { echo "only $GOT assets attached"; exit 1; }
           gh release edit "$TAG" --draft=false --latest
+      - name: Tell the quarantine service which approved rules were released
+        if: success()
+        run: python3 scripts/quarantine_client.py released --tag "$TAG" --hashes-file dist/candidate.json --run-url "$RUN_URL"
       - name: Record result and commit the log
         if: always()
         run: |
