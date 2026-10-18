@@ -1,0 +1,20 @@
+sequenceDiagram
+  autonumber
+  participant P as publish.yml
+  participant GH as GitHub Releases
+  participant S as site.yml
+  participant GP as GitHub Pages
+  participant CF as Cloudflare Pages
+  participant V as verify_live.py
+  P->>P: re-verify final set, seal, sign, tar.gz, metadata
+  P->>P: verify_release.py on the exact files to publish
+  P->>GH: create DRAFT release with every asset
+  P->>GH: check the asset count, then publish
+  P->>S: request site deployment
+  S->>GH: download the release and history
+  S->>S: verify_release.py, build catalog and stats, record verification
+  S->>GP: deploy
+  S->>CF: deploy mirror (preflight first)
+  S->>V: verify the public URL
+  V->>GP: package, every rule file, catalog, links
+  V-->>S: PASS or FAIL logged in the transparency log

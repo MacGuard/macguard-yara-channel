@@ -1,5 +1,5 @@
 # Regenerates web/rules.html, releases.html and transparency.html. Run from web/: python3 ../scripts/gen_pages.py
-NAV=[('./','Inicio','home'),('rules.html','Reglas YARA','rules'),('releases.html','Releases','releases'),('transparency.html','Transparencia','transparency'),('docs.html','Documentación','docs')]
+NAV=[('./','Inicio','home'),('rules.html','Reglas YARA','rules'),('releases.html','Releases','releases'),('transparency.html','Transparencia','transparency'),('docs/index.html','Documentación','docs')]
 CUR=' aria-current="page"'
 def shell(cur,title,body,scripts):
     nav=''.join('<a href="%s"%s data-t="nav_%s">%s</a>'%(h,CUR if k==cur else '',k,t) for h,t,k in NAV)
@@ -14,6 +14,7 @@ rules_body='''<h1 data-t="h">Reglas YARA</h1>
 <ul class="dl" id="dl"><li><a id="dl-pkg" href="rules-release.tar.gz" data-t="dl_pkg">Descargar paquete completo</a> <span id="dl-pkg-note" class="muted"></span></li>
 <li><a href="manifest.json" data-t="dl_man">Manifiesto firmado</a> · <a href="manifest.sigstore.json" data-t="dl_bundle">bundle Sigstore</a> <span class="muted" id="dl-man-sha"></span></li>
 <li><a href="logs/checkpoint.txt" data-t="dl_cp">Checkpoint</a> · <a href="logs/checkpoint.sigstore.json" data-t="dl_cpb">bundle del checkpoint</a> · <a href="inclusion-proof.json" data-t="dl_proof">Prueba de inclusión</a> · <a href="latest.json">latest.json</a></li>
+<li><a href="verify_public_release.py" download>Descargar verificador · Download verifier</a> · <a href="docs/es/verification.html">Cómo verificar</a> · <a href="docs/en/verification.html">How to verify</a></li>
 <li><a href="releases.html" data-t="dl_hist">Historial de publicaciones</a> · <a href="rules-list.html" data-t="dl_plain">Lista completa sin JavaScript</a></li></ul>
 <div id="ver" class="verbox" role="status"></div>
 <p><button id="pkg-check" type="button" data-t="pkg_check">Comprobar el SHA-256 del paquete en este navegador</button> <span id="pkg-out" aria-live="polite"></span></p></section>
@@ -41,6 +42,7 @@ tr_body='''<h1 data-t="h">Transparencia</h1>
 <p><a href="logs/checkpoint.txt" data-t="dl_cp">Checkpoint</a> · <a href="logs/checkpoint.sigstore.json" data-t="dl_cpb">bundle del checkpoint</a> · <a href="inclusion-proof.json" data-t="dl_proof">prueba de inclusión</a> <span id="cons-link"></span> · <a href="logs/log.jsonl">log.jsonl</a> · <a href="logs/LOG.md">LOG.md</a> · <a href="manifest.json">manifest.json</a></p></section>
 <section class="panel" aria-labelledby="v-h"><h2 id="v-h" data-t="v_h">Comprobar en este navegador</h2>
 <p data-t="policy"><b>Política de confianza.</b> Esta página comprueba matemáticas: que log.jsonl produce la raíz del checkpoint, que la prueba de inclusión lleva la entrada de la release a esa raíz y, si existe, que el árbol anterior es prefijo del actual. NO comprueba la firma Sigstore del checkpoint ni del manifiesto: para eso usa cosign verify-blob con la identidad publicada o la app MacGuard. Descargar y mostrar un JSON no es una verificación.</p>
+<p><a href="verify_public_release.py" download>Descargar verificador · Download verifier</a> (<a href="verify_public_release.py.sha256">SHA-256</a>) · <a href="docs/es/verification.html">Cómo verificar</a> · <a href="docs/en/verification.html">How to verify</a></p>
 <p><button id="verify" type="button" data-t="v_btn">Ejecutar comprobaciones</button></p><ul id="checks" aria-live="polite"></ul></section>
 <section class="panel" aria-labelledby="d-h"><h2 id="d-h" data-t="d_h">Dos registros distintos</h2>
 <p data-t="diff"><b>Sigstore (Rekor)</b> es un registro público de terceros donde queda anotada cada firma, y Fulcio emite el certificado de la identidad del workflow. <b>El registro Merkle de MacGuard</b> lo mantiene este repositorio: guarda los eventos legibles (descargas, rechazos, aprobaciones) y lo que se firmó en cada release. Se verifican por separado: el primero prueba quién firmó; el segundo, qué ocurrió y que nada se reescribió.</p></section>

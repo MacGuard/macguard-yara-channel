@@ -1,0 +1,10 @@
+{
+ "title": {
+  "en": "Atomic install and recovery",
+  "es": "Instalación atómica y recuperación"
+ },
+ "alt": {
+  "en": "Activation writes a journal, renames the live folder to previous and the verified staging folder to live. If the process dies between the two renames, the next start finds the journal, sees that live is missing and moves previous back. A second update at the same time is refused by a file lock.",
+  "es": "La activación escribe un diario, renombra la carpeta viva a previous y la carpeta de staging verificada a live. Si el proceso muere entre los dos renombrados, el siguiente arranque encuentra el diario, ve que falta live y devuelve previous a su sitio. Una segunda actualización simultánea la rechaza un bloqueo de fichero."
+ }
+}

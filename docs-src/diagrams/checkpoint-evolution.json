@@ -1,0 +1,10 @@
+{
+ "title": {
+  "en": "Checkpoints over time",
+  "es": "Evolución de los checkpoints"
+ },
+ "alt": {
+  "en": "Each signed checkpoint commits to a log size and root. Later checkpoints extend earlier ones. A consistency proof shows that the tree of the earlier size is a prefix of the later tree, so entries were only appended. A client that remembers the earlier checkpoint can refuse a smaller tree (rollback) or a different root at the same size (fork).",
+  "es": "Cada checkpoint firmado compromete un tamaño y una raíz del registro. Los posteriores extienden a los anteriores. Una prueba de consistencia demuestra que el árbol del tamaño anterior es prefijo del posterior, es decir, solo se añadieron entradas. Un cliente que recuerda el checkpoint anterior puede rechazar un árbol menor (rollback) o una raíz distinta con el mismo tamaño (bifurcación)."
+ }
+}

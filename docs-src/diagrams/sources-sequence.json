@@ -1,0 +1,10 @@
+{
+ "title": {
+  "en": "Collection sequence",
+  "es": "Secuencia de recolección"
+ },
+ "alt": {
+  "en": "GitHub Actions runs prepare.py, which asks the GitHub API for the newest commit of each source, reads the licence, downloads the tarball of exactly that commit, extracts it safely, keeps only allowed .yar and .yara files, rejects oversized or binary files, hashes every file and writes the inventory candidate.json.",
+  "es": "GitHub Actions ejecuta prepare.py, que pide a la API de GitHub el último commit de cada fuente, lee la licencia, descarga el tarball de ese commit exacto, lo extrae de forma segura, conserva solo los .yar y .yara permitidos, rechaza los grandes o binarios, calcula el hash de cada fichero y escribe el inventario candidate.json."
+ }
+}

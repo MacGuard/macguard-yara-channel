@@ -1,0 +1,142 @@
+[
+ {
+  "slug": "overview",
+  "title": {
+   "es": "Visión general",
+   "en": "Overview"
+  }
+ },
+ {
+  "slug": "architecture",
+  "title": {
+   "es": "Arquitectura",
+   "en": "Architecture"
+  }
+ },
+ {
+  "slug": "sources",
+  "title": {
+   "es": "Fuentes de reglas",
+   "en": "Rule sources"
+  }
+ },
+ {
+  "slug": "static-validation",
+  "title": {
+   "es": "Validación estática",
+   "en": "Static validation"
+  }
+ },
+ {
+  "slug": "dynamic-validation",
+  "title": {
+   "es": "Validación dinámica",
+   "en": "Dynamic validation"
+  }
+ },
+ {
+  "slug": "quarantine",
+  "title": {
+   "es": "Cuarentena",
+   "en": "Quarantine"
+  }
+ },
+ {
+  "slug": "admin-panel",
+  "title": {
+   "es": "Panel privado",
+   "en": "Private panel"
+  }
+ },
+ {
+  "slug": "decision-gate",
+  "title": {
+   "es": "Puerta de decisión y contabilidad",
+   "en": "Decision gate and accounting"
+  }
+ },
+ {
+  "slug": "merkle",
+  "title": {
+   "es": "Árboles Merkle",
+   "en": "Merkle trees"
+  }
+ },
+ {
+  "slug": "transparency-log",
+  "title": {
+   "es": "Registro y checkpoints",
+   "en": "Log and checkpoints"
+  }
+ },
+ {
+  "slug": "sigstore",
+  "title": {
+   "es": "Firmas con Sigstore",
+   "en": "Sigstore signatures"
+  }
+ },
+ {
+  "slug": "release",
+  "title": {
+   "es": "Publicación y releases",
+   "en": "Publishing and releases"
+  }
+ },
+ {
+  "slug": "web-distribution",
+  "title": {
+   "es": "Sitio web y distribución",
+   "en": "Website and distribution"
+  }
+ },
+ {
+  "slug": "operations",
+  "title": {
+   "es": "Operación y pruebas",
+   "en": "Operations and tests"
+  }
+ },
+ {
+  "slug": "client-update",
+  "title": {
+   "es": "Actualización en MacGuard",
+   "en": "Update in MacGuard"
+  }
+ },
+ {
+  "slug": "client-failures",
+  "title": {
+   "es": "Fallos y recuperación",
+   "en": "Failures and recovery"
+  }
+ },
+ {
+  "slug": "verification",
+  "title": {
+   "es": "Verificación de reglas, firmas y transparencia",
+   "en": "Verifying rules, signatures and transparency"
+  }
+ },
+ {
+  "slug": "threat-model",
+  "title": {
+   "es": "Modelo de amenazas",
+   "en": "Threat model"
+  }
+ },
+ {
+  "slug": "limits",
+  "title": {
+   "es": "Límites y pendientes",
+   "en": "Limits and pending work"
+  }
+ },
+ {
+  "slug": "glossary",
+  "title": {
+   "es": "Glosario y cambios",
+   "en": "Glossary and changes"
+  }
+ }
+]

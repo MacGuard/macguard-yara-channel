@@ -1,0 +1,10 @@
+{
+ "title": {
+  "en": "Trust boundaries",
+  "es": "Límites de confianza"
+ },
+ "alt": {
+  "en": "Upstream sources are untrusted input. The private pipeline job and the quarantine store hold everything about rules that are not published. Only the approved set, aggregate numbers and the signed artifacts cross into the public zone. The client trusts the pinned Sigstore verifier, the workflow identity and its own saved checkpoint, not the hosting site.",
+  "es": "Las fuentes upstream son entrada no fiable. El job privado del pipeline y el almacén de cuarentena guardan todo lo relativo a reglas no publicadas. Solo el conjunto aprobado, cifras agregadas y los artefactos firmados pasan a la zona pública. El cliente confía en el verificador Sigstore fijado, en la identidad del workflow y en su propio checkpoint guardado, no en el sitio que aloja los ficheros."
+ }
+}

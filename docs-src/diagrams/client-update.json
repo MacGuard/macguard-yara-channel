@@ -1,0 +1,10 @@
+{
+ "title": {
+  "en": "Normal update in MacGuard",
+  "es": "Actualización normal en MacGuard"
+ },
+ "alt": {
+  "en": "The user consents, MacGuard takes the update lock, downloads into a private staging folder with size caps, extracts safely, verifies the manifest signature, every hash, rules_root, the checkpoint signature, the inclusion proof and consistency with the trusted checkpoint, saves the new trusted checkpoint and activates the rules with two renames.",
+  "es": "La persona da su consentimiento, MacGuard toma el bloqueo de actualización, descarga a una carpeta de staging privada con límites de tamaño, extrae de forma segura, verifica la firma del manifiesto, cada hash, rules_root, la firma del checkpoint, la prueba de inclusión y la consistencia con el checkpoint de confianza, guarda el nuevo checkpoint y activa las reglas con dos renombrados."
+ }
+}

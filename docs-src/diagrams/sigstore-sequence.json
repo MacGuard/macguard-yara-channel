@@ -1,0 +1,10 @@
+{
+ "title": {
+  "en": "Keyless signing and verification",
+  "es": "Firma sin clave y verificación"
+ },
+ "alt": {
+  "en": "Inside publish.yml, cosign asks GitHub for an OIDC token that names the workflow. Fulcio issues a short-lived certificate bound to that identity and an ephemeral key, cosign signs the blob, the signature is recorded in Rekor and everything is stored in a bundle. A client later verifies the bundle against the Sigstore trust root and checks the identity and the issuer.",
+  "es": "Dentro de publish.yml, cosign pide a GitHub un token OIDC que nombra al workflow. Fulcio emite un certificado de corta duración ligado a esa identidad y a una clave efímera, cosign firma el blob, la firma se registra en Rekor y todo se guarda en un bundle. Más tarde un cliente verifica el bundle con la raíz de confianza de Sigstore y comprueba la identidad y el emisor."
+ }
+}

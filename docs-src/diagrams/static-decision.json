@@ -1,0 +1,10 @@
+{
+ "title": {
+  "en": "Static classification",
+  "es": "Clasificación estática"
+ },
+ "alt": {
+  "en": "Each file is read as text and compiled. Hard criteria (binary, empty, no rules, oversized, identical content rejected before) reject it. Truncation, corruption, a compile error, a blocked or unknown module, a costly regular expression, a loop over the whole file, a changed licence or a dependency that is not validated send it to quarantine. A file that is deprecated by its own metadata is marked deprecated. Everything else is validated.",
+  "es": "Cada fichero se lee como texto y se compila. Los criterios duros (binario, vacío, sin reglas, demasiado grande, mismo contenido rechazado antes) lo rechazan. Truncamiento, corrupción, error de compilación, módulo bloqueado o desconocido, expresión regular costosa, bucle sobre todo el fichero, licencia cambiada o dependencia no validada lo envían a cuarentena. Un fichero marcado como obsoleto en sus metadatos queda como obsoleto. El resto se valida."
+ }
+}

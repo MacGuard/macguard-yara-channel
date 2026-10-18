@@ -54,5 +54,12 @@ if (site / 'manifest.json').exists():
     if len(rows) >= 2 and rows[-2].get('log'):
         doc = catalog.consistency_doc(log_lines, rows[-2]['log'], manifest.get('log'))
         if doc: (site / 'consistency.json').write_text(json.dumps(doc, indent=1) + '\n'); print('Consistency proof published')
-stats.build(root / 'logs' / 'log.jsonl', site / 'stats.json', releases=catalog.public_rows(rows))   # recomputed on every deploy; keeps the last 30 days
+stats.build(root / 'logs' / 'log.jsonl', site / 'stats.json', releases=catalog.public_rows(rows))
+# --- the independent verifier, with its hash (same-origin copies are a convenience, not a root of trust: see the Verification page) ---
+shutil.copy(root / 'scripts' / 'verify_public_release.py', site / 'verify_public_release.py')
+(site / 'verify_public_release.py.sha256').write_text(hashlib.sha256((site / 'verify_public_release.py').read_bytes()).hexdigest() + '  verify_public_release.py\n')
+# --- documentation (Markdown in docs-src/, numbers read from the files published above); a build error stops the site build ---
+import build_docs
+report = build_docs.build(site / 'docs', site)
+print(f"Documentation built: {report['pages']} pages")   # recomputed on every deploy; keeps the last 30 days
 print(f'Site assembled in {site}')

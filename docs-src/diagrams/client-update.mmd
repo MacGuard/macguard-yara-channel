@@ -1,0 +1,16 @@
+sequenceDiagram
+  autonumber
+  participant U as User
+  participant M as MacGuard RuleInstaller
+  participant S as Channel (Pages)
+  participant V as ChannelVerifier and cosign
+  U->>M: update rules (consent)
+  M->>M: flock update.lock, recover interrupted swaps
+  M->>S: latest.json
+  M->>S: tarball, manifest, bundles, proof, checkpoint, log.jsonl (byte caps)
+  M->>M: safe extraction in staging
+  M->>V: manifest signature, file hashes, rules_root
+  M->>V: checkpoint signature, inclusion, consistency, rollback check
+  V-->>M: all checks passed
+  M->>M: save trusted checkpoint, rename live to previous, staging to live
+  M-->>U: rules installed

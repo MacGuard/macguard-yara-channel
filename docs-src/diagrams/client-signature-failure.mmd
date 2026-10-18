@@ -1,0 +1,9 @@
+sequenceDiagram
+  participant M as MacGuard
+  participant V as cosign pinned
+  participant L as Installed rules
+  M->>V: verify-blob manifest.json
+  V-->>M: identity or signature does not match
+  M->>M: delete staging, keep trusted checkpoint unchanged
+  M-->>L: untouched
+  M->>M: show plain explanation and technical detail

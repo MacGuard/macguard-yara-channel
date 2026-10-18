@@ -1,0 +1,30 @@
+flowchart BT
+  E0["entry 0<br/>log.jsonl line"]:::src
+  E1["entry 1"]:::src
+  E2["entry 2"]:::src
+  E3["entry 3"]:::src
+  E4["entry 4<br/>the release entry"]:::pub
+  E5["entry 5"]:::src
+  A["node A = H(01 || L0 || L1)"]:::val
+  B["node B = H(01 || L2 || L3)"]:::val
+  C["node C = H(01 || L4 || L5)"]:::val
+  AB["node AB"]:::val
+  ROOT["log root"]:::gate
+  CP["checkpoint<br/>origin, size, root"]:::sec
+  E0 -->|leaf hash| A
+  E1 --> A
+  E2 --> B
+  E3 --> B
+  E4 -->|leaf hash| C
+  E5 --> C
+  A --> AB
+  B --> AB
+  AB --> ROOT
+  C --> ROOT
+  ROOT --> CP
+  classDef src fill:#cfe3ff,stroke:#2f6df0,color:#0b1b33
+  classDef val fill:#ffe9b8,stroke:#b8860b,color:#2b1d00
+  classDef sec fill:#cdeedd,stroke:#1b6e3c,color:#08210f
+  classDef pub fill:#e4d7ff,stroke:#6a3fd1,color:#1b0b3b
+  classDef qua fill:#ffd4cc,stroke:#c0392b,color:#33100b
+  classDef gate fill:#ffffff,stroke:#111111,stroke-width:3px,color:#111111

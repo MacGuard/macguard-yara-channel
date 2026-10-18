@@ -1,0 +1,170 @@
+[
+ {
+  "code": "sources.fetched",
+  "level": "INFO",
+  "es": "Se descargaron las fuentes upstream en commits fijados.",
+  "en": "Upstream sources were fetched at pinned commits.",
+  "source": "scripts/tlog.py"
+ },
+ {
+  "code": "candidate.classified",
+  "level": "INFO",
+  "es": "Resumen de la clasificación: examinados, aceptados, en cuarentena, rechazados y obsoletos (solo cifras).",
+  "en": "Classification summary: examined, accepted, quarantined, rejected and deprecated (counts only).",
+  "source": "scripts/tlog.py"
+ },
+ {
+  "code": "candidate.accepted",
+  "level": "INFO",
+  "es": "El conjunto aprobado superó todos los controles obligatorios; incluye su rules_root candidato.",
+  "en": "The approved set passed every mandatory check; carries its candidate rules_root.",
+  "source": "scripts/tlog.py"
+ },
+ {
+  "code": "candidate.not_publishable",
+  "level": "WARNING",
+  "es": "Esta ejecución no produce release; se indican los bloqueos.",
+  "en": "This run produces no release; the blockers are listed.",
+  "source": "scripts/tlog.py"
+ },
+ {
+  "code": "rules.withheld",
+  "level": "WARNING",
+  "es": "Ficheros ya publicados que ya no pasan los controles y se retienen hasta resolverse.",
+  "en": "Previously published files that no longer pass the checks and are withheld until resolved.",
+  "source": "scripts/tlog.py"
+ },
+ {
+  "code": "file.skipped",
+  "level": "WARNING",
+  "es": "Un fichero de la fuente se omitió al preparar el candidato (tamaño, binario, ruta no permitida).",
+  "en": "A source file was skipped while preparing the candidate (size, binary, path not allowed).",
+  "source": "scripts/tlog.py"
+ },
+ {
+  "code": "rule.rejected",
+  "level": "ERROR",
+  "es": "Evento heredado del flujo anterior: un fichero falló la validación del compilador.",
+  "en": "Legacy event of the earlier flow: a file failed compiler validation.",
+  "source": "scripts/tlog.py"
+ },
+ {
+  "code": "gate.rule_error",
+  "level": "ERROR",
+  "es": "Evento heredado: un fichero falló al cargarse en la app.",
+  "en": "Legacy event: a file failed when loaded by the app.",
+  "source": "scripts/tlog.py"
+ },
+ {
+  "code": "candidate.rejected",
+  "level": "ERROR",
+  "es": "Evento heredado: candidato bloqueado completo por ficheros que fallaban.",
+  "en": "Legacy event: the whole candidate was blocked by failing files.",
+  "source": "scripts/tlog.py"
+ },
+ {
+  "code": "candidate.changes",
+  "level": "INFO",
+  "es": "Hay cambio efectivo respecto a la última release; se solicita la publicación.",
+  "en": "There is an effective change against the latest release; publication is requested.",
+  "source": ".github/workflows/daily.yml"
+ },
+ {
+  "code": "candidate.unchanged",
+  "level": "INFO",
+  "es": "Sin cambio efectivo: no hay release ni solicitud de aprobación.",
+  "en": "No effective change: no release and no approval request.",
+  "source": ".github/workflows/daily.yml"
+ },
+ {
+  "code": "run.failed",
+  "level": "ERROR",
+  "es": "La ejecución diaria falló antes de poder decidir; no se publicó nada.",
+  "en": "The daily run failed before it could decide; nothing was published.",
+  "source": ".github/workflows/daily.yml"
+ },
+ {
+  "code": "release.approved",
+  "level": "INFO",
+  "es": "El candidato se aprobó para firma (automáticamente o por un humano según el entorno) y se firma la cabeza del registro.",
+  "en": "The candidate was approved for signing (automatically or by a person, depending on the environment) and the log head is signed.",
+  "source": ".github/workflows/publish.yml"
+ },
+ {
+  "code": "release.published",
+  "level": "INFO",
+  "es": "La release firmada se publicó en GitHub y se solicitó el despliegue del sitio.",
+  "en": "The signed release was published on GitHub and a site deployment was requested.",
+  "source": ".github/workflows/publish.yml"
+ },
+ {
+  "code": "release.failed",
+  "level": "ERROR",
+  "es": "Fallo al firmar o publicar; no se publicó nada nuevo.",
+  "en": "Signing or publishing failed; nothing new was published.",
+  "source": ".github/workflows/publish.yml"
+ },
+ {
+  "code": "site.github_pages_deployed",
+  "level": "INFO",
+  "es": "Sitio desplegado en GitHub Pages.",
+  "en": "Site deployed to GitHub Pages.",
+  "source": ".github/workflows/site.yml"
+ },
+ {
+  "code": "site.github_pages_failed",
+  "level": "ERROR",
+  "es": "Falló el despliegue en GitHub Pages.",
+  "en": "The GitHub Pages deployment failed.",
+  "source": ".github/workflows/site.yml"
+ },
+ {
+  "code": "site.live_verified",
+  "level": "INFO",
+  "es": "La URL pública se verificó con los bytes que sirve (paquete, ficheros, firmas, pruebas, enlaces).",
+  "en": "The public URL was verified with the bytes it serves (package, files, signatures, proofs, links).",
+  "source": ".github/workflows/site.yml"
+ },
+ {
+  "code": "site.live_failed",
+  "level": "ERROR",
+  "es": "La verificación de la URL pública falló.",
+  "en": "The public URL verification failed.",
+  "source": ".github/workflows/site.yml"
+ },
+ {
+  "code": "site.build_failed",
+  "level": "ERROR",
+  "es": "No se pudo construir o verificar el sitio.",
+  "en": "The site could not be built or verified.",
+  "source": ".github/workflows/site.yml"
+ },
+ {
+  "code": "site.cloudflare_deployed",
+  "level": "INFO",
+  "es": "Sitio desplegado automáticamente en Cloudflare Pages desde el workflow.",
+  "en": "Site deployed to Cloudflare Pages automatically from the workflow.",
+  "source": ".github/workflows/site.yml"
+ },
+ {
+  "code": "site.cloudflare_skipped",
+  "level": "WARNING",
+  "es": "No hay credenciales de Cloudflare configuradas en el repositorio; no se intentó desplegar.",
+  "en": "No Cloudflare credentials are configured in the repository; no deployment was attempted.",
+  "source": ".github/workflows/site.yml"
+ },
+ {
+  "code": "site.cloudflare_blocked",
+  "level": "ERROR",
+  "es": "La comprobación previa de la credencial de Cloudflare falló; no se intentó desplegar.",
+  "en": "The Cloudflare credential preflight failed; no deployment was attempted.",
+  "source": ".github/workflows/site.yml"
+ },
+ {
+  "code": "site.cloudflare_failed",
+  "level": "ERROR",
+  "es": "El despliegue en Cloudflare Pages falló; sigue el sitio anterior.",
+  "en": "The Cloudflare Pages deployment failed; the previous site stays online.",
+  "source": ".github/workflows/site.yml"
+ }
+]

@@ -1,0 +1,12 @@
+sequenceDiagram
+  participant M as MacGuard
+  participant O1 as Origin 1
+  participant O2 as Origin 2 (if configured)
+  participant L as Installed rules
+  M->>O1: download release files
+  O1--xM: timeout or incomplete
+  M->>M: remove staging
+  M->>O2: start again from the beginning
+  O2--xM: unreachable
+  M-->>L: previous rules stay in use
+  M->>M: report the failure, nothing installed

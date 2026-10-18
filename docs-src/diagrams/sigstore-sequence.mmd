@@ -1,0 +1,21 @@
+sequenceDiagram
+  autonumber
+  participant GA as GitHub Actions publish.yml
+  participant OI as GitHub OIDC
+  participant CO as cosign
+  participant FU as Fulcio
+  participant RE as Rekor
+  participant GR as GitHub Releases
+  participant CL as Client
+  GA->>OI: request ID token (id-token write)
+  OI-->>GA: JWT naming workflow, repository and ref
+  GA->>CO: sign-blob manifest.json
+  CO->>CO: ephemeral key pair
+  CO->>FU: JWT and public key
+  FU-->>CO: short lived certificate
+  CO->>RE: signature and certificate
+  RE-->>CO: signed entry timestamp
+  CO-->>GA: manifest.sigstore.json bundle
+  GA->>GR: attach manifest.json and the bundle
+  CL->>GR: download both
+  CL->>CL: verify chain to the trust root, signature, Rekor evidence, identity, issuer

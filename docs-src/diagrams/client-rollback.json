@@ -1,0 +1,10 @@
+{
+ "title": {
+  "en": "Rollback detected",
+  "es": "Rollback detectado"
+ },
+ "alt": {
+  "en": "MacGuard keeps the newest verified log checkpoint. A release whose checkpoint is smaller than that, or has a different root at the same size, or grows without a consistency proof, is refused. The trusted state is never moved backwards.",
+  "es": "MacGuard guarda el checkpoint verificado más reciente. Una release cuyo checkpoint es menor, o tiene otra raíz con el mismo tamaño, o crece sin una prueba de consistencia, se rechaza. El estado de confianza nunca retrocede."
+ }
+}

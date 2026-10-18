@@ -1,0 +1,10 @@
+{
+ "title": {
+  "en": "Independent verifier",
+  "es": "Verificador independiente"
+ },
+ "alt": {
+  "en": "verify_public_release.py resolves the release once and pins the tag, downloads the mandatory artifacts, verifies the Sigstore identity of the manifest and the checkpoint, extracts the package with limits, compares every hash, recomputes rules_root, checks counts, checkpoint, inclusion and optional consistency, and exits with a code that names the kind of failure.",
+  "es": "verify_public_release.py resuelve la release una sola vez y fija la etiqueta, descarga los artefactos obligatorios, verifica la identidad Sigstore del manifiesto y del checkpoint, extrae el paquete con límites, compara cada hash, recalcula rules_root, comprueba cifras, checkpoint, inclusión y consistencia opcional, y termina con un código que indica el tipo de fallo."
+ }
+}

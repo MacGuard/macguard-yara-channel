@@ -1,0 +1,10 @@
+{
+ "title": {
+  "en": "Merkle tree of the rule files",
+  "es": "Árbol Merkle de los ficheros de reglas"
+ },
+ "alt": {
+  "en": "Rule files are sorted by path. Each leaf is SHA-256 of the byte 0x00 followed by path, a zero byte and the file SHA-256 in hex. With five leaves the tree splits at the largest power of two below five: four leaves on the left and one on the right. Internal nodes are SHA-256 of 0x01, left and right. The top hash is rules_root, stored in the signed manifest.",
+  "es": "Los ficheros se ordenan por ruta. Cada hoja es el SHA-256 del byte 0x00 seguido de la ruta, un byte cero y el SHA-256 del fichero en hexadecimal. Con cinco hojas el árbol se parte en la mayor potencia de dos menor que cinco: cuatro hojas a la izquierda y una a la derecha. Los nodos internos son el SHA-256 de 0x01, izquierda y derecha. El hash superior es rules_root, guardado en el manifiesto firmado."
+ }
+}

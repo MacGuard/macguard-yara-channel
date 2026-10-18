@@ -1,0 +1,10 @@
+{
+ "title": {
+  "en": "Signature failure",
+  "es": "Fallo de firma"
+ },
+ "alt": {
+  "en": "If the Sigstore verification of the manifest or checkpoint fails, or if the pinned verifier is missing, MacGuard rejects the release before touching the installed rules and tells the user why.",
+  "es": "Si falla la verificación Sigstore del manifiesto o del checkpoint, o si falta el verificador fijado, MacGuard rechaza la release antes de tocar las reglas instaladas y le explica el motivo a la persona."
+ }
+}

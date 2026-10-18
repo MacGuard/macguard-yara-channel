@@ -1,0 +1,18 @@
+flowchart TD
+  A["resolve tag once<br/>--latest or --tag"]:::src --> B["download mandatory artifacts<br/>exit 4 if incomplete"]:::src
+  B --> C["cosign verify-blob<br/>manifest and checkpoint<br/>exit 2 or 5"]:::sec
+  C --> D["safe extraction<br/>exit 6 if unsafe"]:::val
+  D --> E["SHA-256 of every file<br/>exit 1 if different"]:::val
+  E --> F["recompute rules_root<br/>exit 3"]:::sec
+  F --> G["checkpoint equals manifest log head<br/>inclusion proof<br/>exit 3"]:::sec
+  G --> H{"previous checkpoint<br/>given?"}:::gate
+  H -->|yes| I["consistency proof and rollback check<br/>exit 3"]:::sec
+  H -->|no| J["report: rollback protection not established"]:::qua
+  I --> K["PASS exit 0"]:::pub
+  J --> K
+  classDef src fill:#cfe3ff,stroke:#2f6df0,color:#0b1b33
+  classDef val fill:#ffe9b8,stroke:#b8860b,color:#2b1d00
+  classDef sec fill:#cdeedd,stroke:#1b6e3c,color:#08210f
+  classDef pub fill:#e4d7ff,stroke:#6a3fd1,color:#1b0b3b
+  classDef qua fill:#ffd4cc,stroke:#c0392b,color:#33100b
+  classDef gate fill:#ffffff,stroke:#111111,stroke-width:3px,color:#111111

@@ -1,0 +1,10 @@
+{
+ "title": {
+  "en": "Merkle tree of the transparency log",
+  "es": "Árbol Merkle del registro de transparencia"
+ },
+ "alt": {
+  "en": "Every line of logs/log.jsonl is a leaf: SHA-256 of 0x00 followed by the exact bytes of the line. Leaves are combined with 0x01-prefixed node hashes into a root. The root and the number of entries are written to a checkpoint, and the checkpoint is signed. An inclusion proof for entry 4 is the sibling hashes along its path.",
+  "es": "Cada línea de logs/log.jsonl es una hoja: SHA-256 de 0x00 seguido de los bytes exactos de la línea. Las hojas se combinan con hashes de nodo con prefijo 0x01 hasta una raíz. La raíz y el número de entradas se escriben en un checkpoint y el checkpoint se firma. La prueba de inclusión de la entrada 4 son los hashes hermanos a lo largo de su camino."
+ }
+}

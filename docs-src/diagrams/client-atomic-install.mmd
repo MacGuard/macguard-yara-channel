@@ -1,0 +1,10 @@
+sequenceDiagram
+  autonumber
+  participant I as RuleInstaller
+  participant FS as Filesystem
+  I->>FS: write journal.json
+  I->>FS: rename community to previous
+  Note over I,FS: a crash here leaves community missing
+  I->>FS: rename staging community to community
+  I->>FS: delete journal.json
+  Note over I,FS: next start, journal found and community missing, recoverIfNeeded renames previous back

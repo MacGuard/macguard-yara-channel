@@ -2,7 +2,7 @@ name: Deploy site (GitHub Pages and Cloudflare Pages)
 on:
   push:
     branches: [main]
-    paths: ['web/**', 'scripts/og_inject.py', '.github/workflows/site.yml', 'scripts/build_site.py', 'scripts/catalog.py', 'scripts/stats.py']
+    paths: ['web/**', 'docs-src/**', 'scripts/build_docs.py', 'scripts/docs_check.py', 'scripts/verify_public_release.py', 'tests/test_docs.py', 'tests/test_docs_og.py', 'scripts/og_inject.py', '.github/workflows/site.yml', 'scripts/build_site.py', 'scripts/catalog.py', 'scripts/stats.py']
   workflow_dispatch:
 permissions:
   contents: read
@@ -81,8 +81,34 @@ jobs:
           path: site
           retention-days: 1
 
-  github-pages:
+  # Nothing is deployed unless the documentation agrees with the code and the real release and renders on desktop and phone.
+  # Changes to docs-src/ or the generator only re-run this workflow: they never start the rule review or create a release.
+  docs-check:
     needs: build
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.ref_name }}
+          persist-credentials: false
+      - uses: actions/download-artifact@v4
+        with:
+          name: site-dir
+          path: site
+      - name: Coherence tests (documentation vs code, manifests, policy, events, commands, ES/EN parity)
+        env:
+          DOCS_SITE: site
+        run: python3 -m unittest tests.test_docs tests.test_docs_og -v
+      - name: Render every page and diagram in headless Chrome (1280 px and 390 px)
+        run: |
+          which google-chrome chromium chromium-browser || true
+          python3 scripts/docs_check.py --site site
+
+  github-pages:
+    needs: [build, docs-check]
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     permissions:
@@ -123,7 +149,7 @@ jobs:
           exit 1
 
   cloudflare-pages:
-    needs: build
+    needs: [build, docs-check]
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     permissions:
@@ -163,7 +189,7 @@ jobs:
           command: pages deploy site --project-name=macguard-rules --branch=main
 
   record:
-    needs: [build, github-pages, cloudflare-pages, verify-live]
+    needs: [build, docs-check, github-pages, cloudflare-pages, verify-live]
     if: always()
     runs-on: ubuntu-24.04
     timeout-minutes: 5
@@ -172,6 +198,7 @@ jobs:
     env:
       RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
       BUILD: ${{ needs.build.result }}
+      DOCS: ${{ needs.docs-check.result }}
       GHPAGES: ${{ needs.github-pages.result }}
       CF: ${{ needs.cloudflare-pages.result }}
       LIVE: ${{ needs.verify-live.result }}
@@ -186,6 +213,8 @@ jobs:
           ev() { python3 scripts/tlog.py event --run-id "$RUN" "$@"; }
           if [ "$BUILD" != "success" ]; then
             ev --level ERROR --code site.build_failed --message "Assembling the site failed (build job: $BUILD). Nothing was deployed. See $RUN_URL"
+          elif [ "$DOCS" != "success" ]; then
+            ev --level ERROR --code site.build_failed --message "The documentation checks failed (docs-check: $DOCS). Nothing was deployed; the previous site stays online. See $RUN_URL"
           else
             if [ "$GHPAGES" = "success" ]; then
               ev --level INFO --code site.github_pages_deployed --message "Site deployed to GitHub Pages. See $RUN_URL"

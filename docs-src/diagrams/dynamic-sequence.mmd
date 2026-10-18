@@ -1,0 +1,24 @@
+sequenceDiagram
+  autonumber
+  participant G as dynamic_gate.py
+  participant B as bench.py
+  participant Y as yarac and yara
+  participant C as compare()
+  G->>B: build_corpus (random, text, system files, canaries)
+  loop runs, alternating baseline and candidate
+    G->>B: measure_set(previous release)
+    B->>Y: yarac one namespace per file
+    B->>Y: yara -C per corpus file, timeout 10 s
+    Y-->>B: cpu, max RSS, wall, exit status
+    G->>B: measure_set(candidate)
+  end
+  G->>C: baseline runs vs candidate runs
+  alt regression, crash or timeout
+    C-->>G: verdict regression
+    G->>G: ddmin over new or changed files
+    G->>G: culprits to quarantine, rebuild the set
+    G->>B: measure the reduced set again
+  else within thresholds
+    C-->>G: verdict ok
+    G->>Y: canaries must all be detected
+  end

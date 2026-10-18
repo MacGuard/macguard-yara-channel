@@ -1,0 +1,10 @@
+{
+ "title": {
+  "en": "Publication sequence",
+  "es": "Secuencia de publicación"
+ },
+ "alt": {
+  "en": "After the final checks, publish.yml builds the archive and metadata, re-verifies the artifacts, creates a draft release, attaches every asset and only then makes it public. site.yml then builds the catalog from the published release, verifies it again, deploys GitHub Pages, then verifies the public URL with the real bytes. The Cloudflare mirror is deployed when its credential works.",
+  "es": "Tras las comprobaciones finales, publish.yml construye el archivo y los metadatos, vuelve a verificar los artefactos, crea una release en borrador, adjunta todos los ficheros y solo entonces la hace pública. Después site.yml construye el catálogo desde la release publicada, la verifica otra vez, despliega GitHub Pages y verifica la URL pública con los bytes reales. El espejo de Cloudflare se despliega cuando su credencial funciona."
+ }
+}

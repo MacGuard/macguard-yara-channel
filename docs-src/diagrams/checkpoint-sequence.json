@@ -1,0 +1,10 @@
+{
+ "title": {
+  "en": "Publishing and signing the checkpoint",
+  "es": "Publicación y firma del checkpoint"
+ },
+ "alt": {
+  "en": "publish.yml appends the approval event, writes an unsigned checkpoint with tlog.py, signs it with cosign using the workflow identity, re-verifies the whole log, then seals the manifest which embeds the log head, signs the manifest and writes the inclusion proof that ties the release entry to that checkpoint.",
+  "es": "publish.yml añade el evento de aprobación, escribe un checkpoint sin firmar con tlog.py, lo firma con cosign usando la identidad del workflow, verifica de nuevo todo el registro, sella el manifiesto que incluye la cabeza del registro, lo firma y escribe la prueba de inclusión que une la entrada de la release con ese checkpoint."
+ }
+}

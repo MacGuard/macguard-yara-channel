@@ -1,0 +1,30 @@
+flowchart LR
+  subgraph UNTRUSTED["Untrusted input"]
+    U1["upstream rule repositories"]:::src
+  end
+  subgraph PRIVATE["Private zone"]
+    J["daily.yml review job"]:::val
+    QS[("quarantine store")]:::qua
+    AP["admin panel and API"]:::qua
+  end
+  subgraph SIGNING["Signing zone"]
+    PW["publish.yml<br/>OIDC identity"]:::sec
+  end
+  subgraph PUBLIC["Public zone"]
+    GR["GitHub Releases"]:::pub
+    PG["Pages and Cloudflare mirror"]:::pub
+  end
+  subgraph CLIENT["Client"]
+    MG["MacGuard<br/>pinned cosign, trusted checkpoint"]:::sec
+  end
+  U1 --> J
+  J -->|only approved files and counts| PW
+  J -->|everything else| QS
+  QS --- AP
+  PW --> GR --> PG --> MG
+  classDef src fill:#cfe3ff,stroke:#2f6df0,color:#0b1b33
+  classDef val fill:#ffe9b8,stroke:#b8860b,color:#2b1d00
+  classDef sec fill:#cdeedd,stroke:#1b6e3c,color:#08210f
+  classDef pub fill:#e4d7ff,stroke:#6a3fd1,color:#1b0b3b
+  classDef qua fill:#ffd4cc,stroke:#c0392b,color:#33100b
+  classDef gate fill:#ffffff,stroke:#111111,stroke-width:3px,color:#111111

@@ -1,0 +1,14 @@
+sequenceDiagram
+  participant M as MacGuard
+  participant T as trust.json (0600)
+  participant V as ChannelVerifier
+  M->>T: load newest verified checkpoint (size, root)
+  M->>V: verify the new release
+  V->>V: compare size and root with the trusted ones
+  alt smaller, or another root at the same size
+    V-->>M: rollback or fork
+    M->>M: refuse, do not replace the rules
+  else larger
+    V->>V: consistency proof from the trusted checkpoint
+    V-->>M: ok, save the new checkpoint
+  end

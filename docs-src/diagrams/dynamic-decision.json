@@ -1,0 +1,10 @@
+{
+ "title": {
+  "en": "Dynamic gate decisions",
+  "es": "Decisiones de la puerta dinámica"
+ },
+ "alt": {
+  "en": "The gate needs a previous release to compare with. Without one it applies absolute sanity limits. A regression, crash, timeout, or a set that does not compile as a whole triggers culprit isolation, at most three rounds. A passing set must also detect every canary and must have been measured exactly as it will be published.",
+  "es": "La puerta necesita una release anterior con la que comparar. Sin ella aplica límites absolutos de cordura. Una regresión, un crash, un timeout o un conjunto que no compila entero activa el aislamiento de culpables, como máximo tres rondas. Un conjunto que pasa debe además detectar todos los canarios y haber sido medido exactamente como se va a publicar."
+ }
+}

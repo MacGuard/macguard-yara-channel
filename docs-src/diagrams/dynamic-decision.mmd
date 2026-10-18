@@ -1,0 +1,17 @@
+flowchart TD
+  S["approved set"]:::val --> B{"previous release<br/>available?"}:::val
+  B -->|no| A["absolute limits<br/>p95, RSS, compile time"]:::val
+  B -->|yes| CP["compare medians with<br/>the baseline noise"]:::val
+  A --> V{"ok?"}:::val
+  CP --> V
+  V -->|no| I["isolate culprits<br/>delta debugging"]:::qua
+  I --> Q["culprits to quarantine"]:::qua --> R["rebuild and measure again<br/>max 3 rounds"]:::val --> V
+  V -->|yes| K{"all canaries detected?<br/>measured set equals set to publish?"}:::gate
+  K -->|yes| P["publishable"]:::sec
+  K -->|no| X["not publishable"]:::qua
+  classDef src fill:#cfe3ff,stroke:#2f6df0,color:#0b1b33
+  classDef val fill:#ffe9b8,stroke:#b8860b,color:#2b1d00
+  classDef sec fill:#cdeedd,stroke:#1b6e3c,color:#08210f
+  classDef pub fill:#e4d7ff,stroke:#6a3fd1,color:#1b0b3b
+  classDef qua fill:#ffd4cc,stroke:#c0392b,color:#33100b
+  classDef gate fill:#ffffff,stroke:#111111,stroke-width:3px,color:#111111

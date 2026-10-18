@@ -1,0 +1,10 @@
+{
+ "title": {
+  "en": "End-to-end architecture",
+  "es": "Arquitectura de extremo a extremo"
+ },
+ "alt": {
+  "en": "Three upstream sources feed prepare.py. Files are classified by rulecheck.py and measured by dynamic_gate.py. decide.py is the publish gate: approved files get SHA-256 hashes, a Merkle rules_root and a manifest, are signed with Sigstore in publish.yml, published as a GitHub Release, mirrored on GitHub Pages and Cloudflare Pages and installed by MacGuard. Files that do not pass go to the private quarantine store, are reviewed by a person through the admin API and are re-validated by the next daily run.",
+  "es": "Tres fuentes alimentan prepare.py. rulecheck.py clasifica los ficheros y dynamic_gate.py los mide. decide.py es la puerta de publicación: los aprobados reciben SHA-256, un rules_root Merkle y un manifiesto, se firman con Sigstore en publish.yml, se publican en una GitHub Release, se replican en GitHub Pages y Cloudflare Pages y los instala MacGuard. Los que no pasan van al almacén privado de cuarentena, una persona los revisa con la API de administración y la siguiente ejecución diaria los revalida."
+ }
+}

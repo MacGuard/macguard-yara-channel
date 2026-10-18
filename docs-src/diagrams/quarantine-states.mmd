@@ -1,0 +1,13 @@
+stateDiagram-v2
+  [*] --> PENDING: pipeline submits a quarantined file
+  PENDING --> UNDER_REVIEW: reviewer holds it
+  PENDING --> APPROVED_PENDING_VALIDATION: approve
+  UNDER_REVIEW --> APPROVED_PENDING_VALIDATION: approve
+  PENDING --> REJECTED: delete
+  UNDER_REVIEW --> REJECTED: delete
+  APPROVED_PENDING_VALIDATION --> REJECTED: delete
+  APPROVED_PENDING_VALIDATION --> UNDER_REVIEW: hold, takes the approval back
+  APPROVED_PENDING_VALIDATION --> RELEASED: publish.yml after the checks pass again
+  APPROVED_PENDING_VALIDATION --> PENDING: revalidation failed
+  RELEASED --> PENDING: revalidation failed later
+  REJECTED --> [*]

@@ -1,0 +1,18 @@
+sequenceDiagram
+  autonumber
+  participant GA as GitHub Actions daily.yml
+  participant PR as prepare.py
+  participant API as GitHub API
+  participant UP as Upstream repository
+  participant INV as dist/candidate.json
+  GA->>PR: run with the job token
+  PR->>API: GET commits/HEAD
+  API-->>PR: commit sha (pinned for this run)
+  PR->>API: GET license
+  API-->>PR: SPDX id and LICENSE text
+  PR->>API: GET tarball at that sha
+  API->>UP: snapshot of that commit
+  UP-->>PR: tar.gz (max 90 MB)
+  PR->>PR: safe extraction, keep .yar and .yara under allowed paths
+  PR->>PR: reject over 1 MB or NUL bytes, SHA-256 of each file
+  PR->>INV: sources with commit and licence check, files with path sha256 bytes

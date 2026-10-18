@@ -6,11 +6,11 @@ usage: verify_live.py BASE_URL --identity WORKFLOW_IDENTITY --repo OWNER/NAME [-
 1. downloads the package, manifest, bundles, proof and checkpoint from BASE_URL and runs the full release verification
    (Sigstore signatures, every file hash, rules_root, checkpoint, inclusion proof) on those bytes;
 2. downloads every individual rule file served by the site and compares it with the signed manifest;
-3. requests every same-site link of the four pages and every release asset link (--external) and requires HTTP 200.
+3. requests every same-site link of the pages (site and documentation) and every release asset link (--external) and requires HTTP 200.
 Nothing here trusts a local build: only the bytes the public URL returns are used."""
 import argparse, concurrent.futures, hashlib, html.parser, io, json, pathlib, subprocess, sys, tarfile, tempfile, urllib.error, urllib.parse, urllib.request
 
-PAGES = ['index.html', 'rules.html', 'releases.html', 'transparency.html', 'docs.html']
+PAGES = ['index.html', 'rules.html', 'releases.html', 'transparency.html', 'docs.html', 'docs/index.html', 'docs/es/overview.html', 'docs/en/overview.html', 'docs/es/verification.html', 'docs/en/verification.html']
 
 def get(url, limit=200_000_000, attempts=4):
     """GET with a few retries for transient CDN errors (5xx, timeouts); a wrong answer is never retried into a pass: bytes are still compared by the caller."""
@@ -85,6 +85,27 @@ def main():
         catalog = json.loads(get(base + 'catalog.json')[1])
         if sorted((f['path'], f['sha256']) for f in catalog['files']) != sorted((f['path'], f['sha256']) for f in manifest['files']): bad('catalog.json is not exactly the manifest file list')
         else: ok(f"catalog.json lists exactly the {catalog['count']} manifest files")
+        # share preview: every page names an absolute og:image on THIS host, and that image is a real 1200x630 PNG
+        import re, base64
+        img = get(base + 'img/yara-rules.png')[1]
+        if img[:8] == b'\x89PNG\r\n\x1a\n' and (int.from_bytes(img[16:20], 'big'), int.from_bytes(img[20:24], 'big')) == (1200, 630): ok('og image is a 1200x630 PNG')
+        else: bad('img/yara-rules.png is not a 1200x630 PNG')
+        for pg in PAGES:
+            try: page = get(base + pg)[1].decode('utf-8', 'replace')
+            except Exception as e: bad(f'{pg}: {e}'); continue
+            m = re.search(r'property="og:image" content="([^"]+)"', page); t = re.search(r'name="twitter:card" content="([^"]+)"', page)
+            if not m or m.group(1) != base + 'img/yara-rules.png' or not t or t.group(1) != 'summary_large_image': bad(f'{pg}: Open Graph / Twitter tags missing or pointing elsewhere ({m.group(1) if m else None})')
+        ok('Open Graph and Twitter tags checked on ' + str(len(PAGES)) + ' pages')
+        # documentation: the vendored Mermaid is served unchanged (SRI) and the verifier copy matches its published hash
+        dpage = get(base + 'docs/en/verification.html')[1].decode('utf-8', 'replace'); sm = re.search(r'<script src="([^"]*mermaid[^"]*)" integrity="sha256-([^"]+)"', dpage)
+        if not sm: bad('docs: the diagram script with its integrity attribute is missing')
+        else:
+            code, body = get(urllib.parse.urljoin(base + 'docs/en/verification.html', sm.group(1)))
+            if code == 200 and base64.b64encode(hashlib.sha256(body).digest()).decode() == sm.group(2): ok('docs: Mermaid is served byte for byte as its integrity attribute says')
+            else: bad('docs: Mermaid bytes differ from the integrity attribute')
+        vsrc = get(base + 'verify_public_release.py')[1]; vsum = get(base + 'verify_public_release.py.sha256')[1].decode().split()[0]
+        if hashlib.sha256(vsrc).hexdigest() == vsum and b'verify-blob' in vsrc: ok('verifier copy matches its published SHA-256')
+        else: bad('verify_public_release.py differs from its .sha256')
         # links
         urls = []
         for p in PAGES:

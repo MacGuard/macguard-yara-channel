@@ -1,0 +1,10 @@
+{
+ "title": {
+  "en": "Quarantine states",
+  "es": "Estados de la cuarentena"
+ },
+ "alt": {
+  "en": "States stored by the private service. A quarantined candidate enters as PENDING. A reviewer can mark it UNDER_REVIEW, approve it (APPROVED_PENDING_VALIDATION) or reject it. Only publish.yml moves an approved rule to RELEASED, after the technical checks passed again; if revalidation fails it goes back to PENDING. REJECTED is final for that content.",
+  "es": "Estados guardados por el servicio privado. Un candidato en cuarentena entra como PENDING. Una persona puede ponerlo en UNDER_REVIEW, aprobarlo (APPROVED_PENDING_VALIDATION) o rechazarlo. Solo publish.yml pasa una regla aprobada a RELEASED, cuando los controles técnicos se han superado de nuevo; si la revalidación falla vuelve a PENDING. REJECTED es definitivo para ese contenido."
+ }
+}

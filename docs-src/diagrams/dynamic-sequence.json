@@ -1,0 +1,10 @@
+{
+ "title": {
+  "en": "Dynamic test sequence",
+  "es": "Secuencia de la prueba dinámica"
+ },
+ "alt": {
+  "en": "dynamic_gate.py builds a safe corpus with canary files, compiles the approved set with one namespace per file, then repeatedly measures the previous release and the candidate in the same job. bench.py runs yara per corpus file under rusage accounting and compare() judges medians against the baseline noise. If a failure appears, delta debugging isolates the new or changed files responsible, they are quarantined and the reduced set is measured again.",
+  "es": "dynamic_gate.py construye un corpus seguro con ficheros canario, compila el conjunto aprobado con un espacio de nombres por fichero y mide varias veces la release anterior y el candidato en el mismo job. bench.py ejecuta yara por cada fichero del corpus midiendo con rusage y compare() juzga las medianas frente al ruido de la base. Si aparece un fallo, la depuración por deltas aísla los ficheros nuevos o modificados responsables, se ponen en cuarentena y se mide de nuevo el conjunto reducido."
+ }
+}

@@ -1,0 +1,10 @@
+{
+ "title": {
+  "en": "Network failure",
+  "es": "Fallo de red"
+ },
+ "alt": {
+  "en": "A network error, timeout or incomplete download ends the attempt. The streamed download is cancelled, the staging folder is removed and the installed rules keep working. If the primary origin fails, only the next authorised origin is tried, never a mix of files from two origins.",
+  "es": "Un error de red, un timeout o una descarga incompleta termina el intento. La descarga en streaming se cancela, la carpeta de staging se elimina y las reglas instaladas siguen funcionando. Si falla el origen principal solo se prueba el siguiente origen autorizado, nunca una mezcla de ficheros de dos orígenes."
+ }
+}

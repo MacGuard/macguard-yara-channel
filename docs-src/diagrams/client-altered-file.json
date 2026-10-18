@@ -1,0 +1,10 @@
+{
+ "title": {
+  "en": "Altered file",
+  "es": "Fichero alterado"
+ },
+ "alt": {
+  "en": "If a rule file or the package differs from the signed manifest, the hash comparison fails after extraction. The release is rejected as untrustworthy and nothing is installed. A file added or removed in the package also fails, because the file list is part of the signed rules_root.",
+  "es": "Si un fichero de reglas o el paquete difiere del manifiesto firmado, la comparación de hashes falla tras la extracción. La release se rechaza como no fiable y no se instala nada. Un fichero añadido o quitado en el paquete también falla, porque la lista de ficheros forma parte del rules_root firmado."
+ }
+}

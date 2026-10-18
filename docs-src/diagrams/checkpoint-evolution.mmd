@@ -1,0 +1,14 @@
+flowchart LR
+  C20["checkpoint<br/>size 20<br/>00000020.txt"]:::sec
+  C75["checkpoint<br/>size 75<br/>00000075.txt"]:::sec
+  CN["next checkpoint<br/>size N"]:::sec
+  C20 -->|consistency.json<br/>proof 20 to 75| C75
+  C75 -->|consistency proof| CN
+  RB["client sees size smaller<br/>than the one it trusts"]:::qua -.->|rollback refused| C75
+  FK["client sees another root<br/>at the same size"]:::qua -.->|fork refused| C75
+  classDef src fill:#cfe3ff,stroke:#2f6df0,color:#0b1b33
+  classDef val fill:#ffe9b8,stroke:#b8860b,color:#2b1d00
+  classDef sec fill:#cdeedd,stroke:#1b6e3c,color:#08210f
+  classDef pub fill:#e4d7ff,stroke:#6a3fd1,color:#1b0b3b
+  classDef qua fill:#ffd4cc,stroke:#c0392b,color:#33100b
+  classDef gate fill:#ffffff,stroke:#111111,stroke-width:3px,color:#111111

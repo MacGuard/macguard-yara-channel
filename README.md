@@ -51,8 +51,11 @@ The first checks signatures (cosign), every file hash, the rules root, the check
 The browser pages (`rules.html`, `releases.html`, `transparency.html`) show the catalog and re-check the Merkle maths in your browser. They do **not** verify Sigstore signatures; use cosign or the app for that.
 
 ## Site
-`index.html` (latest release, 30-day activity), `rules.html` (searchable catalog with per-file hash check), `releases.html` (history, changes by manifest diff), `transparency.html` (log, checkpoint, proofs), `docs.html`.
+`index.html` (latest release, 30-day activity), `rules.html` (searchable catalog with per-file hash check), `releases.html` (history, changes by manifest diff), `transparency.html` (log, checkpoint, proofs), `docs/` (bilingual ES/EN documentation, 20 pages and 20 Mermaid diagrams, `docs/es/…` and `docs/en/…`), `verify_public_release.py` (independent verifier, with its `.sha256`).
 Activity counts are what the pipeline observed (examined / accepted / rejected, and new / modified / removed per release). They are not user downloads; no download telemetry exists. A day without a run is "no observation", not zero.
+
+## Documentation
+Markdown in `docs-src/{es,en}/` + shared diagrams in `docs-src/diagrams/` → `scripts/build_docs.py` (called by `build_site.py`; numbers are read from the released files, an unresolved placeholder is a build error). `site.yml` has a `docs-check` job (`tests/test_docs.py`: documentation vs code, policy, events, commands, manifests, ES/EN parity; `scripts/docs_check.py`: every page and diagram in headless Chrome at 1280 px and 390 px) and nothing is deployed if it fails. Changes to the docs only run `site.yml`: they never start the rule review or create a release. Every page carries Open Graph/Twitter tags (`scripts/og_inject.py`, image `web/img/yara-rules.png`, 1200×630) with the absolute URLs of the host that serves it.
 
 ## Apps
 `DMGTrustAuditor/` holds the macOS app and the `macguard-audit` CLI/TUI, which share one engine (`Core/`). See `DMGTrustAuditor/DMGTrustAuditor/CLI/README.md` and `docs/ADR-0001-sigstore-verification.md`.

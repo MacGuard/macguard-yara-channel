@@ -1,0 +1,9 @@
+sequenceDiagram
+  participant M as MacGuard
+  participant V as ChannelVerifier
+  M->>M: extract package into staging
+  M->>V: signature of manifest.json ok
+  V->>V: SHA-256 of every listed file
+  V-->>M: one file does not match the manifest
+  M->>M: release is not trustworthy, delete staging
+  M->>M: keep the installed rules
