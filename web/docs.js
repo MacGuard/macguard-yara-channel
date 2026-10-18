@@ -8,7 +8,14 @@ try { if (localStorage.getItem('theme') === 'dark') document.body.classList.add(
 var th = $('theme'); if (th) th.addEventListener('click', function () { document.body.classList.toggle('dark'); try { localStorage.setItem('theme', document.body.classList.contains('dark') ? 'dark' : 'light'); } catch (e) {} renderAll(); });
 var sw = $('lang-switch'); if (sw) sw.addEventListener('click', function () { try { localStorage.setItem('lang', sw.getAttribute('hreflang')); } catch (e) {} });
 
-function btn(label, text, fn) { var b = document.createElement('button'); b.type = 'button'; b.textContent = text; b.setAttribute('aria-label', label); b.title = label; b.addEventListener('click', fn); return b; }
+document.querySelectorAll('.codeblock > pre, pre.code, article pre').forEach(function (p) { if (!p.hasAttribute('tabindex')) p.setAttribute('tabindex', '0'); });   /* a scrollable region must be reachable by keyboard */
+function btn(label, text, fn) {
+  var b = document.createElement('button'); b.type = 'button'; b.title = label;
+  var m = /^([^\p{L}\p{N}:]*)(.*)$/u.exec(text), sym = m[1].trim(), word = m[2];
+  if (sym && word) { var i = document.createElement('span'); i.setAttribute('aria-hidden', 'true'); i.textContent = sym + ' '; b.appendChild(i); b.appendChild(document.createTextNode(word)); } else b.textContent = text;
+  var cleaned = text.replace(/[^\p{L}\p{N}:]/gu, '');   /* WCAG 2.5.3: the accessible name contains the visible text */
+  b.setAttribute('aria-label', cleaned && label.toLowerCase().indexOf(cleaned.toLowerCase()) < 0 ? cleaned + ' ' + label : label);
+  b.addEventListener('click', fn); return b; }
 document.querySelectorAll('.codeblock').forEach(function (cb) {
   var b = btn(ui.copy_code || 'Copy', ui.copy_code || 'Copy', function () { copy(cb.querySelector('code').textContent, b, ui.copy_code); }); b.className = 'copy'; cb.appendChild(b);
 });
@@ -24,8 +31,8 @@ function themeName() { return document.body.classList.contains('dark') ? 'dark' 
 function natural(svg) { var vb = (svg.getAttribute('viewBox') || '').split(/[\s,]+/).map(Number); return vb.length === 4 ? { w: vb[2], h: vb[3] } : { w: svg.getBoundingClientRect().width, h: svg.getBoundingClientRect().height }; }
 function setScale(fig, s) { var svg = fig.querySelector('.dg-stage svg'); if (!svg) return; var n = fig._nat; s = Math.max(0.3, Math.min(3, s)); fig._scale = s; svg.setAttribute('width', Math.round(n.w * s)); svg.setAttribute('height', Math.round(n.h * s)); svg.style.width = Math.round(n.w * s) + 'px'; svg.style.height = Math.round(n.h * s) + 'px'; }
 function minFont(svg) { var m = 1e9; svg.querySelectorAll('text,tspan,.nodeLabel,foreignObject').forEach(function (t) { var f = parseFloat(getComputedStyle(t).fontSize) || 0; if (f > 0) m = Math.min(m, f); }); return m < 1e9 ? m : 14; }
-/* fit to the width, but never so small that the text is unreadable (about 9 px): a wide diagram then scrolls inside its own stage */
-function fit(fig) { var stage = fig.querySelector('.dg-stage'), avail = stage.clientWidth - 20, s = Math.min(1, avail / fig._nat.w), floor = Math.min(1, 9 / (fig._minFont || 14)); setScale(fig, Math.max(s, floor)); }
+/* fit to the width, but never so small that the text is unreadable (about 11 px): a wide diagram then scrolls inside its own stage */
+function fit(fig) { var stage = fig.querySelector('.dg-stage'), avail = stage.clientWidth - 20, s = Math.min(1, avail / fig._nat.w), floor = Math.min(1, 11 / (fig._minFont || 14)); setScale(fig, Math.max(s, floor)); }
 function build(fig) {
   var stage = fig.querySelector('.dg-stage'), name = fig.getAttribute('data-diagram'), src = fig.querySelector('.mermaid-src').textContent;
   var old = fig.querySelector('.dg-bar'); if (old) old.remove();

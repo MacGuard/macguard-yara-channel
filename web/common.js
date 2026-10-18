@@ -55,3 +55,6 @@ M.splitLines=function(buf){var u=new Uint8Array(buf),out=[],s=0;for(var i=0;i<u.
 M.b64=function(s){var b=atob(s),a=new Uint8Array(b.length);for(var i=0;i<b.length;i++)a[i]=b.charCodeAt(i);return a};
 MG.enc=enc;
 })();
+
+/* scrollable tables must be reachable and named for keyboard and screen-reader users */
+document.querySelectorAll('.tablewrap').forEach(function(w){var cap=w.querySelector('caption');w.setAttribute('tabindex','0');w.setAttribute('role','region');if(cap&&cap.textContent)w.setAttribute('aria-label',cap.textContent)});

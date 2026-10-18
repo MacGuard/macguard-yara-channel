@@ -9,8 +9,12 @@ async function tamper(){
  var f=await load('transparency.html'),d=f.contentDocument;await wait(function(){return d.querySelectorAll('#facts dt').length>0});
  d.getElementById('verify').click();await wait(function(){return /Resultado|Result|✘/.test(d.getElementById('checks').textContent)&&d.querySelectorAll('#checks li').length>=2});
  var t=d.getElementById('checks').textContent;rec('tampered log is rejected',/✘/.test(t)&&!/mathematical coherence|coherencia matemática/.test(t),t.slice(0,200));out.textContent=R.join('\n')+'\nDONE'}
+async function missing(){   // a file the check needs is absent: it must say so, never print a clean verdict
+ var f=await load('transparency.html'),d=f.contentDocument;await wait(function(){return d.querySelectorAll('#facts dt').length>0});
+ d.getElementById('verify').click();await wait(function(){return /No des por buena|Do not rely/.test(d.getElementById('checks').textContent)});
+ var t=d.getElementById('checks').textContent;rec('missing proof is reported, not skipped',/✘/.test(t)&&/NO comprobado|NOT checked/.test(t)&&/No des por buena|Do not rely/.test(t)&&!/coherencia matemática comprobada|mathematical coherence checked/.test(t),t.slice(0,300));out.textContent=R.join('\n')+'\nDONE'}
 async function main(){
- if(new URLSearchParams(location.search).get('mode')==='tamper')return tamper();
+ var mode=new URLSearchParams(location.search).get('mode');if(mode==='tamper')return tamper();if(mode==='missing')return missing();
  var man=await (await fetch('manifest.json')).json(), cat=await (await fetch('catalog.json')).json();
  rec('catalog has exactly the manifest files',cat.count===man.files.length&&man.files.every(function(f,i){return true})&&JSON.stringify(cat.files.map(function(f){return f.path+f.sha256}).sort())===JSON.stringify(man.files.map(function(f){return f.path+f.sha256}).sort()),cat.count+' vs '+man.files.length);
  // index
@@ -53,6 +57,10 @@ async function main(){
  // releases
  f=await load('releases.html');d=f.contentDocument;await wait(function(){return d.querySelectorAll('#rel-table tbody tr').length>0});
  rec('releases: table filled',d.querySelectorAll('#rel-table tbody tr').length>=1,d.querySelector('#rel-table tbody').textContent.slice(0,120));f.remove();
+ // home: the tile built from latest.json is filled whatever order the files arrive in (it stayed '—' when latest.json came last)
+ f=await load('index.html');d=f.contentDocument;await wait(function(){return d.querySelectorAll('#tiles-dist .tile').length>=3&&d.querySelectorAll('#latest-facts dt').length>5});
+ var lj=await (await fetch('latest.json')).json();var tiles=[].slice.call(d.querySelectorAll('#tiles-dist .tile')).map(function(t){return t.textContent});
+ rec('index: individual YARA rules tile shows the released count',tiles.some(function(t){return t.indexOf(String(lj.stats.yara_rules))>=0||t.indexOf(lj.stats.yara_rules.toLocaleString('es-ES'))>=0}),tiles.join(' | ').slice(0,200));f.remove();
  // transparency
  f=await load('transparency.html');d=f.contentDocument;await wait(function(){return d.querySelectorAll('#facts dt').length>0});
  rec('transparency: facts shown',d.querySelectorAll('#facts dt').length>=5);

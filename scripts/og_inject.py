@@ -19,7 +19,7 @@ def inject(site: pathlib.Path, base: str) -> int:
         t = re.search(r'<title>(.*?)</title>', src, re.S)
         if not t: continue
         title = html.unescape(t.group(1)).strip()
-        d = re.search(r'<meta name="description" content="([^"]*)"', src); desc = html.unescape(d.group(1)) if d and d.group(1) else DEFAULT_DESC
+        d = re.search(r'<meta name="description" content="([^"]*)"', src); desc = html.unescape(d.group(1)).replace('`', '') if d and d.group(1) else DEFAULT_DESC   # Markdown backticks do not belong in a share preview
         lang = re.search(r'<html lang="(\w+)"', src); loc = {'es': 'es_ES', 'en': 'en_US'}.get(lang.group(1) if lang else 'en', 'en_US')
         rel = p.relative_to(site).as_posix(); url = base + ('' if rel == 'index.html' else rel)
         e = lambda s: html.escape(s, quote=True)
