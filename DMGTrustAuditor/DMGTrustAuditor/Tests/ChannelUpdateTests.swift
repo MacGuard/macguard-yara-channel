@@ -115,7 +115,10 @@ final class LiveChannelTests: XCTestCase {
         wait(for: [checked], timeout: 20)
         var result = ""; let done = expectation(description: "updated"); m.update { result = $0; done.fulfill() }
         wait(for: [done], timeout: 240)
-        XCTAssertTrue(result.contains("1184"), result)
-        XCTAssertGreaterThan(m.ruleFiles().count, 1000)
+        // The expected number is whatever the live channel publishes now (it changes with every release); never a constant.
+        let live = try JSONSerialization.jsonObject(with: Data(contentsOf: YARARuleManager.defaultChannelBase.appendingPathComponent("manifest.json"))) as! [String: Any]
+        let published = (live["files"] as! [Any]).count
+        XCTAssertTrue(result.contains("\(published) verified files"), "expected \(published) verified files: \(result)")
+        XCTAssertEqual(m.ruleFiles().count, published)
     }
 }
