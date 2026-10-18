@@ -24,6 +24,6 @@ Un job en un runner macOS instala el motor que se distribuye con MacGuard y ejec
 
 > **LÍMITE** Los runners de macOS de GitHub son máquinas virtuales (Apple M1 Virtual, `hv_vmm_present=1`, sin Hypervisor.framework). **No hay una máquina virtual macOS independiente**: `dynamic.json` lo declara como `not_run: independent-macos-vm`. Hace falta un Mac físico propio para eso.
 
-> **LÍMITE** La puerta en Linux usa el YARA de Ubuntu (4.5.0) y la app distribuye {{tool.yara}}; 4 ficheros se clasifican distinto entre ambos. Está registrado como defecto en [Límites y pendientes](page:limits).
+> **LÍMITE** La puerta en Linux usa el YARA de Ubuntu (4.5.0) y la app distribuye {{tool.yara}}. La clasificación estática del conjunto completo dio el mismo resultado con ambos motores (comprobado el 2026-10-18), pero las mediciones dinámicas pueden diferir entre motores y sistemas; ver [Límites y pendientes](page:limits).
 
 No se ejecuta malware real en ningún punto: el corpus se compone de datos sintéticos, texto y ficheros benignos.

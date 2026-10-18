@@ -24,6 +24,6 @@ A job on a macOS runner installs the engine shipped with MacGuard and runs `macg
 
 > **LIMIT** GitHub macOS runners are virtual machines (Apple M1 Virtual, `hv_vmm_present=1`, no Hypervisor.framework). **There is no independent macOS virtual machine**: `dynamic.json` declares it as `not_run: independent-macos-vm`. That needs a self-hosted physical Mac.
 
-> **LIMIT** The Linux gate uses Ubuntu YARA (4.5.0) while the app ships {{tool.yara}}; 4 files classify differently between them. It is registered as a defect in [Limits and pending work](page:limits).
+> **LIMIT** The Linux gate uses Ubuntu YARA (4.5.0) while the app ships {{tool.yara}}. Static classification of the whole set gave the same result with both engines (checked 2026-10-18), but dynamic measurements may differ between engines and systems; see [Limits and pending work](page:limits).
 
 No real malware is run at any point: the corpus is made of synthetic data, text and benign files.

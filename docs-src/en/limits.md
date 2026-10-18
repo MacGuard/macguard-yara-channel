@@ -20,7 +20,8 @@ summary: What is implemented, what is only proposed, what is blocked and the kno
 
 Registered separately; this documentation describes the real behaviour and does not silently fix them.
 
-- The Linux gate uses YARA 4.5.0 (Ubuntu) while the app ships {{tool.yara}}; 4 files classify differently.
+- Ten files of the first release have been withheld since the second: 6 fail static classification (reproduced outside CI) and 4 depend on a library file that the CI review excluded; that exclusion could not be reproduced locally and the detailed reason only exists in the private store, which is not deployed yet.
+- The Linux gate uses Ubuntu YARA 4.5.0 and the app {{tool.yara}}: static classification matches with both, so the engine difference does not explain those 4 files.
 - `manifest.rejected` is always empty in new releases: rejections are counted in the log, not in the manifest.
 - The first cataloged release has no `checkpoint.txt` or signature among its artifacts; the verifier falls back to the repository checkpoint.
 - The meaning of `expanded` in the statistics is the size of the decompressed rule files, which does not equal the total bytes of the tar archive.

@@ -20,7 +20,8 @@ summary: Qué está implementado, qué es solo propuesta, qué está bloqueado y
 
 Registrados aparte; esta documentación describe el comportamiento real y no los corrige en silencio.
 
-- La puerta en Linux usa YARA 4.5.0 (Ubuntu) y la app distribuye {{tool.yara}}; 4 ficheros se clasifican distinto.
+- Diez ficheros de la primera release están retenidos desde la segunda: 6 no superan la clasificación estática (reproducido fuera de CI) y 4 dependen de un fichero de biblioteca que la revisión en CI excluyó; esa exclusión no se ha podido reproducir en local y el motivo detallado solo existe en el almacén privado, que aún no está desplegado.
+- La puerta de Linux usa el YARA de Ubuntu 4.5.0 y la app {{tool.yara}}: la clasificación estática coincide con ambos, así que la diferencia de motor no explica esos 4 ficheros.
 - `manifest.rejected` está siempre vacío en las releases nuevas: los rechazos se cuentan en el registro, no en el manifiesto.
 - La primera release catalogada no tiene `checkpoint.txt` ni su firma entre los artefactos; el verificador usa el checkpoint del repositorio como alternativa.
 - El significado de `expanded` en las estadísticas es el tamaño de los ficheros de reglas descomprimidos, que no coincide con el total de bytes del archivo tar.

@@ -99,7 +99,7 @@ jobs:
         with:
           ref: ${{ github.ref_name }}
           persist-credentials: false
-          fetch-depth: 2
+          fetch-depth: 0
       - uses: actions/download-artifact@v4
         with:
           name: site-dir
@@ -117,7 +117,8 @@ jobs:
         run: |
           full=false
           if [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ "${{ inputs.full_visual }}" = "true" ]; then full=true; fi
-          changed="$(git diff --name-only HEAD~1 HEAD 2>/dev/null || echo ALL)"
+          before="${{ github.event.before }}"
+          if [ -n "$before" ] && [ "$before" != "0000000000000000000000000000000000000000" ] && git cat-file -e "$before" 2>/dev/null; then changed="$(git diff --name-only "$before" HEAD)"; else changed=ALL; fi
           if echo "$changed" | grep -qE '^(web/docs\.(css|js)|web/style\.css|web/vendor/|docs-src/diagrams/|scripts/build_docs\.py|scripts/docs_check\.py|ALL)'; then full=true; fi
           echo "full=$full" >> "$GITHUB_OUTPUT"; echo "full visual run: $full"
       - name: Render check, full (40 pages x desktop and phone)
