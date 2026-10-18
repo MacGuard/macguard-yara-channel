@@ -5,6 +5,14 @@ sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
 import catalog, tlog, stats
 root = pathlib.Path(__file__).resolve().parents[1]
 site = root / 'site'; release = root / 'release'
+import html
+def plain_list(c):
+    """Static fallback of the catalog for browsers without JavaScript."""
+    rows = ''.join('<tr><td><a href="%s">%s</a></td><td>%s</td><td>%s</td><td>%s</td><td><code>%s</code></td><td>%d</td></tr>' % (
+        html.escape(f['path']), html.escape(f['name']), html.escape(f['category']), html.escape(f['source'] or ''), html.escape((f['commit'] or '')[:10]), f['sha256'], f['bytes']) for f in c['files'])
+    return ('<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>YARA rules (plain list) · MacGuard YARA Channel</title>'
+            '<link rel="stylesheet" href="style.css"><main><h1>YARA rules (plain list)</h1><p>%d files from release %s, generated from the signed manifest. A matching SHA-256 shows the file is the published one; it is not an individual signature. '
+            '<a href="./">Back</a> · <a href="manifest.json">manifest.json</a> · <a href="manifest.sigstore.json">manifest.sigstore.json</a></p><div class="tablewrap"><table><caption class="sr">Rules</caption><thead><tr><th scope="col">File</th><th scope="col">Category</th><th scope="col">Source</th><th scope="col">Commit</th><th scope="col">SHA-256</th><th scope="col">Bytes</th></tr></thead><tbody>%s</tbody></table></div></main></html>') % (c['count'], html.escape(str(c['release'])), rows)
 shutil.rmtree(site, ignore_errors=True)
 shutil.copytree(root / 'web', site)
 if (release / 'manifest.json').exists():
@@ -14,7 +22,7 @@ if (release / 'manifest.json').exists():
     shutil.copy(release / 'rules-release.tar.gz', site / 'rules-release.tar.gz')
     body = (release / 'manifest.json').read_bytes(); manifest = json.loads(body)
     (site / 'latest.json').write_text(json.dumps({
-        'schema': 1, 'manifest': 'manifest.json', 'signature': 'manifest.sigstore.json', 'inclusion_proof': 'inclusion-proof.json', 'checkpoint': 'logs/checkpoint.txt', 'checkpoint_signature': 'logs/checkpoint.sigstore.json', 'manifest_sha256': hashlib.sha256(body).hexdigest(),
+        'schema': 1, 'manifest': 'manifest.json', 'signature': 'manifest.sigstore.json', 'inclusion_proof': 'inclusion-proof.json', 'checkpoint': 'logs/checkpoint.txt', 'checkpoint_signature': 'logs/checkpoint.sigstore.json', 'manifest_sha256': hashlib.sha256(body).hexdigest(), 'package': 'rules-release.tar.gz', 'package_sha256': hashlib.sha256((release / 'rules-release.tar.gz').read_bytes()).hexdigest(), 'package_bytes': (release / 'rules-release.tar.gz').stat().st_size,
         'rules_root': manifest.get('rules_root'), 'log': manifest.get('log')}, indent=2, sort_keys=True) + '\n')
     print('Site includes the latest signed release')
 else:
@@ -37,6 +45,7 @@ if (site / 'manifest.json').exists():
     tag = rows[-1]['tag'] if rows else 'latest'
     seen = catalog.first_seen([(r['tag'], r['manifest']) for r in sorted(releases, key=lambda r: (r['published_at'], r['tag']))])
     (site / 'catalog.json').write_text(json.dumps(catalog.build_catalog(manifest, seen, tag), separators=(',', ':')) + '\n')
+    (site / 'rules-list.html').write_text(plain_list(json.loads((site / 'catalog.json').read_text())))
     log_lines = (root / 'logs' / 'log.jsonl').read_bytes().split(b'\n') if (root / 'logs' / 'log.jsonl').exists() else []
     log_lines = [l for l in log_lines if l]
     if len(rows) >= 2 and rows[-2].get('log'):

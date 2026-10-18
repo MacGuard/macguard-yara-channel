@@ -57,6 +57,19 @@ jobs:
           else
             echo 'No release yet; nothing to verify'
           fi
+      - name: Record what this run verified
+        if: hashFiles('site/manifest.json') != ''
+        run: |
+          python3 - <<'PY'
+          import json, os, datetime
+          run = f"{os.environ['GITHUB_SERVER_URL']}/{os.environ['GITHUB_REPOSITORY']}/actions/runs/{os.environ['GITHUB_RUN_ID']}"
+          json.dump({'schema': 1, 'verified_at': datetime.datetime.now(datetime.timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ'), 'run_url': run,
+            'checks': ['Sigstore signature of manifest.json (cosign verify-blob, workflow identity, GitHub OIDC issuer, repository)',
+                       'SHA-256 of every rule file against the manifest', 'rules_root recomputed from the file list',
+                       'Sigstore signature of the log checkpoint', 'manifest log head equals the signed checkpoint', 'Merkle inclusion proof of the release entry'],
+            'not_checked': ['Rekor inclusion is checked by cosign as part of verify-blob; the browser does not repeat it', 'Detection quality or safety of the rules']},
+            open('site/verification.json', 'w'), indent=1)
+          PY
       - uses: actions/upload-pages-artifact@v3
         with:
           path: site

@@ -1,0 +1,44 @@
+(function(){var $=MG.$,el=MG.el;
+var D={es:{},en:{nav_home:'Home',nav_rules:'YARA rules',nav_releases:'Releases',nav_transparency:'Transparency',nav_docs:'Documentation',skip:'Skip to content',disclaimer:'Independent project. Not affiliated with or endorsed by upstream sources.',
+h:'YARA rules',intro:'Catalog generated from the signed manifest of the latest release. The table does not download the package: it reads catalog.json.',dl_h:'Downloads and checks',dl_pkg:'Download the full package',dl_man:'Signed manifest',dl_bundle:'Sigstore bundle',dl_cp:'Checkpoint',dl_cpb:'checkpoint bundle',dl_proof:'Inclusion proof',dl_hist:'Release history',dl_plain:'Full list without JavaScript',pkg_check:'Check the package SHA-256 in this browser',t_h:'Catalog',q_l:'Search',f_src:'Source',f_cat:'Category',f_val:'Validation',f_sort:'Sort',f_size:'Per page',cap:'Published YARA rules',c_name:'File',c_cat:'Category',c_src:'Source',c_repo:'Repository',c_commit:'Commit',c_bytes:'Size',c_val:'Validation',c_date:'Added / changed',c_act:'Download',prev:'Previous',next:'Next',loading:'Loading…',hashnote:'A SHA-256 that matches the manifest shows the file is the published one; it is not an individual signature of the rule. Authenticity comes from the Sigstore signature of the manifest (not verified on this page).'}};
+var S={cat:null,rel:{},latest:null,ver:null,page:0,rows:[]},t=function(k){var d=D[MG.L()]||{};return d[k]!==undefined?d[k]:(D.es[k]||k)};
+var TX={es:{shown:function(a,b,c){return a+' de '+b+' reglas ('+c+' en el manifiesto)'},page:function(p,n){return 'Página '+p+' de '+n},verify:'Comprobar',ok:'✔ coincide con el manifiesto',bad:'✘ NO coincide: no uses este fichero',err:'No se pudo comprobar',compiled:'compilada',unchecked:'sin comprobar',failed:'No se pudo cargar el catálogo',pkgok:'✔ SHA-256 coincide con latest.json',pkgbad:'✘ no coincide',pkgwait:'Calculando…',vh:'Verificación realizada por',vno:'No hay registro de verificación para esta publicación.',vnot:'Esta página no verifica la firma Sigstore en el navegador: usa cosign o la app MacGuard.',vtitle:'Comprobado por GitHub Actions',val:'Validación «compilada»: la aceptó el compilador YARA en el flujo de publicación. No dice nada sobre calidad de detección.',cdn:'copia en este sitio; copia canónica en GitHub Releases'},
+en:{shown:function(a,b,c){return a+' of '+b+' rules ('+c+' in the manifest)'},page:function(p,n){return 'Page '+p+' of '+n},verify:'Check',ok:'✔ matches the manifest',bad:'✘ does NOT match: do not use this file',err:'Could not check',compiled:'compiled',unchecked:'unchecked',failed:'Could not load the catalog',pkgok:'✔ SHA-256 matches latest.json',pkgbad:'✘ does not match',pkgwait:'Computing…',vh:'Verification performed by',vno:'There is no verification record for this publication.',vnot:'This page does not verify the Sigstore signature in the browser: use cosign or the MacGuard app.',vtitle:'Checked by GitHub Actions',val:'Validation "compiled": accepted by the YARA compiler in the publishing workflow. It says nothing about detection quality.',cdn:'copy on this site; canonical copy on GitHub Releases'}};
+var X=function(){return TX[MG.L()]||TX.es};
+function opts(sel,vals){var cur=sel.value;while(sel.options.length>1)sel.remove(1);vals.forEach(function(v){sel.appendChild(el('option',{value:v,text:v}))});sel.value=cur}
+function filtered(){var q=$('q').value.trim().toLowerCase(),s=$('f-src').value,c=$('f-cat').value,v=$('f-val').value,sort=$('sort').value;
+ var r=S.cat.files.filter(function(f){return (!s||f.source===s)&&(!c||f.category===c)&&(!v||f.validation===v)&&(!q||f.path.toLowerCase().indexOf(q)>=0||f.sha256.indexOf(q)===0||f.sha256.indexOf(q)>=0)});
+ r.sort(function(a,b){if(sort==='bytes')return b.bytes-a.bytes;if(sort==='changed')return (S.rel[b.changed_in]||'').localeCompare(S.rel[a.changed_in]||'')||a.path.localeCompare(b.path);var k=sort==='name'?'name':sort;return String(a[k]).localeCompare(String(b[k]))||a.path.localeCompare(b.path)});return r}
+function verifyFile(f,out,btn){out.textContent=X().pkgwait;btn.disabled=true;
+ fetch(MG.path(f.path),{cache:'no-store'}).then(function(r){if(!r.ok)throw 0;return r.arrayBuffer()}).then(function(b){return MG.sha256(b).then(function(h){var ok=MG.hex(h)===f.sha256&&b.byteLength===f.bytes;out.textContent=ok?X().ok:X().bad;out.className=ok?'okmsg':'badmsg'})}).catch(function(){out.textContent=X().err}).then(function(){btn.disabled=false})}
+function render(){var all=filtered(),size=parseInt($('size').value,10),pages=Math.max(1,Math.ceil(all.length/size));if(S.page>=pages)S.page=pages-1;if(S.page<0)S.page=0;
+ var tb=document.querySelector('#rules-table tbody');tb.textContent='';
+ all.slice(S.page*size,S.page*size+size).forEach(function(f){var tr=el('tr'),td;
+  td=el('td');td.appendChild(el('a',{href:MG.path(f.path),download:f.name,text:f.name,title:f.path}));tr.appendChild(td);
+  tr.appendChild(el('td',{text:f.category}));tr.appendChild(el('td',{text:f.source}));
+  td=el('td');if(f.repository)td.appendChild(el('a',{href:'https://github.com/'+f.repository,text:f.repository}));tr.appendChild(td);
+  td=el('td',{class:'mono'});if(f.commit&&f.repository)td.appendChild(el('a',{href:'https://github.com/'+f.repository+'/commit/'+f.commit,title:f.commit,text:f.commit.slice(0,10)}));tr.appendChild(td);
+  tr.appendChild(el('td',{class:'sha',text:f.sha256}));tr.appendChild(el('td',{text:MG.bytes(f.bytes)}));
+  tr.appendChild(el('td',{text:f.validation==='compiled'?X().compiled:X().unchecked,title:X().val}));
+  var d1=S.rel[f.first_release],d2=S.rel[f.changed_in];tr.appendChild(el('td',{text:d1?(d2&&d2!==d1?d1+' / '+d2:d1):'—'}));
+  td=el('td');var out=el('span',{'aria-live':'polite'}),btn=el('button',{type:'button',text:X().verify});btn.addEventListener('click',function(){verifyFile(f,out,btn)});td.appendChild(btn);td.appendChild(document.createTextNode(' '));td.appendChild(out);tr.appendChild(td);
+  tb.appendChild(tr)});
+ $('count').textContent=X().shown(all.length,S.cat.count,S.cat.count);$('pageinfo').textContent=X().page(S.page+1,pages);
+ $('prev').disabled=S.page===0;$('next').disabled=S.page>=pages-1}
+function verBox(){var b=$('ver');b.textContent='';var v=S.ver;
+ if(!v){b.appendChild(el('p',{text:X().vno}));b.appendChild(el('p',{text:X().vnot}));return}
+ b.appendChild(el('strong',{text:X().vtitle+' · '+MG.day(v.verified_at)}));var ul=el('ul');(v.checks||[]).forEach(function(c){ul.appendChild(el('li',{text:c}))});b.appendChild(ul);
+ var p=el('p');p.appendChild(document.createTextNode(X().vh+' '));p.appendChild(el('a',{href:v.run_url,text:v.run_url}));b.appendChild(p);b.appendChild(el('p',{text:X().vnot}))}
+var apply=MG.i18n(D,function(){if(S.cat){render();verBox()}});
+var inputs=['q','f-src','f-cat','f-val','sort','size'];inputs.forEach(function(i){$(i).addEventListener(i==='q'?'input':'change',function(){S.page=0;render()})});
+$('prev').addEventListener('click',function(){S.page--;render();$('t-h').scrollIntoView()});$('next').addEventListener('click',function(){S.page++;render();$('t-h').scrollIntoView()});
+Promise.all([MG.get('catalog.json',true),MG.get('releases.json',true).catch(function(){return {releases:[]}}),MG.get('latest.json',true).catch(function(){return null}),MG.get('verification.json',true).catch(function(){return null})]).then(function(r){
+ S.cat=r[0];r[1].releases.forEach(function(x){S.rel[x.tag]=MG.day(x.published_at)});S.latest=r[2];S.ver=r[3];
+ var u=function(k){var m={};S.cat.files.forEach(function(f){m[f[k]]=1});return Object.keys(m).sort()};
+ opts($('f-src'),u('source'));opts($('f-cat'),u('category'));opts($('f-val'),u('validation'));
+ var last=r[1].releases[r[1].releases.length-1];if(last&&last.assets){$('dl-pkg').href=last.assets['rules-release.tar.gz'];$('dl-pkg-note').textContent=X().cdn+(S.latest&&S.latest.package_sha256?' · SHA-256 '+S.latest.package_sha256:'')}
+ if(S.latest&&S.latest.manifest_sha256)$('dl-man-sha').textContent='SHA-256 '+S.latest.manifest_sha256;
+ render();verBox()}).catch(function(){$('count').textContent=X().failed});
+$('pkg-check').addEventListener('click',function(){var o=$('pkg-out');o.textContent=X().pkgwait;
+ fetch('rules-release.tar.gz',{cache:'no-store'}).then(function(r){if(!r.ok)throw 0;return r.arrayBuffer()}).then(function(b){return MG.sha256(b).then(function(h){var want=S.latest&&S.latest.package_sha256,ok=want&&MG.hex(h)===want;o.textContent=(ok?X().pkgok:X().pkgbad)+' ('+MG.hex(h).slice(0,16)+'…)';o.className=ok?'okmsg':'badmsg'})}).catch(function(){o.textContent=X().err})});
+})();

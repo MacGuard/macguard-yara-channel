@@ -1,0 +1,62 @@
+<!doctype html><meta charset="utf-8"><title>site e2e</title><pre id="result">running</pre>
+<script>
+/* Drives the real pages in iframes (same origin) and records PASS/FAIL per check into #result. Served next to the built site. */
+var R=[],out=document.getElementById('result');
+function rec(n,ok,d){R.push((ok?'PASS ':'FAIL ')+n+(d?' — '+d:''))}
+function wait(f,ms){return new Promise(function(res){var t0=Date.now();(function p(){var v;try{v=f()}catch(e){}if(v||Date.now()-t0>(ms||8000))return res(v);setTimeout(p,100)})()})}
+function load(u){return new Promise(function(res){var f=document.createElement('iframe');f.style.cssText='width:1000px;height:800px';f.onload=function(){res(f)};f.src=u;document.body.appendChild(f)})}
+async function tamper(){
+ var f=await load('transparency.html'),d=f.contentDocument;await wait(function(){return d.querySelectorAll('#facts dt').length>0});
+ d.getElementById('verify').click();await wait(function(){return /Resultado|Result|✘/.test(d.getElementById('checks').textContent)&&d.querySelectorAll('#checks li').length>=2});
+ var t=d.getElementById('checks').textContent;rec('tampered log is rejected',/✘/.test(t)&&!/mathematical coherence|coherencia matemática/.test(t),t.slice(0,200));out.textContent=R.join('\n')+'\nDONE'}
+async function main(){
+ if(new URLSearchParams(location.search).get('mode')==='tamper')return tamper();
+ var man=await (await fetch('manifest.json')).json(), cat=await (await fetch('catalog.json')).json();
+ rec('catalog has exactly the manifest files',cat.count===man.files.length&&man.files.every(function(f,i){return true})&&JSON.stringify(cat.files.map(function(f){return f.path+f.sha256}).sort())===JSON.stringify(man.files.map(function(f){return f.path+f.sha256}).sort()),cat.count+' vs '+man.files.length);
+ // index
+ var f=await load('index.html'),d=f.contentDocument;
+ await wait(function(){return d.querySelectorAll('#act-chart rect').length>0});
+ rec('index: chart bars drawn',d.querySelectorAll('#act-chart rect.b-ok').length>=1);
+ rec('index: 30 day window in the table',d.querySelectorAll('#act-table tbody tr').length===30);
+ rec('index: unobserved days are marked, not zero',d.querySelectorAll('#act-chart rect.nodata').length>=1&&/Sin observaci|No observado/.test(d.querySelector('#act-table tbody').textContent));
+ rec('index: six metric tiles',d.querySelectorAll('#act-tiles .tile').length===6);
+ d.getElementById('act-range').value='7';d.getElementById('act-range').dispatchEvent(new f.contentWindow.Event('change'));
+ rec('index: 7 day range',d.querySelectorAll('#act-table tbody tr').length===7);
+ d.getElementById('act-view').value='changes';d.getElementById('act-view').dispatchEvent(new f.contentWindow.Event('change'));
+ rec('index: changes view draws',d.querySelectorAll('#act-chart svg').length===1);
+ f.remove();
+ // rules
+ f=await load('rules.html');d=f.contentDocument;
+ await wait(function(){return d.querySelectorAll('#rules-table tbody tr').length>0});
+ rec('rules: first page has 50 rows, not 1184',d.querySelectorAll('#rules-table tbody tr').length===50,d.getElementById('count').textContent);
+ var q=d.getElementById('q');q.value='antidebug';q.dispatchEvent(new f.contentWindow.Event('input'));
+ var n=d.querySelectorAll('#rules-table tbody tr').length;rec('rules: search filters',n>0&&n<50,n+' rows');
+ var btn=d.querySelector('#rules-table tbody button');btn.click();
+ await wait(function(){return /✔|✘/.test(d.querySelector('#rules-table tbody td:last-child').textContent)});
+ rec('rules: single rule download matches its manifest hash',/✔/.test(d.querySelector('#rules-table tbody td:last-child').textContent),d.querySelector('#rules-table tbody td:last-child').textContent);
+ // tamper: serve altered bytes for that rule
+ var w=f.contentWindow,orig=w.fetch;w.fetch=function(u,o){if(String(u).indexOf('.yar')>=0)return Promise.resolve(new Response(new Uint8Array([1,2,3])));return orig.call(w,u,o)};
+ d.querySelector('#rules-table tbody button').click();
+ await wait(function(){return /✘/.test(d.querySelector('#rules-table tbody td:last-child').textContent)});
+ rec('rules: a modified file is rejected',/✘/.test(d.querySelector('#rules-table tbody td:last-child').textContent));
+ w.fetch=orig;
+ d.getElementById('pkg-check').click();await wait(function(){return /✔|✘/.test(d.getElementById('pkg-out').textContent)});
+ rec('rules: full package SHA-256 matches',/✔/.test(d.getElementById('pkg-out').textContent),d.getElementById('pkg-out').textContent);
+ rec('rules: verification box names who verified (or says there is no record)',d.getElementById('ver').textContent.length>20,d.getElementById('ver').textContent.slice(0,90));
+ q.value='';q.dispatchEvent(new f.contentWindow.Event('input'));d.getElementById('next').click();
+ rec('rules: pagination',/2/.test(d.getElementById('pageinfo').textContent),d.getElementById('pageinfo').textContent);
+ f.remove();
+ // releases
+ f=await load('releases.html');d=f.contentDocument;await wait(function(){return d.querySelectorAll('#rel-table tbody tr').length>0});
+ rec('releases: table filled',d.querySelectorAll('#rel-table tbody tr').length>=1,d.querySelector('#rel-table tbody').textContent.slice(0,120));f.remove();
+ // transparency
+ f=await load('transparency.html');d=f.contentDocument;await wait(function(){return d.querySelectorAll('#facts dt').length>0});
+ rec('transparency: facts shown',d.querySelectorAll('#facts dt').length>=5);
+ d.getElementById('verify').click();await wait(function(){return d.querySelectorAll('#checks li').length>=4&&/Resultado|Result|✘/.test(d.getElementById('checks').textContent)});
+ var items=[].slice.call(d.querySelectorAll('#checks li')).map(function(l){return l.textContent});
+ rec('transparency: in-browser Merkle checks all pass',items.length>=4&&items.every(function(t){return !/✘/.test(t)})&&/✔/.test(items.join()),items.join(' | ').slice(0,300));
+ f.remove();
+ out.textContent=R.join('\n')+'\nDONE';
+}
+main().catch(function(e){R.push('FAIL harness '+e);out.textContent=R.join('\n')+'\nDONE'});
+</script>
