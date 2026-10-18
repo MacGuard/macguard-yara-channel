@@ -18,7 +18,8 @@ def daily(entries, today: date, window: int = WINDOW, releases=None):
         if not rid or not e.get('time'): continue
         if kind in ('candidate.accepted', 'candidate.rejected'):
             r = runs.setdefault(rid, {'rejected': 0})
-            r.update(day=e['time'][:10], time=e['time'], examined=int(d.get('file_count', 0)))
+            r.update(day=e['time'][:10], time=e['time'], examined=int(d.get('examined', d.get('file_count', 0))))
+            if 'quarantined' in d or 'rejected' in d: r['declared_rejected'] = int(d.get('quarantined', 0)) + int(d.get('rejected', 0))
         elif kind == 'rule.rejected':
             runs.setdefault(rid, {'rejected': 0})['rejected'] += 1
     last = {}
@@ -35,7 +36,7 @@ def daily(entries, today: date, window: int = WINDOW, releases=None):
         if not r:
             days.append({'date': day, 'observed': False, 'examined': None, 'accepted': None, 'rejected': None, 'new': c[0] if c else None, 'modified': c[1] if c else None, 'removed': c[2] if c else None})
             continue
-        rejected = min(r['rejected'], r['examined'])
+        rejected = min(r.get('declared_rejected', r['rejected']), r['examined'])
         days.append({'date': day, 'observed': True, 'examined': r['examined'], 'accepted': r['examined'] - rejected, 'rejected': rejected,
                      'new': c[0] if c else None, 'modified': c[1] if c else None, 'removed': c[2] if c else None})
     return days

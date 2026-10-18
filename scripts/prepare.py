@@ -6,6 +6,9 @@ ROOT=pathlib.Path(__file__).resolve().parents[1]
 OUT=ROOT/'dist'; OUT.mkdir(exist_ok=True)
 CFG=json.loads((ROOT/'config/sources.json').read_text())
 MAX_DOWNLOAD=90_000_000
+POLICY=json.loads((ROOT/'config/policy.json').read_text())
+sys_path=__import__('sys').path; sys_path.insert(0,str(pathlib.Path(__file__).resolve().parent))
+import licensing
 
 def request(url):
     req=urllib.request.Request(url,headers={'User-Agent':'MacGuard-YARA-Channel/0.1','Accept':'application/vnd.github+json'})
@@ -34,6 +37,10 @@ with tempfile.TemporaryDirectory() as td:
         meta=json.loads(request(f'https://api.github.com/repos/{repo}/commits/HEAD'))
         commit=meta['sha']
         record={'id':source['id'],'repository':repo,'commit':commit,'kind':source['kind']}
+        if source['kind']=='rules':
+            try: spdx,text=licensing.fetch(repo,os.environ.get('GITHUB_TOKEN') or os.environ.get('GH_TOKEN',''))
+            except Exception as e: spdx,text='',''
+            record['license_check']=licensing.verdict(POLICY['licenses'].get(repo),spdx,text)
         sources.append(record)
         if source['kind']!='rules': continue
         archive=request(f'https://api.github.com/repos/{repo}/tarball/{commit}')

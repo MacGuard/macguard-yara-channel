@@ -1,0 +1,75 @@
+{
+  "schema": 1,
+  "comment": "Admission policy for rule candidates. Every number here is a documented starting point; thresholds for performance are calibrated by scripts/bench.py against the last approved set, not fixed percentages.",
+  "limits": {
+    "max_file_bytes": 1000000,
+    "max_rules_per_file": 3000
+  },
+  "engines": [
+    {
+      "name": "yara",
+      "min_version": "4.3.0",
+      "required": true
+    }
+  ],
+  "allowed_modules": [
+    "pe",
+    "elf",
+    "macho",
+    "math",
+    "hash",
+    "dotnet",
+    "time",
+    "string"
+  ],
+  "blocked_modules": [
+    "cuckoo",
+    "magic",
+    "androguard"
+  ],
+  "regex": {
+    "max_risk_score": 7,
+    "quarantine_nested_quantifiers": true,
+    "wide_gap": 1000,
+    "comment": "risk score adds points for nested quantifiers, unbounded .* or .+ runs and very wide {n,m} gaps; a high score only sends the rule to quarantine, the dynamic benchmark decides if it is really slow"
+  },
+  "condition": {
+    "max_for_loops": 3,
+    "forbid_filesize_loops": true
+  },
+  "licenses": {
+    "Neo23x0/signature-base": {
+      "expected_marker": "Detection Rule License",
+      "spdx": "DRL-1.1",
+      "redistribution": "allowed-with-attribution"
+    },
+    "Yara-Rules/rules": {
+      "expected_spdx": "GPL-2.0",
+      "spdx": "GPL-2.0",
+      "redistribution": "allowed-with-license-notice"
+    }
+  },
+  "dynamic": {
+    "runs": 5,
+    "min_samples_for_percentiles": 50,
+    "timeout_seconds_per_file": 10,
+    "regression": {
+      "metric_noise_multiplier": 3.0,
+      "min_relative_increase": 0.25,
+      "min_absolute_cpu_seconds": 0.5,
+      "min_absolute_rss_mb": 25
+    },
+    "absolute": {
+      "max_scan_p95_s": 2.0,
+      "max_scan_rss_mb": 1500,
+      "max_compile_rss_mb": 3000,
+      "max_compile_wall_s": 240,
+      "comment": "sanity limits used when there is no previous release to compare with; generous on purpose, calibrated from the first real release"
+    },
+    "required_platforms": {
+      "linux-engine": "blocking",
+      "macos-runner": "blocking-when-job-ran",
+      "independent-macos-vm": "not-available: hosted macOS runners are VMs without nested virtualization (hv_vmm_present=1, no Hypervisor.framework); needs a self-hosted bare-metal Mac"
+    }
+  }
+}

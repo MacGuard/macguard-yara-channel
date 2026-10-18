@@ -34,3 +34,9 @@ class StatsTests(unittest.TestCase):
         self.assertTrue(d['2026-10-18']['observed']); self.assertEqual(d['2026-10-18']['examined'], 0)
 
 if __name__ == '__main__': unittest.main()
+
+class AutonomousFlowStats(unittest.TestCase):
+    def test_counts_come_from_the_classification_event_not_from_per_rule_events(self):
+        e = {'run_id': '1', 'time': '2026-10-18T03:00:00Z', 'event': 'candidate.accepted', 'details': {'file_count': 1150, 'examined': 1184, 'quarantined': 30, 'rejected': 4}}
+        d = {x['date']: x for x in stats.daily([e], date(2026, 10, 18))}['2026-10-18']
+        self.assertEqual((d['examined'], d['accepted'], d['rejected']), (1184, 1150, 34))
