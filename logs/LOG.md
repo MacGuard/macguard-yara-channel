@@ -2,12 +2,15 @@
 
 Generated from `logs/log.jsonl`; do not edit by hand. Times are UTC. Newest first.
 
-Entries: 66 (INFO 35, WARNING 22, ERROR 9)
+Entries: 69 (INFO 37, WARNING 22, ERROR 10)
 
 Latest signed checkpoint: 20 entries, Merkle root `0a4cc81014bb5bf3c71cbbab077a748a1a5224ca30a4d892db5488a1e828f21a`.
 
 | # | Date (UTC) | Level | Event | Message |
 |---|---|---|---|---|
+| 68 | 2026-10-18T17:34:01Z | ERROR | `site.cloudflare_blocked` | Cloudflare Pages BLOCKED: the credential preflight failed (format, account id, validity or permission; see the cf-preflight line in the job log). No deploy was attempted. See https://github.com/MacGuard/macguard-yara-channel/actions/runs/39148693467 |
+| 67 | 2026-10-18T17:34:01Z | INFO | `site.live_verified` | The public GitHub Pages site was downloaded and verified: signatures, every rule hash, catalog, proof and links. See https://github.com/MacGuard/macguard-yara-channel/actions/runs/39148693467 |
+| 66 | 2026-10-18T17:34:00Z | INFO | `site.github_pages_deployed` | Site deployed to GitHub Pages. See https://github.com/MacGuard/macguard-yara-channel/actions/runs/39148693467 |
 | 65 | 2026-10-18T16:56:48Z | INFO | `candidate.changes` | The approved set differs from the latest release. A new release will be requested. |
 | 64 | 2026-10-18T16:56:47Z | INFO | `candidate.accepted` | 1174 rule files passed every mandatory check. Candidate rules root is 16d082395ef1ec53... |
 | 63 | 2026-10-18T16:56:47Z | WARNING | `rules.withheld` | 10 previously published rule files no longer pass the checks and are withheld until resolved. |
