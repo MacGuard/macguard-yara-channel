@@ -1,0 +1,40 @@
+name: DMGTrustAuditor
+options:
+  bundleIdPrefix: com.macguard
+  deploymentTarget:
+    macOS: '13.0'
+packages:
+  MacGuardDesignKit:
+    path: ../macguard-designkit-main
+targets:
+  DMGTrustAuditor:
+    type: application
+    platform: macOS
+    sources: [App]
+    dependencies:
+      - package: MacGuardDesignKit
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.macguard.dmgtrustauditor
+        SWIFT_VERSION: '5.9'
+        GENERATE_INFOPLIST_FILE: YES
+        CODE_SIGNING_ALLOWED: YES
+        CODE_SIGN_STYLE: Automatic
+        ENABLE_HARDENED_RUNTIME: YES
+        CODE_SIGN_INJECT_BASE_ENTITLEMENTS: NO
+        INFOPLIST_KEY_LSApplicationCategoryType: public.app-category.utilities
+        DEVELOPMENT_TEAM: ""
+        # Set your own Team ID in Xcode Signing & Capabilities or via release script.
+        # Bundle ID is provisional; replace it with your registered identifier.
+        INFOPLIST_KEY_NSPrincipalClass: NSApplication
+  DMGTrustAuditorTests:
+    type: bundle.unit-test
+    platform: macOS
+    sources: [Tests]
+    dependencies:
+      - target: DMGTrustAuditor
+    settings:
+      base:
+        GENERATE_INFOPLIST_FILE: YES
+        SWIFT_VERSION: '5.9'
+        CODE_SIGNING_ALLOWED: NO

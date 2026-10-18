@@ -4,4 +4,7 @@ __pycache__/
 __pycache__/
 *.pyc
 .DS_Store
-DMGTrustAuditor/
+*.xcodeproj/
+xcuserdata/
+.build/
+DerivedData/
