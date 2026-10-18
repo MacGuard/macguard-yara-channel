@@ -90,6 +90,22 @@ def verify_consistency(first: int, second: int, first_root: bytes, second_root: 
 
 
 # ---- Rules root: Merkle root over the file inventory ------------------------------------------
+_HEX64 = re.compile(r'[0-9a-f]{64}')
+_PATH = re.compile(r'[A-Za-z0-9._\-/ +@()\[\]]{1,400}')
+def check_inventory(files):
+    """Reject an inventory the root could be ambiguous or unsafe for: duplicate paths, absolute or `..` paths, NUL/control characters
+    (the leaf joins path and hash with NUL), and anything that is not a lowercase SHA-256. Returns an error string or None."""
+    if not isinstance(files, list) or not files: return 'the inventory must be a non-empty list'
+    seen = set()
+    for f in files:
+        if not isinstance(f, dict) or not isinstance(f.get('path'), str) or not isinstance(f.get('sha256'), str): return 'every entry needs a string path and sha256'
+        p = f['path']
+        if not _PATH.fullmatch(p) or p.startswith('/') or any(seg in ('', '.', '..') for seg in p.split('/')): return f'unsafe path {p[:80]!r}'
+        if not _HEX64.fullmatch(f['sha256']): return f'sha256 of {p} is not 64 lowercase hex characters'
+        if p in seen: return f'duplicate path {p}'
+        seen.add(p)
+    return None
+
 def rules_root(files) -> str:
     leaves = [leaf_hash(f"{f['path']}\0{f['sha256']}".encode()) for f in sorted(files, key=lambda f: f['path'])]
     return mth(leaves).hex()
@@ -128,9 +144,14 @@ class Log:
 
     @staticmethod
     def parse_checkpoint(body: bytes):
-        parts = body.decode().split('\n')
+        try: parts = body.decode('ascii').split('\n')
+        except UnicodeDecodeError: raise ValueError('malformed checkpoint')
         if len(parts) != 4 or parts[3] != '' or parts[0] != ORIGIN: raise ValueError('malformed checkpoint')
-        return int(parts[1]), base64.b64decode(parts[2], validate=True)
+        # one canonical encoding only: int() would also accept '+5', ' 5', '5_0' and non-ASCII digits, base64 would accept loose padding bits
+        if not re.fullmatch(r'0|[1-9][0-9]{0,15}', parts[1]): raise ValueError('malformed checkpoint size')
+        root = base64.b64decode(parts[2], validate=True)
+        if len(root) != 32 or base64.b64encode(root).decode() != parts[2]: raise ValueError('malformed checkpoint root')
+        return int(parts[1]), root
 
     def write_checkpoint(self) -> int:
         """Write the unsigned tree head; the publish workflow signs it with Sigstore right after."""
@@ -180,6 +201,13 @@ class Log:
                 if not verify_consistency(psize, size, proot, root, consistency_proof(psize, leaves[:size])):
                     problems.append(f'{txt.name}: not consistent with the previous checkpoint')
             previous = (size, root)
+        # the copies clients read (checkpoint.txt and its bundle) must be the newest signed checkpoint, not a stale or different one
+        files = self.checkpoint_files()
+        if files:
+            for name, newest in (('checkpoint.txt', files[-1]), ('checkpoint.sigstore.json', self.bundle_for(files[-1]))):
+                copy = self.folder / name
+                if not copy.exists(): problems.append(f'{name} is missing')
+                elif not newest.exists() or copy.read_bytes() != newest.read_bytes(): problems.append(f'{name} is not the newest signed checkpoint ({files[-1].name})')
         return problems
 
     def release_proof(self, run_id: str, manifest_rules_root: str, checkpoint_size: int) -> dict:

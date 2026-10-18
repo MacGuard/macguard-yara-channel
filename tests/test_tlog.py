@@ -60,6 +60,8 @@ class LogTests(unittest.TestCase):
         """Stand-in for cosign: a bundle that records the exact bytes it signed."""
         for txt in self.log.checkpoint_files():
             if not self.log.bundle_for(txt).exists(): self.log.bundle_for(txt).write_bytes(txt.read_bytes())
+        newest = self.log.checkpoint_files()[-1:]   # what publish.yml does: the copies clients read are the newest signed checkpoint
+        if newest and (self.log.folder / 'checkpoint.txt').exists(): (self.log.folder / 'checkpoint.sigstore.json').write_bytes(self.log.bundle_for(newest[0]).read_bytes())
     @staticmethod
     def verifier(txt, bundle): return None if bundle.read_bytes() == txt.read_bytes() else 'signature does not match'
     def check(self): self.sign(); return self.log.verify(self.verifier)

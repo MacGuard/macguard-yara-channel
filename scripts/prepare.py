@@ -8,7 +8,7 @@ CFG=json.loads((ROOT/'config/sources.json').read_text())
 MAX_DOWNLOAD=90_000_000
 POLICY=json.loads((ROOT/'config/policy.json').read_text())
 sys_path=__import__('sys').path; sys_path.insert(0,str(pathlib.Path(__file__).resolve().parent))
-import licensing
+import licensing, tlog
 
 class _KeepTokenOnApiHostOnly(urllib.request.HTTPRedirectHandler):
     """The token authenticates calls to api.github.com (5000 requests/hour instead of 60 shared per runner IP) and is never forwarded to another host."""
@@ -72,6 +72,9 @@ with tempfile.TemporaryDirectory() as td:
             if len(raw)>1_000_000 or b'\x00' in raw:
                 rejected.append({'source':source['id'],'path':str(rel),'reason':'size-or-binary'});continue
             target=OUT/'rules'/source['id']/rel
+            # a name the signed inventory cannot represent unambiguously is left out on its own; it must not make the whole seal fail later
+            if tlog.check_inventory([{'path':str(target.relative_to(OUT)),'sha256':'0'*64}]):
+                rejected.append({'source':source['id'],'path':str(rel),'reason':'unsafe-path'});continue
             target.parent.mkdir(parents=True,exist_ok=True)
             target.write_bytes(raw)
             inventory.append({'source':source['id'],'path':str(target.relative_to(OUT)), 'sha256':sha(raw),'bytes':len(raw)})

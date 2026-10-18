@@ -5,3 +5,5 @@ d=json.loads(r.stdout)
 if d['name']!='Daily source review' or d['conclusion']!='success' or d['head_repository']['full_name']!=repo or d['head_branch']!=os.environ.get('GITHUB_REF_NAME','main'):
     sys.exit('Untrusted candidate workflow run')
 print('Candidate workflow metadata verified')
+if os.environ.get('GITHUB_ENV'):   # the exact workflow commit that produced the candidate; sealed into the manifest as evidence
+    with open(os.environ['GITHUB_ENV'], 'a') as f: f.write(f"CANDIDATE_SHA={d['head_sha']}\n")
