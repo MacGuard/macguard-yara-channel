@@ -1,0 +1,43 @@
+name: Sign and publish approved candidate
+on:
+  workflow_dispatch:
+    inputs:
+      candidate_run_id:
+        description: 'Successful daily review workflow run ID'
+        required: true
+permissions:
+  contents: write
+  actions: read
+jobs:
+  publish:
+    runs-on: ubuntu-24.04
+    environment: stable-signing
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: candidate-${{ inputs.candidate_run_id }}
+          run-id: ${{ inputs.candidate_run_id }}
+          github-token: ${{ github.token }}
+          path: dist/
+      - name: Verify candidate provenance
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_ID: ${{ inputs.candidate_run_id }}
+        run: |
+          python3 scripts/check_run.py
+      - name: Install signing dependency
+        run: python3 -m pip install --user 'cryptography==44.0.2'
+      - name: Sign manifest
+        env:
+          MACGUARD_ED25519_PRIVATE_KEY_B64: ${{ secrets.MACGUARD_ED25519_PRIVATE_KEY_B64 }}
+        run: python3 scripts/sign.py
+      - name: Archive signed release
+        run: tar -czf rules-release.tar.gz -C dist rules manifest.json manifest.sig
+      - name: Publish release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TAG="rules-$(date -u +%Y%m%d)-${GITHUB_RUN_ID}"
+          gh release create "$TAG" rules-release.tar.gz dist/manifest.json dist/manifest.sig --title "$TAG" --notes 'Approved MacGuard rules snapshot. See manifest for upstream commits.'

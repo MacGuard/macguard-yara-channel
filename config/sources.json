@@ -1,0 +1,8 @@
+{
+  "schema": 1,
+  "sources": [
+    {"id":"nextron","repo":"Neo23x0/signature-base","kind":"rules","paths":["yara"]},
+    {"id":"community","repo":"Yara-Rules/rules","kind":"rules","paths":["malware","packers","crypto","antidebug_antivm","capabilities","exploit_kits","webshells"]},
+    {"id":"yara-x","repo":"VirusTotal/yara-x","kind":"engine","paths":[]}
+  ]
+}

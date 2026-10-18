@@ -1,0 +1,29 @@
+name: Daily source review
+on:
+  schedule:
+    - cron: '17 3 * * *'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: macguard-rules-prepare
+  cancel-in-progress: false
+jobs:
+  review:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install validation tools
+        run: sudo apt-get update && sudo apt-get install -y yara
+      - name: Fetch and normalize inventory
+        run: python3 scripts/prepare.py
+      - name: Compile and validate rules
+        run: python3 scripts/validate.py
+      - name: Upload candidate for review
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: candidate-${{ github.run_id }}
+          path: dist/
+          retention-days: 14
