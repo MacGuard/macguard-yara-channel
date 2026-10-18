@@ -19,7 +19,10 @@ def daily(entries, today: date, window: int = WINDOW, releases=None):
         if kind in ('candidate.accepted', 'candidate.rejected'):
             r = runs.setdefault(rid, {'rejected': 0})
             r.update(day=e['time'][:10], time=e['time'], examined=int(d.get('examined', d.get('file_count', 0))))
-            if 'quarantined' in d or 'rejected' in d: r['declared_rejected'] = int(d.get('quarantined', 0)) + int(d.get('rejected', 0))
+            if 'quarantined' in d or 'rejected' in d:   # autonomous flow: the event carries the full breakdown
+                r.update(accepted=int(d.get('file_count', 0)), quarantined=int(d.get('quarantined', 0)), hard_rejected=int(d.get('rejected', 0)))
+        elif kind == 'candidate.classified':
+            r = runs.setdefault(rid, {'rejected': 0}); r['performance'] = {k: d[k] for k in ('classify_seconds', 'gate_seconds', 'scan_p95_s', 'compile_rss_mb', 'scan_rss_peak_mb', 'engine') if k in d}
         elif kind == 'rule.rejected':
             runs.setdefault(rid, {'rejected': 0})['rejected'] += 1
     last = {}
@@ -34,10 +37,11 @@ def daily(entries, today: date, window: int = WINDOW, releases=None):
     for i in range(window - 1, -1, -1):
         day = (today - timedelta(days=i)).isoformat(); r = last.get(day); c = changes.get(day)
         if not r:
-            days.append({'date': day, 'observed': False, 'examined': None, 'accepted': None, 'rejected': None, 'new': c[0] if c else None, 'modified': c[1] if c else None, 'removed': c[2] if c else None})
+            days.append({'date': day, 'observed': False, 'examined': None, 'accepted': None, 'quarantined': None, 'rejected': None, 'performance': None, 'new': c[0] if c else None, 'modified': c[1] if c else None, 'removed': c[2] if c else None})
             continue
-        rejected = min(r.get('declared_rejected', r['rejected']), r['examined'])
-        days.append({'date': day, 'observed': True, 'examined': r['examined'], 'accepted': r['examined'] - rejected, 'rejected': rejected,
+        if 'quarantined' in r: accepted, quarantined, rejected = r['accepted'], r['quarantined'], r['hard_rejected']
+        else: rejected = min(r['rejected'], r['examined']); accepted, quarantined = r['examined'] - rejected, None   # earlier runs did not separate the two
+        days.append({'date': day, 'observed': True, 'examined': r['examined'], 'accepted': accepted, 'quarantined': quarantined, 'rejected': rejected, 'performance': r.get('performance'),
                      'new': c[0] if c else None, 'modified': c[1] if c else None, 'removed': c[2] if c else None})
     return days
 
@@ -45,7 +49,7 @@ def build(log_file: pathlib.Path, out: pathlib.Path, now: datetime = None, relea
     now = now or datetime.now(timezone.utc)
     entries = [json.loads(l) for l in log_file.read_text().splitlines() if l] if log_file.exists() else []
     doc = {'schema': 1, 'generated_at': now.strftime('%Y-%m-%dT%H:%M:%SZ'), 'window_days': WINDOW, 'days': daily(entries, now.date(), releases=releases),
-           'definitions': {'examined': 'rule files the pipeline looked at in the last run of the day', 'accepted': 'examined minus rejected', 'rejected': 'files refused by the YARA compiler',
+           'definitions': {'examined': 'rule files the pipeline looked at in the last run of the day', 'accepted': 'files that passed every check and are in the candidate', 'quarantined': 'files held for human review (null for runs before the quarantine existed)', 'rejected': 'files refused outright (hard criteria)', 'performance': 'durations and engine measurements of that run, aggregate only',
                            'new_modified_removed': 'from comparing the manifests of releases published that day', 'observed': 'false = no pipeline run that day (not zero rules)',
                            'downloads': 'not measured: this site has no download telemetry'}}
     out.write_text(json.dumps(doc, indent=1) + '\n')

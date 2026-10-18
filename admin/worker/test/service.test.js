@@ -243,3 +243,20 @@ test('a candidate list can be searched and filtered', async () => {
   assert.equal((await w.call('GET', '/api/candidates?state=REJECTED', { user: rita })).data.total, 0);
   assert.equal((await w.call('GET', '/api/candidates?pageSize=2&page=2', { user: rita })).data.items.length, 1);
 });
+
+test('opening a rule is recorded: who looked at what', async () => {
+  const { w, ids } = await seeded(['a']); const rita = await w.login('rita', { push: true });
+  await w.call('GET', `/api/candidates/${ids[0]}`, { user: rita });
+  const a = (await auditRows(w.db)).find((r) => r.action === 'access.view'); assert.equal(a.actor, 'rita'); assert.equal(JSON.parse(a.detail).sha256, sha('a'));
+});
+
+test('a retest request survives until the pipeline reports it done, and earlier metrics are available for comparison', async () => {
+  const { w, ids } = await seeded(['a']); const rita = await w.login('rita', { push: true });
+  assert.equal((await w.call('POST', `/api/candidates/${ids[0]}/retest`, { user: rita })).status, 200);
+  const dm = await w.call('GET', '/api/pipeline/decisions', { bearer: await w.pipelineToken() }); assert.equal(dm.data.retest.length, 1);
+  await w.call('POST', '/api/pipeline/submit', { bearer: await w.pipelineToken(), body: { run_id: '2', candidates: [cand('a')], retested: [ids[0]] } });
+  assert.equal((await w.call('GET', '/api/pipeline/decisions', { bearer: await w.pipelineToken() })).data.retest.length, 0);
+  const edited = await w.submit([cand('e', 'rules/x/a.yar', { metrics: { cpu_s: 9 } })]);
+  const d = (await w.call('GET', `/api/candidates/${edited.data.results[0].id}`, { user: rita })).data;
+  assert.equal(d.history[0].metrics.cpu_s, 1.2);
+});

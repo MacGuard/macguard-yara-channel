@@ -91,3 +91,9 @@ class CompileTests(unittest.TestCase):
         r = rc.classify([{'path': 'a.yar', 'source': 'community', 'sha256': rc.sha256(data), 'bytes': len(data)}], self.d, POLICY, [])
         self.assertEqual(r[0]['state'], rc.QUARANTINED)
 if __name__ == '__main__': unittest.main()
+
+class InferDepsTests(unittest.TestCase):
+    def test_dependencies_are_inferred_from_the_sources_alone(self):
+        d = pathlib.Path(tempfile.mkdtemp()); (d / 'base.yar').write_text('private rule IsPE { condition: uint16(0) == 0x5A4D }'); (d / 'use.yar').write_text('rule Uses { condition: IsPE }'); (d / 'solo.yar').write_text('rule Solo { condition: true }')
+        self.assertEqual(rc.infer_deps(d, ['base.yar', 'use.yar', 'solo.yar'], POLICY), {'base.yar': [], 'use.yar': ['base.yar'], 'solo.yar': []})
+        shutil.rmtree(d)

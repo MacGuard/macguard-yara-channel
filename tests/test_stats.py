@@ -16,8 +16,8 @@ class StatsTests(unittest.TestCase):
         log = [acc('1', '2026-10-17T03:00:00Z', 100), bad('2', '2026-10-17T05:00:00Z'), bad('2', '2026-10-17T05:00:01Z'), rej('2', '2026-10-17T05:00:02Z', 120),
                acc('3', '2026-10-18T03:00:00Z', 130)]
         d = {x['date']: x for x in stats.daily(log, date(2026, 10, 18))}
-        self.assertEqual(d['2026-10-17'], {'date': '2026-10-17', 'observed': True, 'examined': 120, 'accepted': 118, 'rejected': 2, 'new': None, 'modified': None, 'removed': None})
-        self.assertEqual(d['2026-10-18'], {'date': '2026-10-18', 'observed': True, 'examined': 130, 'accepted': 130, 'rejected': 0, 'new': None, 'modified': None, 'removed': None})
+        self.assertEqual(d['2026-10-17'], {'date': '2026-10-17', 'observed': True, 'examined': 120, 'accepted': 118, 'quarantined': None, 'rejected': 2, 'performance': None, 'new': None, 'modified': None, 'removed': None})
+        self.assertEqual(d['2026-10-18'], {'date': '2026-10-18', 'observed': True, 'examined': 130, 'accepted': 130, 'quarantined': None, 'rejected': 0, 'performance': None, 'new': None, 'modified': None, 'removed': None})
     def test_days_older_than_a_month_drop_out(self):
         d = stats.daily([acc('1', '2026-08-01T00:00:00Z', 50)], date(2026, 10, 18))
         self.assertEqual(sum(x['examined'] or 0 for x in d), 0)
@@ -39,4 +39,8 @@ class AutonomousFlowStats(unittest.TestCase):
     def test_counts_come_from_the_classification_event_not_from_per_rule_events(self):
         e = {'run_id': '1', 'time': '2026-10-18T03:00:00Z', 'event': 'candidate.accepted', 'details': {'file_count': 1150, 'examined': 1184, 'quarantined': 30, 'rejected': 4}}
         d = {x['date']: x for x in stats.daily([e], date(2026, 10, 18))}['2026-10-18']
-        self.assertEqual((d['examined'], d['accepted'], d['rejected']), (1184, 1150, 34))
+        self.assertEqual((d['examined'], d['accepted'], d['quarantined'], d['rejected']), (1184, 1150, 30, 4))
+    def test_performance_comes_from_the_classification_event(self):
+        log = [{'run_id': '1', 'time': '2026-10-18T03:00:00Z', 'event': 'candidate.classified', 'details': {'gate_seconds': 41, 'scan_p95_s': 0.03, 'engine': 'YARA 4.5.0'}},
+               {'run_id': '1', 'time': '2026-10-18T03:00:01Z', 'event': 'candidate.accepted', 'details': {'file_count': 10, 'examined': 12, 'quarantined': 2, 'rejected': 0}}]
+        d = {x['date']: x for x in stats.daily(log, date(2026, 10, 18))}['2026-10-18']; self.assertEqual(d['performance']['gate_seconds'], 41)

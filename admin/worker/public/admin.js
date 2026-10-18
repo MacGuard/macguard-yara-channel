@@ -72,7 +72,7 @@ function openDetail(id) {
     d.appendChild(el('p', {}, [el('span', { class: 'st st-' + c.state, text: c.state }), ' · v' + c.version + ' · ' + c.source + (c.upstream_commit ? ' @ ' + c.upstream_commit.slice(0, 10) : '') + ' · ' + c.bytes + ' B']));
     var why = el('p'); c.reasons.forEach(function (x) { why.appendChild(el('span', { class: 'chip', text: x })); }); d.appendChild(why);
     if (c.revalidation_failed) d.appendChild(el('p', { class: 'badmsg', text: 'Revalidation failed: ' + c.revalidation_failed }));
-    var m = c.metrics || {}, prev = (c.history && c.history[0] && c.history[0].metrics) || {};
+    var m = c.metrics || {}, prev = ((c.history || []).filter(function (h) { return h.metrics && typeof h.metrics.cpu_s === 'number'; })[0] || {}).metrics || {};
     var rows = [['CPU (s)', m.cpu_s, prev.cpu_s], ['RAM (MB)', m.rss_mb, prev.rss_mb], ['Compile (s)', m.compile_s, prev.compile_s], ['Scan p95 (s)', m.scan_p95_s, prev.scan_p95_s]].filter(function (x) { return typeof x[1] === 'number'; });
     if (rows.length) { d.appendChild(el('h3', { text: 'Resources' })); d.appendChild(barChart(rows)); }
     if (c.depends_on && c.depends_on.length) d.appendChild(el('p', { text: 'Depends on: ' + c.depends_on.join(', ') }));

@@ -57,7 +57,7 @@ export async function getCandidate(db, id) {
   c.decisions = (await db.prepare('SELECT action, from_state, to_state, candidate_version, actor, role, reason, batch_id, at FROM decisions WHERE candidate_id = ? ORDER BY id ASC').bind(id).all()).results;
   const blob = await db.prepare('SELECT content FROM blobs WHERE sha256 = ?').bind(c.sha256).first();
   c.content = blob ? blob.content : null;
-  c.history = (await db.prepare('SELECT id, sha256, state, detected_at FROM candidates WHERE path = ? AND id != ? ORDER BY detected_at DESC LIMIT 20').bind(c.path, id).all()).results;
+  c.history = (await db.prepare('SELECT id, sha256, state, detected_at, metrics, release_tag FROM candidates WHERE path = ? AND id != ? ORDER BY detected_at DESC LIMIT 20').bind(c.path, id).all()).results.map((h) => ({ ...h, metrics: parse(h.metrics, {}) }));
   return c;
 }
 export async function counts(db) {

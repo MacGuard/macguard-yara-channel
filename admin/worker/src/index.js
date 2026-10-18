@@ -69,7 +69,11 @@ export async function handle(request, env, deps) {
         return json(await store.listCandidates(db, { state: url.searchParams.get('state') || undefined, q: url.searchParams.get('q') || undefined, source: url.searchParams.get('source') || undefined, page: +url.searchParams.get('page') || 1, pageSize: +url.searchParams.get('pageSize') || 25 }));
       }
       const m = path.match(/^\/api\/candidates\/([0-9a-f-]{8,64})$/);
-      if (method === 'GET' && m) { const c = await store.getCandidate(db, m[1]); return c ? json(c) : err(404, 'not found'); }
+      if (method === 'GET' && m) {
+        const c = await store.getCandidate(db, m[1]); if (!c) return err(404, 'not found');
+        await store.appendAudit(db, { actor: session.login, role, action: 'access.view', target: c.id, detail: { path: c.path, sha256: c.sha256 } }, iso);   // who looked at which rule
+        return json(c);
+      }
       if (method === 'GET' && path === '/api/stats') return json({ counts: await store.counts(db), public: publicStats(await store.counts(db)) });
       if (method === 'POST' && path === '/api/decisions') {
         const body = await request.json().catch(() => null);

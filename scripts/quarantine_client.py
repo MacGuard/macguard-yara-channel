@@ -52,7 +52,12 @@ def main():
         dec = json.loads(pathlib.Path(a.decision).read_text()); dyn = json.loads(pathlib.Path(a.dynamic).read_text()) if a.dynamic and pathlib.Path(a.dynamic).exists() else None
         items = build_submissions(dec, a.dist, dyn)
         if not items: print('nothing to quarantine'); return
-        st, data = call('POST', '/api/pipeline/submit', {'run_id': a.run_id, 'run_url': a.run_url, 'candidates': items})
+        retested = []
+        status_file = pathlib.Path(a.dist) / 'decisions.json.status'
+        if status_file.exists():
+            try: retested = [r['id'] for r in json.loads(status_file.read_text()).get('retest', [])]
+            except Exception: retested = []
+        st, data = call('POST', '/api/pipeline/submit', {'run_id': a.run_id, 'run_url': a.run_url, 'candidates': items, 'retested': retested})
         if st == 200: print(f"quarantine: {sum(1 for x in data['results'] if x['status'] == 'created')} new, {sum(1 for x in data['results'] if x['status'] != 'created')} already known")
         else: print(f"quarantine UNAVAILABLE (status {st}): {data.get('error')}. {len(items)} candidates stay out of the release and will be seen again on the next run.")
     elif a.cmd == 'decisions':

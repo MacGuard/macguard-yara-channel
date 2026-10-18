@@ -11,3 +11,7 @@ DerivedData/
 site/
 release/
 history/
+dist/
+dist-public/
+previous/
+build/

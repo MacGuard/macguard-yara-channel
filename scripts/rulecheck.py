@@ -179,6 +179,15 @@ def classify(entries: list, root: pathlib.Path, policy: dict, engines: list, sou
                 o['state'] = QUARANTINED; o['reasons'].append(finding('dependency-not-validated', 'review', f'depends on {bad[0]} which is {by[bad[0]]["state"]}')); changed = True
     return out
 
+def infer_deps(root: pathlib.Path, paths: list, policy: dict) -> dict:
+    """File -> files defining rules it references, from the sources alone (no compiler). Used for a set that was not classified now,
+    e.g. the previous release used as the performance baseline."""
+    analysis = {p: analyse_text((root / p).read_text(errors='replace'), policy) for p in paths}
+    defines = {}
+    for p, a in analysis.items():
+        for n in a['rules']: defines.setdefault(n, p)
+    return {p: sorted({defines[n] for idents in a['conditions'].values() for n in idents if n in defines and defines[n] != p and n not in a['rules']}) for p, a in analysis.items()}
+
 def summary(classified: list) -> dict:
     c = {s: 0 for s in (VALIDATED, QUARANTINED, REJECTED, DEPRECATED)}
     for o in classified: c[o['state']] += 1

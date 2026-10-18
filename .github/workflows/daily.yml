@@ -46,7 +46,10 @@ jobs:
         run: python3 scripts/prepare.py
       - name: Static classification (integrity, syntax, dependencies, modules, regex cost, licences)
         id: classify
-        run: python3 scripts/rulecheck.py --dist dist --out dist/classification.json
+        run: |
+          start=$(date +%s)
+          python3 scripts/rulecheck.py --dist dist --out dist/classification.json
+          echo "seconds=$(( $(date +%s) - start ))" >> "$GITHUB_OUTPUT"
       - name: Latest release and reviewer decisions
         run: |
           mkdir -p previous
@@ -57,8 +60,10 @@ jobs:
       - name: Dynamic gate (baseline vs candidate, isolate and quarantine culprits, re-measure)
         id: gate
         run: |
+          start=$(date +%s)
           python3 scripts/dynamic_gate.py --dist dist --classification dist/classification.json --previous previous \
             --decisions dist/decisions.json --out dist/decision.json --dynamic-out dist/dynamic.json >> "$GITHUB_OUTPUT"
+          echo "seconds=$(( $(date +%s) - start ))" >> "$GITHUB_OUTPUT"
       - name: Send quarantined candidates to the private service
         if: always() && steps.gate.outcome == 'success'
         run: python3 scripts/quarantine_client.py submit --decision dist/decision.json --dist dist --dynamic dist/dynamic.json --run-id "$RUN_ID" --run-url "$RUN_URL"
@@ -70,9 +75,23 @@ jobs:
           python3 scripts/changes.py --dist dist-public --previous previous/manifest.json --out dist-public/changes.json >> "$GITHUB_OUTPUT"
       - name: Record the result in the transparency log (counts only)
         if: always()
+        env:
+          CLASSIFY: ${{ steps.classify.outputs.seconds }}
+          GATE: ${{ steps.gate.outputs.seconds }}
         run: |
           if [ -f dist/decision.json ]; then
-            python3 scripts/tlog.py entry-decision --dist dist --decision dist/decision.json --run-id "$RUN_ID"
+            PERF="$(python3 - <<'PY'
+          import json, os
+          args = [f"classify_seconds={os.environ.get('CLASSIFY', '0')}", f"gate_seconds={os.environ.get('GATE', '0')}", 'engine=' + open('engine-version.txt').read().strip().replace(' ', '_')]
+          try:
+              d = json.load(open('dist/dynamic.json')); c = d.get('candidate_runs') or []
+              if c and c[0].get('scan'): args += [f"scan_p95_s={c[0]['scan']['wall_p95']:.4f}", f"scan_rss_peak_mb={c[0]['scan']['rss_peak_mb']:.1f}", f"compile_rss_mb={c[0]['compile']['rss_mb']:.1f}"]
+          except Exception: pass
+          print(' '.join('--perf ' + a for a in args))
+          PY
+          )"
+            # shellcheck disable=SC2086
+            python3 scripts/tlog.py entry-decision --dist dist --decision dist/decision.json --run-id "$RUN_ID" $PERF
             if [ "${{ steps.changes.outputs.changed }}" = "false" ]; then
               python3 scripts/tlog.py event --level INFO --code candidate.unchanged --run-id "$RUN_ID" --message "The approved rule files are identical to the latest release. No new release is created." --detail "run_url=$RUN_URL"
             elif [ "${{ steps.changes.outputs.changed }}" = "true" ]; then

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Fetch pinned GitHub commit snapshots, normalize inventory without changing rule semantics."""
-import hashlib, json, os, pathlib, re, shutil, subprocess, tarfile, tempfile, urllib.request
+import hashlib, json, os, pathlib, re, shutil, subprocess, tarfile, tempfile, time, urllib.error, urllib.parse, urllib.request
 from datetime import datetime, timezone
 ROOT=pathlib.Path(__file__).resolve().parents[1]
 OUT=ROOT/'dist'; OUT.mkdir(exist_ok=True)
@@ -10,11 +10,28 @@ POLICY=json.loads((ROOT/'config/policy.json').read_text())
 sys_path=__import__('sys').path; sys_path.insert(0,str(pathlib.Path(__file__).resolve().parent))
 import licensing
 
+class _KeepTokenOnApiHostOnly(urllib.request.HTTPRedirectHandler):
+    """The token authenticates calls to api.github.com (5000 requests/hour instead of 60 shared per runner IP) and is never forwarded to another host."""
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        new = super().redirect_request(req, fp, code, msg, headers, newurl)
+        if new is not None and urllib.parse.urlparse(newurl).hostname != 'api.github.com': new.headers.pop('Authorization', None); new.unredirected_hdrs.pop('Authorization', None)
+        return new
+_opener = urllib.request.build_opener(_KeepTokenOnApiHostOnly)
+
 def request(url):
-    req=urllib.request.Request(url,headers={'User-Agent':'MacGuard-YARA-Channel/0.1','Accept':'application/vnd.github+json'})
-    with urllib.request.urlopen(req,timeout=25) as r:
-        data=r.read(MAX_DOWNLOAD+1)
-    if len(data)>MAX_DOWNLOAD: raise RuntimeError('Download exceeds limit')
+    headers = {'User-Agent': 'MacGuard-YARA-Channel/0.2', 'Accept': 'application/vnd.github+json'}
+    token = os.environ.get('GITHUB_TOKEN') or os.environ.get('GH_TOKEN')
+    if token and urllib.parse.urlparse(url).hostname == 'api.github.com': headers['Authorization'] = f'Bearer {token}'
+    last = None
+    for attempt in range(3):
+        try:
+            with _opener.open(urllib.request.Request(url, headers=headers), timeout=40) as r: data = r.read(MAX_DOWNLOAD + 1)
+            break
+        except urllib.error.HTTPError as e:
+            last = e
+            if e.code not in (403, 429, 500, 502, 503) or attempt == 2: raise
+            time.sleep(5 * (attempt + 1))
+    if len(data) > MAX_DOWNLOAD: raise RuntimeError('Download exceeds limit')
     return data
 
 def sha(data): return hashlib.sha256(data).hexdigest()

@@ -13,8 +13,9 @@ class StatsTests(unittest.TestCase):
     def test_percentiles(self):
         v = list(range(1, 101)); self.assertAlmostEqual(bench.percentile(v, 50), 50.5); self.assertAlmostEqual(bench.percentile(v, 99), 99.01)
         self.assertIsNone(bench.percentile([], 50))
-    def test_groups_join_dependent_files(self):
-        g = bench.groups(['a', 'b', 'c', 'd'], {'b': ['a'], 'c': ['b']}); self.assertIn(['a', 'b', 'c'], [sorted(x) for x in g]); self.assertIn(['d'], g)
+    def test_closure_lists_dependencies_first_and_survives_cycles(self):
+        self.assertEqual(bench.closure('c', {'c': ['b'], 'b': ['a']}), ['a', 'b', 'c']); self.assertEqual(bench.closure('d', {}), ['d'])
+        self.assertEqual(sorted(bench.closure('a', {'a': ['b'], 'b': ['a']})), ['a', 'b'])
 
 class CompareTests(unittest.TestCase):
     def runs(self, n, **kw): return [run(**{k: v * (1 + 0.01 * i) if isinstance(v, float) else v for k, v in kw.items()}) for i in range(n)]
@@ -52,6 +53,12 @@ class IsolationTests(unittest.TestCase):
 
 @unittest.skipUnless(YARA and YARAC, 'yara is not installed; engine tests cannot run (a skipped test is not a pass)')
 class EngineTests(unittest.TestCase):
+    def test_the_same_rule_name_in_two_files_is_loadable_in_one_set(self):
+        d = pathlib.Path(tempfile.mkdtemp()); (d / 'a.yar').write_text('rule SAME { strings: $a = "x" condition: $a }'); (d / 'b.yar').write_text('rule SAME { strings: $a = "y" condition: $a }')
+        out = d / 'o.yarc'; r = bench.compile_set(YARAC, d, ['a.yar', 'b.yar'], {}, out); self.assertEqual(r['code'], 0, r['stderr'])
+    def test_a_dependency_is_copied_into_the_namespace_of_each_dependent(self):
+        d = pathlib.Path(tempfile.mkdtemp()); (d / 'base.yar').write_text('private rule Base { condition: true }'); (d / 'u1.yar').write_text('rule U { condition: Base }'); (d / 'u2.yar').write_text('rule U { condition: Base }')
+        out = d / 'o.yarc'; r = bench.compile_set(YARAC, d, ['u1.yar', 'u2.yar'], {'u1.yar': ['base.yar'], 'u2.yar': ['base.yar']}, out); self.assertEqual(r['code'], 0, r['stderr'])
     def setUp(self):
         self.d = pathlib.Path(tempfile.mkdtemp()); self.corpus, self.canaries = bench.build_corpus(self.d / 'corpus')
     def tearDown(self): shutil.rmtree(self.d, ignore_errors=True)

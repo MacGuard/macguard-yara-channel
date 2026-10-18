@@ -5,7 +5,7 @@ rules responsible for a failure, quarantine only those, rebuild the set, and mea
 A set is never published unless the measurement that passed was taken on exactly that set (decide.py checks set_root)."""
 import argparse, json, pathlib, shutil, subprocess, sys, tempfile
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
-import bench, decide
+import bench, decide, rulecheck
 
 def absolute_ok(run, cfg):
     s, c = run.get('scan'), run['compile']
@@ -32,9 +32,13 @@ class Gate:
         runs = self.cfg['runs']
         c = self.measure(cand['root'], cand['files'], cand['deps'], runs)
         if base:
-            b = self.measure(base['root'], base['files'], {}, runs)
-            cmp_ = bench.compare(b, c, self.cfg['regression'])
-            return cmp_, b, c
+            b = self.measure(base['root'], base['files'], base.get('deps', {}), runs)
+            if any(r.get('scan') for r in b):
+                return bench.compare(b, c, self.cfg['regression']), b, c
+            # the previous set no longer loads on this engine: a comparison is impossible, fall back to the absolute limits and say so
+            note = 'the previous release does not compile as a whole on this engine; absolute limits applied'
+            bad = [w for r in c for w in absolute_ok(r, self.cfg['absolute'])]
+            return {'verdict': 'no-baseline' if not bad else 'regression', 'metrics': {}, 'reasons': [note] + bad}, b, c
         bad = [w for r in c for w in absolute_ok(r, self.cfg['absolute'])]
         return {'verdict': 'no-baseline' if not bad else 'regression', 'metrics': {}, 'reasons': bad or ['no previous approved set to compare with; sanity limits held']}, [], c
 
@@ -53,7 +57,7 @@ class Gate:
                 root = scratch
             else: root = cand['root']
             runs = 3 if base else 1
-            c = self.measure(root, files, cand['deps'], runs)
+            c = self.measure(root, files, {**(base.get('deps', {}) if base else {}), **cand['deps']}, runs)
             if base:
                 b = self.measure(base['root'], base['files'], {}, runs)
                 return bench.compare(b, c, self.cfg['regression'])['verdict'] == 'regression'
@@ -65,6 +69,7 @@ def run(dist, classification, previous_dir, policy, decisions, yara, yarac, max_
     if previous_dir and (pathlib.Path(previous_dir) / 'manifest.json').exists():
         prev_manifest = json.loads((pathlib.Path(previous_dir) / 'manifest.json').read_text())
         base = {'root': pathlib.Path(previous_dir), 'files': [f['path'] for f in prev_manifest['files']]}
+        base['deps'] = rulecheck.infer_deps(base['root'], base['files'], policy)
     log, culprits, hits_known = [], set(), {}
     with tempfile.TemporaryDirectory() as td:
         td = pathlib.Path(td); corpus, canaries = bench.build_corpus(td / 'corpus'); work = td / 'work'; work.mkdir()
@@ -109,7 +114,7 @@ def verify_only(dist, previous_dir, policy, yara, yarac, out):
     dist = pathlib.Path(dist); cand_json = json.loads((dist / 'candidate.json').read_text())
     files = [f['path'] for f in cand_json['files']]; base = None
     if previous_dir and (pathlib.Path(previous_dir) / 'manifest.json').exists():
-        pm = json.loads((pathlib.Path(previous_dir) / 'manifest.json').read_text()); base = {'root': pathlib.Path(previous_dir), 'files': [f['path'] for f in pm['files']]}
+        pm = json.loads((pathlib.Path(previous_dir) / 'manifest.json').read_text()); base = {'root': pathlib.Path(previous_dir), 'files': [f['path'] for f in pm['files']]}; base['deps'] = rulecheck.infer_deps(base['root'], base['files'], policy)
     with tempfile.TemporaryDirectory() as td:
         td = pathlib.Path(td); corpus, canaries = bench.build_corpus(td / 'corpus'); work = td / 'work'; work.mkdir()
         gate = Gate(yara, yarac, policy, work, corpus, canaries)

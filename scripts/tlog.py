@@ -267,12 +267,12 @@ def events_for_candidate(candidate: dict, validation: dict, run_id: str, time: s
                          run_id, time, rules_root=root, file_count=len(candidate['files'])))
     return out
 
-def events_for_decision(candidate: dict, decision: dict, run_id: str, time: str) -> list:
+def events_for_decision(candidate: dict, decision: dict, run_id: str, time: str, perf: dict = None) -> list:
     """Public-safe events for the autonomous flow: counts only, never the names or findings of quarantined rules."""
     st = decision['public_stats']
     out = [event('INFO', 'sources.fetched', f"Fetched {len(candidate['sources'])} upstream sources at pinned commits.", run_id, time,
                  sources=[{'repository': x['repository'], 'commit': x['commit']} for x in candidate['sources']])]
-    out.append(event('INFO', 'candidate.classified', f"Examined {st['examined']} rule files: {st['accepted']} accepted, {st['quarantined']} quarantined for review, {st['rejected']} rejected, {st['retired']} retired.", run_id, time, **st))
+    out.append(event('INFO', 'candidate.classified', f"Examined {st['examined']} rule files: {st['accepted']} accepted, {st['quarantined']} quarantined for review, {st['rejected']} rejected, {st['retired']} retired.", run_id, time, **st, **(perf or {})))
     if st.get('previously_published_failing'):
         out.append(event('WARNING', 'rules.withheld', f"{st['previously_published_failing']} previously published rule files no longer pass the checks and are withheld until resolved.", run_id, time, count=st['previously_published_failing']))
     if decision['publishable'] or decision['approved']:
@@ -308,7 +308,7 @@ def main(argv=None):
     sub = ap.add_subparsers(dest='cmd', required=True)
     s = sub.add_parser('entry', help='append the events of a validated candidate')
     s.add_argument('--dist', default=str(ROOT / 'dist')); s.add_argument('--run-id', required=True); s.add_argument('--time', default=''); s.add_argument('--gate')
-    s = sub.add_parser('entry-decision', help='append the public-safe events of an autonomous decision'); s.add_argument('--dist', default=str(ROOT / 'dist')); s.add_argument('--decision', default=''); s.add_argument('--run-id', required=True); s.add_argument('--time', default='')
+    s = sub.add_parser('entry-decision', help='append the public-safe events of an autonomous decision'); s.add_argument('--dist', default=str(ROOT / 'dist')); s.add_argument('--decision', default=''); s.add_argument('--run-id', required=True); s.add_argument('--time', default=''); s.add_argument('--perf', action='append', default=[], help='key=value aggregate measurement, repeatable')
     s = sub.add_parser('event', help='append one event, e.g. a failed step')
     s.add_argument('--level', required=True, choices=LEVELS); s.add_argument('--code', required=True); s.add_argument('--message', required=True)
     s.add_argument('--run-id', default=''); s.add_argument('--time', default='')
@@ -329,7 +329,7 @@ def main(argv=None):
         print(f'appended {len(evs)} events; last: {evs[-1]["event"]}')
     elif a.cmd == 'entry-decision':
         dist = pathlib.Path(a.dist)
-        evs = events_for_decision(json.loads((dist / 'candidate.json').read_text()), json.loads(pathlib.Path(a.decision or dist / 'decision.json').read_text()), a.run_id, a.time or now_utc())
+        evs = events_for_decision(json.loads((dist / 'candidate.json').read_text()), json.loads(pathlib.Path(a.decision or dist / 'decision.json').read_text()), a.run_id, a.time or now_utc(), {k: (float(v) if v.replace('.', '', 1).isdigit() else v) for k, v in (p.split('=', 1) for p in a.perf)})
         for e in evs: log.append(e)
         print(f'appended {len(evs)} events; last: {evs[-1]["event"]}')
     elif a.cmd == 'event':

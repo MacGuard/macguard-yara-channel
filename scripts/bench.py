@@ -33,23 +33,21 @@ def percentile(values, q):
     v = sorted(values); k = (len(v) - 1) * q / 100; f = int(k); c = min(f + 1, len(v) - 1)
     return v[f] + (v[c] - v[f]) * (k - f)
 
-def groups(files, deps):
-    """Union files that depend on each other so each group compiles in one YARA namespace."""
-    parent = {f: f for f in files}
-    def find(x):
-        while parent[x] != x: parent[x] = parent[parent[x]]; x = parent[x]
-        return x
-    for f in files:
-        for d in deps.get(f, []):
-            if d in parent: parent[find(f)] = find(d)
-    out = {}
-    for f in files: out.setdefault(find(f), []).append(f)
-    return list(out.values())
+def closure(path, deps, seen=None, visiting=None):
+    """A file and every file it needs, dependencies first (cycles are tolerated)."""
+    seen = seen if seen is not None else []; visiting = visiting if visiting is not None else set()
+    if path in seen or path in visiting: return seen
+    visiting.add(path)
+    for d in deps.get(path, []): closure(d, deps, seen, visiting)
+    visiting.discard(path); seen.append(path)
+    return seen
 
 def compile_set(yarac, root, files, deps, out_path, timeout=300):
+    """One YARA namespace per rule file, containing a copy of the files it depends on. Upstream sources define the same rule name
+    in several files (hundreds of overlaps between Nextron and Yara-Rules), so loading everything into one namespace cannot work."""
     args = [yarac, '-w', '-d', 'filepath=', '-d', 'filename=', '-d', 'extension=', '-d', 'filetype=', '-d', 'owner=', '-d', 'md5=']
-    for i, g in enumerate(groups(files, deps)):
-        args += [f'ns{i}:{root / p}' for p in g] if len(g) == 1 else [f'ns{i}:{root / p}' for p in g]
+    for i, f in enumerate(files):
+        for p in closure(f, deps): args.append(f'ns{i}:{root / p}')
     args.append(str(out_path))
     return run_measured(args, timeout=timeout)
 
