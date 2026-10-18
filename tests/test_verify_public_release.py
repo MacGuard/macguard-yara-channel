@@ -122,15 +122,26 @@ class Tampering(unittest.TestCase):
         self.assertFalse(any(c['id'] == 'merkle.inclusion' and c['status'] == 'pass' for c in rep['checks']), 'no later check may pass without the signature tool')
 
 class FakeGitHub(http.server.BaseHTTPRequestHandler):
-    tags, latest_calls, requests, truncate, moved = {}, 0, [], None, False
+    tags, latest_calls, requests, truncate, moved, mode = {}, 0, [], None, False, None   # mode: None, 'ratelimit', 'forbidden'
     def log_message(self, *a): pass
     def _json(self, obj): b = json.dumps(obj).encode(); self.send_response(200); self.send_header('Content-Type', 'application/json'); self.send_header('Content-Length', str(len(b))); self.end_headers(); self.wfile.write(b)
     def do_GET(self):
         cls = type(self); cls.requests.append(self.path); base = f'http://127.0.0.1:{self.server.server_port}'
         def rel(tag): return {'tag_name': tag, 'draft': False, 'html_url': f'{base}/{tag}', 'published_at': '2026-10-18T00:00:00Z', 'assets': [{'name': p.name, 'size': p.stat().st_size, 'browser_download_url': f'{base}/dl/{tag}/{p.name}'} for p in sorted(REAL.iterdir())]}
-        if self.path.endswith('/releases/latest'):
+        if cls.mode and self.path.startswith('/repos/'):
+            self.send_response(403); self.send_header('Content-Length', '0')
+            if cls.mode == 'ratelimit': self.send_header('X-RateLimit-Remaining', '0'); self.send_header('X-RateLimit-Reset', '1900000000')
+            self.end_headers(); return
+        if self.path.endswith('/releases/latest') and self.path.startswith('/repos/'):
             cls.latest_calls += 1; return self._json(rel('tag-B' if cls.moved and cls.latest_calls > 1 else 'tag-A'))
-        if '/releases/tags/' in self.path: return self._json(rel(self.path.rsplit('/', 1)[1]))
+        if '/releases/tags/' in self.path and self.path.startswith('/repos/'): return self._json(rel(self.path.rsplit('/', 1)[1]))
+        if self.path.endswith('/releases/latest'):   # github.com style: a redirect, no API
+            cls.latest_calls += 1; tag = 'tag-B' if cls.moved and cls.latest_calls > 2 else 'tag-A'
+            self.send_response(302); self.send_header('Location', f'{base}/MacGuard/macguard-yara-channel/releases/tag/{tag}'); self.send_header('Content-Length', '0'); self.end_headers(); return
+        if '/releases/download/' in self.path:
+            name = self.path.rsplit('/', 1)[1]
+            if not (REAL / name).exists(): self.send_response(404); self.send_header('Content-Length', '0'); self.end_headers(); return
+            data = (REAL / name).read_bytes(); self.send_response(200); self.send_header('Content-Length', str(len(data))); self.end_headers(); return self.wfile.write(data[:len(data) // 2] if cls.truncate == name else data)
         if self.path.startswith('/dl/'):
             name = self.path.rsplit('/', 1)[1]; data = (REAL / name).read_bytes()
             if cls.truncate == name:   # promise everything, deliver half
@@ -140,7 +151,7 @@ class FakeGitHub(http.server.BaseHTTPRequestHandler):
 
 class Network(unittest.TestCase):
     def serve(self):
-        FakeGitHub.latest_calls, FakeGitHub.requests, FakeGitHub.truncate, FakeGitHub.moved = 0, [], None, False
+        FakeGitHub.latest_calls, FakeGitHub.requests, FakeGitHub.truncate, FakeGitHub.moved, FakeGitHub.mode = 0, [], None, False, None
         s = http.server.ThreadingHTTPServer(('127.0.0.1', 0), FakeGitHub); threading.Thread(target=s.serve_forever, daemon=True).start(); self.addCleanup(s.shutdown); return f'http://127.0.0.1:{s.server_port}'
     def test_the_pinned_download_flow_works_against_a_local_api(self):
         api = self.serve(); code, rep, _, err = run('--latest', '--api-url', api, '--json'); self.assertEqual(code, 0, err); self.assertEqual(rep['release']['tag'], 'tag-A')
@@ -151,6 +162,21 @@ class Network(unittest.TestCase):
         api = self.serve(); FakeGitHub.moved = True; code, rep, _, err = run('--latest', '--api-url', api, '--json'); self.assertEqual(code, 0, err)
         self.assertEqual(rep['release']['tag'], 'tag-A'); self.assertTrue(rep['release']['latest_moved'])
         self.assertTrue(all('/tag-B/' not in p for p in FakeGitHub.requests), 'nothing may be downloaded from the release that appeared meanwhile')
+    def test_anonymous_rate_limit_falls_back_to_github_com_and_still_verifies(self):
+        api = self.serve(); FakeGitHub.mode = 'ratelimit'; code, rep, _, err = run('--latest', '--api-url', api, '--web-url', api, '--json'); self.assertEqual(code, 0, err)
+        self.assertEqual(rep['result'], 'PASS'); self.assertEqual(rep['release']['tag'], 'tag-A'); self.assertIn('rate limit', json.dumps(rep['release'])); self.assertTrue(rep['release']['resolved_from'].endswith('via github.com'))
+        self.assertIn('rate limit', next(c for c in rep['checks'] if c['id'] == 'release.resolve').get('detail', '') + json.dumps(rep['release']))
+    def test_rate_limit_fallback_still_pins_the_tag_and_detects_truncation(self):
+        api = self.serve(); FakeGitHub.mode = 'ratelimit'; FakeGitHub.truncate = 'rules-release.tar.gz'
+        code, rep, _, _ = run('--latest', '--api-url', api, '--web-url', api, '--json'); self.assertEqual(code, 4); self.assertIn('incomplete download', json.dumps(rep))
+    def test_rate_limit_with_a_tag_and_no_web_fallback_gives_a_clear_message(self):
+        api = self.serve(); FakeGitHub.mode = 'ratelimit'; code, rep, _, _ = run('--latest', '--api-url', api, '--web-url', 'http://127.0.0.1:9', '--json')
+        self.assertEqual(code, 4); self.assertEqual(rep['result'], 'FAIL')
+    def test_forbidden_is_not_reported_as_rate_limiting(self):
+        api = self.serve(); FakeGitHub.mode = 'forbidden'; code, rep, _, _ = run('--latest', '--api-url', api, '--web-url', api, '--json')
+        self.assertEqual(code, 4); d = json.dumps(rep); self.assertIn('not rate limiting', d); self.assertNotIn('resolved through github.com', d)
+    def test_a_missing_tag_says_404_and_how_to_check(self):
+        api = self.serve(); code, rep, _, _ = run('--tag', 'nope', '--api-url', api + '/x', '--json'); self.assertEqual(code, 4); self.assertIn('404', json.dumps(rep))
     def test_a_network_error_is_exit_4(self):
         code, rep, _, _ = run('--latest', '--api-url', 'http://127.0.0.1:9', '--json'); self.assertEqual(code, 4); self.assertEqual(rep['result'], 'FAIL')
     def test_a_release_with_a_missing_mandatory_artifact_is_incomplete(self):

@@ -27,7 +27,7 @@ Several failures: the report lists them all; the exit code is the first by prece
 
 Trust: this script is code you run. Read it (about 500 lines) or compare it with the signed copy attached to a release
 (docs: Verification page). Downloading it from the same site that hosts the rules is not an independent root of trust."""
-import argparse, base64, hashlib, json, os, pathlib, re, shutil, subprocess, sys, tarfile, tempfile, time, urllib.error, urllib.request
+import argparse, base64, hashlib, json, os, pathlib, re, shutil, subprocess, sys, tarfile, tempfile, time, urllib.error, urllib.parse, urllib.request
 
 VERSION = '1.0.0'
 SCHEMA = 1
@@ -99,6 +99,21 @@ def parse_checkpoint(text: str):
     return size, root
 
 # ---- network ------------------------------------------------------------------------------------------------
+class RateLimited(Fail):
+    """GitHub answered 403/429 because the request quota is used up (not because anything is forbidden)."""
+
+def _rate_limit_info(e):
+    h = e.headers or {}
+    remaining, reset, retry = h.get('X-RateLimit-Remaining'), h.get('X-RateLimit-Reset'), h.get('Retry-After')
+    limited = e.code == 429 or remaining == '0' or retry is not None
+    when = ''
+    if reset and reset.isdigit(): when = ' resets at ' + time.strftime('%H:%M:%S UTC', time.gmtime(int(reset)))
+    elif retry and retry.isdigit(): when = f' retry in {retry} s'
+    return limited, when
+
+class _NoRedirect(urllib.request.HTTPRedirectHandler):
+    def redirect_request(self, *a, **k): return None
+
 class Net:
     def __init__(self, api_url, token=None, timeout=40, retries=3):
         self.api, self.timeout, self.retries = api_url.rstrip('/'), timeout, retries
@@ -108,11 +123,25 @@ class Net:
         for i in range(self.retries):
             try: return urllib.request.urlopen(urllib.request.Request(url, headers={**self.headers, **(headers or {})}), timeout=self.timeout)
             except urllib.error.HTTPError as e:
-                if e.code < 500 and e.code != 429: raise Fail(4, f'{url}: HTTP {e.code}')
+                limited, when = _rate_limit_info(e)
+                if e.code in (403, 429) and limited:
+                    raise RateLimited(4, f'{url}: GitHub rate limit reached (HTTP {e.code}; anonymous requests are limited per IP address);{when}. Pass --token or set GITHUB_TOKEN to raise the limit')
+                if e.code == 403: raise Fail(4, f'{url}: HTTP 403 forbidden, and it is not rate limiting (no quota exhausted): a proxy, firewall or access rule is refusing the request')
+                if e.code == 404: raise Fail(4, f'{url}: HTTP 404 not found (check the tag and the repository name; the release must be public)')
+                if e.code < 500: raise Fail(4, f'{url}: HTTP {e.code}')
                 last = e
             except (urllib.error.URLError, TimeoutError, ConnectionError) as e: last = e
             time.sleep(1 + i)
         raise Fail(4, f'{url}: {last}')
+    def final_location(self, url):
+        """Where a github.com URL redirects to (no API request, so no API quota is used)."""
+        op = urllib.request.build_opener(_NoRedirect)
+        try: op.open(urllib.request.Request(url, headers={'User-Agent': self.headers['User-Agent']}), timeout=self.timeout)
+        except urllib.error.HTTPError as e:
+            if e.code in (301, 302, 303, 307, 308) and e.headers.get('Location'): return urllib.parse.urljoin(url, e.headers['Location'])
+            raise Fail(4, f'{url}: HTTP {e.code}')
+        except (urllib.error.URLError, TimeoutError, ConnectionError) as e: raise Fail(4, f'{url}: {e}')
+        raise Fail(4, f'{url}: expected a redirect to the latest release')
     def json(self, url):
         with self._open(url) as r: return json.load(r)
     def download(self, url, dest: pathlib.Path, expected_size=None):
@@ -210,6 +239,42 @@ def resolve_and_download(a, net, work: pathlib.Path, rep):
         d = pathlib.Path(a.directory)
         if not d.is_dir(): raise Fail(4, f'{d} is not a directory')
         return {'tag': a.tag or d.name, 'resolved_from': 'directory', 'url': None, 'published_at': None, 'latest_moved': False}, d
+    d = work / 'release'; d.mkdir()
+    try: return resolve_via_api(a, net, d)
+    except RateLimited as rl:
+        # Anonymous API quota used up. Public releases do not need the API: github.com resolves `latest` with a redirect and serves the assets.
+        for x in d.iterdir(): x.unlink()
+        info, d = resolve_via_web(a, net, d)
+        info['note'] = (info.get('note') + '; ' if info.get('note') else '') + f'GitHub API rate limit reached, so the release was resolved through github.com instead (no API sizes/digests; Content-Length is checked): {rl.message[:160]}'
+        return info, d
+
+def resolve_via_web(a, net, d: pathlib.Path):
+    web = a.web_url.rstrip('/')
+    if a.latest:
+        loc = net.final_location(f'{web}/{a.repo}/releases/latest'); m = re.search(r'/releases/tag/([^/?#]+)$', loc)
+        if not m: raise Fail(4, f'{web}/{a.repo}/releases/latest did not redirect to a release tag ({loc[:120]})')
+        tag = urllib.parse.unquote(m.group(1))
+    else: tag = a.tag
+    dl = f'{web}/{a.repo}/releases/download/{urllib.parse.quote(tag)}/'
+    note = None
+    for name in REQUIRED:
+        try: net.download(dl + name, d / name)
+        except Fail as f:
+            if name not in ('checkpoint.txt', 'checkpoint.sigstore.json') or not (d / 'manifest.json').exists(): raise Fail(f.code, f'{f.message} (mandatory artifact {name})')
+            size = load_json(d / 'manifest.json')['log']['size']; raw = a.raw_url.rstrip('/') + f'/{a.repo}/main/logs/checkpoints/{size:08d}'
+            net.download(raw + ('.txt' if name.endswith('.txt') else '.sigstore.json'), d / name); note = f'checkpoint taken from the repository (logs/checkpoints/{size:08d}.*): this release predates attaching it'
+    for name in OPTIONAL:
+        try: net.download(dl + name, d / name)
+        except Fail:
+            (d / name).unlink(missing_ok=True)
+    moved = False
+    try:
+        if a.latest:
+            loc = net.final_location(f'{web}/{a.repo}/releases/latest'); mm = re.search(r'/releases/tag/([^/?#]+)$', loc); moved = bool(mm) and urllib.parse.unquote(mm.group(1)) != tag
+    except Fail: pass
+    return {'tag': tag, 'resolved_from': ('latest' if a.latest else 'tag') + ' via github.com', 'url': f'{web}/{a.repo}/releases/tag/{urllib.parse.quote(tag)}', 'published_at': None, 'latest_moved': moved, 'note': note}, d
+
+def resolve_via_api(a, net, d: pathlib.Path):
     base = f'{net.api}/repos/{a.repo}'
     first = net.json(f'{base}/releases/latest') if a.latest else net.json(f'{base}/releases/tags/{a.tag}')
     tag = first['tag_name']
@@ -217,7 +282,6 @@ def resolve_and_download(a, net, work: pathlib.Path, rep):
     pinned = net.json(f'{base}/releases/tags/{tag}')                           # everything below comes from this exact tag
     assets = {x['name']: x for x in pinned.get('assets', [])}
     missing = [n for n in REQUIRED if n not in assets]
-    d = work / 'release'; d.mkdir()
     fallback_note = None
     if missing and set(missing) <= {'checkpoint.txt', 'checkpoint.sigstore.json'} and 'manifest.json' in assets:
         # releases made before checkpoints were attached: the signed checkpoint of that log size lives in the repository
@@ -405,7 +469,7 @@ def main(argv=None):
     ap.add_argument('--json', action='store_true', help='print the structured report only'); ap.add_argument('--repo', default=DEFAULT_REPO); ap.add_argument('--identity', default=DEFAULT_IDENTITY); ap.add_argument('--issuer', default=DEFAULT_ISSUER)
     ap.add_argument('--workflow-repo', default=DEFAULT_REPO, help='source repository the certificate must name (empty to skip)'); ap.add_argument('--cosign'); ap.add_argument('--output-dir', help='keep the downloaded artifacts here')
     ap.add_argument('--previous-checkpoint', help='a checkpoint.txt you already trust: prove this release extends it'); ap.add_argument('--trust-state', help='JSON file holding the newest verified checkpoint; read for rollback protection, updated after a full pass')
-    ap.add_argument('--api-url', default='https://api.github.com'); ap.add_argument('--raw-url', default='https://raw.githubusercontent.com'); ap.add_argument('--token', help='GitHub token (only to lift the anonymous rate limit)'); ap.add_argument('--tag-for-directory', dest='tag_dir')
+    ap.add_argument('--api-url', default='https://api.github.com'); ap.add_argument('--web-url', default='https://github.com', help='used when the API quota is exhausted'); ap.add_argument('--raw-url', default='https://raw.githubusercontent.com'); ap.add_argument('--token', help='GitHub token (only to lift the anonymous rate limit)'); ap.add_argument('--tag-for-directory', dest='tag_dir')
     a = ap.parse_args(argv)
     if a.directory and a.tag is None: a.tag = None
     try: rep = verify(a)
