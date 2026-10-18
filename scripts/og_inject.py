@@ -6,7 +6,7 @@ The preview image is web/img/yara-rules.png (copied into the site by build_site)
 built site can be re-targeted to another host (GitHub Pages and the Cloudflare mirror each get their own absolute URLs)."""
 import html, pathlib, re, sys
 
-IMAGE = 'img/yara-rules.png'; W, H = 1200, 600
+IMAGE = 'img/yara-rules.png'; W, H = 1200, 630
 ALT = 'MacGuard YARA Channel: verified rules, Sigstore signed, transparency log, safer macOS'
 DEFAULT_DESC = 'Verified, signed and transparent YARA rules for macOS: Sigstore signatures, Merkle transparency log, public catalog and independent verifier.'
 BLOCK = re.compile(r'<!--og-->.*?<!--/og-->', re.S)
@@ -35,5 +35,5 @@ def inject(site: pathlib.Path, base: str) -> int:
     return n
 
 if __name__ == '__main__':
-    if len(sys.argv) != 3 or not sys.argv[2].startswith('https://'): sys.exit(__doc__)
+    if len(sys.argv) != 3 or not sys.argv[2].startswith(('https://', 'http://127.0.0.1')): sys.exit(__doc__)
     print(f'og tags written to {inject(pathlib.Path(sys.argv[1]), sys.argv[2])} pages for {sys.argv[2]}')

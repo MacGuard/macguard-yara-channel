@@ -11,7 +11,7 @@ class OpenGraph(unittest.TestCase):
                 og_inject.inject(d, base); s = (d / 'index.html').read_text()
                 self.assertEqual(s.count('og:image"'), 1); self.assertIn(f'content="{base}img/yara-rules.png"', s); self.assertNotIn('a.example' if 'b.example' in base else 'b.example', s)
             self.assertIn('og:title" content="A &amp; B"', s)
-    def test_image_is_png_1200x600_and_small(self):
+    def test_image_is_png_1200x630_and_small(self):
         b = (ROOT / 'web/img/yara-rules.png').read_bytes(); self.assertEqual(b[:8], b'\x89PNG\r\n\x1a\n')
-        self.assertEqual((int.from_bytes(b[16:20], 'big'), int.from_bytes(b[20:24], 'big')), (1200, 600)); self.assertLess(len(b), 600_000)
+        self.assertEqual((int.from_bytes(b[16:20], 'big'), int.from_bytes(b[20:24], 'big')), (1200, 630)); self.assertLess(len(b), 600_000)
 if __name__ == '__main__': unittest.main()
