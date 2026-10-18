@@ -1,0 +1,1 @@
+fetch('/__sessions').then(r => r.json()).then(s => { var role = new URLSearchParams(location.search).get('role') || 'reviewer'; document.cookie = '__Host-mg_session=' + s[role] + '; Path=/; Secure'; location.href = '/'; });

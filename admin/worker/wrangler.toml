@@ -1,0 +1,21 @@
+# Private quarantine service. Deploying it needs a Cloudflare token, a D1 database and a GitHub OAuth app: see ../README.md
+name = "macguard-quarantine"
+main = "src/index.js"
+compatibility_date = "2026-10-01"
+workers_dev = false
+
+[assets]
+directory = "./public"
+binding = "ASSETS"
+
+[vars]
+REPO = "MacGuard/macguard-yara-channel"
+PUBLIC_URL = "https://REPLACE-WITH-ADMIN-HOSTNAME"
+OIDC_AUDIENCE = "https://REPLACE-WITH-ADMIN-HOSTNAME"
+PIPELINE_WORKFLOWS = "daily.yml,publish.yml"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "macguard-quarantine"
+database_id = "REPLACE-WITH-D1-ID"
+# Secrets (never in this file): GITHUB_CLIENT_ID, GITHUB_CLIENT_SECRET   ->  wrangler secret put ...
