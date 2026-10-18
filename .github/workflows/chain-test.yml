@@ -1,0 +1,36 @@
+name: Acceptance chain test (synthetic candidates)
+# Runs the whole chain with controlled synthetic rules: change detection, static validation, dynamic gate with a rule that blocks the
+# engine, quarantine service, human approval and rejection through the real API, revalidation, Sigstore signing, a complete GitHub
+# release (prerelease, deleted at the end), site build and public verification including a tamper check.
+# It never touches the production channel: its own log, its own test release, a local site.
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: chain-test
+  cancel-in-progress: false
+jobs:
+  chain:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    permissions:
+      contents: write   # create and delete the test prerelease
+      id-token: write   # keyless Sigstore signing as this workflow
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: YARA engine and cosign
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq yara && yara --version
+      - uses: sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6 # v4.1.2
+      - name: Run the chain
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          python3 scripts/chain_test.py --publish --repo "$GITHUB_REPOSITORY" \
+            --identity "${{ github.server_url }}/${{ github.repository }}/.github/workflows/chain-test.yml@refs/heads/${{ github.ref_name }}" | tee "$RUNNER_TEMP/chain.txt"
+          { echo '## Acceptance chain'; echo '```'; cat "$RUNNER_TEMP/chain.txt"; echo '```'; } >> "$GITHUB_STEP_SUMMARY"

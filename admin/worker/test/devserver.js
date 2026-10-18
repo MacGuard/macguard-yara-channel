@@ -10,6 +10,7 @@ const types = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript', '
 const port = Number(process.argv[2] || 8790);
 const w = await world();
 w.env.PUBLIC_URL = `http://127.0.0.1:${port}`;
+w.deps.now = () => Math.floor(Date.now() / 1000);   // a real clock: long browser and pipeline runs must not outlive the fixed test clock
 const items = []; const empty = process.argv.includes('--empty');
 for (let i = 0; i < 6; i++) items.push(cand(String(i), `rules/community/pack/rule_${i}.yar`, { reasons: i % 2 ? ['costly-regex'] : ['filesize-loop', 'unknown-module'], metrics: { cpu_s: 0.4 + i, rss_mb: 30 + i * 12, compile_s: 0.8, scan_p95_s: 0.03 } }));
 items.push(cand('9', 'rules/community/pack/evil.yar', { reasons: ['costly-regex'], content_b64: Buffer.from('<img src=x onerror="window.__xss=1"> rule X { condition: true }').toString('base64') }));
