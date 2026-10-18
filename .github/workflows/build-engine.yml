@@ -33,7 +33,7 @@ jobs:
         run: |
           cd engine-out
           cat engine-manifest.json
-          lipo -archs yara yarac
+          for b in yara yarac; do echo "$b: $(lipo -archs $b)"; done
           codesign --verify --strict --verbose=2 yara yarac
           ./yara --version
           cat > /tmp/mods.yar <<'YAR'
