@@ -1,4 +1,4 @@
-name: Deploy site to Cloudflare Pages
+name: Deploy site (GitHub Pages and Cloudflare Pages)
 on:
   push:
     branches: [main]
@@ -11,18 +11,12 @@ concurrency:
   group: macguard-log
   cancel-in-progress: false
 jobs:
-  deploy:
+  build:
     runs-on: ubuntu-24.04
-    timeout-minutes: 15
+    timeout-minutes: 10
     permissions:
-      contents: read     # no write token reaches the third-party deploy action
+      contents: read
       actions: read
-    outputs:
-      credentials: ${{ steps.creds.outputs.status }}
-      deployed: ${{ steps.deploy.outcome }}
-    env:
-      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -37,12 +31,50 @@ jobs:
             || echo 'No release found; the site will contain the web only'
       - name: Assemble site
         run: python3 scripts/build_site.py
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+      - uses: actions/upload-artifact@v4
+        with:
+          name: site-dir
+          path: site
+          retention-days: 1
+
+  github-pages:
+    needs: build
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
+
+  cloudflare-pages:
+    needs: build
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read     # no write token reaches the third-party deploy action
+    outputs:
+      credentials: ${{ steps.creds.outputs.status }}
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: site-dir
+          path: site
       - name: Check credentials
         id: creds
         run: |
           if [ -z "$CLOUDFLARE_API_TOKEN" ] || [ -z "$CLOUDFLARE_ACCOUNT_ID" ]; then echo "status=missing" >> "$GITHUB_OUTPUT"; else echo "status=present" >> "$GITHUB_OUTPUT"; fi
       - name: Deploy to Cloudflare Pages
-        id: deploy
         if: steps.creds.outputs.status == 'present'
         uses: cloudflare/wrangler-action@9acf94ace14e7dc412b076f2c5c20b8ce93c79cd # v3.15.0
         with:
@@ -51,7 +83,7 @@ jobs:
           command: pages deploy site --project-name=macguard-rules --branch=main
 
   record:
-    needs: deploy
+    needs: [build, github-pages, cloudflare-pages]
     if: always()
     runs-on: ubuntu-24.04
     timeout-minutes: 5
@@ -59,9 +91,10 @@ jobs:
       contents: write    # append-only commit of logs/ only; holds no Cloudflare secret
     env:
       RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
-      CREDENTIALS: ${{ needs.deploy.outputs.credentials }}
-      DEPLOYED: ${{ needs.deploy.outputs.deployed }}
-      DEPLOY_JOB: ${{ needs.deploy.result }}
+      BUILD: ${{ needs.build.result }}
+      GHPAGES: ${{ needs.github-pages.result }}
+      CF: ${{ needs.cloudflare-pages.result }}
+      CF_CREDENTIALS: ${{ needs.cloudflare-pages.outputs.credentials }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -69,15 +102,22 @@ jobs:
       - name: Record result in transparency log
         run: |
           RUN="${{ github.run_id }}"
-          if [ "$CREDENTIALS" = "missing" ]; then
-            python3 scripts/tlog.py event --level WARNING --code site.skipped --run-id "$RUN" \
-              --message "Site deployment skipped: CLOUDFLARE_API_TOKEN or CLOUDFLARE_ACCOUNT_ID is not configured as a repository secret. See $RUN_URL"
-          elif [ "$DEPLOYED" = "success" ]; then
-            python3 scripts/tlog.py event --level INFO --code site.deployed --run-id "$RUN" \
-              --message "Site deployed to Cloudflare Pages project macguard-rules. See $RUN_URL"
+          ev() { python3 scripts/tlog.py event --run-id "$RUN" "$@"; }
+          if [ "$BUILD" != "success" ]; then
+            ev --level ERROR --code site.build_failed --message "Assembling the site failed (build job: $BUILD). Nothing was deployed. See $RUN_URL"
           else
-            python3 scripts/tlog.py event --level ERROR --code site.deploy_failed --run-id "$RUN" \
-              --message "Deploying the site to Cloudflare Pages failed (deploy job: $DEPLOY_JOB, deploy step: ${DEPLOYED:-not run}). The previous site stays online. See $RUN_URL"
+            if [ "$GHPAGES" = "success" ]; then
+              ev --level INFO --code site.github_pages_deployed --message "Site deployed to GitHub Pages. See $RUN_URL"
+            else
+              ev --level ERROR --code site.github_pages_failed --message "Deploying the site to GitHub Pages failed (job: $GHPAGES). The previous GitHub Pages site stays online. See $RUN_URL"
+            fi
+            if [ "$CF_CREDENTIALS" = "missing" ]; then
+              ev --level WARNING --code site.cloudflare_skipped --message "Cloudflare Pages deployment skipped: CLOUDFLARE_API_TOKEN or CLOUDFLARE_ACCOUNT_ID is not configured as a repository secret. See $RUN_URL"
+            elif [ "$CF" = "success" ]; then
+              ev --level INFO --code site.cloudflare_deployed --message "Site deployed to Cloudflare Pages project macguard-rules. See $RUN_URL"
+            else
+              ev --level ERROR --code site.cloudflare_failed --message "Deploying the site to Cloudflare Pages failed (job: $CF). The previous Cloudflare site stays online. See $RUN_URL"
+            fi
           fi
           python3 scripts/tlog.py render
           bash scripts/commit_logs.sh "site deploy $RUN"
