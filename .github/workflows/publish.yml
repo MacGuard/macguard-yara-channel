@@ -9,7 +9,7 @@ permissions:
   contents: write
   actions: write    # dispatch the site deployment
 concurrency:
-  group: macguard-rules-publish
+  group: macguard-log
   cancel-in-progress: false
 jobs:
   publish:
@@ -19,7 +19,6 @@ jobs:
     env:
       RUN_ID: ${{ inputs.candidate_run_id }}
       RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
-      MACGUARD_ED25519_PRIVATE_KEY_B64: ${{ secrets.MACGUARD_ED25519_PRIVATE_KEY_B64 }}
     steps:
       - uses: actions/checkout@v4
       - name: Install signing dependency
@@ -35,8 +34,12 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: python3 scripts/check_run.py
       - name: Verify the existing log before extending it
+        env:
+          MACGUARD_ED25519_PRIVATE_KEY_B64: ${{ secrets.MACGUARD_ED25519_PRIVATE_KEY_B64 }}
         run: python3 scripts/tlog.py verify --key-env MACGUARD_ED25519_PRIVATE_KEY_B64
       - name: Record approval and sign the log head
+        env:
+          MACGUARD_ED25519_PRIVATE_KEY_B64: ${{ secrets.MACGUARD_ED25519_PRIVATE_KEY_B64 }}
         run: |
           python3 scripts/tlog.py event --level INFO --code release.approved --run-id "$RUN_ID" \
             --message "Candidate from review run $RUN_ID was approved for signing in workflow run ${{ github.run_id }}." --detail "run_url=$RUN_URL"
@@ -44,6 +47,8 @@ jobs:
           python3 scripts/tlog.py render
           python3 scripts/tlog.py verify --key-env MACGUARD_ED25519_PRIVATE_KEY_B64
       - name: Sign manifest
+        env:
+          MACGUARD_ED25519_PRIVATE_KEY_B64: ${{ secrets.MACGUARD_ED25519_PRIVATE_KEY_B64 }}
         run: python3 scripts/sign.py
       - name: Archive signed release
         run: tar -czf rules-release.tar.gz -C dist rules manifest.json manifest.sig

@@ -6,7 +6,7 @@ on:
 permissions:
   contents: write   # append-only commit of logs/ only
 concurrency:
-  group: macguard-rules-prepare
+  group: macguard-log
   cancel-in-progress: false
 jobs:
   review:
