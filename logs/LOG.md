@@ -2,12 +2,14 @@
 
 Generated from `logs/log.jsonl`; do not edit by hand. Times are UTC. Newest first.
 
-Entries: 10 (INFO 3, WARNING 7, ERROR 0)
+Entries: 12 (INFO 4, WARNING 8, ERROR 0)
 
 No signed checkpoint yet.
 
 | # | Date (UTC) | Level | Event | Message |
 |---|---|---|---|---|
+| 11 | 2026-10-18T05:47:33Z | WARNING | `site.cloudflare_skipped` | Cloudflare Pages deployment skipped: CLOUDFLARE_API_TOKEN or CLOUDFLARE_ACCOUNT_ID is not configured as a repository secret. See https://github.com/MacGuard/macguard-yara-channel/actions/runs/39101740788 |
+| 10 | 2026-10-18T05:47:33Z | INFO | `site.github_pages_deployed` | Site deployed to GitHub Pages. See https://github.com/MacGuard/macguard-yara-channel/actions/runs/39101740788 |
 | 9 | 2026-10-18T04:35:11Z | WARNING | `site.cloudflare_skipped` | Cloudflare Pages deployment skipped: CLOUDFLARE_API_TOKEN or CLOUDFLARE_ACCOUNT_ID is not configured as a repository secret. See https://github.com/MacGuard/macguard-yara-channel/actions/runs/39097579023 |
 | 8 | 2026-10-18T04:35:11Z | INFO | `site.github_pages_deployed` | Site deployed to GitHub Pages. See https://github.com/MacGuard/macguard-yara-channel/actions/runs/39097579023 |
 | 7 | 2026-10-18T04:10:40Z | INFO | `candidate.accepted` | All 1184 rule files compiled. Candidate rules root is 2bf5201185d1fa30... |
