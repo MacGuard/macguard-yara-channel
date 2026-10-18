@@ -39,7 +39,7 @@ jobs:
           cat > /tmp/mods.yar <<'YAR'
           import "hash"
           import "pe"
-          rule Modules { condition: hash.md5(0, 3) == "900150983cd24fb0d6963f7d28e17f72" and defined pe.number_of_signatures }
+          rule Modules { condition: hash.md5(0, 3) == "900150983cd24fb0d6963f7d28e17f72" and not defined pe.number_of_signatures }
           YAR
           printf abc > /tmp/abc.txt
           ./yara /tmp/mods.yar /tmp/abc.txt | tee /tmp/native.out; grep -q Modules /tmp/native.out
