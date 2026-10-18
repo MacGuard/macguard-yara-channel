@@ -58,6 +58,9 @@ struct AuditorView: View {
                 Spacer()
                 Label(tr("Auditoría local", "Local auditing"), systemImage: "lock.shield")
                     .font(MGTypography.caption).foregroundStyle(.secondary)
+                Label(YARAEngine.status().ready ? "YARA \(YARAEngine.status().version) · \(yara.installedCount) \(tr("reglas", "rules"))" : tr("Motor YARA no disponible", "YARA engine unavailable"), systemImage: YARAEngine.status().ready ? "checkmark.seal" : "exclamationmark.triangle")
+                    .font(MGTypography.caption).foregroundStyle(.secondary)
+                    .help(YARAEngine.status().ready ? tr("Motor verificado: hashes, firma, versión, arquitectura y autoprueba.", "Engine verified: hashes, signature, version, architecture and self-test.") : YARAEngine.status().reason)
             }
             .padding(MGSpacing.lg).frame(width: 200, alignment: .leading)
             .background(MGColor.Surface.subtle)
