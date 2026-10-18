@@ -22,6 +22,19 @@ def count_rules(text: str) -> int:
     """Individual YARA rule declarations in a file (a file may hold many, or none)."""
     return len(RULE_RE.findall(text))
 
+PLATFORM_MARKERS = {
+    'Windows': re.compile(r'\bimport\s+"pe"|0x5A4D|\{\s*4D\s*5A|\.dll\b|\.exe\b|\bHKEY_|\\\\Windows|powershell|cmd\.exe|PE32', re.I),
+    'Linux': re.compile(r'\bimport\s+"elf"|is__elf|0x464c457f|0x7f454c46|\{\s*7F\s*45\s*4C\s*46|/proc/|busybox|\bMirai\b|\bLinux\b', re.I),
+    'macOS': re.compile(r'\bimport\s+"macho"|0xfeedfac[ef]|0xcffaedfe|\{\s*(CF|CE)\s*FA\s*ED\s*FE|\bMach-O\b|\bOSX\b|macOS|/Library/LaunchAgents|\.app/Contents|com\.apple\.|launchctl|\bDarwin\b', re.I),
+    'Android/Java': re.compile(r'\bandroid\b|\.apk\b|classes\.dex|\bjava\b', re.I),
+}
+
+def platforms(text: str) -> list:
+    """Platforms a rule file seems to target, from markers in its text (file-format magic, module imports, paths, names).
+    A heuristic for browsing, not upstream metadata: a file can target several, and 'unspecified' means no marker was found."""
+    found = [name for name, rx in PLATFORM_MARKERS.items() if rx.search(text)]
+    return found or ['unspecified']
+
 def category(path: str, source: str) -> str:
     """Directory under the source when there is one; for flat Nextron files, the file-name prefix. Derived, not upstream metadata."""
     parts = path.split('/')                      # rules/<source>/<dir>/.../<file>
@@ -67,7 +80,7 @@ def first_seen(rows_with_manifests: list) -> dict:
         prev = file_map(m)
     return {p: (seen.get(p), last.get(p)) for p in prev}
 
-def build_catalog(manifest: dict, seen: dict, tag: str) -> dict:
+def build_catalog(manifest: dict, seen: dict, tag: str, platform_of=None) -> dict:
     sources = {s['id']: s for s in manifest.get('sources', [])}
     ok = manifest.get('validation', {})
     validated = ok.get('engine') and ok.get('checked') == len(manifest.get('files', []))
@@ -79,10 +92,11 @@ def build_catalog(manifest: dict, seen: dict, tag: str) -> dict:
                     'source': f.get('source'), 'repository': s.get('repository'), 'commit': s.get('commit'),
                     'sha256': f['sha256'], 'bytes': f['bytes'],
                     'validation': 'compiled' if validated else 'unchecked',
-                    'first_release': fs[0], 'changed_in': fs[1]})
+                    'first_release': fs[0], 'changed_in': fs[1], 'platforms': platform_of(f['path']) if platform_of else []})
     return {'schema': 1, 'release': tag, 'rules_root': manifest.get('rules_root'), 'count': len(out),
             'validation_note': 'compiled = accepted by the YARA compiler in the publishing workflow; it says nothing about detection quality or safety',
             'category_note': 'category is derived from the directory or file-name prefix, not from upstream metadata',
+            'platform_note': 'platforms are inferred from markers in the rule text (file-format magic, module imports, paths); a heuristic, not upstream metadata',
             'files': out}
 
 def consistency_doc(log_lines: list, old_head: dict, new_head: dict):

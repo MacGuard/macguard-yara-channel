@@ -47,7 +47,7 @@ if (site / 'manifest.json').exists():
     manifest = json.loads((site / 'manifest.json').read_text())
     tag = rows[-1]['tag'] if rows else 'latest'
     seen = catalog.first_seen([(r['tag'], r['manifest']) for r in sorted(releases, key=lambda r: (r['published_at'], r['tag']))])
-    (site / 'catalog.json').write_text(json.dumps(catalog.build_catalog(manifest, seen, tag), separators=(',', ':')) + '\n')
+    (site / 'catalog.json').write_text(json.dumps(catalog.build_catalog(manifest, seen, tag, platform_of=lambda p: catalog.platforms((site / p).read_text(errors='replace'))), separators=(',', ':')) + '\n')
     (site / 'rules-list.html').write_text(plain_list(json.loads((site / 'catalog.json').read_text())))
     log_lines = (root / 'logs' / 'log.jsonl').read_bytes().split(b'\n') if (root / 'logs' / 'log.jsonl').exists() else []
     log_lines = [l for l in log_lines if l]

@@ -46,4 +46,14 @@ class CatalogTests(unittest.TestCase):
         self.assertIsNone(catalog.consistency_doc(lines, {'size': 4, 'root': '00' * 32}, new))
         self.assertIsNone(catalog.consistency_doc(lines, new, new))
         self.assertIsNone(catalog.consistency_doc(lines, old, {'size': 99, 'root': new['root']}))
+class PlatformTests(unittest.TestCase):
+    def test_markers_identify_the_targeted_platforms(self):
+        self.assertEqual(catalog.platforms('import "pe"\nrule A { condition: pe.is_dll() }'), ['Windows'])
+        self.assertIn('Linux', catalog.platforms('rule L { condition: uint32(0) == 0x464c457f }'))
+        self.assertEqual(catalog.platforms('import "macho"\nrule M { condition: macho.cputype == 7 }'), ['macOS'])
+        self.assertEqual(catalog.platforms('rule X { strings: $a = "/Library/LaunchAgents" condition: $a }'), ['macOS'])
+        self.assertEqual(catalog.platforms('rule Plain { strings: $a = "abc" condition: $a }'), ['unspecified'])
+    def test_a_catalog_entry_carries_its_platforms(self):
+        m = man({'rules/nextron/a.yar': '1'}); c = catalog.build_catalog(m, {}, 't', platform_of=lambda p: ['Windows'])
+        self.assertEqual(c['files'][0]['platforms'], ['Windows'])
 if __name__ == '__main__': unittest.main()
