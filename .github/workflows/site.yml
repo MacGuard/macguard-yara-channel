@@ -3,6 +3,10 @@ on:
   push:
     branches: [main]
     paths: ['web/**', 'docs-src/**', 'scripts/build_docs.py', 'scripts/docs_check.py', 'scripts/verify_public_release.py', 'tests/test_docs.py', 'tests/test_docs_og.py', 'scripts/og_inject.py', '.github/workflows/site.yml', 'scripts/build_site.py', 'scripts/catalog.py', 'scripts/stats.py']
+  # Every 24 hours both sites are rebuilt from the latest signed release and verified, even if no new release was published
+  # (04:17 UTC, after the 03:17 daily review and any release it requested).
+  schedule:
+    - cron: '17 4 * * *'
   workflow_dispatch:
     inputs:
       full_visual:
