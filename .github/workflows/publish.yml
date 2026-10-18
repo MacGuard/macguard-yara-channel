@@ -7,14 +7,23 @@ on:
         required: true
 permissions:
   contents: write
-  actions: read
+  actions: write    # dispatch the site deployment
+concurrency:
+  group: macguard-rules-publish
+  cancel-in-progress: false
 jobs:
   publish:
     runs-on: ubuntu-24.04
     environment: stable-signing
     timeout-minutes: 15
+    env:
+      RUN_ID: ${{ inputs.candidate_run_id }}
+      RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+      MACGUARD_ED25519_PRIVATE_KEY_B64: ${{ secrets.MACGUARD_ED25519_PRIVATE_KEY_B64 }}
     steps:
       - uses: actions/checkout@v4
+      - name: Install signing dependency
+        run: python3 -m pip install --user 'cryptography==44.0.2'
       - uses: actions/download-artifact@v4
         with:
           name: candidate-${{ inputs.candidate_run_id }}
@@ -24,14 +33,17 @@ jobs:
       - name: Verify candidate provenance
         env:
           GH_TOKEN: ${{ github.token }}
-          RUN_ID: ${{ inputs.candidate_run_id }}
+        run: python3 scripts/check_run.py
+      - name: Verify the existing log before extending it
+        run: python3 scripts/tlog.py verify --key-env MACGUARD_ED25519_PRIVATE_KEY_B64
+      - name: Record approval and sign the log head
         run: |
-          python3 scripts/check_run.py
-      - name: Install signing dependency
-        run: python3 -m pip install --user 'cryptography==44.0.2'
+          python3 scripts/tlog.py event --level INFO --code release.approved --run-id "$RUN_ID" \
+            --message "Candidate from review run $RUN_ID was approved for signing in workflow run ${{ github.run_id }}." --detail "run_url=$RUN_URL"
+          python3 scripts/tlog.py checkpoint
+          python3 scripts/tlog.py render
+          python3 scripts/tlog.py verify --key-env MACGUARD_ED25519_PRIVATE_KEY_B64
       - name: Sign manifest
-        env:
-          MACGUARD_ED25519_PRIVATE_KEY_B64: ${{ secrets.MACGUARD_ED25519_PRIVATE_KEY_B64 }}
         run: python3 scripts/sign.py
       - name: Archive signed release
         run: tar -czf rules-release.tar.gz -C dist rules manifest.json manifest.sig
@@ -40,4 +52,21 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           TAG="rules-$(date -u +%Y%m%d)-${GITHUB_RUN_ID}"
-          gh release create "$TAG" rules-release.tar.gz dist/manifest.json dist/manifest.sig --title "$TAG" --notes 'Approved MacGuard rules snapshot. See manifest for upstream commits.'
+          gh release create "$TAG" rules-release.tar.gz dist/manifest.json dist/manifest.sig --title "$TAG" --notes 'Approved MacGuard rules snapshot. See manifest for upstream commits and the signed transparency log head.'
+          echo "TAG=$TAG" >> "$GITHUB_ENV"
+      - name: Record result and commit the log
+        if: always()
+        run: |
+          if [ "${{ job.status }}" = "success" ]; then
+            python3 scripts/tlog.py event --level INFO --code release.published --run-id "$RUN_ID" \
+              --message "Signed release $TAG published on GitHub. The site deployment was requested." --detail "run_url=$RUN_URL"
+          else
+            python3 scripts/tlog.py event --level ERROR --code release.failed --run-id "$RUN_ID" \
+              --message "Signing or publishing the release failed. Nothing new was published. See $RUN_URL" --detail "run_url=$RUN_URL"
+          fi
+          python3 scripts/tlog.py render
+          bash scripts/commit_logs.sh "publish run ${{ github.run_id }}"
+      - name: Deploy the site
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh workflow run site.yml

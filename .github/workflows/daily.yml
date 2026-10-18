@@ -4,7 +4,7 @@ on:
     - cron: '17 3 * * *'
   workflow_dispatch:
 permissions:
-  contents: read
+  contents: write   # append-only commit of logs/ only
 concurrency:
   group: macguard-rules-prepare
   cancel-in-progress: false
@@ -15,11 +15,32 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Install validation tools
-        run: sudo apt-get update && sudo apt-get install -y yara
+        run: |
+          sudo apt-get update && sudo apt-get install -y yara
+          python3 -m pip install --user 'cryptography==44.0.2'
+      - name: Unit tests (Merkle log)
+        run: python3 -m unittest discover -s tests -v
       - name: Fetch and normalize inventory
+        id: prepare
         run: python3 scripts/prepare.py
       - name: Compile and validate rules
+        id: validate
         run: python3 scripts/validate.py
+      - name: Record result in transparency log
+        if: always()
+        env:
+          RUN_ID: ${{ github.run_id }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          if [ -f dist/validation.json ]; then
+            python3 scripts/tlog.py entry --run-id "$RUN_ID"
+          else
+            python3 scripts/tlog.py event --level ERROR --code run.failed --run-id "$RUN_ID" \
+              --message "The daily review stopped before validation finished (prepare: ${{ steps.prepare.outcome }}, validate: ${{ steps.validate.outcome }}). See $RUN_URL" \
+              --detail "run_url=$RUN_URL"
+          fi
+          python3 scripts/tlog.py render
+          bash scripts/commit_logs.sh "daily review $RUN_ID"
       - name: Upload candidate for review
         if: always()
         uses: actions/upload-artifact@v4

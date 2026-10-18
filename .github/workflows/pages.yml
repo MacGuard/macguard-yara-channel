@@ -10,6 +10,7 @@ permissions:
   id-token: write
 jobs:
   deploy:
+    if: ${{ vars.PAGES_ENABLED == 'true' }}   # needs a public repo or a paid plan
     runs-on: ubuntu-24.04
     environment:
       name: github-pages
