@@ -2,12 +2,17 @@
 
 Generated from `logs/log.jsonl`; do not edit by hand. Times are UTC. Newest first.
 
-Entries: 61 (INFO 31, WARNING 21, ERROR 9)
+Entries: 66 (INFO 35, WARNING 22, ERROR 9)
 
 Latest signed checkpoint: 20 entries, Merkle root `0a4cc81014bb5bf3c71cbbab077a748a1a5224ca30a4d892db5488a1e828f21a`.
 
 | # | Date (UTC) | Level | Event | Message |
 |---|---|---|---|---|
+| 65 | 2026-10-18T16:56:48Z | INFO | `candidate.changes` | The approved set differs from the latest release. A new release will be requested. |
+| 64 | 2026-10-18T16:56:47Z | INFO | `candidate.accepted` | 1174 rule files passed every mandatory check. Candidate rules root is 16d082395ef1ec53... |
+| 63 | 2026-10-18T16:56:47Z | WARNING | `rules.withheld` | 10 previously published rule files no longer pass the checks and are withheld until resolved. |
+| 62 | 2026-10-18T16:56:47Z | INFO | `candidate.classified` | Examined 1184 rule files: 1174 accepted, 6 quarantined for review, 4 rejected, 0 retired. |
+| 61 | 2026-10-18T16:56:47Z | INFO | `sources.fetched` | Fetched 3 upstream sources at pinned commits. |
 | 60 | 2026-10-18T16:49:52Z | INFO | `candidate.changes` | The approved set differs from the latest release. A new release will be requested. |
 | 59 | 2026-10-18T16:49:52Z | INFO | `candidate.accepted` | 1174 rule files passed every mandatory check. Candidate rules root is 16d082395ef1ec53... |
 | 58 | 2026-10-18T16:49:52Z | WARNING | `rules.withheld` | 10 previously published rule files no longer pass the checks and are withheld until resolved. |
