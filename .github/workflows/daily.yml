@@ -34,10 +34,13 @@ jobs:
         run: |
           sudo apt-get update -qq && sudo apt-get install -y -qq yara
           yara --version | tee engine-version.txt
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
       - name: Unit and integration tests (log, classification, decisions, dynamic gate, quarantine service)
         run: |
-          python3 -m unittest discover -s tests -v
-          node --test admin/worker/test/
+          python3 -m unittest discover -s tests
+          (cd admin/worker && node --test test/*.test.js)
       - name: Fetch and normalize inventory
         id: prepare
         run: python3 scripts/prepare.py
