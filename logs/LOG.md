@@ -2,12 +2,18 @@
 
 Generated from `logs/log.jsonl`; do not edit by hand. Times are UTC. Newest first.
 
-Entries: 42 (INFO 20, WARNING 17, ERROR 5)
+Entries: 48 (INFO 23, WARNING 20, ERROR 5)
 
 Latest signed checkpoint: 20 entries, Merkle root `0a4cc81014bb5bf3c71cbbab077a748a1a5224ca30a4d892db5488a1e828f21a`.
 
 | # | Date (UTC) | Level | Event | Message |
 |---|---|---|---|---|
+| 47 | 2026-10-18T12:56:29Z | INFO | `candidate.unchanged` | The rule files are identical to the latest release (added 0, modified 0, removed 0, unchanged 1184). No new release is created. |
+| 46 | 2026-10-18T12:56:29Z | INFO | `candidate.accepted` | All 1184 rule files compiled. Candidate rules root is 2bf5201185d1fa30... |
+| 45 | 2026-10-18T12:56:29Z | WARNING | `file.skipped` | Skipped packers/peid.yar from community: size-or-binary. |
+| 44 | 2026-10-18T12:56:29Z | WARNING | `file.skipped` | Skipped yara/yara-rules_vuln_drivers_strict_renamed.yar from nextron: size-or-binary. |
+| 43 | 2026-10-18T12:56:29Z | WARNING | `file.skipped` | Skipped yara/yara-rules_vuln_drivers_strict.yar from nextron: size-or-binary. |
+| 42 | 2026-10-18T12:56:29Z | INFO | `sources.fetched` | Fetched 3 upstream sources at pinned commits. |
 | 41 | 2026-10-18T12:54:13Z | ERROR | `site.cloudflare_blocked` | Cloudflare Pages BLOCKED: the credential preflight failed (format, account id, validity or permission; see the cf-preflight line in the job log). No deploy was attempted. See https://github.com/MacGuard/macguard-yara-channel/actions/runs/39129159112 |
 | 40 | 2026-10-18T12:54:13Z | INFO | `site.live_verified` | The public GitHub Pages site was downloaded and verified: signatures, every rule hash, catalog, proof and links. See https://github.com/MacGuard/macguard-yara-channel/actions/runs/39129159112 |
 | 39 | 2026-10-18T12:54:13Z | INFO | `site.github_pages_deployed` | Site deployed to GitHub Pages. See https://github.com/MacGuard/macguard-yara-channel/actions/runs/39129159112 |
