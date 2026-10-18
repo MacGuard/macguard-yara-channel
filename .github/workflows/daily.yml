@@ -48,7 +48,7 @@ jobs:
             if [ -f dist/changes.json ]; then
               python3 - <<'PY' > /tmp/changes.env
           import json; d = json.load(open('dist/changes.json')); c = d['counts']
-          print(f"CHANGED={'yes' if d['changed'] else 'no'}"); print(f"COUNTS=added {c['added']}, modified {c['modified']}, removed {c['removed']}, unchanged {c['unchanged']}")
+          print(f"CHANGED={'yes' if d['changed'] else 'no'}"); print(f"COUNTS='added {c['added']}, modified {c['modified']}, removed {c['removed']}, unchanged {c['unchanged']}'")
           PY
               . /tmp/changes.env
               if [ "$CHANGED" = yes ]; then
