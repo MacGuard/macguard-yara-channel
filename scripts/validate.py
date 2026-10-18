@@ -24,7 +24,7 @@ for item in manifest['files']:
             cp=compile_set(paths)
             missing=re.findall(r'undefined identifier "(\w+)"',cp.stderr)
             extra=[DEFINES[m] for m in dict.fromkeys(missing) if m in DEFINES and DEFINES[m] not in paths]
-            if cp.returncode and extra: paths+=extra; continue
+            if cp.returncode and extra: paths=extra+paths; continue
             break
         if cp.returncode: fail.append({'file':item['path'],'error':cp.stderr[-400:]})
     except subprocess.TimeoutExpired: fail.append({'file':item['path'],'error':'timeout'})
