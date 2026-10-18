@@ -2,12 +2,17 @@
 
 Generated from `logs/log.jsonl`; do not edit by hand. Times are UTC. Newest first.
 
-Entries: 69 (INFO 37, WARNING 22, ERROR 10)
+Entries: 74 (INFO 41, WARNING 23, ERROR 10)
 
 Latest signed checkpoint: 20 entries, Merkle root `0a4cc81014bb5bf3c71cbbab077a748a1a5224ca30a4d892db5488a1e828f21a`.
 
 | # | Date (UTC) | Level | Event | Message |
 |---|---|---|---|---|
+| 73 | 2026-10-18T17:39:01Z | INFO | `candidate.changes` | The approved set differs from the latest release. A new release will be requested. |
+| 72 | 2026-10-18T17:39:01Z | INFO | `candidate.accepted` | 1174 rule files passed every mandatory check. Candidate rules root is 16d082395ef1ec53... |
+| 71 | 2026-10-18T17:39:01Z | WARNING | `rules.withheld` | 10 previously published rule files no longer pass the checks and are withheld until resolved. |
+| 70 | 2026-10-18T17:39:01Z | INFO | `candidate.classified` | Examined 1184 rule files: 1174 accepted, 6 quarantined for review, 4 rejected, 0 retired. |
+| 69 | 2026-10-18T17:39:01Z | INFO | `sources.fetched` | Fetched 3 upstream sources at pinned commits. |
 | 68 | 2026-10-18T17:34:01Z | ERROR | `site.cloudflare_blocked` | Cloudflare Pages BLOCKED: the credential preflight failed (format, account id, validity or permission; see the cf-preflight line in the job log). No deploy was attempted. See https://github.com/MacGuard/macguard-yara-channel/actions/runs/39148693467 |
 | 67 | 2026-10-18T17:34:01Z | INFO | `site.live_verified` | The public GitHub Pages site was downloaded and verified: signatures, every rule hash, catalog, proof and links. See https://github.com/MacGuard/macguard-yara-channel/actions/runs/39148693467 |
 | 66 | 2026-10-18T17:34:00Z | INFO | `site.github_pages_deployed` | Site deployed to GitHub Pages. See https://github.com/MacGuard/macguard-yara-channel/actions/runs/39148693467 |
