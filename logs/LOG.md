@@ -2,12 +2,15 @@
 
 Generated from `logs/log.jsonl`; do not edit by hand. Times are UTC. Newest first.
 
-Entries: 107 (INFO 63, WARNING 23, ERROR 21)
+Entries: 110 (INFO 66, WARNING 23, ERROR 21)
 
 Latest signed checkpoint: 75 entries, Merkle root `1bab9bb9364b3a42f76835ae138bffad33eaa3694d0021afd208f5fd54e63d96`.
 
 | # | Date (UTC) | Level | Event | Message |
 |---|---|---|---|---|
+| 109 | 2026-10-18T20:31:40Z | INFO | `site.cloudflare_deployed` | Site deployed to Cloudflare Pages project macguard-rules. See https://github.com/MacGuard/macguard-yara-channel/actions/runs/39163565132 |
+| 108 | 2026-10-18T20:31:40Z | INFO | `site.live_verified` | The public GitHub Pages site was downloaded and verified: signatures, every rule hash, catalog, proof and links. See https://github.com/MacGuard/macguard-yara-channel/actions/runs/39163565132 |
+| 107 | 2026-10-18T20:31:40Z | INFO | `site.github_pages_deployed` | Site deployed to GitHub Pages. See https://github.com/MacGuard/macguard-yara-channel/actions/runs/39163565132 |
 | 106 | 2026-10-18T20:29:26Z | ERROR | `site.cloudflare_blocked` | Cloudflare Pages BLOCKED: the credential preflight failed (format, account id, validity or permission; see the cf-preflight line in the job log). No deploy was attempted. See https://github.com/MacGuard/macguard-yara-channel/actions/runs/39163411333 |
 | 105 | 2026-10-18T20:29:26Z | INFO | `site.live_verified` | The public GitHub Pages site was downloaded and verified: signatures, every rule hash, catalog, proof and links. See https://github.com/MacGuard/macguard-yara-channel/actions/runs/39163411333 |
 | 104 | 2026-10-18T20:29:26Z | INFO | `site.github_pages_deployed` | Site deployed to GitHub Pages. See https://github.com/MacGuard/macguard-yara-channel/actions/runs/39163411333 |
