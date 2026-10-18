@@ -2,12 +2,6 @@ import base64, copy, json, pathlib, sys, tempfile, unittest
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1] / 'scripts'))
 import tlog
 
-try:
-    from cryptography.hazmat.primitives import serialization
-    from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
-except ImportError:  # signing tests need the same dependency the publish job installs
-    Ed25519PrivateKey = None
-
 def leaves(n): return [tlog.leaf_hash(f'entry-{i}'.encode()) for i in range(n)]
 
 def iterative_root(ls):
@@ -58,41 +52,56 @@ class MerkleTests(unittest.TestCase):
         changed = copy.deepcopy(files); changed[0]['sha256'] = '23'
         self.assertNotEqual(tlog.rules_root(files), tlog.rules_root(changed))
 
-@unittest.skipIf(Ed25519PrivateKey is None, 'cryptography not installed')
 class LogTests(unittest.TestCase):
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory(); self.addCleanup(self.tmp.cleanup)
         self.log = tlog.Log(pathlib.Path(self.tmp.name) / 'logs')
-        key = Ed25519PrivateKey.generate()
-        self.priv = base64.b64encode(key.private_bytes(serialization.Encoding.Raw, serialization.PrivateFormat.Raw, serialization.NoEncryption())).decode()
-        self.pub = base64.b64encode(key.public_key().public_bytes(serialization.Encoding.Raw, serialization.PublicFormat.Raw)).decode()
+    def sign(self):
+        """Stand-in for cosign: a bundle that records the exact bytes it signed."""
+        for txt in self.log.checkpoint_files():
+            if not self.log.bundle_for(txt).exists(): self.log.bundle_for(txt).write_bytes(txt.read_bytes())
+    @staticmethod
+    def verifier(txt, bundle): return None if bundle.read_bytes() == txt.read_bytes() else 'signature does not match'
+    def check(self): self.sign(); return self.log.verify(self.verifier)
     def add(self, n):
         for i in range(n): self.log.append({'type': 'candidate-accepted', 'run_id': str(i)})
     def test_clean_log_verifies(self):
-        self.add(3); self.log.write_checkpoint(self.priv); self.add(4); self.log.write_checkpoint(self.priv)
-        self.assertEqual(self.log.verify(self.pub), [])
+        self.add(3); self.log.write_checkpoint(); self.add(4); self.log.write_checkpoint(); self.sign()
+        self.assertEqual(self.check(), [])
     def test_checkpoint_requires_new_entries(self):
-        self.add(2); self.log.write_checkpoint(self.priv)
-        with self.assertRaises(ValueError): self.log.write_checkpoint(self.priv)
+        self.add(2); self.log.write_checkpoint()
+        with self.assertRaises(ValueError): self.log.write_checkpoint()
     def test_edited_entry_is_detected(self):
-        self.add(5); self.log.write_checkpoint(self.priv)
+        self.add(5); self.log.write_checkpoint()
         f = self.log.entries_file; f.write_bytes(f.read_bytes().replace(b'"run_id":"2"', b'"run_id":"X"'))
-        self.assertTrue(any('root does not match' in p for p in self.log.verify(self.pub)))
+        self.assertTrue(any('root does not match' in p for p in self.check()))
     def test_dropped_entries_are_detected(self):
-        self.add(5); self.log.write_checkpoint(self.priv)
+        self.add(5); self.log.write_checkpoint()
         f = self.log.entries_file; f.write_bytes(b''.join(f.read_bytes().splitlines(True)[:3]))
-        self.assertTrue(self.log.verify(self.pub))
+        self.assertTrue(self.check())
     def test_history_rewrite_after_checkpoint_is_detected(self):
-        self.add(4); self.log.write_checkpoint(self.priv); self.add(3); self.log.write_checkpoint(self.priv)
+        self.add(4); self.log.write_checkpoint(); self.add(3); self.log.write_checkpoint()
         f = self.log.entries_file; lines = f.read_bytes().splitlines(True)
         lines[1] = lines[1].replace(b'"run_id":"1"', b'"run_id":"evil"'); f.write_bytes(b''.join(lines))
-        self.assertTrue(self.log.verify(self.pub))
-    def test_wrong_key_and_tampered_checkpoint_are_detected(self):
-        self.add(3); self.log.write_checkpoint(self.priv)
-        other = Ed25519PrivateKey.generate().public_key().public_bytes(serialization.Encoding.Raw, serialization.PublicFormat.Raw)
-        self.assertTrue(self.log.verify(base64.b64encode(other).decode()))
+        self.assertTrue(self.check())
+    def test_unsigned_or_tampered_checkpoint_is_detected(self):
+        self.add(3); self.log.write_checkpoint()
+        self.assertTrue(any('missing' in p for p in self.log.verify(self.verifier)))
+        self.sign(); self.assertEqual(self.check(), [])
         cp = self.log.checkpoint_files()[-1]; cp.write_bytes(cp.read_bytes().replace(b'\n3\n', b'\n2\n'))
-        self.assertTrue(self.log.verify(self.pub))
+        self.assertTrue(self.check())
+    def test_release_proof_binds_manifest_rules_root_to_the_signed_tree(self):
+        self.log.append(tlog.event('INFO', 'sources.fetched', 'x', '9'))
+        self.log.append(tlog.event('INFO', 'candidate.accepted', 'ok', '9', rules_root='ab' * 32))
+        self.log.append(tlog.event('INFO', 'release.approved', 'ok', '9'))
+        self.log.write_checkpoint(); body = self.log.checkpoint_files()[-1].read_bytes()
+        doc = self.log.release_proof('9', 'ab' * 32, 3)
+        self.assertIsNone(tlog.check_inclusion_proof(doc, body, 'ab' * 32))
+        self.assertIsNotNone(tlog.check_inclusion_proof(doc, body, 'cd' * 32))
+        forged = dict(doc, entry=doc['entry'].replace('ab' * 32, 'cd' * 32)); self.assertIsNotNone(tlog.check_inclusion_proof(forged, body, 'cd' * 32))
+        self.assertIsNotNone(tlog.check_inclusion_proof(dict(doc, proof=doc['proof'][:-1]), body, 'ab' * 32))
+        with self.assertRaises(ValueError): self.log.release_proof('8', 'ab' * 32, 3)
+        with self.assertRaises(ValueError): self.log.release_proof('9', 'cd' * 32, 3)
     def test_events_are_readable_and_levelled(self):
         cand = {'sources': [{'repository': 'o/r', 'commit': 'abc'}], 'files': [{'path': 'rules/a.yar', 'sha256': '11'}],
                 'rejected': [{'source': 'o', 'path': 'big.yar', 'reason': 'size-or-binary'}]}
@@ -109,7 +118,7 @@ class LogTests(unittest.TestCase):
         with self.assertRaises(ValueError): tlog.event('FATAL', 'x', 'y')
         self.log.append(tlog.event('ERROR', 'publish.pages_failed', 'Deploying to Cloudflare Pages failed: HTTP 403 | token', '7', '2026-10-18T04:05:06Z'))
         self.log.append(tlog.event('INFO', 'candidate.accepted', 'ok', '7', '2026-10-18T04:06:00Z'))
-        self.log.write_checkpoint(self.priv)
+        self.log.write_checkpoint()
         md = tlog.render(self.log)
         self.assertIn('2026-10-18T04:05:06Z | ERROR | `publish.pages_failed`', md); self.assertIn('INFO 1, WARNING 0, ERROR 1', md)
         self.assertIn('\\|', md); self.assertLess(md.index('candidate.accepted'), md.index('publish.pages_failed'))  # newest first

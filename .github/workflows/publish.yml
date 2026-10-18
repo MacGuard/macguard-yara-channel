@@ -8,6 +8,7 @@ on:
 permissions:
   contents: write
   actions: write    # dispatch the site deployment
+  id-token: write   # keyless Sigstore signing with the workflow identity
 concurrency:
   group: macguard-log
   cancel-in-progress: false
@@ -18,13 +19,13 @@ jobs:
     timeout-minutes: 15
     env:
       RUN_ID: ${{ inputs.candidate_run_id }}
+      IDENTITY: ${{ github.server_url }}/${{ github.repository }}/.github/workflows/publish.yml@refs/heads/${{ github.ref_name }}
       RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
     steps:
       - uses: actions/checkout@v4
         with:
           ref: ${{ github.ref_name }}
-      - name: Install signing dependency
-        run: python3 -m pip install --user 'cryptography==44.0.2'
+      - uses: sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6 # v4.1.2
       - uses: actions/download-artifact@v4
         with:
           name: candidate-${{ inputs.candidate_run_id }}
@@ -36,30 +37,30 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: python3 scripts/check_run.py
       - name: Verify the existing log before extending it
-        env:
-          MACGUARD_ED25519_PRIVATE_KEY_B64: ${{ secrets.MACGUARD_ED25519_PRIVATE_KEY_B64 }}
-        run: python3 scripts/tlog.py verify --key-env MACGUARD_ED25519_PRIVATE_KEY_B64
+        run: python3 scripts/tlog.py verify --identity "$IDENTITY" --repo "$GITHUB_REPOSITORY"
       - name: Record approval and sign the log head
-        env:
-          MACGUARD_ED25519_PRIVATE_KEY_B64: ${{ secrets.MACGUARD_ED25519_PRIVATE_KEY_B64 }}
         run: |
           python3 scripts/tlog.py event --level INFO --code release.approved --run-id "$RUN_ID" \
             --message "Candidate from review run $RUN_ID was approved for signing in workflow run ${{ github.run_id }}." --detail "run_url=$RUN_URL"
           python3 scripts/tlog.py checkpoint
+          LATEST="$(ls logs/checkpoints/*.txt | sort | tail -1)"
+          cosign sign-blob --yes --bundle "${LATEST%.txt}.sigstore.json" "$LATEST"
+          cp "${LATEST%.txt}.sigstore.json" logs/checkpoint.sigstore.json
           python3 scripts/tlog.py render
-          python3 scripts/tlog.py verify --key-env MACGUARD_ED25519_PRIVATE_KEY_B64
-      - name: Sign manifest
-        env:
-          MACGUARD_ED25519_PRIVATE_KEY_B64: ${{ secrets.MACGUARD_ED25519_PRIVATE_KEY_B64 }}
-        run: python3 scripts/sign.py
+          python3 scripts/tlog.py verify --identity "$IDENTITY" --repo "$GITHUB_REPOSITORY"
+      - name: Write and sign the manifest
+        run: |
+          python3 scripts/seal.py
+          cosign sign-blob --yes --bundle dist/manifest.sigstore.json dist/manifest.json
+          python3 scripts/tlog.py release-proof --run-id "$RUN_ID" --manifest dist/manifest.json --out dist/inclusion-proof.json
       - name: Archive signed release
-        run: tar -czf rules-release.tar.gz -C dist rules manifest.json manifest.sig
+        run: tar -czf rules-release.tar.gz -C dist rules manifest.json
       - name: Publish release
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           TAG="rules-$(date -u +%Y%m%d)-${GITHUB_RUN_ID}"
-          gh release create "$TAG" rules-release.tar.gz dist/manifest.json dist/manifest.sig --title "$TAG" --notes 'Approved MacGuard rules snapshot. See manifest for upstream commits and the signed transparency log head.'
+          gh release create "$TAG" rules-release.tar.gz dist/manifest.json dist/manifest.sigstore.json dist/inclusion-proof.json --title "$TAG" --notes 'Approved MacGuard rules snapshot. Signed keylessly with Sigstore; inclusion-proof.json ties the rules root to the transparency log.'
           echo "TAG=$TAG" >> "$GITHUB_ENV"
       - name: Record result and commit the log
         if: always()

@@ -4,8 +4,8 @@
 Merkle tree per RFC 6962 (hashing) with the verification algorithms of RFC 9162.
 logs/log.jsonl              one canonical JSON entry per line; leaf = SHA-256(0x00 || line)
 logs/checkpoints/NNNNNNNN.txt  signed tree head: origin, size, root (base64)
-logs/checkpoints/NNNNNNNN.sig  Ed25519 signature (base64) over the exact bytes of the .txt
-logs/checkpoint.txt / .sig  copy of the latest checkpoint
+logs/checkpoints/NNNNNNNN.sigstore.json  Sigstore bundle (keyless signature by the publish workflow) over the exact bytes of the .txt
+logs/checkpoint.txt / .sigstore.json  copy of the latest checkpoint
 The log only grows. `verify` recomputes every root from the entries and checks that each checkpoint is
 signed and consistent with the previous one, so rewriting or dropping history is detectable.
 """
@@ -132,8 +132,8 @@ class Log:
         if len(parts) != 4 or parts[3] != '' or parts[0] != ORIGIN: raise ValueError('malformed checkpoint')
         return int(parts[1]), base64.b64decode(parts[2], validate=True)
 
-    def write_checkpoint(self, private_key_b64: str) -> int:
-        from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
+    def write_checkpoint(self) -> int:
+        """Write the unsigned tree head; the publish workflow signs it with Sigstore right after."""
         leaves = self.leaves(); size = len(leaves)
         previous = self.checkpoint_files()
         if previous:
@@ -144,17 +144,18 @@ class Log:
             if not verify_consistency(old_size, size, old_root, mth(leaves), proof):
                 raise ValueError('log is not consistent with the last checkpoint')
         body = self.checkpoint_bytes(size, mth(leaves))
-        sig = Ed25519PrivateKey.from_private_bytes(base64.b64decode(private_key_b64, validate=True)).sign(body)
         self.checkpoints.mkdir(parents=True, exist_ok=True)
-        for txt, sg in ((self.checkpoints / f'{size:08d}.txt', self.checkpoints / f'{size:08d}.sig'),
-                        (self.folder / 'checkpoint.txt', self.folder / 'checkpoint.sig')):
-            txt.write_bytes(body); sg.write_text(base64.b64encode(sig).decode() + '\n')
+        for txt in (self.checkpoints / f'{size:08d}.txt', self.folder / 'checkpoint.txt'): txt.write_bytes(body)
         return size
 
-    def verify(self, public_key_b64: str):
-        """Return a list of problems; empty means the log and all checkpoints are sound."""
-        from cryptography.exceptions import InvalidSignature
-        from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
+    @staticmethod
+    def bundle_for(txt: pathlib.Path) -> pathlib.Path: return txt.with_name(txt.stem + '.sigstore.json')
+
+    def verify(self, verifier=None):
+        """Return a list of problems; empty means the log and all checkpoints are sound.
+
+        `verifier(checkpoint_txt, bundle)` returns None when the Sigstore bundle is valid for that file
+        and an error string otherwise. Without a verifier only the structure is checked."""
         problems = []
         try: leaves = self.leaves()
         except ValueError as e: return [str(e)]
@@ -163,16 +164,15 @@ class Log:
             except ValueError: problems.append(f'entry {i}: not valid JSON'); continue
             if canonical(entry) != line: problems.append(f'entry {i}: not canonical JSON')
             if entry.get('seq') != i: problems.append(f'entry {i}: seq is {entry.get("seq")}')
-        pub = Ed25519PublicKey.from_public_bytes(base64.b64decode(public_key_b64, validate=True))
         previous = None
         for txt in self.checkpoint_files():
             body = txt.read_bytes()
-            try:
-                size, root = self.parse_checkpoint(body)
-                sig = base64.b64decode(txt.with_suffix('.sig').read_text().strip(), validate=True)
-                pub.verify(sig, body)
-            except (ValueError, FileNotFoundError, InvalidSignature) as e:
-                problems.append(f'{txt.name}: bad checkpoint or signature ({type(e).__name__})'); continue
+            try: size, root = self.parse_checkpoint(body)
+            except ValueError as e: problems.append(f'{txt.name}: {e}'); continue
+            if verifier:
+                bundle = self.bundle_for(txt)
+                err = verifier(txt, bundle) if bundle.exists() else 'signature bundle is missing'
+                if err: problems.append(f'{txt.name}: {err}'); continue
             if size > len(leaves): problems.append(f'{txt.name}: covers {size} entries but log has {len(leaves)}'); continue
             if mth(leaves[:size]) != root: problems.append(f'{txt.name}: root does not match the entries')
             if previous:
@@ -181,6 +181,43 @@ class Log:
                     problems.append(f'{txt.name}: not consistent with the previous checkpoint')
             previous = (size, root)
         return problems
+
+    def release_proof(self, run_id: str, manifest_rules_root: str, checkpoint_size: int) -> dict:
+        """Inclusion proof that the accepted candidate of `run_id` is in the tree the checkpoint signs."""
+        lines = self.lines(); leaves = self.leaves()[:checkpoint_size]
+        for i, line in enumerate(lines[:checkpoint_size]):
+            e = json.loads(line)
+            if e.get('event') == 'candidate.accepted' and e.get('run_id') == run_id and e.get('details', {}).get('rules_root') == manifest_rules_root:
+                proof = inclusion_proof(i, leaves)
+                root = mth(leaves)
+                if not verify_inclusion(i, checkpoint_size, leaves[i], proof, root): raise ValueError('inclusion proof does not verify')
+                return {'schema': 1, 'origin': ORIGIN, 'index': i, 'size': checkpoint_size, 'root': root.hex(),
+                        'entry': line.decode(), 'proof': [h.hex() for h in proof]}
+        raise ValueError(f'no candidate.accepted entry for run {run_id} with rules_root {manifest_rules_root[:16]}... inside the checkpoint')
+
+def check_inclusion_proof(doc: dict, checkpoint_body: bytes, rules_root_expected: str):
+    """Client-side check; returns None when valid, else an error string."""
+    try:
+        size, root = Log.parse_checkpoint(checkpoint_body)
+        if doc['size'] != size or bytes.fromhex(doc['root']) != root: return 'proof is for a different checkpoint'
+        entry = json.loads(doc['entry'])
+        if entry.get('event') != 'candidate.accepted' or entry.get('details', {}).get('rules_root') != rules_root_expected:
+            return 'logged entry does not match the manifest rules_root'
+        if not verify_inclusion(doc['index'], size, leaf_hash(doc['entry'].encode()), [bytes.fromhex(h) for h in doc['proof']], root):
+            return 'inclusion proof does not verify'
+    except (KeyError, ValueError, TypeError) as e:
+        return f'malformed proof ({type(e).__name__})'
+    return None
+
+ISSUER = 'https://token.actions.githubusercontent.com'
+def cosign_verifier(identity: str, repo: str):
+    import subprocess
+    def verify(path, bundle):
+        r = subprocess.run(['cosign', 'verify-blob', '--bundle', str(bundle), '--certificate-identity', identity,
+                            '--certificate-oidc-issuer', ISSUER, '--certificate-github-workflow-repository', repo, str(path)],
+                           capture_output=True, text=True)
+        return None if r.returncode == 0 else (r.stderr.strip().splitlines() or ['cosign verification failed'])[-1]
+    return verify
 
 
 # ---- Events -----------------------------------------------------------------------------------
@@ -261,8 +298,10 @@ def main(argv=None):
     s.add_argument('--run-id', default=''); s.add_argument('--time', default='')
     s.add_argument('--detail', action='append', default=[], help='key=value, repeatable')
     sub.add_parser('root'); sub.add_parser('render')
-    s = sub.add_parser('checkpoint'); s.add_argument('--key-env', default='MACGUARD_ED25519_PRIVATE_KEY_B64')
-    s = sub.add_parser('verify'); s.add_argument('--pubkey'); s.add_argument('--key-env', help='derive the public key from this private-key env var')
+    sub.add_parser('checkpoint', help='write the unsigned tree head; sign it with cosign afterwards')
+    s = sub.add_parser('verify'); s.add_argument('--identity', help='expected Sigstore certificate identity (the publish workflow ref)'); s.add_argument('--repo', help='owner/name the workflow ran in')
+    s.add_argument('--structure-only', action='store_true', help='skip signature checks (used before the first signed checkpoint exists or for local runs)')
+    s = sub.add_parser('release-proof'); s.add_argument('--run-id', required=True); s.add_argument('--manifest', required=True); s.add_argument('--out', required=True)
     s = sub.add_parser('proof'); s.add_argument('index', type=int)
     a = ap.parse_args(argv)
     log = Log(pathlib.Path(a.logs))
@@ -280,18 +319,17 @@ def main(argv=None):
     elif a.cmd == 'root':
         leaves = log.leaves(); print(json.dumps({'size': len(leaves), 'root': mth(leaves).hex()}))
     elif a.cmd == 'checkpoint':
-        key = os.getenv(a.key_env)
-        if not key: sys.exit('Missing signing key; cannot create a checkpoint')
-        print(f'checkpoint written for {log.write_checkpoint(key)} entries')
+        print(f'checkpoint written for {log.write_checkpoint()} entries')
+    elif a.cmd == 'release-proof':
+        manifest = json.loads(pathlib.Path(a.manifest).read_text())
+        doc = log.release_proof(a.run_id, manifest['rules_root'], manifest['log']['size'])
+        pathlib.Path(a.out).write_text(json.dumps(doc, indent=2, sort_keys=True) + '\n'); print(f"inclusion proof written (entry {doc['index']} of {doc['size']})")
     elif a.cmd == 'verify':
-        pubkey = a.pubkey
-        if not pubkey:
-            from cryptography.hazmat.primitives import serialization
-            from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
-            if not a.key_env or not os.getenv(a.key_env): sys.exit('verify needs --pubkey or --key-env pointing at a set variable')
-            pub = Ed25519PrivateKey.from_private_bytes(base64.b64decode(os.environ[a.key_env], validate=True)).public_key()
-            pubkey = base64.b64encode(pub.public_bytes(serialization.Encoding.Raw, serialization.PublicFormat.Raw)).decode()
-        problems = log.verify(pubkey)
+        verifier = None
+        if not a.structure_only:
+            if not (a.identity and a.repo): sys.exit('verify needs --identity and --repo, or --structure-only')
+            verifier = cosign_verifier(a.identity, a.repo)
+        problems = log.verify(verifier)
         readable = log.folder / 'LOG.md'
         if readable.exists() and readable.read_text() != render(log): problems.append('LOG.md does not match log.jsonl; run `tlog.py render`')
         for p in problems: print('PROBLEM:', p)
