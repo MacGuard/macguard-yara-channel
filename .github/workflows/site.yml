@@ -40,7 +40,7 @@ jobs:
           for tag in $(gh release list --repo "$GITHUB_REPOSITORY" --limit 200 --json tagName --jq '.[].tagName'); do
             d="history/$tag"; mkdir -p "$d"
             gh release download "$tag" --repo "$GITHUB_REPOSITORY" --dir "$d" --pattern manifest.json --pattern manifest.sigstore.json || { rm -rf "$d"; continue; }
-            gh release view "$tag" --repo "$GITHUB_REPOSITORY" --json tagName,publishedAt,url --jq '{tag:.tagName,published_at:.publishedAt,url:.url}' > "$d/meta.json"
+            gh release view "$tag" --repo "$GITHUB_REPOSITORY" --json tagName,publishedAt,url,assets --jq '{tag:.tagName,published_at:.publishedAt,url:.url,asset_names:[.assets[].name],package_bytes:([.assets[]|select(.name=="rules-release.tar.gz")|.size]|first)}' > "$d/meta.json"
             if cosign verify-blob --bundle "$d/manifest.sigstore.json" --certificate-identity "$IDENTITY" \
                  --certificate-oidc-issuer https://token.actions.githubusercontent.com --certificate-github-workflow-repository "$GITHUB_REPOSITORY" "$d/manifest.json" >/dev/null 2>&1; then r=valid; else r=invalid; fi
             python3 -c "import json,sys; print(json.dumps({'checked':True,'manifest_signature':sys.argv[1],'checked_by':'cosign verify-blob in the site workflow run '+sys.argv[2],'identity':sys.argv[3],'issuer':'https://token.actions.githubusercontent.com','scope':'manifest signature and identity only; file hashes and the log are checked for the latest release'}))" "$r" "$RUN_URL" "$IDENTITY" > "$d/verification.json"
@@ -89,9 +89,36 @@ jobs:
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
+    outputs:
+      url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - id: deployment
         uses: actions/deploy-pages@v4
+
+  # The public URL is checked after deployment with nothing but the bytes it serves.
+  verify-live:
+    needs: [build, github-pages]
+    if: needs.github-pages.result == 'success'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.ref_name }}
+          persist-credentials: false
+      - uses: sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6 # v4.1.2
+      - name: Verify the published site
+        env:
+          URL: ${{ needs.github-pages.outputs.url }}
+          IDENTITY: ${{ github.server_url }}/${{ github.repository }}/.github/workflows/publish.yml@refs/heads/${{ github.ref_name }}
+        run: |
+          for attempt in 1 2 3 4 5 6; do
+            if python3 scripts/verify_live.py "$URL" --identity "$IDENTITY" --repo "$GITHUB_REPOSITORY" --external; then exit 0; fi
+            echo "Attempt $attempt failed; GitHub Pages may still be propagating"; sleep 30
+          done
+          exit 1
 
   cloudflare-pages:
     needs: build
@@ -130,7 +157,7 @@ jobs:
           command: pages deploy site --project-name=macguard-rules --branch=main
 
   record:
-    needs: [build, github-pages, cloudflare-pages]
+    needs: [build, github-pages, cloudflare-pages, verify-live]
     if: always()
     runs-on: ubuntu-24.04
     timeout-minutes: 5
@@ -141,6 +168,7 @@ jobs:
       BUILD: ${{ needs.build.result }}
       GHPAGES: ${{ needs.github-pages.result }}
       CF: ${{ needs.cloudflare-pages.result }}
+      LIVE: ${{ needs.verify-live.result }}
       CF_CREDENTIALS: ${{ needs.cloudflare-pages.outputs.credentials }}
     steps:
       - uses: actions/checkout@v4
@@ -158,6 +186,11 @@ jobs:
             else
               ev --level ERROR --code site.github_pages_failed --message "Deploying the site to GitHub Pages failed (job: $GHPAGES). The previous GitHub Pages site stays online. See $RUN_URL"
             fi
+            case "$LIVE" in
+              success) ev --level INFO --code site.live_verified --message "The public GitHub Pages site was downloaded and verified: signatures, every rule hash, catalog, proof and links. See $RUN_URL" ;;
+              skipped) ;;
+              *) ev --level ERROR --code site.live_failed --message "The public GitHub Pages site FAILED live verification ($LIVE). The workflow run is red; investigate before relying on it. See $RUN_URL" ;;
+            esac
             if [ "$CF_CREDENTIALS" = "missing" ]; then
               ev --level WARNING --code site.cloudflare_skipped --message "Cloudflare Pages deployment skipped: CLOUDFLARE_API_TOKEN or CLOUDFLARE_ACCOUNT_ID is not configured as a repository secret. See $RUN_URL"
             elif [ "$CF_CREDENTIALS" = "invalid" ]; then

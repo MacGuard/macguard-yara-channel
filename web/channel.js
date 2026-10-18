@@ -6,7 +6,7 @@ var T={es:{act:'Actividad del canal',nav_act:'Actividad',nav_rules:'Reglas YARA'
 en:{act:'Channel activity',nav_act:'Activity',nav_rules:'YARA rules',nav_rel:'Releases',nav_log:'Transparency',nav_docs:'Documentation',vrules:'Rules examined',vchanges:'Changes between releases',range:function(n){return 'Last '+n+' days'},tbl:'Show data as a table',exa:'Examined',acc:'Accepted',rej:'Rejected',nw:'New',mod:'Modified',rem:'Removed',date:'Date',obs:'Observed',yes:'Yes',no:'Not observed',nodata:'No observation',noact:'No runs recorded yet.',lastrun:'Latest run',lastrel:'Latest release',vs:'vs. previous run',err:'Could not load',active:'Channel active',
  note:function(a,b){return 'Rolling 30-day window ('+a+' – '+b+'), recomputed on every deployment from the transparency log and the release manifests. "Examined" is the number of files the last run of each day looked at; it is not user downloads (no download telemetry is collected). A day without a run shows as "no observation", not zero.'},
  ex_rules:'YARA rules',ex_rules_p:'Catalog with search, filters and verifiable downloads.',ex_rel:'Release history',ex_rel_p:'What was added, modified or removed in each publication.',ex_log:'Transparency',ex_log_p:'Merkle log, checkpoints, inclusion and consistency proofs.',legend_none:'No observation'}};
-var S={stats:null,rel:null},L=function(){var s=$('lang').value;return T[s]||T.en};
+var S={stats:null,rel:null,latest:null,man:null,ver:null},L=function(){var s=$('lang').value;return T[s]||T.en};
 function lab(){var t=L();$('act-h').textContent=t.act;['act','rules','rel','log','docs'].forEach(function(k){var e=$('nav-'+k);if(e)e.textContent=t['nav_'+k]});
  [['ex-rules','ex_rules'],['ex-rel','ex_rel'],['ex-log','ex_log'],['ex-rules-p','ex_rules_p'],['ex-rel-p','ex_rel_p'],['ex-log-p','ex_log_p']].forEach(function(p){$(p[0]).textContent=t[p[1]]});
  $('act-view').options[0].textContent=t.vrules;$('act-view').options[1].textContent=t.vchanges;[30,14,7].forEach(function(n,i){$('act-range').options[i].textContent=t.range(n)});$('act-tbl-h').textContent=t.tbl;
@@ -42,9 +42,35 @@ function draw(){var t=L(),days=S.stats&&S.stats.days;$('act-tiles').textContent=
  $('act-note').textContent=t.note(win[0].date,win[win.length-1].date)}
 function status(){if(!S.ok)return;document.querySelectorAll('.status').forEach(function(e){e.removeAttribute('data-i');e.textContent=L().active;e.style.background='#e6f4ea';e.style.color='#1b6e3c'})}
 $('act-range').addEventListener('change',draw);$('act-view').addEventListener('change',draw);
-var sel=$('lang');sel.addEventListener('change',function(){setTimeout(function(){lab();draw();status()},0)});
+var sel=$('lang');sel.addEventListener('change',function(){setTimeout(function(){lab();draw();status();latest()},0)});
+
+var LT={es:{h:'Última release',loading:'Cargando…',none:'Todavía no hay ninguna release publicada.',ver:'Versión',date:'Publicada',files:'Ficheros de reglas',rules:'Reglas YARA individuales',same:'(una por fichero o ninguna diferencia)',comp:'Tamaño comprimido',exp:'Tamaño descomprimido',nw:'Nuevas',mod:'Modificadas',rem:'Retiradas',sig:'Firma del manifiesto',sigok:'válida: comprobada por GitHub Actions al desplegar (cosign, identidad del workflow)',signo:'sin comprobación registrada',who:'Identidad del publicador',root:'Rules root',cp:'Checkpoint',log:'Registro de transparencia',dl:{pkg:'Paquete completo',man:'Manifiesto',bundle:'Bundle Sigstore',proof:'Prueba Merkle',cp:'Checkpoint',meta:'Metadatos de la release',chg:'Changelog'},mirror:'copia en este sitio',canon:'copia canónica (GitHub Releases)',note:'Estas cifras salen del manifiesto firmado y de los ficheros publicados. «Nuevas/modificadas/retiradas» comparan esta release con la anterior; en la primera release todo cuenta como nuevo.',entries:function(n,r){return 'tamaño '+n+', raíz '+r}},
+en:{h:'Latest release',loading:'Loading…',none:'There is no published release yet.',ver:'Version',date:'Published',files:'Rule files',rules:'Individual YARA rules',same:'(one per file or no difference)',comp:'Compressed size',exp:'Uncompressed size',nw:'New',mod:'Modified',rem:'Removed',sig:'Manifest signature',sigok:'valid: checked by GitHub Actions at deployment (cosign, workflow identity)',signo:'no verification recorded',who:'Publisher identity',root:'Rules root',cp:'Checkpoint',log:'Transparency log',dl:{pkg:'Full package',man:'Manifest',bundle:'Sigstore bundle',proof:'Merkle proof',cp:'Checkpoint',meta:'Release metadata',chg:'Changelog'},mirror:'copy on this site',canon:'canonical copy (GitHub Releases)',note:'These figures come from the signed manifest and the published files. New/modified/removed compare this release with the previous one; in the first release everything counts as new.',entries:function(n,r){return 'size '+n+', root '+r}}};
+var IDENT='https://github.com/MacGuard/macguard-yara-channel/.github/workflows/publish.yml@refs/heads/main';
+function latest(){var t=LT[$('lang').value]||LT.en;$('latest-h').textContent=t.h;var box=$('latest-facts'),dl=$('latest-dl');box.textContent='';dl.textContent='';
+ var rels=(S.rel&&S.rel.releases)||[],r=rels[rels.length-1];
+ if(!S.rel){$('latest-state').textContent=t.loading;return}
+ if(!r){$('latest-state').textContent=t.none;return}$('latest-state').textContent='';
+ var st=(S.latest&&S.latest.stats)||{},m=S.man||{},add=function(k,v,mono,link){box.appendChild(el('dt',{text:k}));var d=el('dd',{class:mono?'mono':''});if(link)d.appendChild(el('a',{href:link,text:v}));else d.textContent=v;box.appendChild(d)};
+ var kb=function(n){return n===null||n===undefined?'—':MG.bytes(n)};
+ add(t.ver,r.tag,false,r.url);add(t.date,r.published_at.replace('T',' ').replace('Z',' UTC'));
+ add(t.files,String(r.total));add(t.rules,st.yara_rules!==undefined?String(st.yara_rules)+(st.yara_rules===r.total?' '+t.same:''):'—');
+ add(t.comp,kb(r.package_bytes!==null&&r.package_bytes!==undefined?r.package_bytes:st.package_bytes));add(t.exp,kb(st.expanded_bytes));
+ add(t.nw,String(r.added));add(t.mod,String(r.modified));add(t.rem,String(r.removed));
+ var v=S.ver;add(t.sig,v&&v.run_url?t.sigok:t.signo,false,v&&v.run_url?v.run_url:null);add(t.who,IDENT,true);add(t.root,r.rules_root,true);
+ if(m.log)add(t.cp,t.entries(m.log.size,m.log.root),true,'logs/checkpoint.txt');
+ var a=r.assets||{},items=[['pkg','rules-release.tar.gz'],['man','manifest.json'],['bundle','manifest.sigstore.json'],['proof','inclusion-proof.json'],['cp','checkpoint.txt'],['meta','release.json'],['chg','CHANGELOG.md']];
+ items.forEach(function(it){var url=a[it[1]],local={'checkpoint.txt':'logs/checkpoint.txt','manifest.json':'manifest.json','manifest.sigstore.json':'manifest.sigstore.json','inclusion-proof.json':'inclusion-proof.json','rules-release.tar.gz':'rules-release.tar.gz'}[it[1]];
+  if(!url&&!local)return;var li=el('li');li.appendChild(el('strong',{text:t.dl[it[0]]+': '}));
+  if(url){li.appendChild(el('a',{href:url,text:it[1]}));li.appendChild(document.createTextNode(' · '+t.canon))}
+  if(local){if(url)li.appendChild(document.createTextNode(' · '));li.appendChild(el('a',{href:local,text:it[1]}));li.appendChild(document.createTextNode(' · '+t.mirror))}
+  dl.appendChild(li)});
+ var li2=el('li');li2.appendChild(el('a',{href:'transparency.html',text:t.log}));li2.appendChild(document.createTextNode(' · '));li2.appendChild(el('a',{href:'releases.html',text:'Releases'}));li2.appendChild(document.createTextNode(' · '));li2.appendChild(el('a',{href:'rules.html',text:'YARA'}));dl.appendChild(li2);
+ $('latest-note').textContent=t.note}
 MG.get('stats.json',true).then(function(s){S.stats=s;draw()}).catch(function(){S.stats=null;draw()});
-MG.get('releases.json',true).then(function(r){S.rel=r;draw()}).catch(function(){});
-MG.get('manifest.json',true).then(function(){S.ok=true;status()}).catch(function(){});
+MG.get('releases.json',true).then(function(r){S.rel=r;draw();latest()}).catch(function(){S.rel={releases:[]};latest()});
+MG.get('latest.json',true).then(function(x){S.latest=x;latest()}).catch(function(){});
+MG.get('verification.json',true).then(function(x){S.ver=x;latest()}).catch(function(){});
+MG.get('manifest.json',true).then(function(m){S.man=m;S.ok=true;status();latest()}).catch(function(){});
 lab();
 })();

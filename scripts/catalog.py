@@ -15,6 +15,13 @@ import tlog
 
 NEXTRON_PREFIXES = {'apt', 'mal', 'gen', 'expl', 'vuln', 'susp', 'hktl', 'webshell', 'yara', 'cloud', 'general', 'thor', 'configured'}
 
+import re
+RULE_RE = re.compile(r'^\s*(?:(?:global|private)\s+)*rule\s+\w+', re.M)
+
+def count_rules(text: str) -> int:
+    """Individual YARA rule declarations in a file (a file may hold many, or none)."""
+    return len(RULE_RE.findall(text))
+
 def category(path: str, source: str) -> str:
     """Directory under the source when there is one; for flat Nextron files, the file-name prefix. Derived, not upstream metadata."""
     parts = path.split('/')                      # rules/<source>/<dir>/.../<file>
@@ -41,9 +48,11 @@ def history(releases: list) -> list:
         m = r['manifest']; d = diff(prev, m)
         rows.append({'tag': r['tag'], 'published_at': r['published_at'], 'url': r['url'],
                      'total': len(m.get('files', [])), 'added': len(d['added']), 'modified': len(d['modified']), 'removed': len(d['removed']),
-                     'rules_root': m.get('rules_root'), 'log': m.get('log'),
+                     'rules_root': m.get('rules_root'), 'log': m.get('log'), 'stats': m.get('stats'),
+                     'package_bytes': r.get('package_bytes'),
                      'verification': r.get('verification') or {'checked': False},
-                     'assets': {n: f"{r['url'].rstrip('/').replace('/tag/', '/download/')}/{n}" for n in ('rules-release.tar.gz', 'manifest.json', 'manifest.sigstore.json', 'inclusion-proof.json')},
+                     # only assets this release really has: older releases lack checkpoint/metadata files, and a dead link is worse than none
+                     'assets': {n: f"{r['url'].rstrip('/').replace('/tag/', '/download/')}/{n}" for n in (r.get('asset_names') or ('rules-release.tar.gz', 'manifest.json', 'manifest.sigstore.json', 'inclusion-proof.json'))},
                      '_diff': d})
         prev = m
     return rows

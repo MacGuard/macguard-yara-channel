@@ -13,7 +13,38 @@ concurrency:
   group: macguard-log
   cancel-in-progress: false
 jobs:
+  # No approval is asked for a candidate that would republish what is already released.
+  precheck:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      actions: read
+    outputs:
+      skip: ${{ steps.same.outputs.skip }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.ref_name }}
+          persist-credentials: false
+      - uses: actions/download-artifact@v4
+        with:
+          name: candidate-${{ inputs.candidate_run_id }}
+          run-id: ${{ inputs.candidate_run_id }}
+          github-token: ${{ github.token }}
+          path: dist/
+      - id: same
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p previous
+          gh release download --repo "$GITHUB_REPOSITORY" --dir previous --pattern manifest.json || echo 'No previous release'
+          python3 scripts/changes.py --dist dist --previous previous/manifest.json --out /tmp/changes.json > /tmp/out.txt
+          if grep -q 'changed=false' /tmp/out.txt; then echo 'skip=true' >> "$GITHUB_OUTPUT"; echo 'Candidate is identical to the latest release; nothing to publish.'; else echo 'skip=false' >> "$GITHUB_OUTPUT"; fi
+
   publish:
+    needs: precheck
+    if: needs.precheck.outputs.skip != 'true'
     runs-on: ubuntu-24.04
     environment: stable-signing
     timeout-minutes: 15
@@ -22,6 +53,8 @@ jobs:
       IDENTITY: ${{ github.server_url }}/${{ github.repository }}/.github/workflows/publish.yml@refs/heads/${{ github.ref_name }}
       RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
     steps:
+      - name: Name the release
+        run: echo "TAG=rules-$(date -u +%Y%m%d)-${GITHUB_RUN_ID}" >> "$GITHUB_ENV"
       - uses: actions/checkout@v4
         with:
           ref: ${{ github.ref_name }}
@@ -55,13 +88,44 @@ jobs:
           python3 scripts/tlog.py release-proof --run-id "$RUN_ID" --manifest dist/manifest.json --out dist/inclusion-proof.json
       - name: Archive signed release
         run: tar -czf rules-release.tar.gz -C dist rules manifest.json
-      - name: Publish release
+      - name: Release metadata, changelog and consistency proof
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          TAG="rules-$(date -u +%Y%m%d)-${GITHUB_RUN_ID}"
-          gh release create "$TAG" rules-release.tar.gz dist/manifest.json dist/manifest.sigstore.json dist/inclusion-proof.json --title "$TAG" --notes 'Approved MacGuard rules snapshot. Signed keylessly with Sigstore; inclusion-proof.json ties the rules root to the transparency log.'
-          echo "TAG=$TAG" >> "$GITHUB_ENV"
+          mkdir -p previous
+          gh release download --repo "$GITHUB_REPOSITORY" --dir previous --pattern manifest.json || echo 'No previous release'
+          cp logs/checkpoint.txt dist/checkpoint.txt; cp logs/checkpoint.sigstore.json dist/checkpoint.sigstore.json
+          python3 scripts/release_meta.py --dist dist --tarball rules-release.tar.gz --tag "$TAG" --run-url "$RUN_URL" --out release-meta --previous previous/manifest.json
+      - name: Check the artifacts before anything becomes public
+        run: |
+          mkdir verify && tar -xzf rules-release.tar.gz -C verify
+          cp dist/manifest.json dist/manifest.sigstore.json dist/inclusion-proof.json verify/ && mkdir verify/logs && cp logs/checkpoint.txt logs/checkpoint.sigstore.json verify/logs/
+          python3 scripts/verify_release.py verify --identity "$IDENTITY" --repo "$GITHUB_REPOSITORY"
+          python3 - <<'PY'
+          import json
+          m = json.load(open('verify/manifest.json')); r = json.load(open('release-meta/release.json'))
+          assert r['files'] == len(m['files']) == m['stats']['files'], 'file count mismatch'
+          assert r['rules_root'] == m['rules_root']
+          print('release metadata consistent:', r['files'], 'files,', r['yara_rules'], 'rules')
+          PY
+      - name: Publish release (draft first, public only when every asset is attached)
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          python3 - <<'PY' > notes.md
+          import json; r = json.load(open('release-meta/release.json')); c = r['changes']
+          print(f"Complete, signed MacGuard rule set: {r['files']} files, {r['yara_rules']} YARA rules, package {r['package_bytes']} bytes (SHA-256 {r['package_sha256']}).")
+          print(f"\nChanges since the previous release: {c['added']} added, {c['modified']} modified, {c['removed']} removed. This release installs on its own; you do not need earlier ones.")
+          print("\nSigned keylessly with Sigstore (GitHub OIDC). `inclusion-proof.json` ties the rules root to the transparency log; `consistency.json` links it to the previous log head. Releases are never edited: a correction is a new release.")
+          PY
+          gh release create "$TAG" --draft --title "$TAG" --notes-file notes.md \
+            rules-release.tar.gz dist/manifest.json dist/manifest.sigstore.json dist/inclusion-proof.json \
+            dist/checkpoint.txt dist/checkpoint.sigstore.json release-meta/release.json release-meta/changes.json release-meta/CHANGELOG.md
+          if [ -f release-meta/consistency.json ]; then gh release upload "$TAG" release-meta/consistency.json; fi
+          # every expected asset must be attached before the release is published
+          GOT=$(gh release view "$TAG" --json assets --jq '.assets|length')
+          [ "$GOT" -ge 9 ] || { echo "only $GOT assets attached"; exit 1; }
+          gh release edit "$TAG" --draft=false --latest
       - name: Record result and commit the log
         if: always()
         run: |

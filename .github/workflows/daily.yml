@@ -5,6 +5,7 @@ on:
   workflow_dispatch:
 permissions:
   contents: write   # append-only commit of logs/ only
+  actions: write    # request the publish workflow (which still waits for the human approval)
 concurrency:
   group: macguard-log
   cancel-in-progress: false
@@ -27,6 +28,15 @@ jobs:
       - name: Compile and validate rules
         id: validate
         run: python3 scripts/validate.py
+      - name: Compare with the latest published release
+        id: changes
+        if: steps.validate.outcome == 'success'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p previous
+          gh release download --repo "$GITHUB_REPOSITORY" --dir previous --pattern manifest.json || echo 'No previous release'
+          python3 scripts/changes.py --dist dist --previous previous/manifest.json --out dist/changes.json >> "$GITHUB_OUTPUT"
       - name: Record result in transparency log
         if: always()
         env:
@@ -35,6 +45,18 @@ jobs:
         run: |
           if [ -f dist/validation.json ]; then
             python3 scripts/tlog.py entry --run-id "$RUN_ID"
+            if [ -f dist/changes.json ]; then
+              python3 - <<'PY' > /tmp/changes.env
+          import json; d = json.load(open('dist/changes.json')); c = d['counts']
+          print(f"CHANGED={'yes' if d['changed'] else 'no'}"); print(f"COUNTS=added {c['added']}, modified {c['modified']}, removed {c['removed']}, unchanged {c['unchanged']}")
+          PY
+              . /tmp/changes.env
+              if [ "$CHANGED" = yes ]; then
+                python3 scripts/tlog.py event --level INFO --code candidate.changes --run-id "$RUN_ID" --message "The candidate differs from the latest release ($COUNTS). A new release will be requested." --detail "run_url=$RUN_URL"
+              else
+                python3 scripts/tlog.py event --level INFO --code candidate.unchanged --run-id "$RUN_ID" --message "The rule files are identical to the latest release ($COUNTS). No new release is created." --detail "run_url=$RUN_URL"
+              fi
+            fi
           else
             python3 scripts/tlog.py event --level ERROR --code run.failed --run-id "$RUN_ID" \
               --message "The daily review stopped before validation finished (prepare: ${{ steps.prepare.outcome }}, validate: ${{ steps.validate.outcome }}). See $RUN_URL" \
@@ -49,3 +71,8 @@ jobs:
           name: candidate-${{ github.run_id }}
           path: dist/
           retention-days: 14
+      - name: Request publication (signing still needs the human approval)
+        if: steps.changes.outputs.changed == 'true' && steps.validate.outcome == 'success'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh workflow run publish.yml -f candidate_run_id="${{ github.run_id }}"

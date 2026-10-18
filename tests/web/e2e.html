@@ -24,6 +24,8 @@ async function main(){
  rec('index: 7 day range',d.querySelectorAll('#act-table tbody tr').length===7);
  d.getElementById('act-view').value='changes';d.getElementById('act-view').dispatchEvent(new f.contentWindow.Event('change'));
  rec('index: changes view draws',d.querySelectorAll('#act-chart svg').length===1);
+ rec('index: latest release panel has facts and download links',d.querySelectorAll('#latest-facts dt').length>=10&&d.querySelectorAll('#latest-dl a').length>=5,d.querySelectorAll('#latest-facts dt').length+' facts');
+ var bad=[].slice.call(d.querySelectorAll('#latest-dl a')).filter(function(a){return a.getAttribute('href').indexOf('http')!==0}).length;rec('index: local links present',bad>=3);
  f.remove();
  // rules
  f=await load('rules.html');d=f.contentDocument;
