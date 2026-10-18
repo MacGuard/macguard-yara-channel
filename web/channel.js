@@ -1,6 +1,6 @@
 (function(){
-var T={es:{rules:'Reglas publicadas',log:'Registro de transparencia',loading:'Cargando…',none:'Todavía no hay ninguna release firmada, por eso no se listan reglas. Las reglas solo se publican aquí después de validarlas y firmarlas.',nolog:'El registro aún no tiene entradas.',err:'No se pudo cargar',src:'Fuente',file:'Fichero',bytes:'Bytes',date:'Fecha (UTC)',level:'Nivel',code:'Código',msg:'Mensaje',count:function(n){return n+' ficheros de reglas'},entries:function(n){return n+' entradas, las más recientes primero'}},
-en:{rules:'Published rules',log:'Transparency log',loading:'Loading…',none:'There is no signed release yet, so no rules are listed. Rules are published here only after they are validated and signed.',nolog:'The log has no entries yet.',err:'Could not load',src:'Source',file:'File',bytes:'Bytes',date:'Date (UTC)',level:'Level',code:'Code',msg:'Message',count:function(n){return n+' rule files'},entries:function(n){return n+' entries, newest first'}}};
+var T={es:{docs:'Documentación',rules:'Reglas publicadas',log:'Registro de transparencia',loading:'Cargando…',none:'Todavía no hay ninguna release firmada, por eso no se listan reglas. Las reglas solo se publican aquí después de validarlas y firmarlas.',nolog:'El registro aún no tiene entradas.',err:'No se pudo cargar',src:'Fuente',file:'Fichero',bytes:'Bytes',date:'Fecha (UTC)',level:'Nivel',code:'Código',msg:'Mensaje',count:function(n){return n+' ficheros de reglas'},entries:function(n){return n+' entradas, las más recientes primero'}},
+en:{docs:'Documentation',rules:'Published rules',log:'Transparency log',loading:'Loading…',none:'There is no signed release yet, so no rules are listed. Rules are published here only after they are validated and signed.',nolog:'The log has no entries yet.',err:'Could not load',src:'Source',file:'File',bytes:'Bytes',date:'Date (UTC)',level:'Level',code:'Code',msg:'Message',count:function(n){return n+' rule files'},entries:function(n){return n+' entries, newest first'}}};
 function L(){var v=document.querySelector('#lang').value;return T[v]||T.en}
 function $(i){return document.getElementById(i)}
 function cell(tr,t,c){var td=document.createElement('td');if(c)td.className=c;td.textContent=t;tr.appendChild(td);return td}
@@ -8,7 +8,7 @@ function get(u,j){return fetch(u,{cache:'no-store'}).then(function(r){if(!r.ok)t
 var state={};
 function paint(){var t=L();
  $('rules-h').textContent=t.rules;$('log-h').textContent=t.log;
- $('nav-rules').textContent=t.rules;$('nav-log').textContent=t.log;
+ $('nav-rules').textContent=t.rules;$('nav-log').textContent=t.log;$('nav-docs').textContent=t.docs;
  var rh=document.querySelectorAll('#rules-table th'),lh=document.querySelectorAll('#log-table th');
  [t.src,t.file,'SHA-256',t.bytes].forEach(function(x,i){rh[i].textContent=x});[t.date,t.level,t.code,t.msg].forEach(function(x,i){lh[i].textContent=x});
  if(state.rulesErr)$('rules-state').textContent=state.rulesErr==='none'?t.none:t.err+' manifest.json';

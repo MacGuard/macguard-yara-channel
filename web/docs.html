@@ -1,0 +1,77 @@
+<!doctype html><html lang="es"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Documentación · MacGuard YARA Channel</title><link rel="stylesheet" href="style.css"><style>.doc{max-width:820px}.doc h1{font-size:30px}.doc h2{margin-top:30px}.doc li{color:var(--muted);line-height:1.7}.doc code{font-family:ui-monospace,Menlo,monospace;font-size:12.5px;word-break:break-all}.doc a{color:var(--blue)}html[data-l=es] .doc[data-l=en],html[data-l=en] .doc[data-l=es]{display:none}</style><aside><h2>🛡 MacGuard</h2><small>YARA Rules Channel</small><nav><a href="./">Inicio / Home</a><a href="docs.html" aria-current="page">Documentación / Docs</a></nav></aside><main><header><div><small>MACGUARD SECURITY</small></div><div><select id="lang" aria-label="Idioma / Language"><option value="es">Español</option><option value="en">English</option></select><button id="theme" aria-label="Light or dark theme">◐</button></div></header><div class="doc" lang="es" data-l="es"><h1>Documentación</h1>
+<p>MacGuard YARA Channel descarga reglas YARA de fuentes públicas, comprueba que funcionan, las firma y las publica junto a un registro público que permite comprobar qué se publicó y cuándo. Esta web es el escaparate de ese proceso, no un antivirus.</p>
+<h2 id="flow">Cómo funciona, paso a paso</h2>
+<ol>
+<li><b>Descarga.</b> Cada día un workflow de GitHub Actions consulta las fuentes (<code>Neo23x0/signature-base</code> y <code>Yara-Rules/rules</code>) y fija el commit exacto de cada una.</li>
+<li><b>Validación.</b> Cada fichero de reglas se compila con el compilador oficial <code>yarac</code>. Un fichero roto, mal formado o con dependencias sin resolver se rechaza y queda anotado.</li>
+<li><b>Registro.</b> El resultado se añade al registro de transparencia con fecha, hora y nivel (INFO, WARNING o ERROR). Si algo falla, el mensaje explica qué y por qué.</li>
+<li><b>Aprobación y firma.</b> Una publicación se lanza a mano sobre un candidato ya validado y requiere aprobación humana. El workflow firma el manifiesto y el punto de control del registro con Sigstore, sin claves guardadas.</li>
+<li><b>Publicación.</b> La release y esta web se despliegan en GitHub Pages y en Cloudflare Pages. Antes de desplegar, el propio pipeline verifica la release como lo haría un cliente.</li>
+</ol>
+<h2 id="files">Qué se publica</h2>
+<ul>
+<li><a href="manifest.json">manifest.json</a>: lista de ficheros de reglas con su SHA-256, los commits de origen, la raíz Merkle de las reglas (<code>rules_root</code>) y el estado del registro.</li>
+<li><a href="manifest.sigstore.json">manifest.sigstore.json</a>: firma del manifiesto.</li>
+<li><a href="inclusion-proof.json">inclusion-proof.json</a>: prueba de que el <code>rules_root</code> de esta release está dentro del registro firmado.</li>
+<li><a href="latest.json">latest.json</a>: puntero a la última release para los clientes.</li>
+<li><a href="logs/LOG.md">logs/LOG.md</a> y <a href="logs/log.jsonl">log.jsonl</a>: el registro legible y el registro en bruto.</li>
+<li><a href="logs/checkpoint.txt">checkpoint.txt</a> y <a href="logs/checkpoint.sigstore.json">checkpoint.sigstore.json</a>: el último punto de control firmado.</li>
+</ul>
+<h2 id="log">El registro de transparencia</h2>
+<p>Es un registro de solo añadir. Cada entrada es una línea JSON y todas juntas forman un árbol de Merkle (RFC 6962). Un punto de control firmado fija el tamaño y la raíz del árbol. Si alguien borrara o cambiara entradas antiguas, la raíz dejaría de coincidir con puntos de control anteriores y se detectaría.</p>
+<p>Niveles: <b>INFO</b> es un paso normal; <b>WARNING</b> es algo que no impide publicar pero conviene revisar (por ejemplo, un despliegue omitido); <b>ERROR</b> es un fallo, como una regla rechazada o una publicación fallida. Las horas son UTC.</p>
+<h2 id="verify">Cómo comprobarlo usted mismo</h2>
+<ol>
+<li>Descargue la release y compruebe la firma con <code>cosign verify-blob</code>, exigiendo la identidad <code>https://github.com/MacGuard/macguard-yara-channel/.github/workflows/publish.yml@refs/heads/main</code> emitida por <code>https://token.actions.githubusercontent.com</code>.</li>
+<li>Compruebe que el SHA-256 de cada fichero coincide con el manifiesto.</li>
+<li>Recalcule el <code>rules_root</code> y compruebe que coincide con el del manifiesto.</li>
+<li>Compruebe la prueba de inclusión contra el punto de control firmado.</li>
+</ol>
+<p>El script <code>scripts/verify_release.py</code> del repositorio hace los cuatro pasos.</p>
+<h2 id="limits">Qué no hace</h2>
+<ul>
+<li>No es un antivirus: publica reglas de terceros, no analiza su equipo.</li>
+<li>No afirma que las fuentes lo avalen ni que sus reglas sean perfectas; solo garantiza que lo publicado se puede comprobar, que se compiló y que queda constancia.</li>
+<li>Las firmas indican quién publicó, no que el contenido sea inocuo.</li>
+</ul></div><div class="doc" lang="en" data-l="en"><h1>Documentation</h1>
+<p>MacGuard YARA Channel downloads YARA rules from public sources, checks that they work, signs them and publishes them together with a public log that shows what was published and when. This site is the front window of that process; it is not an antivirus.</p>
+<h2>How it works, step by step</h2>
+<ol>
+<li><b>Download.</b> Every day a GitHub Actions workflow queries the sources (<code>Neo23x0/signature-base</code> and <code>Yara-Rules/rules</code>) and pins the exact commit of each.</li>
+<li><b>Validation.</b> Every rule file is compiled with the official <code>yarac</code> compiler. A broken, malformed or unresolved file is rejected and recorded.</li>
+<li><b>Log.</b> The result is appended to the transparency log with date, time and level (INFO, WARNING or ERROR). When something fails, the message says what and why.</li>
+<li><b>Approval and signing.</b> A publication is started by hand on an already validated candidate and needs human approval. The workflow signs the manifest and the log checkpoint with Sigstore, with no stored keys.</li>
+<li><b>Publication.</b> The release and this site are deployed to GitHub Pages and Cloudflare Pages. Before deploying, the pipeline verifies the release the way a client would.</li>
+</ol>
+<h2>What is published</h2>
+<ul>
+<li><a href="manifest.json">manifest.json</a>: the rule files with their SHA-256, the source commits, the Merkle root of the rules (<code>rules_root</code>) and the log state.</li>
+<li><a href="manifest.sigstore.json">manifest.sigstore.json</a>: the manifest signature.</li>
+<li><a href="inclusion-proof.json">inclusion-proof.json</a>: proof that this release's <code>rules_root</code> is inside the signed log.</li>
+<li><a href="latest.json">latest.json</a>: pointer to the latest release for clients.</li>
+<li><a href="logs/LOG.md">logs/LOG.md</a> and <a href="logs/log.jsonl">log.jsonl</a>: the readable and the raw log.</li>
+<li><a href="logs/checkpoint.txt">checkpoint.txt</a> and <a href="logs/checkpoint.sigstore.json">checkpoint.sigstore.json</a>: the latest signed checkpoint.</li>
+</ul>
+<h2>The transparency log</h2>
+<p>It is append-only. Each entry is one JSON line and together they form a Merkle tree (RFC 6962). A signed checkpoint fixes the size and root of the tree. If anyone deleted or changed old entries, the root would no longer match earlier checkpoints and that would be detected.</p>
+<p>Levels: <b>INFO</b> is a normal step; <b>WARNING</b> is something that does not block publishing but deserves a look (for example a skipped deployment); <b>ERROR</b> is a failure, such as a rejected rule or a failed publication. Times are UTC.</p>
+<h2>How to verify it yourself</h2>
+<ol>
+<li>Download the release and check the signature with <code>cosign verify-blob</code>, requiring the identity <code>https://github.com/MacGuard/macguard-yara-channel/.github/workflows/publish.yml@refs/heads/main</code> issued by <code>https://token.actions.githubusercontent.com</code>.</li>
+<li>Check that every file's SHA-256 matches the manifest.</li>
+<li>Recompute the <code>rules_root</code> and check that it matches the manifest.</li>
+<li>Check the inclusion proof against the signed checkpoint.</li>
+</ol>
+<p>The repository script <code>scripts/verify_release.py</code> performs all four steps.</p>
+<h2>What it does not do</h2>
+<ul>
+<li>It is not an antivirus: it publishes third-party rules and does not scan your computer.</li>
+<li>It does not claim that the sources endorse it or that their rules are perfect; it only guarantees that what is published can be checked, was compiled, and is on record.</li>
+<li>Signatures show who published, not that the content is harmless.</li>
+</ul></div></main><script>
+(function(){var s=document.getElementById('lang'),v='es';try{v=localStorage.getItem('lang')||(navigator.language||'es').slice(0,2)}catch(e){}
+if(v!=='es')v='en';s.value=v;function a(){document.documentElement.setAttribute('data-l',s.value);document.documentElement.lang=s.value}
+s.onchange=function(){try{localStorage.setItem('lang',s.value)}catch(e){}a()};a();
+try{if(localStorage.getItem('theme')==='dark')document.body.classList.add('dark')}catch(e){}
+document.getElementById('theme').onclick=function(){document.body.classList.toggle('dark');try{localStorage.setItem('theme',document.body.classList.contains('dark')?'dark':'light')}catch(e){}}})();
+</script></html>
