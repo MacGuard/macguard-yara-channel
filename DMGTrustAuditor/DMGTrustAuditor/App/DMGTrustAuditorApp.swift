@@ -161,7 +161,7 @@ struct AuditorView: View {
             Button(tr("Actualizar reglas", "Update rules")) { startRuleUpdate() }
             Button(tr("Ahora no", "Not now"), role: .cancel) { }
         } message: {
-            Text(tr("Puedes continuar usando las reglas locales. Las reglas proceden de GitHub comunitario mediante HTTPS y revisión fijada; NO existe firma criptográfica independiente del manifiesto. La actualización es opcional.", "You can keep using local rules. Community rules are fetched over HTTPS at a pinned GitHub revision, but no independently signed manifest exists. Updating is optional."))
+            Text(tr("Puedes seguir usando las reglas locales. Las nuevas vienen del canal MacGuard y solo se instalan si su firma, sus hashes y su inclusión en el registro de transparencia se verifican. La actualización es opcional.", "You can keep using the local rules. New ones come from the MacGuard channel and are installed only if their signature, hashes and transparency log inclusion verify. Updating is optional."))
         }
         .alert(tr("Actualización de YARA", "YARA update"), isPresented: $showRuleResult) {
             Button(tr("Aceptar", "OK"), role: .cancel) { }

@@ -1,11 +1,13 @@
 import Foundation
 import CryptoKit
 
-// v8: checks the upstream revision asynchronously on every launch, with an ETag cache.
-// This is a COMMUNITY channel over HTTPS, NOT a signed MacGuard rules feed.
-// User consent is mandatory before any archive download; no silent activation.
-final class YARARuleManager: NSObject, ObservableObject, URLSessionDownloadDelegate {
+/// Rules come from the MacGuard channel only. A release is installed when, and only when, `ChannelVerifier`
+/// accepts it: signed manifest and checkpoint, every file hash, the rules root and the log inclusion proof.
+/// Anything else leaves the installed rules untouched. User consent is required before any download.
+final class YARARuleManager: NSObject, ObservableObject {
     static let shared = YARARuleManager()
+    static let defaultChannelBase = URL(string: "https://macguard.github.io/macguard-yara-channel/")!
+    let channelBase: URL
     @Published private(set) var downloading = false
     @Published private(set) var checking = false
     @Published private(set) var progress: Double = 0
@@ -13,37 +15,41 @@ final class YARARuleManager: NSObject, ObservableObject, URLSessionDownloadDeleg
     @Published private(set) var lastUpdate: Date?
     @Published private(set) var availableRevision: String?
     @Published private(set) var updateAvailable = false
-    private var completion: ((String) -> Void)?
-    private var session: URLSession?
-    private var targetRevision: String?
-    private let maxArchiveBytes: Int64 = 60 * 1024 * 1024
+    @Published private(set) var installedCount = 0
+    private let maxArchiveBytes = 60 * 1024 * 1024
     private let maxExpandedBytes: Int64 = 160 * 1024 * 1024
-    private let maxRules = 160
-    private let repositoryAPI = URL(string: "https://api.github.com/repos/Neo23x0/signature-base/commits/master")!
+    private let maxFiles = 10_000
+    private let signatureCheck: ChannelVerifier.SignatureCheck?
+    private let customRulesDirectory: URL?
 
-    private override init() {
+    /// `signatureCheck` defaults to cosign when it is installed. Without a Sigstore verifier no release is accepted.
+    init(channelBase: URL = YARARuleManager.defaultChannelBase,
+         rulesDirectory: URL? = nil,
+         signatureCheck: ChannelVerifier.SignatureCheck? = ChannelVerifier.findCosign().map { ChannelVerifier.cosignCheck(cosign: $0) }) {
+        self.channelBase = channelBase
+        self.customRulesDirectory = rulesDirectory
+        self.signatureCheck = signatureCheck
         super.init()
         lastUpdate = UserDefaults.standard.object(forKey: "yaraLastUpdate") as? Date
-        try? FileManager.default.createDirectory(at: rulesDirectory, withIntermediateDirectories: true)
+        try? FileManager.default.createDirectory(at: self.rulesDirectory, withIntermediateDirectories: true)
         installStarterRulesIfNeeded()
         refreshInstalledCount()
     }
     var rulesDirectory: URL {
-        FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
+        customRulesDirectory ?? FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
             .appendingPathComponent("DMGTrustAuditor/YARARules", isDirectory: true)
     }
     var isOutdated: Bool { updateAvailable || lastUpdate == nil }
-    @Published private(set) var installedCount = 0
+    var engineURL: URL { Bundle.main.bundleURL.appendingPathComponent("Contents/Helpers/yara") }
+    var engineReady: Bool {
+        FileManager.default.isExecutableFile(atPath: engineURL.path) &&
+        AuditEngine.command("/usr/bin/codesign", ["--verify", "--strict", engineURL.path]).0 == 0
+    }
     func refreshInstalledCount() {
         DispatchQueue.global(qos: .utility).async {
             let n = self.ruleFiles().count
             DispatchQueue.main.async { self.installedCount = n }
         }
-    }
-    var engineURL: URL { Bundle.main.bundleURL.appendingPathComponent("Contents/Helpers/yara") }
-    var engineReady: Bool {
-        FileManager.default.isExecutableFile(atPath: engineURL.path) &&
-        AuditEngine.command("/usr/bin/codesign", ["--verify", "--strict", engineURL.path]).0 == 0
     }
     func ruleFiles() -> [URL] {
         guard let en = FileManager.default.enumerator(at: rulesDirectory, includingPropertiesForKeys: [.isRegularFileKey], options: [.skipsHiddenFiles]) else { return [] }
@@ -67,168 +73,146 @@ final class YARARuleManager: NSObject, ObservableObject, URLSessionDownloadDeleg
         """
         try? content.write(to: file, atomically: true, encoding: .utf8)
     }
-    // Nonblocking check on EVERY launch; timeout does not delay the app UI.
+
+    struct Failure: Error { let es: String; let en: String; var detail: String? }
+    private static func session(timeout: TimeInterval) -> URLSession {
+        let c = URLSessionConfiguration.ephemeral
+        c.timeoutIntervalForRequest = timeout; c.timeoutIntervalForResource = timeout * 4
+        c.requestCachePolicy = .reloadIgnoringLocalCacheData
+        return URLSession(configuration: c)
+    }
+    private func get(_ name: String, limit: Int, timeout: TimeInterval = 10) async throws -> Data {
+        let url = channelBase.appendingPathComponent(name)
+        var request = URLRequest(url: url); request.setValue("DMGTrustAuditor/9.0", forHTTPHeaderField: "User-Agent")
+        let (data, response) = try await Self.session(timeout: timeout).data(for: request)
+        guard let http = response as? HTTPURLResponse, http.statusCode == 200, http.url?.host == channelBase.host, data.count <= limit
+        else { throw Failure(es: "El canal de reglas no respondió como se esperaba (\(name)). No se ha cambiado nada.", en: "The rules channel did not answer as expected (\(name)). Nothing was changed.") }
+        return data
+    }
+    private func publish(_ work: @escaping () -> Void) { DispatchQueue.main.async(execute: work) }
+
+    /// Reads `latest.json` only to decide whether something new exists. Nothing is trusted until `update` verifies it.
     func checkForUpdates() {
         guard !checking && !downloading else { return }
         checking = true
-        let config = URLSessionConfiguration.ephemeral
-        config.timeoutIntervalForRequest = 3
-        config.timeoutIntervalForResource = 4
-        let etag = UserDefaults.standard.string(forKey: "yaraUpstreamETag")
-        var request = URLRequest(url: repositoryAPI)
-        request.setValue("DMGTrustAuditor/8.0", forHTTPHeaderField: "User-Agent")
-        request.setValue("application/vnd.github+json", forHTTPHeaderField: "Accept")
-        if let etag { request.setValue(etag, forHTTPHeaderField: "If-None-Match") }
-        URLSession(configuration: config).dataTask(with: request) { data, response, error in
-            DispatchQueue.main.async {
-                defer { self.checking = false }
-                if let error { self.message = AppLanguage.failure("No se pudo comprobar si hay reglas nuevas. Se siguen usando las reglas actuales.", "Could not check for new rules. The current rules stay in use.", detail: error.localizedDescription); return }
-                guard let response = response as? HTTPURLResponse else { self.message = AppLanguage.tr("El servidor devolvió una respuesta no válida. Se siguen usando las reglas actuales.", "The server returned an invalid response. The current rules stay in use."); return }
-                if response.statusCode == 304 {
-                    if let revision = UserDefaults.standard.string(forKey: "yaraKnownUpstreamRevision") {
-                        self.availableRevision = revision
-                        self.updateAvailable = revision != UserDefaults.standard.string(forKey: "yaraInstalledRevision")
-                    }
-                    return
+        Task {
+            do {
+                let data = try await get("latest.json", limit: 100_000, timeout: 5)
+                guard let obj = try JSONSerialization.jsonObject(with: data) as? [String: Any],
+                      let root = obj["rules_root"] as? String, root.range(of: "^[a-f0-9]{64}$", options: .regularExpression) != nil
+                else { throw Failure(es: "La información de la nueva versión no es válida. No se ha cambiado nada.", en: "The new revision information is not valid. Nothing was changed.") }
+                publish {
+                    self.availableRevision = root
+                    self.updateAvailable = root != UserDefaults.standard.string(forKey: "yaraInstalledRulesRoot")
+                    self.checking = false
                 }
-                guard response.statusCode == 200, response.url?.host == "api.github.com",
-                      let data, data.count < 100_000,
-                      let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-                      let revision = obj["sha"] as? String,
-                      revision.range(of: "^[a-fA-F0-9]{40}$", options: .regularExpression) != nil else {
-                    self.message = AppLanguage.tr("No se pudo verificar la información de la nueva versión. No se ha cambiado nada.", "The new revision information could not be verified. Nothing was changed."); return
+            } catch {
+                let f = error as? Failure
+                publish {
+                    self.message = f.map { AppLanguage.tr($0.es, $0.en) } ?? AppLanguage.failure("No se pudo comprobar si hay reglas nuevas. Se siguen usando las reglas actuales.", "Could not check for new rules. The current rules stay in use.", detail: error.localizedDescription)
+                    self.checking = false
                 }
-                if let newETag = response.value(forHTTPHeaderField: "ETag") {
-                    UserDefaults.standard.set(newETag, forKey: "yaraUpstreamETag")
-                }
-                UserDefaults.standard.set(revision, forKey: "yaraKnownUpstreamRevision")
-                self.availableRevision = revision
-                self.updateAvailable = revision != UserDefaults.standard.string(forKey: "yaraInstalledRevision")
             }
-        }.resume()
+        }
     }
+
     func update(completion: @escaping (String) -> Void) {
         guard !downloading else { return }
-        guard let revision = availableRevision,
-              revision.range(of: "^[a-fA-F0-9]{40}$", options: .regularExpression) != nil else {
+        guard availableRevision != nil else {
             message = AppLanguage.tr("Aún no hay una versión verificada. Busca actualizaciones primero.", "There is no verified revision yet. Check for updates first.")
             completion(message); return
         }
         downloading = true; progress = 0
-        message = AppLanguage.tr("Comprobando el motor YARA…", "Checking the YARA engine…")
-        // `engineReady` runs codesign and waits for it, so it must never run on the main thread.
-        DispatchQueue.global(qos: .userInitiated).async {
-            let ready = self.engineReady
-            DispatchQueue.main.async {
-                guard ready else {
-                    self.downloading = false
-                    self.message = AppLanguage.tr("Falta el motor YARA firmado incluido en la app, así que no se pueden validar ni activar reglas. Usa la versión oficial de la app.", "The signed YARA engine bundled with the app is missing, so rules cannot be validated or activated. Use the official app release.")
-                    completion(self.message); return
+        message = AppLanguage.tr("Descargando las reglas del canal MacGuard…", "Downloading the rules from the MacGuard channel…")
+        Task {
+            var result: String; var ok = false; var root: String?
+            do {
+                (result, root) = try await install()
+                ok = true
+            } catch let f as Failure {
+                result = AppLanguage.failure(f.es + " Se conservan las reglas anteriores.", f.en + " The previous rules were kept.", detail: f.detail ?? "")
+            } catch {
+                result = AppLanguage.failure("La actualización ha fallado y se conservan las reglas anteriores.", "The update failed and the previous rules were kept.", detail: error.localizedDescription)
+            }
+            publish {
+                self.downloading = false; self.message = result
+                if ok {
+                    self.lastUpdate = Date(); self.updateAvailable = false
+                    UserDefaults.standard.set(self.lastUpdate, forKey: "yaraLastUpdate")
+                    UserDefaults.standard.set(root, forKey: "yaraInstalledRulesRoot")
+                    self.refreshInstalledCount()
                 }
-                self.targetRevision = revision
-                self.completion = completion
-                self.message = AppLanguage.tr("Descargando la versión fijada de las reglas…", "Downloading the pinned rules revision…")
-                let config = URLSessionConfiguration.ephemeral
-                config.timeoutIntervalForResource = 120
-                let s = URLSession(configuration: config, delegate: self, delegateQueue: nil)
-                self.session = s
-                s.downloadTask(with: URL(string: "https://codeload.github.com/Neo23x0/signature-base/zip/\(revision)")!).resume()
+                completion(result)
             }
         }
     }
-    private func finish(_ result: String, success: Bool) {
-        DispatchQueue.main.async {
-            self.downloading = false
-            self.message = result
-            if success {
-                self.lastUpdate = Date()
-                self.updateAvailable = false
-                self.refreshInstalledCount()
-                UserDefaults.standard.set(self.lastUpdate, forKey: "yaraLastUpdate")
-                UserDefaults.standard.set(self.targetRevision, forKey: "yaraInstalledRevision")
-            }
-            self.completion?(result)
-            self.completion = nil
-            self.session?.finishTasksAndInvalidate(); self.session = nil
+
+    /// Download, extract in a private folder, verify, and only then swap the rules in.
+    private func install() async throws -> (String, String) {
+        guard let signatureCheck else {
+            throw Failure(es: "Este equipo no puede comprobar la firma de las reglas (falta cosign), así que no se instala nada.", en: "This computer cannot verify the rules signature (cosign is missing), so nothing is installed.")
         }
-    }
-    func urlSession(_ session: URLSession, downloadTask: URLSessionDownloadTask, didFinishDownloadingTo location: URL) {
-        guard let revision = targetRevision else { finish(AppLanguage.tr("Falta la versión fijada de las reglas. No se ha cambiado nada.", "The pinned rules revision is missing. Nothing was changed."), success: false); return }
         let fm = FileManager.default
         let base = rulesDirectory.deletingLastPathComponent()
-        let stage = base.appendingPathComponent("stage-\(UUID().uuidString)")
-        let incoming = base.appendingPathComponent("incoming-\(UUID().uuidString)")
-        defer { try? fm.removeItem(at: stage); try? fm.removeItem(at: incoming) }
-        guard let response = downloadTask.response as? HTTPURLResponse,
-              response.statusCode == 200, response.url?.host == "codeload.github.com" else {
-            finish(AppLanguage.tr("La descarga no vino del servidor esperado o la respuesta no fue válida. Las reglas no han cambiado.", "The download did not come from the expected server or the response was invalid. The rules were not changed."), success: false); return
+        let stage = base.appendingPathComponent("stage-\(UUID().uuidString)", isDirectory: true)
+        defer { try? fm.removeItem(at: stage) }
+        try fm.createDirectory(at: stage.appendingPathComponent("logs"), withIntermediateDirectories: true)
+
+        let archive = try await get("rules-release.tar.gz", limit: maxArchiveBytes, timeout: 30)
+        publish { self.progress = 0.4 }
+        for (name, limit) in [("manifest.json", 5_000_000), ("manifest.sigstore.json", 200_000), ("inclusion-proof.json", 200_000),
+                              ("logs/checkpoint.txt", 10_000), ("logs/checkpoint.sigstore.json", 200_000)] {
+            try await get(name, limit: limit).write(to: stage.appendingPathComponent(name))
         }
-        guard let bytes = (try? fm.attributesOfItem(atPath: location.path)[.size] as? NSNumber)?.int64Value,
-              bytes > 0 && bytes <= maxArchiveBytes else {
-            finish(AppLanguage.tr("El archivo descargado supera el tamaño máximo permitido. Las reglas no han cambiado.", "The downloaded archive exceeds the maximum allowed size. The rules were not changed."), success: false); return
-        }
-        do {
-            try fm.createDirectory(at: stage, withIntermediateDirectories: true)
-            try fm.createDirectory(at: incoming, withIntermediateDirectories: true)
-            // Reject traversal paths before extraction. Archive metadata is untrusted.
-            let listing = AuditEngine.command("/usr/bin/unzip", ["-Z", "-1", location.path])
-            guard listing.0 == 0 && listing.1.utf8.count < 2_000_000 else {
-                throw NSError(domain: "YARA", code: 7, userInfo: [NSLocalizedDescriptionKey: "Cannot inspect archive entries"])
-            }
-            let paths = listing.1.split(separator: "\n").map(String.init)
-            guard paths.count <= 10000 && paths.allSatisfy({ item in
-                !item.hasPrefix("/") && !item.contains("\\") && !item.split(separator: "/").contains("..") &&
-                item.hasPrefix("signature-base-\(revision)/")
-            }) else {
-                throw NSError(domain: "YARA", code: 8, userInfo: [NSLocalizedDescriptionKey: "Unsafe archive paths"])
-            }
-            // Archive extraction occurs in a unique private staging folder, never in the app bundle.
-            let unzip = AuditEngine.command("/usr/bin/ditto", ["-x", "-k", location.path, stage.path])
-            guard unzip.0 == 0 else { throw NSError(domain: "YARA", code: 1, userInfo: [NSLocalizedDescriptionKey: "Archive extraction failed"]) }
-            let root = stage.appendingPathComponent("signature-base-\(revision)")
-            let source = root.appendingPathComponent("yara")
-            guard fm.fileExists(atPath: source.path) else { throw NSError(domain: "YARA", code: 2, userInfo: [NSLocalizedDescriptionKey: "Missing YARA rules directory"]) }
-            let all = (fm.enumerator(at: stage, includingPropertiesForKeys: [.isSymbolicLinkKey, .isRegularFileKey, .fileSizeKey], options: [])?.allObjects as? [URL] ?? [])
-            var total: Int64 = 0
-            for entry in all {
-                let values = try entry.resourceValues(forKeys: [.isSymbolicLinkKey, .isRegularFileKey, .fileSizeKey])
-                if values.isSymbolicLink == true { throw NSError(domain: "YARA", code: 3, userInfo: [NSLocalizedDescriptionKey: "Archive contains symlinks"]) }
-                if values.isRegularFile == true { total += Int64(values.fileSize ?? 0) }
-                if total > maxExpandedBytes || all.count > 10000 { throw NSError(domain: "YARA", code: 4, userInfo: [NSLocalizedDescriptionKey: "Expanded archive exceeds limits"]) }
-            }
-            let candidates = all.filter { $0.path.hasPrefix(source.path + "/") && ["yar", "yara"].contains($0.pathExtension.lowercased()) }.sorted { $0.path < $1.path }
-            guard !candidates.isEmpty else { throw NSError(domain: "YARA", code: 5, userInfo: [NSLocalizedDescriptionKey: "No rules found"]) }
-            let probe = incoming.appendingPathComponent("empty-test-input")
-            try Data().write(to: probe)
-            var valid = 0; var rejected = 0
-            // Every activated rule is syntax-tested with the signed bundled engine.
-            for (index, rule) in candidates.prefix(maxRules).enumerated() {
-                let data = try Data(contentsOf: rule)
-                guard data.count <= 1_000_000 else { rejected += 1; continue }
-                let candidate = incoming.appendingPathComponent("rule-\(index).yar")
-                try data.write(to: candidate)
-                let check = AuditEngine.command(engineURL.path, ["--timeout=5", candidate.path, probe.path])
-                if check.0 == 0 { valid += 1 } else { rejected += 1; try? fm.removeItem(at: candidate) }
-                if index % 10 == 0 { DispatchQueue.main.async { self.progress = 0.8 + 0.19 * Double(index + 1) / Double(min(candidates.count, self.maxRules)) } }
-            }
-            try? fm.removeItem(at: probe)
-            guard valid > 0 else { throw NSError(domain: "YARA", code: 6, userInfo: [NSLocalizedDescriptionKey: "No rules passed engine validation; previous rules preserved"]) }
-            let current = rulesDirectory.appendingPathComponent("community")
-            let backup = base.appendingPathComponent("community-backup-\(UUID().uuidString)")
-            if fm.fileExists(atPath: current.path) { try fm.moveItem(at: current, to: backup) }
-            do { try fm.moveItem(at: incoming, to: current); try? fm.removeItem(at: backup) }
-            catch { if fm.fileExists(atPath: backup.path) { try? fm.moveItem(at: backup, to: current) }; throw error }
-            finish(AppLanguage.tr("Reglas instaladas: \(valid) ficheros compatibles (\(rejected) rechazados; \(max(0, candidates.count-maxRules)) sin evaluar). Proceden de GitHub por HTTPS y no tienen un manifiesto firmado; no garantizan la ausencia de malware.", "Rules installed: \(valid) compatible files (\(rejected) rejected; \(max(0, candidates.count-maxRules)) not assessed). They come from GitHub over HTTPS without a signed manifest; they do not guarantee the absence of malware."), success: true)
-        } catch { finish(AppLanguage.failure("La actualización ha fallado y se conservan las reglas anteriores.", "The update failed and the previous rules were kept.", detail: error.localizedDescription), success: false) }
+        publish { self.progress = 0.6 }
+
+        let tarFile = stage.appendingPathComponent("rules-release.tar.gz")
+        try archive.write(to: tarFile)
+        try extractSafely(tarFile, into: stage)
+        // The tarball's own manifest must be the one that was signed and published on the site.
+        let siteManifest = try Data(contentsOf: stage.appendingPathComponent("manifest.json"))
+        let tarManifest = try await get("manifest.json", limit: 5_000_000)
+        guard siteManifest == tarManifest else { throw Failure(es: "El paquete de reglas no coincide con el manifiesto firmado.", en: "The rules package does not match the signed manifest.") }
+        publish { self.progress = 0.8 }
+
+        let summary: ChannelVerifier.Summary
+        do { summary = try ChannelVerifier(signatureCheck: signatureCheck).verify(directory: stage) }
+        catch let f as ChannelVerifier.Failure { throw Failure(es: "La verificación de la release ha fallado: no es de fiar.", en: "Release verification failed: it cannot be trusted.", detail: f.reason) }
+
+        let current = rulesDirectory.appendingPathComponent("community")
+        let backup = base.appendingPathComponent("community-backup-\(UUID().uuidString)")
+        if fm.fileExists(atPath: current.path) { try fm.moveItem(at: current, to: backup) }
+        do { try fm.moveItem(at: stage.appendingPathComponent("rules"), to: current); try? fm.removeItem(at: backup) }
+        catch { if fm.fileExists(atPath: backup.path) { try? fm.moveItem(at: backup, to: current) }; throw error }
+        return (AppLanguage.tr("Reglas instaladas: \(summary.fileCount) ficheros verificados (firma, hashes e inclusión en el registro de transparencia). No garantizan la ausencia de malware.",
+                               "Rules installed: \(summary.fileCount) verified files (signature, hashes and transparency log inclusion). They do not guarantee the absence of malware."), summary.rulesRoot)
     }
-    func urlSession(_ session: URLSession, downloadTask: URLSessionDownloadTask, didWriteData bytesWritten: Int64, totalBytesWritten: Int64, totalBytesExpectedToWrite: Int64) {
-        DispatchQueue.main.async {
-            self.progress = totalBytesExpectedToWrite > 0 ? min(0.8, 0.8 * Double(totalBytesWritten) / Double(totalBytesExpectedToWrite)) : 0
+
+    /// The archive is untrusted until verified: reject traversal, links and oversized content before and after extraction.
+    func extractSafely(_ tarball: URL, into stage: URL) throws {
+        let bad = Failure(es: "El paquete de reglas no es seguro.", en: "The rules package is not safe.")
+        let listing = AuditEngine.command("/usr/bin/tar", ["-tvzf", tarball.path])
+        guard listing.0 == 0, listing.1.utf8.count < 4_000_000 else { throw bad }
+        let lines = listing.1.split(separator: "\n").map(String.init)
+        guard lines.count <= maxFiles else { throw bad }
+        for line in lines {
+            guard let kind = line.first, kind == "-" || kind == "d" else { throw bad }   // no symlinks, hardlinks or devices
+            let name = line.split(separator: " ", omittingEmptySubsequences: true).dropFirst(8).joined(separator: " ")
+            let parts = name.split(separator: "/").map(String.init)
+            guard !name.hasPrefix("/"), !name.contains("\\"), !parts.contains(".."), name == "manifest.json" || name.hasPrefix("rules") else { throw bad }
         }
-        if totalBytesWritten > maxArchiveBytes { downloadTask.cancel() }
+        let out = AuditEngine.command("/usr/bin/tar", ["-xzf", tarball.path, "-C", stage.path, "--no-same-owner", "--no-same-permissions"])
+        guard out.0 == 0 else { throw bad }
+        var total: Int64 = 0
+        for case let url as URL in fm_enumerator(stage) {
+            let v = try url.resourceValues(forKeys: [.isRegularFileKey, .isSymbolicLinkKey, .fileSizeKey])
+            if v.isSymbolicLink == true { throw bad }
+            total += Int64(v.fileSize ?? 0)
+            if total > maxExpandedBytes { throw bad }
+        }
     }
-    func urlSession(_ session: URLSession, task: URLSessionTask, didCompleteWithError error: Error?) {
-        if let error { finish(AppLanguage.failure("La descarga ha fallado y se conservan las reglas actuales.", "The download failed and the current rules were kept.", detail: error.localizedDescription), success: false) }
+    private func fm_enumerator(_ url: URL) -> FileManager.DirectoryEnumerator {
+        FileManager.default.enumerator(at: url, includingPropertiesForKeys: [.isRegularFileKey, .isSymbolicLinkKey, .fileSizeKey], options: [])!
     }
 }
 

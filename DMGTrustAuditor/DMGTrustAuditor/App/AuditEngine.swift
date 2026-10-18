@@ -28,6 +28,12 @@ struct AuditReport: Codable {
 }
 
 enum AuditEngine {
+    @discardableResult
+    static func run(_ path: String, _ args: [String]) throws -> String {
+        let r = command(path, args)
+        guard r.0 == 0 else { throw NSError(domain: "AuditEngine", code: Int(r.0), userInfo: [NSLocalizedDescriptionKey: r.1]) }
+        return r.1
+    }
     static func command(_ path: String, _ args: [String]) -> (Int32, String) {
         let p = Process(); p.executableURL = URL(fileURLWithPath: path); p.arguments = args
         let pipe = Pipe(); p.standardOutput = pipe; p.standardError = pipe

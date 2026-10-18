@@ -31,28 +31,8 @@ final class ChannelVerifierTests: XCTestCase {
         XCTAssertEqual(ChannelVerifier.rulesRoot(a), ChannelVerifier.rulesRoot(a.reversed()))
     }
 
-    /// Builds a complete release (3-entry log) with a fake signature check, then breaks one thing at a time.
     private func makeRelease(tamperRule: Bool = false) throws -> (verifier: ChannelVerifier, rules: URL) {
-        let rule = Data("rule x { condition: true }".utf8)
-        let rulePath = "rules/src/x.yar"
-        try FileManager.default.createDirectory(at: dir.appendingPathComponent("rules/src"), withIntermediateDirectories: true)
-        try rule.write(to: dir.appendingPathComponent(rulePath))
-        let sha = ChannelVerifier.hex(Data(SHA256.hash(data: rule)))
-        let rr = ChannelVerifier.rulesRoot([(rulePath, sha)])
-        let entry = "{\"details\":{\"rules_root\":\"\(rr)\"},\"event\":\"candidate.accepted\",\"seq\":1}"
-        let leaves = ["{\"event\":\"sources.fetched\",\"seq\":0}", entry, "{\"event\":\"release.approved\",\"seq\":2}"].map { ChannelVerifier.leafHash(Data($0.utf8)) }
-        let root = ChannelVerifier.root(leaves)
-        let path = [leaves[0], leaves[2]]   // index 1 of 3: left sibling 0, then the right subtree {2}
-        XCTAssertTrue(ChannelVerifier.verifyInclusion(index: 1, size: 3, leaf: leaves[1], proof: path, root: root))
-        let manifest: [String: Any] = ["files": [["path": rulePath, "sha256": sha]], "rules_root": rr,
-                                       "log": ["origin": ChannelVerifier.logOrigin, "size": 3, "root": ChannelVerifier.hex(root)]]
-        try JSONSerialization.data(withJSONObject: manifest).write(to: dir.appendingPathComponent("manifest.json"))
-        try Data("{}".utf8).write(to: dir.appendingPathComponent("manifest.sigstore.json"))
-        try Data("{}".utf8).write(to: dir.appendingPathComponent("logs/checkpoint.sigstore.json"))
-        try "\(ChannelVerifier.logOrigin)\n3\n\(root.base64EncodedString())\n".write(to: dir.appendingPathComponent("logs/checkpoint.txt"), atomically: true, encoding: .utf8)
-        let proofDoc: [String: Any] = ["index": 1, "size": 3, "root": ChannelVerifier.hex(root), "entry": entry, "proof": path.map(ChannelVerifier.hex)]
-        try JSONSerialization.data(withJSONObject: proofDoc).write(to: dir.appendingPathComponent("inclusion-proof.json"))
-        if tamperRule { try Data("rule x { condition: false }".utf8).write(to: dir.appendingPathComponent(rulePath)) }
+        try buildSampleRelease(in: dir, tamperRule: tamperRule)
         return (ChannelVerifier(signatureCheck: { _, _ in nil }), dir)
     }
 
@@ -95,3 +75,28 @@ final class ChannelVerifierTests: XCTestCase {
         XCTAssertGreaterThan(s.fileCount, 0)
     }
 }
+
+/// Builds a complete sample release (3-entry log) in `dir`; the caller supplies the signature check.
+func buildSampleRelease(in dir: URL, tamperRule: Bool = false) throws {
+    try FileManager.default.createDirectory(at: dir.appendingPathComponent("logs"), withIntermediateDirectories: true)
+    let rule = Data("rule x { condition: true }".utf8)
+    let rulePath = "rules/src/x.yar"
+    try FileManager.default.createDirectory(at: dir.appendingPathComponent("rules/src"), withIntermediateDirectories: true)
+    try rule.write(to: dir.appendingPathComponent(rulePath))
+    let sha = ChannelVerifier.hex(Data(SHA256.hash(data: rule)))
+    let rr = ChannelVerifier.rulesRoot([(rulePath, sha)])
+    let entry = "{\"details\":{\"rules_root\":\"\(rr)\"},\"event\":\"candidate.accepted\",\"seq\":1}"
+    let leaves = ["{\"event\":\"sources.fetched\",\"seq\":0}", entry, "{\"event\":\"release.approved\",\"seq\":2}"].map { ChannelVerifier.leafHash(Data($0.utf8)) }
+    let root = ChannelVerifier.root(leaves)
+    let path = [leaves[0], leaves[2]]   // index 1 of 3: left sibling 0, then the right subtree {2}
+    let manifest: [String: Any] = ["files": [["path": rulePath, "sha256": sha]], "rules_root": rr,
+                                   "log": ["origin": ChannelVerifier.logOrigin, "size": 3, "root": ChannelVerifier.hex(root)]]
+    try JSONSerialization.data(withJSONObject: manifest).write(to: dir.appendingPathComponent("manifest.json"))
+    try Data("{}".utf8).write(to: dir.appendingPathComponent("manifest.sigstore.json"))
+    try Data("{}".utf8).write(to: dir.appendingPathComponent("logs/checkpoint.sigstore.json"))
+    try "\(ChannelVerifier.logOrigin)\n3\n\(root.base64EncodedString())\n".write(to: dir.appendingPathComponent("logs/checkpoint.txt"), atomically: true, encoding: .utf8)
+    let proofDoc: [String: Any] = ["index": 1, "size": 3, "root": ChannelVerifier.hex(root), "entry": entry, "proof": path.map(ChannelVerifier.hex)]
+    try JSONSerialization.data(withJSONObject: proofDoc).write(to: dir.appendingPathComponent("inclusion-proof.json"))
+    if tamperRule { try Data("rule x { condition: false }".utf8).write(to: dir.appendingPathComponent(rulePath)) }
+}
+
