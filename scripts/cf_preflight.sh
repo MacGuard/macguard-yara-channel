@@ -22,4 +22,7 @@ else
 fi
 code=$(call "/accounts/$acc/pages/projects")
 if grep -q '"success":true' /tmp/cf.out; then say "PERMISSION: Pages read ok for the account"; rm -f /tmp/cf.out; exit 0; fi
-codes=$(grep -o '"code":[0-9]*' /tmp/cf.out | tr '\n' ' '); say "PERMISSION/OWNERSHIP: token valid but cannot list Pages projects (http $code, codes: $codes)"; rm -f /tmp/cf.out; exit 5
+codes=$(grep -o '"code":[0-9]*' /tmp/cf.out | tr '\n' ' '); say "PERMISSION/OWNERSHIP: token valid but cannot list Pages projects (http $code, codes: $codes)"
+# the answer of this endpoint holds no secret (project names, errors); print its shape to tell a permission problem from a parsing problem
+say "response shape: $(head -c 400 /tmp/cf.out | tr -d '\n' | sed -E 's/"(name|subdomain|domains)":"[^"]*"/"\1":"…"/g')"
+rm -f /tmp/cf.out; exit 5
