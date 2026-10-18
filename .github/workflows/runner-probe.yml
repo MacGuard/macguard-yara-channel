@@ -1,0 +1,42 @@
+name: Probe macOS runner capabilities
+# Facts, not assumptions: what a hosted macOS runner really offers for dynamic validation (virtualization, CPU, RAM, tools).
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  probe:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-14, macos-15]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
+    steps:
+      - name: Collect capabilities
+        run: |
+          {
+            echo "## ${{ matrix.os }}"
+            echo '```'
+            sw_vers
+            uname -m
+            sysctl -n machdep.cpu.brand_string || true
+            echo "hw.ncpu=$(sysctl -n hw.ncpu) hw.memsize=$(sysctl -n hw.memsize)"
+            echo "kern.hv_support=$(sysctl -n kern.hv_support 2>&1)   (1 = Hypervisor.framework usable)"
+            echo "kern.hv_vmm_present=$(sysctl -n kern.hv_vmm_present 2>&1)   (1 = this runner is itself a VM)"
+            df -h / | tail -1
+            xcodebuild -version | head -1
+            python3 --version
+            echo '```'
+          } | tee -a "$GITHUB_STEP_SUMMARY"
+      - name: Can a nested macOS VM run here?
+        run: |
+          HV=$(sysctl -n kern.hv_support 2>/dev/null || echo 0)
+          VMM=$(sysctl -n kern.hv_vmm_present 2>/dev/null || echo 0)
+          if [ "$HV" = 1 ] && [ "$VMM" = 0 ]; then R='nested macOS VM: POSSIBLE (bare-metal virtualization available)'; else R="nested macOS VM: NOT AVAILABLE (hv_support=$HV, runner is a VM=$VMM)"; fi
+          echo "$R" | tee -a "$GITHUB_STEP_SUMMARY"
+      - name: Install the YARA engine from Homebrew (time and version)
+        run: |
+          start=$(date +%s)
+          brew install yara >/dev/null 2>&1 || brew install yara
+          echo "yara $(yara --version) installed in $(( $(date +%s) - start )) s at $(command -v yara)" | tee -a "$GITHUB_STEP_SUMMARY"
