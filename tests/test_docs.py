@@ -250,9 +250,15 @@ class Honesty(Base):
         for l in LANGS:
             joined = ''.join(md(l, p['slug']) for p in PAGES)
             self.assertIn('**ACTUAL**' if l == 'es' else '**CURRENT**', joined); self.assertIn('**PROPUESTA**' if l == 'es' else '**PROPOSED**', joined)
-    def test_cloudflare_is_not_called_automatic(self):
+    def test_cloudflare_claims_match_the_workflow_and_the_log(self):
+        wf = (ROOT / '.github/workflows/site.yml').read_text(); log = (ROOT / 'logs/log.jsonl').read_text()
+        self.assertIn('pages deploy site --project-name=macguard-rules', wf); self.assertIn("steps.creds.outputs.status == 'present'", wf)
+        deployed = '"event":"site.cloudflare_deployed"' in log
         for l in LANGS:
-            t = md(l, 'web-distribution'); self.assertRegex(t, r'(?i)no está automatizado|is not automated'); self.assertRegex(t, r'(?i)a mano|by hand')
+            t = md(l, 'web-distribution')
+            if deployed: self.assertRegex(t, r'(?i)automáticamente|automatically'); self.assertIn('site.cloudflare_deployed', t)
+            else: self.assertRegex(t, r'(?i)no está automatizado|is not automated')
+        self.assertTrue((ROOT / 'config/cloudflare_account_id.txt').read_text().strip())
     def test_no_secrets_or_private_names(self):
         pat = re.compile(r'ghp_[A-Za-z0-9]{20,}|github_pat_|AKIA[0-9A-Z]{12,}|BEGIN (RSA |EC )?PRIVATE KEY|-----BEGIN|eyJ[A-Za-z0-9_-]{30,}|[A-Za-z0-9_-]{40,}\.[A-Za-z0-9_-]{20,}\.[A-Za-z0-9_-]{20,}')
         for (l, slug), h in self.html.items():

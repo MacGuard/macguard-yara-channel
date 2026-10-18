@@ -9,7 +9,7 @@ summary: What is implemented, what is only proposed, what is blocked and the kno
 | Collection, static and dynamic validation, decision, signing, publication, site | **CURRENT**: proven in production with automatic publication (`AUTO_PUBLISH=true`). |
 | Public verifier | **CURRENT**: 29 tests and run against the real releases. |
 | Quarantine service and panel | Implemented and tested locally; **not deployed**. |
-| Automatic Cloudflare Pages | **Blocked**: the repository credential is not valid. |
+| Automatic Cloudflare Pages | **CURRENT**: deployed by the workflow and verified with `verify_live.py`. |
 | Independent macOS virtual machine | **Not available**: needs a self-hosted physical Mac. |
 | Developer ID signing and notarization of the app | Pending. |
 | GitHub immutable releases | Disabled; need authorization. |
@@ -28,7 +28,6 @@ Registered separately; this documentation describes the real behaviour and does 
 
 ## Blocked and waiting for a person
 
-- A valid Cloudflare token (`CLOUDFLARE_API_TOKEN` with Cloudflare Pages: Edit) and `CLOUDFLARE_ACCOUNT_ID` as repository secrets.
 - Workers and D1 credentials and a GitHub OAuth app to deploy the private panel; then the `QUARANTINE_URL` variable.
 - Developer ID certificate and notarization.
 - Enabling immutable releases.

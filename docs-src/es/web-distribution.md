@@ -20,7 +20,9 @@ Ambos sirven los mismos bytes; GitHub Releases es el archivo canónico. Los dato
 3. Intenta Cloudflare Pages solo si las credenciales existen y pasan una comprobación previa que no imprime secretos.
 4. Registra el resultado en el registro de transparencia.
 
-> **LÍMITE** **Cloudflare no está automatizado.** El secreto `CLOUDFLARE_API_TOKEN` del repositorio no es un token de Cloudflare válido y el workflow lo clasifica como `site.cloudflare_blocked`. El sitio de `pages.dev` se ha desplegado **a mano** con la sesión local de `wrangler` de la persona responsable; eso no equivale a un despliegue automático correcto. El problema sigue abierto hasta que se configure una credencial válida (`CLOUDFLARE_API_TOKEN` con permiso Cloudflare Pages: Edit y `CLOUDFLARE_ACCOUNT_ID`).
+> **ACTUAL** **Cloudflare Pages se despliega automáticamente desde el workflow** (desde el 2026-10-18, ejecución con `site.cloudflare_deployed` en el registro) con los secretos `CLOUDFLARE_API_TOKEN` y `CLOUDFLARE_ACCOUNT_ID`, sin depender de ningún equipo local. El proyecto `macguard-rules` está en la cuenta cuyo id figura en `config/cloudflare_account_id.txt`. El sitio, la documentación y el verificador de `pages.dev` se comprueban con `verify_live.py` y sirven los mismos bytes que GitHub Pages. Antes de esa fecha el espejo se desplegó a mano con una sesión local de `wrangler`; eso ya no se usa. Si la credencial falla, el preflight lo clasifica, el workflow anota `site.cloudflare_blocked` y no intenta desplegar.
+
+El sitio se reconstruye y se despliega en los dos servicios tras cada release, con cada cambio de la web o de la documentación y cada 24 horas (04:17 UTC).
 
 ## Vista previa al compartir
 

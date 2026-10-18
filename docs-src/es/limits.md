@@ -9,7 +9,7 @@ summary: Qué está implementado, qué es solo propuesta, qué está bloqueado y
 | Recolección, validación estática y dinámica, decisión, firma, publicación, sitio | **ACTUAL**: probado en producción con publicación automática (`AUTO_PUBLISH=true`). |
 | Verificador público | **ACTUAL**: 29 pruebas y verificada sobre las releases reales. |
 | Servicio de cuarentena y panel | Implementado y probado en local; **no desplegado**. |
-| Cloudflare Pages automático | **Bloqueado**: la credencial del repositorio no es válida. |
+| Cloudflare Pages automático | **ACTUAL**: desplegado por el workflow y verificado con `verify_live.py`. |
 | Máquina virtual macOS independiente | **No disponible**: requiere un Mac físico propio. |
 | Firma Developer ID y notarización de la app | Pendiente. |
 | Releases inmutables de GitHub | Desactivadas; requieren autorización. |
@@ -28,7 +28,6 @@ Registrados aparte; esta documentación describe el comportamiento real y no los
 
 ## Bloqueado y a la espera de una persona
 
-- Un token de Cloudflare válido (`CLOUDFLARE_API_TOKEN` con Cloudflare Pages: Edit) y `CLOUDFLARE_ACCOUNT_ID` como secretos del repositorio.
 - Credenciales de Workers y D1 y una aplicación OAuth de GitHub para desplegar el panel privado; luego la variable `QUARANTINE_URL`.
 - Certificado Developer ID y notarización.
 - Activar las releases inmutables.

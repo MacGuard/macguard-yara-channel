@@ -39,7 +39,7 @@ Open the panel → Quarantine → the rule. Read the reasons, resources and sour
 ## Cloudflare Pages mirror (automatic, from GitHub Actions only)
 `site.yml` deploys the same build to GitHub Pages and to the Cloudflare Pages project `macguard-rules`, using only repository secrets; nothing depends on a maintainer's Mac or `wrangler` login. The `cloudflare-pages` job runs `scripts/cf_preflight.sh` first and never tries to deploy with a credential that failed it.
 
-State on 2026-10-18: **blocked**. The preflight prints `FORMAT: token has characters outside [A-Za-z0-9_-] (length 88)`: the secret `CLOUDFLARE_API_TOKEN` is not a Cloudflare API token (they are about 40 characters). Replace exactly these two repository secrets:
+State on 2026-10-18: **working** since the secrets were replaced (the first token was not a Cloudflare token: the preflight printed `FORMAT: token has characters outside [A-Za-z0-9_-] (length 88)`). The workflow deploys to `macguard-rules.pages.dev` and `verify_live.py` passes there. If it breaks again, replace exactly these two repository secrets:
 | Secret | Value |
 |---|---|
 | `CLOUDFLARE_API_TOKEN` | a Custom API token (dash.cloudflare.com → My Profile → API Tokens), permission **Account → Cloudflare Pages → Edit**, account = the one in `config/cloudflare_account_id.txt` (`9e96e19f…`, the login `mac_guard@proton.me`) |
