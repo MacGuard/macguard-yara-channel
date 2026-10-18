@@ -2,7 +2,7 @@
 """Assemble the static site: web/ + latest signed release + transparency log + latest.json."""
 import hashlib, json, pathlib, shutil, sys, tarfile
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
-import tlog
+import tlog, stats
 root = pathlib.Path(__file__).resolve().parents[1]
 site = root / 'site'; release = root / 'release'
 shutil.rmtree(site, ignore_errors=True)
@@ -20,4 +20,5 @@ if (release / 'manifest.json').exists():
 else:
     print('No release yet: publishing the web only')
 if (root / 'logs').exists(): shutil.copytree(root / 'logs', site / 'logs')
+stats.build(root / 'logs' / 'log.jsonl', site / 'stats.json')   # recomputed on every deploy; keeps the last 30 days
 print(f'Site assembled in {site}')
