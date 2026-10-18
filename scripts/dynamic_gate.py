@@ -118,7 +118,7 @@ def verify_only(dist, previous_dir, policy, yara, yarac, out):
     with tempfile.TemporaryDirectory() as td:
         td = pathlib.Path(td); corpus, canaries = bench.build_corpus(td / 'corpus'); work = td / 'work'; work.mkdir()
         gate = Gate(yara, yarac, policy, work, corpus, canaries)
-        cmp_, b, c = gate.verdict(base, {'root': dist, 'files': files, 'deps': {}})
+        cmp_, b, c = gate.verdict(base, {'root': dist, 'files': files, 'deps': {f['path']: f.get('depends_on', []) for f in cand_json['files']}})   # dependencies travel with the candidate
         w = work / 'canary'; w.mkdir(); (w / 'c.yar').write_text(bench.CANARY_RULES); subprocess.run([yarac, str(w / 'c.yar'), str(w / 'c.yarc')], capture_output=True)
         fired = sum(1 for f in canaries if 'MacGuard_Canary_' in subprocess.run([yara, '-p', '1', '-C', str(w / 'c.yarc'), str(f)], capture_output=True, text=True).stdout)
     doc = {'schema': 1, 'platform': sys.platform, 'engine': subprocess.run([yara, '--version'], capture_output=True, text=True).stdout.strip(), 'verdict': cmp_['verdict'], 'reasons': cmp_['reasons'], 'metrics': cmp_['metrics'],

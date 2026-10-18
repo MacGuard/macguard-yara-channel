@@ -54,4 +54,16 @@ class GateTests(unittest.TestCase):
     def test_if_everything_blocks_the_engine_nothing_is_published(self):
         final, dyn = self.run_gate({'slow.yar': SLOW})
         self.assertFalse(final['publishable'])
+
+@unittest.skipUnless(YARA and YARAC, 'yara is not installed (a skipped test is not a pass)')
+class VerifyOnlyTests(unittest.TestCase):
+    def test_a_platform_check_loads_the_dependencies_the_candidate_declares(self):
+        d = pathlib.Path(tempfile.mkdtemp())
+        try:
+            (d / 'rules').mkdir(); (d / 'rules/base.yar').write_text('private rule Base { strings: $a = "x" condition: $a }'); (d / 'rules/use.yar').write_text('rule Use { condition: Base }')
+            files = [{'path': 'rules/base.yar', 'sha256': 'a' * 64, 'bytes': 10}, {'path': 'rules/use.yar', 'sha256': 'b' * 64, 'bytes': 10, 'depends_on': ['rules/base.yar']}]
+            (d / 'candidate.json').write_text(json.dumps({'files': files}))
+            doc = dynamic_gate.verify_only(d, None, json.loads(json.dumps(POLICY)), YARA, YARAC, str(d / 'out.json'))
+            self.assertIn(doc['verdict'], ('ok', 'no-baseline'), doc['reasons']); self.assertEqual(doc['canaries_detected'], doc['canaries_expected'])
+        finally: shutil.rmtree(d, ignore_errors=True)
 if __name__ == '__main__': unittest.main()
