@@ -146,7 +146,7 @@ def main():
 def publish(work, a, final, svc, check):
     """Sign, release, build the site and verify it publicly. Runs only in CI (OIDC, cosign, gh)."""
     pub = work / 'dist-public'; ws = work / 'ws'; shutil.rmtree(ws, ignore_errors=True)
-    for d in ('scripts', 'config', 'web'): shutil.copytree(ROOT / d, ws / d, ignore=shutil.ignore_patterns('__pycache__'))
+    for d in ('scripts', 'config', 'web', 'docs-src'): shutil.copytree(ROOT / d, ws / d, ignore=shutil.ignore_patterns('__pycache__'))
     (ws / 'logs').mkdir(); shutil.copytree(pub, ws / 'dist'); env = {**os.environ}
     env.update(REAL_OIDC)
     def sh(*cmd, **kw):
@@ -169,13 +169,15 @@ def publish(work, a, final, svc, check):
        'rules-release.tar.gz', 'dist/manifest.json', 'dist/manifest.sigstore.json', 'dist/inclusion-proof.json', 'logs/checkpoint.txt', 'logs/checkpoint.sigstore.json')
     try:
         site_ws = work / 'site-ws'; shutil.rmtree(site_ws, ignore_errors=True)
-        for d in ('scripts', 'config', 'web', 'logs'): shutil.copytree(ws / d, site_ws / d, ignore=shutil.ignore_patterns('__pycache__'))
+        for d in ('scripts', 'config', 'web', 'docs-src', 'logs'): shutil.copytree(ws / d, site_ws / d, ignore=shutil.ignore_patterns('__pycache__'))
         (site_ws / 'release').mkdir(); subprocess.run(['gh', 'release', 'download', tag, '--repo', a.repo, '--dir', str(site_ws / 'release')], check=True)
         check('release: every asset downloads from GitHub Releases', all((site_ws / 'release' / n).exists() for n in ('rules-release.tar.gz', 'manifest.json', 'manifest.sigstore.json', 'inclusion-proof.json')))
         hist = site_ws / 'history' / tag; hist.mkdir(parents=True); shutil.copy(site_ws / 'release/manifest.json', hist)
         view = json.loads(subprocess.run(['gh', 'release', 'view', tag, '--repo', a.repo, '--json', 'tagName,publishedAt,url,assets'], check=True, capture_output=True, text=True).stdout)
         (hist / 'meta.json').write_text(json.dumps({'tag': view['tagName'], 'published_at': view['publishedAt'], 'url': view['url'], 'asset_names': [x['name'] for x in view['assets']], 'package_bytes': next(x['size'] for x in view['assets'] if x['name'] == 'rules-release.tar.gz')}))
-        subprocess.run([sys.executable, 'scripts/build_site.py'], cwd=site_ws, check=True, capture_output=True)
+        built = subprocess.run([sys.executable, 'scripts/build_site.py'], cwd=site_ws, capture_output=True, text=True)
+        if built.returncode: print(built.stdout[-1500:], built.stderr[-1500:], flush=True)   # a hidden build error cost a CI round trip
+        built.check_returncode()
         site = site_ws / 'site'; check('site: built from the release, with catalog, history, stats and latest.json', all((site / n).exists() for n in ('catalog.json', 'releases.json', 'stats.json', 'latest.json', 'rules.html')))
         port = 23000 + os.getpid() % 15000; srv = subprocess.Popen([sys.executable, '-m', 'http.server', str(port), '--bind', '127.0.0.1', '--directory', str(site)], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL); time.sleep(1.5)
         try:
