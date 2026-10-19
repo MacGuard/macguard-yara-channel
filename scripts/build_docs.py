@@ -220,7 +220,7 @@ def build(out: pathlib.Path, site_for_context: pathlib.Path = None, strict=True)
     first = pages[0]['slug']
     (out / 'index.html').write_text(f'''<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Documentation · MacGuard YARA Channel</title><link rel="stylesheet" href="../style.css">
 <meta http-equiv="refresh" content="3;url=en/{first}.html"><main style="max-width:640px;margin:60px auto;padding:0 16px"><h1>Documentación · Documentation</h1><p><a href="es/{first}.html">Leer en español</a> · <a href="en/{first}.html">Read in English</a></p>
-<script>try{{var l=localStorage.getItem('lang')||navigator.language||'en';location.replace((String(l).slice(0,2)==='es'?'es':'en')+'/{first}.html')}}catch(e){{}}</script></main></html>''', encoding='utf-8')
+<script src="../docs-redirect.js" data-first="{first}"></script></main></html>''', encoding='utf-8')
     report['files'].append('index.html')
     return report
 

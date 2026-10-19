@@ -79,7 +79,7 @@ def main(argv=None):
     tmp = pathlib.Path(tempfile.mkdtemp(prefix='docs-check-')); srv = None; t0 = time.time()
     try:
         site = tmp / 'site'; shutil.copytree(a.site, site)
-        for f in ('docs.css', 'docs.js', 'style.css', 'common.js'): shutil.copy(ROOT / 'web' / f, site / f)
+        for f in ('docs.css', 'docs.js', 'docs-redirect.js', 'style.css', 'common.js'): shutil.copy(ROOT / 'web' / f, site / f)
         shutil.copytree(ROOT / 'web' / 'vendor', site / 'vendor', dirs_exist_ok=True)
         shutil.rmtree(site / 'docs', ignore_errors=True); rep = build_docs.build(site / 'docs', site)
         csp.inject(site)   # the pages are checked under the policy they are served with: a violation breaks a diagram here, not in a reader's browser

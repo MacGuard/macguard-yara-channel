@@ -1,0 +1,145 @@
+## https://macguard.github.io/macguard-yara-channel/rules.html
+HTTP/2 200 
+content-type: text/html; charset=utf-8
+strict-transport-security: max-age=31556952
+etag: W/"6ad53005-1adb"
+cache-control: max-age=600
+content-encoding: gzip
+content-length: 2248
+## https://macguard.github.io/macguard-yara-channel/rules
+HTTP/2 200 
+content-type: text/html; charset=utf-8
+strict-transport-security: max-age=31556952
+etag: W/"6ad53005-1adb"
+cache-control: max-age=600
+content-encoding: gzip
+content-length: 2248
+## https://macguard.github.io/macguard-yara-channel/style.css
+HTTP/2 200 
+content-type: text/css; charset=utf-8
+strict-transport-security: max-age=31556952
+etag: W/"6ad53005-190f"
+cache-control: max-age=600
+content-encoding: gzip
+content-length: 2195
+## https://macguard.github.io/macguard-yara-channel/catalog.json
+HTTP/2 200 
+content-type: application/json; charset=utf-8
+strict-transport-security: max-age=31556952
+etag: W/"6ad53005-7db26"
+cache-control: max-age=600
+content-encoding: gzip
+content-length: 74281
+## https://macguard.github.io/macguard-yara-channel/rules-release.tar.gz
+HTTP/2 200 
+content-type: application/gzip
+strict-transport-security: max-age=31556952
+etag: "6ad53005-1f5360"
+cache-control: max-age=600
+content-length: 2052960
+## https://macguard.github.io/macguard-yara-channel/img/yara-rules.png
+HTTP/2 200 
+content-type: image/png
+strict-transport-security: max-age=31556952
+etag: "6ad53005-3d368"
+cache-control: max-age=600
+content-length: 250728
+## https://macguard.github.io/macguard-yara-channel/vendor/mermaid-10.9.3.min.js
+HTTP/2 200 
+content-type: application/javascript; charset=utf-8
+strict-transport-security: max-age=31556952
+etag: W/"6ad53005-32ea38"
+cache-control: max-age=600
+content-encoding: gzip
+content-length: 1004284
+## https://macguard.github.io/macguard-yara-channel/nonexistent-xyz
+HTTP/2 404 
+content-type: text/html; charset=utf-8
+strict-transport-security: max-age=31556952
+etag: W/"6abcf5c5-24a3"
+content-security-policy: default-src 'none'; style-src 'unsafe-inline'; img-src data:; connect-src 'self'
+content-encoding: gzip
+content-length: 5254
+## https://macguard.github.io/macguard-yara-channel/docs/es/overview.html
+HTTP/2 200 
+content-type: text/html; charset=utf-8
+strict-transport-security: max-age=31556952
+etag: W/"6ad53005-1d50"
+cache-control: max-age=600
+content-encoding: gzip
+content-length: 2854
+## https://macguard.github.io/macguard-yara-channel/verify_public_release.py
+HTTP/2 200 
+content-type: application/octet-stream
+strict-transport-security: max-age=31556952
+etag: W/"6ad53005-90d6"
+cache-control: max-age=600
+content-encoding: gzip
+content-length: 11633
+## https://macguard-rules.pages.dev/rules.html
+HTTP/2 308 
+location: /rules
+referrer-policy: strict-origin-when-cross-origin
+## https://macguard-rules.pages.dev/rules
+HTTP/2 200 
+content-type: text/html; charset=utf-8
+cache-control: public, max-age=0, must-revalidate
+referrer-policy: strict-origin-when-cross-origin
+x-content-type-options: nosniff
+content-encoding: br
+## https://macguard-rules.pages.dev/style.css
+HTTP/2 200 
+content-type: text/css; charset=utf-8
+cache-control: public, max-age=0, must-revalidate
+referrer-policy: strict-origin-when-cross-origin
+x-content-type-options: nosniff
+etag: W/"b76f93d75533d614068adda05265a547"
+content-encoding: br
+## https://macguard-rules.pages.dev/catalog.json
+HTTP/2 200 
+content-type: application/json
+cache-control: public, max-age=0, must-revalidate
+referrer-policy: strict-origin-when-cross-origin
+x-content-type-options: nosniff
+etag: W/"44d3688d6322379412ede9b37e680028"
+content-encoding: br
+## https://macguard-rules.pages.dev/rules-release.tar.gz
+HTTP/2 200 
+content-type: application/gzip
+cache-control: public, max-age=0, must-revalidate
+etag: "bfa783cb73ef61537ec3beaf63424e84"
+referrer-policy: strict-origin-when-cross-origin
+x-content-type-options: nosniff
+## https://macguard-rules.pages.dev/img/yara-rules.png
+HTTP/2 200 
+content-type: image/png
+cache-control: public, max-age=0, must-revalidate
+etag: "50fa8547042a13f5a5e8eccf84f1d8cf"
+referrer-policy: strict-origin-when-cross-origin
+x-content-type-options: nosniff
+## https://macguard-rules.pages.dev/vendor/mermaid-10.9.3.min.js
+HTTP/2 200 
+content-type: application/javascript
+cache-control: public, max-age=0, must-revalidate
+referrer-policy: strict-origin-when-cross-origin
+x-content-type-options: nosniff
+etag: W/"4efbc28ea85155edacaa335e91c6b4bf"
+content-encoding: br
+## https://macguard-rules.pages.dev/nonexistent-xyz
+HTTP/2 200 
+content-type: text/html; charset=utf-8
+cache-control: public, max-age=0, must-revalidate
+referrer-policy: strict-origin-when-cross-origin
+x-content-type-options: nosniff
+content-encoding: br
+## https://macguard-rules.pages.dev/docs/es/overview.html
+HTTP/2 308 
+location: /docs/es/overview
+referrer-policy: strict-origin-when-cross-origin
+## https://macguard-rules.pages.dev/verify_public_release.py
+HTTP/2 200 
+content-type: application/octet-stream
+cache-control: public, max-age=0, must-revalidate
+etag: "392673b0e6adb921bfa93f18df8b6dcf"
+referrer-policy: strict-origin-when-cross-origin
+x-content-type-options: nosniff

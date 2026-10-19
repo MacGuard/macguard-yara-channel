@@ -1,0 +1,26 @@
+{
+ "mermaid@10.9.3": [
+  "GHSA-2v8p-3f2j-5mp7 Mermaid XY Charts are vulnerable to an infinite loop DoS",
+  "GHSA-6m6c-36f7-fhxh Mermaid Gantt Charts are vulnerable to an Infinite Loop DoS",
+  "GHSA-6x64-9x62-f2gx Mermaid allows CSS injection applying to sibling elements of the diagram",
+  "GHSA-7rqq-prvp-x9jh Mermaid improperly sanitizes sequence diagram labels leading to XSS",
+  "GHSA-87f9-hvmw-gh4p Mermaid: Improper sanitization of configuration leads to CSS injection",
+  "GHSA-c4c3-pg64-4m4v Mermaid configuration APIs allow prototype pollution",
+  "GHSA-ghcm-xqfw-q4vr Mermaid: Improper sanitization of `classDef` in state diagrams leads to HTML inj",
+  "GHSA-xcj9-5m2h-648r Mermaid: Improper sanitization of `classDefs` in diagrams leads to CSS injection"
+ ],
+ "wrangler@4.151.1": [],
+ "github.com/sigstore/cosign/v2@2.6.0": [
+  "GHSA-whqx-f9j3-ch6m Cosign verification accepts any valid Rekor entry under certain conditions",
+  "GO-2026-4309 Cosign verification accepts any valid Rekor entry under certain conditions in gi",
+  "GO-2026-4529 Cosign considered signatures valid with expired intermediate certificates when t",
+  "GO-2026-5694 Cosign's verify-blob-attestation reports false positive when payload parsing fai"
+ ],
+ "yara@4.5.0": [],
+ "actions/checkout@4.3.1": [],
+ "actions/upload-artifact@4.6.2": [],
+ "actions/download-artifact@4.3.0": [],
+ "actions/cache@4.3.0": [],
+ "cloudflare/wrangler-action@3.15.0": [],
+ "sigstore/cosign-installer@4.1.2": []
+}
