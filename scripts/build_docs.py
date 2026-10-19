@@ -15,7 +15,7 @@ build error, so a page cannot show a number that is not backed by something real
 import hashlib, base64, html, json, pathlib, re, sys
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
-MERMAID_VERSION = '10.9.8'
+MERMAID_VERSION = '12.2.0'
 MERMAID_FILE = f'vendor/mermaid-{MERMAID_VERSION}.min.js'
 LANGS = ('es', 'en')
 SITE_BASE = 'https://macguard.github.io/macguard-yara-channel/'
