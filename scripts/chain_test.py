@@ -182,10 +182,12 @@ def publish(work, a, final, svc, check):
         if built.returncode: print(built.stdout[-1500:], built.stderr[-1500:], flush=True)   # a hidden build error cost a CI round trip
         built.check_returncode()
         site = site_ws / 'site'; check('site: built from the release, with catalog, history, stats and latest.json', all((site / n).exists() for n in ('catalog.json', 'releases.json', 'stats.json', 'latest.json', 'rules.html')))
-        port = 23000 + os.getpid() % 15000; srv = subprocess.Popen([sys.executable, '-m', 'http.server', str(port), '--bind', '127.0.0.1', '--directory', str(site)], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL); time.sleep(1.5)
+        port = 23000 + os.getpid() % 15000
+        subprocess.run([sys.executable, 'scripts/og_inject.py', str(site), f'http://127.0.0.1:{port}/'], cwd=site_ws, check=True, capture_output=True)   # as site.yml does for each host: verify_live checks the share-preview tags
+        srv = subprocess.Popen([sys.executable, '-m', 'http.server', str(port), '--bind', '127.0.0.1', '--directory', str(site)], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL); time.sleep(1.5)
         try:
             ok = subprocess.run([sys.executable, str(ROOT / 'scripts/verify_live.py'), f'http://127.0.0.1:{port}/', '--identity', a.identity, '--repo', a.repo, '--external'], capture_output=True, text=True)
-            check('public verification: signatures, every rule hash, catalog, proof, links and release assets', ok.returncode == 0 and 'LIVE VERIFICATION PASSED' in ok.stdout, ok.stdout.strip().splitlines()[-1] if ok.stdout.strip() else ok.stderr[-200:])
+            check('public verification: signatures, every rule hash, catalog, proof, links and release assets', ok.returncode == 0 and 'LIVE VERIFICATION PASSED' in ok.stdout, '; '.join(l for l in ok.stdout.splitlines() if l.startswith('FAIL')) or (ok.stdout.strip().splitlines()[-1] if ok.stdout.strip() else ok.stderr[-200:]))
         finally: srv.terminate()
         victim = next((site / 'rules').rglob('*.yar')); victim.write_text(victim.read_text() + '\n// tampered\n')
         srv = subprocess.Popen([sys.executable, '-m', 'http.server', str(port), '--bind', '127.0.0.1', '--directory', str(site)], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL); time.sleep(1.5)
