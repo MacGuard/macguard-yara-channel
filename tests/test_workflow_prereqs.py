@@ -43,6 +43,16 @@ class WorkflowPrerequisites(unittest.TestCase):
             for m in re.finditer(r"sigstore/cosign-installer@(\S+)", wf.read_text()):
                 self.assertRegex(m.group(1), r"^[0-9a-f]{40}$", f"{wf.name} must pin the installer by SHA")
 
+    def test_workers_and_d1_credentials_never_live_in_a_workflow(self):
+        """Least privilege: the only Cloudflare secret in CI is the Pages token (site.yml). Deploying or changing the
+        private service needs Workers Scripts/D1 edit rights, which stay with a person and never reach CI."""
+        for wf in WORKFLOWS.glob("*.yml"):
+            t = wf.read_text()
+            self.assertNotRegex(t, r"wrangler[^\n]*\b(deploy|d1)\b", f"{wf.name} deploys or migrates the private service from CI")
+            for name in re.findall(r"secrets\.([A-Z0-9_]+)", t):
+                self.assertIn(name, {"CLOUDFLARE_API_TOKEN", "CLOUDFLARE_ACCOUNT_ID", "GITHUB_TOKEN"}, f"{wf.name}: unexpected secret {name}")
+        self.assertNotIn("secrets.", (WORKFLOWS / "daily.yml").read_text().replace("secrets.GITHUB_TOKEN", ""))
+
 
 if __name__ == "__main__":
     unittest.main()

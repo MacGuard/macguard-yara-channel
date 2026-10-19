@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { world, cand, sha, rid, actionsToken, REPO, ORIGIN } from './helpers.js';
@@ -369,9 +370,21 @@ test('FA-L3/L5: a change of state asks GitHub again and never uses a stale grant
 });
 
 test('public/_headers carries exactly the Worker\'s security headers (static assets bypass the Worker on Cloudflare)', async () => {
-  const { HEADERS } = await import('../src/index.js'); const { readFileSync } = await import('node:fs');
+  const { HEADERS } = await import('../src/index.js');
   const text = readFileSync(new URL('../public/_headers', import.meta.url), 'utf8').split('\n').filter((l) => l && !l.startsWith('#'));
   assert.equal(text[0], '/*');
   const got = Object.fromEntries(text.slice(1).map((l) => { const i = l.indexOf(':'); return [l.slice(0, i).trim(), l.slice(i + 1).trim()]; }));
   assert.deepEqual(got, HEADERS);
+});
+
+test('a decision never starts a release: the service has no way to call a GitHub write API or dispatch a workflow', async () => {
+  const src = ['index', 'core', 'store', 'auth'].map((f) => readFileSync(new URL(`../src/${f}.js`, import.meta.url), 'utf8')).join('\n');
+  assert.doesNotMatch(src, /dispatches|\/actions\/|workflow_dispatch|repository_dispatch/);
+  const writes = [...src.matchAll(/deps\.fetch\([^)]*\)?[^;]*?method:\s*'(POST|PUT|PATCH|DELETE)'/g)].map((m) => m[0]);
+  assert.ok(writes.every((w) => /login\/oauth\/access_token/.test(w)), `only the OAuth code exchange may POST: ${writes}`);
+  const { w, ids } = await seeded(['a', 'b']); w.reviewer = await w.login('rita', { push: true }); const calls = [];
+  const orig = w.deps.fetch; w.deps.fetch = async (...a) => { calls.push(String(a[0]) + ' ' + (a[1]?.method || 'GET')); return orig(...a); };
+  const v = await versions(w, ids);
+  assert.equal((await decide(w, w.reviewer, { action: 'approve', ids, reason: 'reviewed by hand', request_id: rid(), confirm_count: 2, expect: v })).status, 200);
+  assert.deepEqual(calls.filter((c) => !/ GET$/.test(c)), [], 'a decision made no outbound write');
 });

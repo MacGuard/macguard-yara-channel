@@ -1,6 +1,6 @@
 # Deploying the quarantine service: staging first, then production
 
-Nothing here has been run against Cloudflare or GitHub OAuth: what exists is the service, its tests on a Node shim (`npm test`, 37) and on the real Workers runtime with a real D1 and a faked GitHub (`npm run test:runtime`, 12), and the black-box script `staging-smoke.sh` (validated against the local runtime). This file lists exactly what a person has to do and what proves it worked.
+Nothing here has been run against Cloudflare or GitHub OAuth: what exists is the service, its tests on a Node shim (`npm test`, 38) and on the real Workers runtime with a real D1 and a faked GitHub (`npm run test:runtime`, 12), and the black-box script `staging-smoke.sh` (validated against the local runtime). This file lists exactly what a person has to do and what proves it worked.
 
 ## Human actions (credentials, cannot be automated)
 | # | Who | Action | Output to keep |
@@ -8,6 +8,9 @@ Nothing here has been run against Cloudflare or GitHub OAuth: what exists is the
 | 1 | Cloudflare account owner (`mac_guard@proton.me`) | Create an API token with **Workers Scripts:Edit** and **D1:Edit** (account scope; the Pages token is separate). Export it only in the shell that deploys: `export CLOUDFLARE_API_TOKEN=…` | nothing written to disk |
 | 2 | GitHub org owner | Create an OAuth App **for staging**: callback `https://<staging host>/auth/callback`. A second one for production later (never share a client secret between environments) | client id (not secret), client secret (shown once) |
 | 3 | owner | Decide the hostnames (a `workers.dev` name is disabled in `wrangler.toml`; use a route or custom domain you control) | the two URLs |
+
+## The integration environment is temporary
+No permanent staging is kept. Create it only to run the real-OAuth acceptance below, then delete it: `wrangler delete --config wrangler.staging.toml`, `wrangler d1 delete macguard-quarantine-staging`, delete the staging OAuth App, and revoke the Workers/D1 token (or let it expire). Production is then deployed with its own OAuth App and the same commands. The Workers/D1 token is used only to provision or update the backend; approving rules needs only a GitHub login with push/admin on the repository, and CI never holds that token (`test_workers_and_d1_credentials_never_live_in_a_workflow`).
 
 ## Deploy to staging (copy `wrangler.toml` to `wrangler.staging.toml`, never commit real ids)
 ```

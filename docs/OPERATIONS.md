@@ -25,13 +25,13 @@ Reading a public repository grants nothing. The role is recomputed from GitHub o
 6. Verify `GET /api/me` with a collaborator: the code relies on `GET /repos/{repo}` returning `permissions` for the signed-in user's token; confirm that with your OAuth app type before trusting roles.
 Until then the pipeline reports the service as unavailable and publishes only what passes every automatic check.
 
-## Before enabling AUTO_PUBLISH
-- [ ] `QUARANTINE_URL` set and `daily.yml` shows `quarantine: N new` in its log.
-- [ ] A real change has been published through the manual path (approval) and `site.yml` `verify-live` passed.
-- [ ] A rule was quarantined, rejected by a reviewer, and did not come back on the next daily run.
-- [ ] The macOS job passed on that release; `dynamic.json` of the release shows `not_run: ["independent-macos-vm"]` and you accept it.
-- [ ] GitHub immutable releases are enabled.
-- [ ] Create environment `stable-signing-auto` (deployments only from `main`), then set variable `AUTO_PUBLISH=true`. Reverting is deleting the variable.
+## Operating model (final V1)
+* The daily run publishes automatically when the **whole** candidate set passes every mandatory check (`AUTO_PUBLISH=true`, environment `stable-signing-auto`; signing identity and technical checks are identical to the reviewed mode).
+* Suspicious rules are isolated in the private quarantine service. The panel approves them *for revalidation* or rejects them, one by one or in batches; each decision is stored, audited and bound to the exact SHA-256.
+* **A decision never starts a release or a pipeline** (the service has no outbound write to GitHub; pinned by a test). The next scheduled run reads the decisions, revalidates the approved rules, excludes the rejected ones and publishes a new complete release only if the approved set changed.
+* If the service is unreachable or `QUARANTINE_URL` is unset, no pending rule is incorporated.
+* Credentials: deploying the service needs a Workers Scripts + D1 token that stays with a person (never a CI secret, never used to approve rules); CI holds only the separate Pages token. Approving needs only a GitHub login with push or admin on the repository.
+* Still required before calling V1 complete: the service deployed and its real OAuth/D1 acceptance (`admin/worker/STAGING.md`), and, with the owner's authorization, immutable releases and the repository rulesets (`docs/audit/repo-hardening/`). Reverting automatic publication is deleting the variable.
 
 ## Resolving a quarantined rule
 Open the panel → Quarantine → the rule. Read the reasons, resources and source. Approve (only judgement findings can be waived) or reject with a reason. Approved rules go through the technical checks again in the next run; if they fail they return to PENDING with the reason. Rejected content never returns; an edited upstream version appears as a new candidate linked to the old one.
