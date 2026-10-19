@@ -2,12 +2,15 @@
 
 Generated from `logs/log.jsonl`; do not edit by hand. Times are UTC. Newest first.
 
-Entries: 117 (INFO 72, WARNING 23, ERROR 22)
+Entries: 120 (INFO 75, WARNING 23, ERROR 22)
 
 Latest signed checkpoint: 75 entries, Merkle root `1bab9bb9364b3a42f76835ae138bffad33eaa3694d0021afd208f5fd54e63d96`.
 
 | # | Date (UTC) | Level | Event | Message |
 |---|---|---|---|---|
+| 119 | 2026-10-19T04:42:35Z | INFO | `site.cloudflare_deployed` | Site deployed to Cloudflare Pages project macguard-rules. See https://github.com/MacGuard/macguard-yara-channel/actions/runs/39200706211 |
+| 118 | 2026-10-19T04:42:35Z | INFO | `site.live_verified` | The public GitHub Pages site was downloaded and verified: signatures, every rule hash, catalog, proof and links. See https://github.com/MacGuard/macguard-yara-channel/actions/runs/39200706211 |
+| 117 | 2026-10-19T04:42:35Z | INFO | `site.github_pages_deployed` | Site deployed to GitHub Pages. See https://github.com/MacGuard/macguard-yara-channel/actions/runs/39200706211 |
 | 116 | 2026-10-19T03:51:02Z | ERROR | `run.failed` | The daily review stopped before a decision was reached (prepare: skipped, classify: skipped, gate: skipped). See https://github.com/MacGuard/macguard-yara-channel/actions/runs/39196469644 |
 | 115 | 2026-10-18T20:46:27Z | INFO | `site.cloudflare_deployed` | Site deployed to Cloudflare Pages project macguard-rules. See https://github.com/MacGuard/macguard-yara-channel/actions/runs/39164717438 |
 | 114 | 2026-10-18T20:46:27Z | INFO | `site.live_verified` | The public GitHub Pages site was downloaded and verified: signatures, every rule hash, catalog, proof and links. See https://github.com/MacGuard/macguard-yara-channel/actions/runs/39164717438 |
