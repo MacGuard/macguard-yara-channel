@@ -16,7 +16,7 @@ The channel itself works and is verifiable: two real signed releases, both hosts
 | 8 | releases verifiable | **met** | `verify_public_release.py` / `verify_live.py` |
 | 9 | web works | **met** (deployed; e2e, axe 0 violations, `verify_live` on both hosts) | |
 | 10 | documentation in sync, diagrams legible | **met** | `test_docs` 43, `docs_check` full 80/80 |
-| 11 | mandatory tests pass | **met** for everything that could run; see `TEST-MATRIX.md` for the NOT RUN list (CodeQL first run, DAST of the API, real Cloudflare/GitHub concurrency scenarios) | |
+| 11 | mandatory tests pass | **met** for everything that could run; see `TEST-MATRIX.md` for the NOT RUN list (DAST of the API, real GitHub failure/queue behaviour, Grype/Scorecard, screen readers) | |
 | 12 | required deployments verified | **met**: site run 39258422035, both hosts `LIVE VERIFICATION PASSED`, mirrors identical | below |
 | 13 | recovery from failures proven | **partly**: draft-then-public release, unique tags, republish by the next daily run, `compare_mirrors`; interruption/duplicate-run scenarios were reasoned, not provoked (RR-15) | `ARCHITECTURE-REVIEW.md` |
 | — | repository protections (secret scanning, required checks, immutable releases) | **human decision pending** (RR-01) | `gh api` outputs in the baseline |
@@ -29,6 +29,30 @@ The channel itself works and is verifiable: two real signed releases, both hosts
 4. Run `codeql.yml` once and triage.
 
 When 1–4 are done and the checks below still pass, tag `v1.0.0` (see "Closing" below) and freeze.
+
+## Closure round (2026-10-19, after the NO-GO): blocker by blocker
+
+Verdict after the round: **still NO-GO.** Four blockers need a person or the clock; everything that could be closed without them was, with evidence. Nothing was relaxed and no repository setting was changed.
+
+| # | Blocker | State | Evidence | What is missing, exactly |
+|---|---|---|---|---|
+| 1 | private quarantine API | **partly closed.** Service now also proved on workerd + real D1 (12 tests, local and CI run 39274617820/39274524287); found and fixed FA-35 (UI headers); runbook + black-box smoke ready (`admin/worker/STAGING.md`, `staging-smoke.sh`, 18 PASS against the local runtime) | `admin/worker/test-runtime/`, `TEST-MATRIX.md` | **Human:** a Cloudflare token (Workers Scripts:Edit + D1:Edit), a staging GitHub OAuth app, the hostname; then the role table of STAGING.md with real accounts. Nothing was created in the Cloudflare account |
+| 2 | repository protections | **audited and prepared, not applied** | `docs/audit/repo-hardening/apply.sh verify` (read-back below); `ruleset-main.json`, `ruleset-release-tags.json`; `ci.yml` supplies the required checks (green, run 39274617820) | **Human:** explicit authorization, then `apply.sh apply` (secret scanning, push protection, Dependabot alerts + security updates, immutable releases, two rulesets). Decision RR-16 (`AUTO_PUBLISH`) |
+| 3 | scheduled daily run | **cause proved and pinned; cron not yet observed** | the 03:49 UTC schedule run 39196469644 failed (`dependency.cosign … was not found`); `tests/test_workflow_prereqs.py` fails without the installer step; `scripts/schedule_evidence.py` currently prints `NOT YET` | **Time:** the next cron (2026-10-20 ≈ 03:17–03:50 UTC). Dispatched runs (e.g. 39254094180) are not counted |
+| 4 | CodeQL | **run and triaged** | run 39272512418, FA-37: 1 hardened + regression test, 5 test-code false positives | **Human:** dismiss the 5 (RR-17); alert 5 closes at the next CodeQL run |
+| 5 | publication with `manifest.evidence` | **isolated environment: done; real release: waits for a real change** | chain test on the current tree, run 39275246567: 27/27 (Sigstore keyless, sealing with `evidence`, real release created then deleted, site built from it, public verification, tamper detected) | **Upstream change:** the next legitimate rule change. No artificial change was made |
+| 6 | GitHub release failures and concurrency | **closed with mocks; GitHub's own behaviour not provoked** | `tests/test_publish_failures.py` (8): the real `publish.yml` script with a fake `gh` — create/upload failure, SIGKILL, 0/5/8 assets, publish failure: nothing public; red when the count check or draft flag is removed. Group configuration asserted | real 5xx/queueing on GitHub: RR-15 (no historical release was touched) |
+| 7 | Firefox, WebKit, accessibility | **closed for automated checks** | `tests/web/cross_browser.mjs`: 51/51 on Chromium, Firefox, WebKit (17 each: e2e normal/tamper/missing, no console/CSP errors, diagrams, no horizontal scroll, axe light+dark at 1280/390); found FA-36 (fixed, deployed) | real screen readers (VoiceOver/NVDA) not run (RR-11) |
+| 8 | both mirrors serve the same approved set | **closed** | after the last deploy (site run 39274421640, tree `aa09f2a`): `verify_live.py --external` PASSED on both hosts; `compare_mirrors.py` identical (manifest `f75c2146…`, rules_root `16d08239…`, log 75); the served CSS has the FA-36 fix on both | — |
+
+Repository protections as read back on 2026-10-19 (`apply.sh verify`): secret scanning, push protection, Dependabot security updates, validity checks **disabled**; Dependabot alerts **disabled** (HTTP 403 "disabled for this repository"); rulesets **none**; classic protection of `main`: no required checks, no required reviews, force pushes off; immutable releases **disabled**.
+
+### Criteria still not met → what turns it into GO
+1. Criterion 6 (private API authorization): rows 1 above.
+2. Criterion 3 (autonomous publication proven): the scheduled run of 2026-10-20 (`schedule_evidence.py` → PASS) and, ideally, the first real release with `evidence`.
+2b. The repository-owner decisions: rows 2 and RR-16.
+3. Close the five CodeQL alerts (RR-17); not blocking by itself.
+Then re-run, in this order: `schedule_evidence.py`, `apply.sh verify`, `staging-smoke.sh` on production, `verify_live.py` on both hosts and `compare_mirrors.py`, `ci.yml`; update this file and only then tag `v1.0.0`.
 
 ## Maintenance and recovery (so another person can operate this)
 
