@@ -4,7 +4,7 @@
 
 :root{--ok:#2f6df0;--bad:#e5484d;--grid:#e6ecf4}body.dark{--grid:#2a3446}
 .act-head{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}.act-head h2{margin:0}.act-ctl{display:flex;align-items:center;gap:14px}.lg{display:inline-flex;align-items:center;gap:6px;font-size:13px;color:var(--muted)}.sw{width:10px;height:10px;border-radius:2px;display:inline-block}.sw.ok{background:var(--ok)}.sw.bad{background:var(--bad)}
-.tiles{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin:18px 0}.tile{border:1px solid var(--line);border-radius:12px;padding:14px 16px}.tile small{display:block}.tile strong{font-size:26px;display:block;margin:4px 0}.delta{font-size:12px;font-weight:600;padding:2px 7px;border-radius:999px;background:#2f6df01a;color:var(--ok)}.delta.neg{background:#e5484d1a;color:#b3261e}
+.tiles{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin:18px 0}.tile{border:1px solid var(--line);border-radius:12px;padding:14px 16px}.tile small{display:block}.tile strong{font-size:26px;display:block;margin:4px 0}.delta{font-size:12px;font-weight:600;padding:2px 7px;border-radius:999px;background:#2f6df01a;color:#1550bd}.delta.neg{background:#e5484d1a;color:#b3261e}
 #act-chart svg{width:100%;height:auto;display:block}#act-chart text{fill:var(--muted);font-size:11px}#act-chart .gl{stroke:var(--grid);stroke-width:1}#act-chart .b-ok{fill:var(--ok)}#act-chart .b-bad{fill:var(--bad)}#act-chart rect:hover{opacity:.75}
 details{margin-top:12px}summary{cursor:pointer;color:var(--muted);font-size:13px}
 @media(max-width:800px){.tiles{grid-template-columns:1fr 1fr}}
@@ -33,6 +33,6 @@ main{min-width:0}td.sha{font-family:ui-monospace,Menlo,monospace;font-size:11px;
 .block{margin:18px 0}.block h3{margin:0 0 6px;font-size:15px}.tiles{grid-template-columns:repeat(auto-fit,minmax(160px,1fr))}
 
 /* final audit: contrast (WCAG 1.4.3) and reflow at 320 px (1.4.10) */
-body.dark .lv-INFO{color:#7bd88f}body.dark .lv-ERROR{color:#ff8f8a}body.dark .lv-WARNING{color:#f0b45c}body.dark .delta.neg{color:#ff8f8a;background:#ff8f8a26}
+body.dark .lv-INFO{color:#7bd88f}body.dark .lv-ERROR{color:#ff8f8a}body.dark .lv-WARNING{color:#f0b45c}body.dark .delta{color:#9db9ff;background:#2f6df033}body.dark .delta.neg{color:#ff8f8a;background:#ff8f8a26}
 .act-ctl{flex-wrap:wrap}.act-ctl select{max-width:100%}
 .ytitle{font-size:11px;fill:var(--muted)}
