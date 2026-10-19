@@ -14,6 +14,8 @@ import argparse, base64, hashlib, json, os, pathlib, shutil, subprocess, sys, te
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 RESULTS = []
+# files outside the copied folders that the documentation build reads its tool versions from (read-only inputs)
+DOC_INPUTS = ('DMGTrustAuditor/DMGTrustAuditor/Core/SigstoreVerifier.swift', 'DMGTrustAuditor/DMGTrustAuditor/Scripts/build-yara-engine.sh')
 # The quarantine part emulates the Actions token endpoint; Sigstore signing needs the REAL one, so remember it before it is overwritten.
 REAL_OIDC = {k: os.environ[k] for k in ('ACTIONS_ID_TOKEN_REQUEST_URL', 'ACTIONS_ID_TOKEN_REQUEST_TOKEN') if k in os.environ}
 def check(name, ok, detail=''):
@@ -170,6 +172,7 @@ def publish(work, a, final, svc, check):
     try:
         site_ws = work / 'site-ws'; shutil.rmtree(site_ws, ignore_errors=True)
         for d in ('scripts', 'config', 'web', 'docs-src', 'logs'): shutil.copytree(ws / d, site_ws / d, ignore=shutil.ignore_patterns('__pycache__'))
+        for f in DOC_INPUTS: (site_ws / f).parent.mkdir(parents=True, exist_ok=True); shutil.copy(ROOT / f, site_ws / f)
         (site_ws / 'release').mkdir(); subprocess.run(['gh', 'release', 'download', tag, '--repo', a.repo, '--dir', str(site_ws / 'release')], check=True)
         check('release: every asset downloads from GitHub Releases', all((site_ws / 'release' / n).exists() for n in ('rules-release.tar.gz', 'manifest.json', 'manifest.sigstore.json', 'inclusion-proof.json')))
         hist = site_ws / 'history' / tag; hist.mkdir(parents=True); shutil.copy(site_ws / 'release/manifest.json', hist)
