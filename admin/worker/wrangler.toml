@@ -1,7 +1,7 @@
 # Private quarantine service. Deploying it needs a Cloudflare token, a D1 database and a GitHub OAuth app: see ../README.md
 name = "macguard-quarantine"
 main = "src/index.js"
-compatibility_date = "2026-10-01"
+compatibility_date = "2026-08-01"   # the date the runtime test (test-runtime/) runs under; workerd 1.20260730 does not accept a later one
 workers_dev = false
 
 [assets]

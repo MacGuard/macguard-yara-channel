@@ -17,3 +17,4 @@ previous/
 build/
 DMGTrustAuditor/build/
 .wrangler/
+node_modules/

@@ -3,7 +3,7 @@ import { MAX_BATCH, atLeast, blobError, publicStats, validateDecisionRequest, va
 import * as store from './store.js';
 import { STATE_COOKIE, clearCookie, clearStateCookie, createSession, destroySession, effectiveRole, finishLogin, getSession, parseCookies, sessionCookie, startLogin, stateCookie, timingSafeEqual, verifyActionsToken } from './auth.js';
 
-const HEADERS = {
+export const HEADERS = {
   'Content-Security-Policy': "default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'",
   'X-Content-Type-Options': 'nosniff', 'Referrer-Policy': 'no-referrer', 'Cache-Control': 'no-store', 'Cross-Origin-Opener-Policy': 'same-origin', 'Strict-Transport-Security': 'max-age=31536000',
 };

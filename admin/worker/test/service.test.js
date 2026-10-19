@@ -367,3 +367,11 @@ test('FA-L3/L5: a change of state asks GitHub again and never uses a stale grant
   const ada = await w.login('ada', { admin: true }, { id: 3 });
   assert.equal((await w.call('POST', '/api/members', { user: ada, body: { login: ['a'], role: 'VIEWER' } })).status, 400);   // used to be a 500
 });
+
+test('public/_headers carries exactly the Worker\'s security headers (static assets bypass the Worker on Cloudflare)', async () => {
+  const { HEADERS } = await import('../src/index.js'); const { readFileSync } = await import('node:fs');
+  const text = readFileSync(new URL('../public/_headers', import.meta.url), 'utf8').split('\n').filter((l) => l && !l.startsWith('#'));
+  assert.equal(text[0], '/*');
+  const got = Object.fromEntries(text.slice(1).map((l) => { const i = l.indexOf(':'); return [l.slice(0, i).trim(), l.slice(i + 1).trim()]; }));
+  assert.deepEqual(got, HEADERS);
+});

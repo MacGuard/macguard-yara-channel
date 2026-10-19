@@ -1,0 +1,28 @@
+name: Quarantine service on the Workers runtime
+# Runs the service on workerd with a real D1 (Miniflare). GitHub is faked, so this does not replace the staging test with a real OAuth app.
+on:
+  push:
+    paths: ['admin/worker/**', '.github/workflows/quarantine-runtime.yml']
+  pull_request:
+    paths: ['admin/worker/**']
+  workflow_dispatch:
+permissions: {}
+jobs:
+  runtime:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    defaults:
+      run:
+        working-directory: admin/worker
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: '24'
+      - run: npm ci --no-audit --no-fund
+      - run: npm test
+      - run: npm run test:runtime

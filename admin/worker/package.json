@@ -1,1 +1,12 @@
-{ "name": "macguard-quarantine", "private": true, "type": "module", "scripts": { "test": "node --test test/" } }
+{
+  "name": "macguard-quarantine",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node --test test/",
+    "test:runtime": "node --test test-runtime/"
+  },
+  "devDependencies": {
+    "miniflare": "^4.20260730.0"
+  }
+}
