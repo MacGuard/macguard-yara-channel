@@ -1,0 +1,8 @@
+{
+  "name": "release tags are never moved or deleted",
+  "target": "tag",
+  "enforcement": "active",
+  "conditions": { "ref_name": { "include": ["refs/tags/rules-*", "refs/tags/v*"], "exclude": [] } },
+  "bypass_actors": [],
+  "rules": [ { "type": "update" }, { "type": "deletion" }, { "type": "non_fast_forward" } ]
+}
