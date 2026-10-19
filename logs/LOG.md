@@ -2,12 +2,15 @@
 
 Generated from `logs/log.jsonl`; do not edit by hand. Times are UTC. Newest first.
 
-Entries: 150 (INFO 102, WARNING 25, ERROR 23)
+Entries: 153 (INFO 105, WARNING 25, ERROR 23)
 
 Latest signed checkpoint: 75 entries, Merkle root `1bab9bb9364b3a42f76835ae138bffad33eaa3694d0021afd208f5fd54e63d96`.
 
 | # | Date (UTC) | Level | Event | Message |
 |---|---|---|---|---|
+| 152 | 2026-10-19T20:39:26Z | INFO | `site.cloudflare_deployed` | Site deployed to Cloudflare Pages project macguard-rules and the public mirror was downloaded and verified. See https://github.com/MacGuard/macguard-yara-channel/actions/runs/39320898010 |
+| 151 | 2026-10-19T20:39:26Z | INFO | `site.live_verified` | The public GitHub Pages site was downloaded and verified: signatures, every rule hash, catalog, proof and links. See https://github.com/MacGuard/macguard-yara-channel/actions/runs/39320898010 |
+| 150 | 2026-10-19T20:39:26Z | INFO | `site.github_pages_deployed` | Site deployed to GitHub Pages. See https://github.com/MacGuard/macguard-yara-channel/actions/runs/39320898010 |
 | 149 | 2026-10-19T18:35:18Z | INFO | `site.cloudflare_deployed` | Site deployed to Cloudflare Pages project macguard-rules and the public mirror was downloaded and verified. See https://github.com/MacGuard/macguard-yara-channel/actions/runs/39303470475 |
 | 148 | 2026-10-19T18:35:18Z | INFO | `site.live_verified` | The public GitHub Pages site was downloaded and verified: signatures, every rule hash, catalog, proof and links. See https://github.com/MacGuard/macguard-yara-channel/actions/runs/39303470475 |
 | 147 | 2026-10-19T18:35:18Z | INFO | `site.github_pages_deployed` | Site deployed to GitHub Pages. See https://github.com/MacGuard/macguard-yara-channel/actions/runs/39303470475 |
