@@ -49,7 +49,7 @@ async function one(job){ W=job.w; var u=job.u;
     if(minFont<1e9 && minFont*scale<8) res.problems.push(name+': text renders at '+(minFont*scale).toFixed(1)+' px (<8)');
     if(!FULL){ continue } var before=wd(), zin=fig.querySelector('.dg-bar button[aria-label="'+(JSON.parse(d.getElementById('main').dataset.ui).zoom_in)+'"]'); if(zin){ zin.click(); await sleep(20); if(!(wd()>before)) res.problems.push(name+': zoom in did not enlarge'); }
     var zout=fig.querySelector('.dg-bar button[aria-label="'+(JSON.parse(d.getElementById('main').dataset.ui).zoom_out)+'"]'); if(zout){ var b2=wd(); zout.click(); await sleep(20); if(!(wd()<b2)) res.problems.push(name+': zoom out did not shrink'); }
-    var fitb=fig.querySelector('.dg-bar button[aria-label="'+(JSON.parse(d.getElementById('main').dataset.ui).fit)+'"]'); if(fitb){ fitb.click(); await sleep(20); if(Math.abs(wd()-before)>2) res.problems.push(name+': fit does not return to the fitted size'); }
+    var fitb=fig.querySelector('.dg-bar button[aria-label="'+(JSON.parse(d.getElementById('main').dataset.ui).fit)+'"]'); if(fitb){ fitb.click(); await sleep(20); var after=wd(); if(Math.abs(after-before)>2) res.problems.push(name+': fit does not return to the fitted size (before '+before+' px, after '+after+' px)'); }
     if(stage.scrollWidth>stage.clientWidth+1 && getComputedStyle(stage).overflowX==='visible') res.problems.push(name+': diagram overflows its container without scrolling');
   }
   out.push(res); f.remove();
