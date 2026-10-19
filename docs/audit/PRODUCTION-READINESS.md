@@ -7,17 +7,17 @@ The channel itself works and is verifiable: two real signed releases, both hosts
 | # | GO criterion of the brief | State | Evidence |
 |---|---|---|---|
 | 1 | no critical defect open | **met** | `SECURITY-FINDINGS.md`: 0 critical |
-| 2 | no exploitable HIGH without accepted mitigation | **met in the repository; live after the next deployment** | FA-19/FA-23 (portal) fixed in code, still served old until `site.yml` runs on this tree — see "Live verification" below |
-| 3 | automatic publication proven end to end | **partly** — two real releases through `daily → publish → site`, all triggered by `workflow_dispatch`; no scheduled run yet (FA-30); `evidence` in the manifest has been exercised by tests and by the remote chain test (below), not by a production release | `gh run list`, `RR-04` |
+| 2 | no exploitable HIGH without accepted mitigation | **met** | FA-19/FA-23 (portal) fixed, deployed and verified live on both hosts (see "Live verification") |
+| 3 | automatic publication proven end to end | **partly** — two real releases through `daily → publish → site` (dispatched); the only scheduled run so far FAILED (FA-31, fixed; proved by dispatched run 39254094180); `evidence` sealing proved by the acceptance chain with real Sigstore (run 39255895996, 27/27), not yet by a production release | `gh run list`, `RR-04` |
 | 4 | signatures and cryptographic proofs valid | **met** | `verify_live.py` PASS on both hosts; 23 checkpoint-parser forms, every one-element proof mutation, 9 manifest tamper cases rejected |
 | 5 | quarantine prevents publishing problematic rules | **met at the pipeline** (a quarantined or rejected file cannot enter the set; without the service the safe default applies); **service not deployed** | `test_decide`, `chain_test.py` 22/22 |
 | 6 | the private API enforces real authorization | **NOT demonstrated**: tested on a local harness only (route × role matrix, CSRF, OIDC scoping, batch atomicity all pass there); real OAuth/OIDC/D1 not run (RR-03) | `evidence/audit-quarantine-service.md` |
 | 7 | no private-information leak | **met by test** (`make_public_candidate`, public candidate carries counts only); the service's public endpoint returns four counts | `test_public_candidate`, `chain_test` privacy check |
 | 8 | releases verifiable | **met** | `verify_public_release.py` / `verify_live.py` |
-| 9 | web works | **met after deployment of 6c4f830** (HIGH W-01 fixed) | e2e + axe |
+| 9 | web works | **met** (deployed; e2e, axe 0 violations, `verify_live` on both hosts) | |
 | 10 | documentation in sync, diagrams legible | **met** | `test_docs` 43, `docs_check` full 80/80 |
 | 11 | mandatory tests pass | **met** for everything that could run; see `TEST-MATRIX.md` for the NOT RUN list (CodeQL first run, DAST of the API, real Cloudflare/GitHub concurrency scenarios) | |
-| 12 | required deployments verified | **to be confirmed** after pushing this tree; both hosts were verified on the previous tree | below |
+| 12 | required deployments verified | **met**: site run 39258422035, both hosts `LIVE VERIFICATION PASSED`, mirrors identical | below |
 | 13 | recovery from failures proven | **partly**: draft-then-public release, unique tags, republish by the next daily run, `compare_mirrors`; interruption/duplicate-run scenarios were reasoned, not provoked (RR-15) | `ARCHITECTURE-REVIEW.md` |
 | — | repository protections (secret scanning, required checks, immutable releases) | **human decision pending** (RR-01) | `gh api` outputs in the baseline |
 
@@ -42,7 +42,7 @@ When 1–4 are done and the checks below still pass, tag `v1.0.0` (see "Closing"
 
 ## Live verification
 
-Appended by the final section of `FINAL-AUDIT-REPORT.md` after the tree was pushed and deployed.
+2026-10-19, tree `1cd2a02` plus log commits: `verify_live.py --external` PASSED on `https://macguard.github.io/macguard-yara-channel/` and `https://macguard-rules.pages.dev/`; `compare_mirrors.py` identical (manifest `f75c2146…`, rules_root `16d08239…`, log 75 entries); Mermaid 12.2.0 with DOMPurify 3.4.12 served by both; CSP meta on GitHub Pages, CSP/COOP/permissions/nosniff headers on Cloudflare; unknown paths answer 404 on both. Passive ZAP re-run results are in `evidence/zap-baseline-before-fixes.md`.
 
 ## Closing (only after GO)
 

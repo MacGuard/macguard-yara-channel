@@ -12,7 +12,7 @@ Every line says what was run, where, and the result. **NOT RUN** is a result, no
 | SCA | OSV API for Mermaid, wrangler, cosign, actions; `osv-scanner` | `evidence/osv-queries-before-fixes.json` | Mermaid 10.9.3: 8 advisories → fixed; others clean. `osv-scanner` found no lockfile (the repo has none) |
 | SCA | Syft SBOM | `evidence/sbom.cdx.json` | done; Grype and OpenSSF Scorecard **NOT RUN** (not installed) |
 | Secrets | gitleaks over 104 commits | `gitleaks detect` | no leaks |
-| Unit / property | Python suite, 21 modules | `python3 -m unittest discover -s tests` | local, last full run on the tree before the final two commits: 273 tests, 272 OK, 1 failure (`test_csp` found the inline script of `docs/index.html`; fixed, module re-run OK). Modules touched afterwards re-run: `test_csp`, `test_docs`, `test_docs_og` (51 OK), `test_verify_public_release` (36 OK). The full suite on the final tree runs in CI (`daily.yml`, run 39254094180, result in `FINAL-AUDIT-REPORT.md`) |
+| Unit / property | Python suite, 21 modules | `python3 -m unittest discover -s tests` | local, last full run on the tree before the final two commits: 273 tests, 272 OK, 1 failure (`test_csp` found the inline script of `docs/index.html`; fixed, module re-run OK). Modules touched afterwards re-run: `test_csp`, `test_docs`, `test_docs_og` (51 OK), `test_verify_public_release` (36 OK). The full suite on the fixed tree ran in CI (`daily.yml`, run 39254094180: success) |
 | Unit | quarantine service | `cd admin/worker && npm test` | 36 OK (7 new, red on the old source) |
 | Adversarial | Merkle: every one-element mutation of inclusion and consistency proofs for all tree sizes ≤ 33/30, forked histories, second preimage | `tests/test_tlog_adversarial.py` (17) | OK |
 | Adversarial | checkpoint parser: 23 malformed or non-canonical forms, 3,000 random byte strings and single-byte mutations | same | OK (red before FA-12) |
@@ -25,16 +25,16 @@ Every line says what was run, where, and the result. **NOT RUN** is a result, no
 | Fuzzing | Atheris / libFuzzer / Hypothesis | not installed in the repository's environment; property tests above use the standard library with fixed seeds | **NOT RUN** (RR-10) |
 | Contract | docs vs code (24 events, policy numbers, commands, manifests, ES/EN parity), mirror parity, CSP vs real pages | `tests/test_docs.py` (43), `test_csp`, `test_compare_mirrors` | OK |
 | Crypto, real data | independent verifier on the real latest release and on two real releases (consistency), rollback and fork detection | `tests/test_verify_public_release.py` | 36 OK |
-| Integration | acceptance chain with synthetic candidates (static, dynamic with an engine-blocking rule, quarantine API, approvals, revalidation, privacy) | `python3 scripts/chain_test.py` | 22/22 locally; with `--publish` (Sigstore, real release, tamper) it runs only in Actions: see report |
+| Integration | acceptance chain with synthetic candidates (static, dynamic with an engine-blocking rule, quarantine API, approvals, revalidation, privacy) | `python3 scripts/chain_test.py` | 22/22 locally; with `--publish` in Actions (run 39255895996): 27/27 — Sigstore keyless signing, sealing with `evidence`, real release, site build, public verification, tamper |
 | E2E web | real pages in headless Chrome incl. tamper and missing-proof modes | `scripts/web_check.sh site`, `… site tamper`, `… site missing` | OK (the new cases are red on the old code) |
 | E2E docs | 20 pages × 2 languages × 2 widths, 80 Mermaid renders, toolbar, legibility, under the CSP | `scripts/docs_check.py --site site --mode full` | 80/80; negative control (`script-src 'none'`) fails as it must |
-| DAST | OWASP ZAP baseline, passive, both hosts | `evidence/zap-baseline-before-fixes.md` | run **before** the fixes; re-run after deployment: see report |
+| DAST | OWASP ZAP baseline, passive, both hosts | `evidence/zap-baseline-before-fixes.md` | run before the fixes, after them and on the final tree; see the three tables in the file |
 | DAST | quarantine API against a staging deployment | — | **NOT RUN** (service not deployed) |
 | UX / a11y | Playwright + axe-core (WCAG 2.2 AA tags) 7 page types × light/dark × 1280/390; keyboard walk; zoom 200 %/400 % by viewport; Lighthouse mobile | `evidence/web-audit-scripts/` | axe 0 violations after the fixes; Lighthouse before fixes in `evidence/audit-public-portal.md` |
 | UX | real screen readers, Firefox, WebKit | — | **NOT RUN** |
 | Performance | Lighthouse mobile, transfer sizes, filter latency (30–280 ms on 1,174 files), site build 11 s, docs fast check 11–26 s | audit report + below | baselines recorded |
-| CI/CD | actionlint, zizmor, workflow runs | GitHub Actions | see report |
-| Publication | `verify_live.py` on both hosts + `compare_mirrors.py` | after deployment | see report |
+| CI/CD | actionlint, zizmor, workflow runs | GitHub Actions | site 39258422035 success; daily 39254094180 success; chain 39255895996 success; scheduled daily 39196469644 FAILED before the fix (FA-31) |
+| Publication | `verify_live.py` on both hosts + `compare_mirrors.py` | after deployment | PASS on both, mirrors identical |
 
 ## 2. The 20 integration scenarios of the brief
 

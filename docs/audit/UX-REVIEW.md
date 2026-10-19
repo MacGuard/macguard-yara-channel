@@ -11,8 +11,8 @@ Both hosts serve identical bytes apart from the Open Graph URLs (same manifest S
 | ID | Sev. | Page / element | Problem | State |
 |---|---|---|---|---|
 | W-01 | HIGH | home, tile "individual YARA rules" | showed "—" when `latest.json` arrived last | fixed (6c4f830), e2e |
-| W-02 | HIGH | all | Mermaid 10.9.3, no CSP | fixed in repo (8c3cf22); **live only after deployment** |
-| W-03 | MED | Cloudflare | every unknown path answered 200 + index | fixed in repo (404.html, robots.txt) |
+| W-02 | HIGH | all | Mermaid 10.9.3, no CSP | fixed and live (Mermaid 12.2.0, CSP meta on GitHub Pages, real headers on Cloudflare) |
+| W-03 | MED | Cloudflare | every unknown path answered 200 + index | fixed and live (404 and robots.txt verified on both hosts) |
 | W-04 | MED | rules | "matches the manifest" compared with `catalog.json`; the package check used unsigned `latest.json` on the site copy, the link goes to the GitHub copy | wording fixed; the two copies are still two (RR-07) |
 | W-05 | MED | transparency | skipped checks still gave a clean verdict | fixed, e2e red/green |
 | W-06 | MED | transparency | entries after the last checkpoint looked signed | marked "after the latest checkpoint, not signed yet" |
