@@ -167,8 +167,10 @@ def publish(work, a, final, svc, check):
     sh('tar', '-czf', 'rules-release.tar.gz', '-C', 'dist', 'rules', 'manifest.json')
     check('release: the complete set was sealed and signed with Sigstore (keyless)', (ws / 'dist/manifest.sigstore.json').exists() and json.loads((ws / 'dist/manifest.json').read_text())['stats']['files'] == len(final['approved']))
     tag = f"chain-test-{os.environ.get('GITHUB_RUN_ID', int(time.time()))}"
-    sh('gh', 'release', 'create', tag, '--repo', a.repo, '--prerelease', '--title', tag, '--notes', 'Synthetic chain test release; deleted at the end of the run.',
+    # Same order as publish.yml: draft, every asset, then publish. With immutable releases enabled the assets cannot change after publication.
+    sh('gh', 'release', 'create', tag, '--repo', a.repo, '--draft', '--prerelease', '--title', tag, '--notes', 'Synthetic chain test release; deleted at the end of the run.',
        'rules-release.tar.gz', 'dist/manifest.json', 'dist/manifest.sigstore.json', 'dist/inclusion-proof.json', 'logs/checkpoint.txt', 'logs/checkpoint.sigstore.json')
+    sh('gh', 'release', 'edit', tag, '--repo', a.repo, '--draft=false', '--prerelease')
     try:
         site_ws = work / 'site-ws'; shutil.rmtree(site_ws, ignore_errors=True)
         for d in ('scripts', 'config', 'web', 'docs-src', 'logs'): shutil.copytree(ws / d, site_ws / d, ignore=shutil.ignore_patterns('__pycache__'))
@@ -196,6 +198,10 @@ def publish(work, a, final, svc, check):
             check('public verification: a tampered served rule is detected', bad.returncode != 0 and 'served bytes differ' in bad.stdout)
         finally: srv.terminate()
     finally:
-        subprocess.run(['gh', 'release', 'delete', tag, '--repo', a.repo, '--yes', '--cleanup-tag'], capture_output=True)
+        # Delete the release first, then its tag as a separate call: with immutable releases a tag cannot be removed while its release exists,
+        # and the tag name is never reusable (the name carries the run id, so it is unique). A leftover is reported, never hidden.
+        subprocess.run(['gh', 'release', 'delete', tag, '--repo', a.repo, '--yes'], capture_output=True)
+        t = subprocess.run(['gh', 'api', '-X', 'DELETE', f'repos/{a.repo}/git/refs/tags/{tag}'], capture_output=True, text=True)
+        if t.returncode != 0 and 'Reference does not exist' not in t.stdout + t.stderr: print(f'WARN cleanup: tag {tag} was left behind: {(t.stdout + t.stderr).strip()[:200]}')
 
 if __name__ == '__main__': main()

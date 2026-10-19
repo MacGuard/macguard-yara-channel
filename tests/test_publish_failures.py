@@ -116,5 +116,21 @@ class PublishWorkflowShape(unittest.TestCase):
         self.assertEqual(site.count("macguard-log"), 1, "only the record job may take the log group")
 
 
+class ChainTestSurvivesImmutableReleases(unittest.TestCase):
+    """GitHub immutable releases lock assets once published and forbid deleting a tag while its release exists.
+    chain_test.py must therefore publish like publish.yml (draft, all assets, then publish) and delete the release before its tag."""
+    SRC = (Path(__file__).resolve().parent.parent / "scripts" / "chain_test.py").read_text()
+
+    def test_release_is_created_as_a_draft_and_published_after_the_assets(self):
+        create, edit = self.SRC.index("'release', 'create'"), self.SRC.index("'--draft=false'")
+        self.assertIn("'--draft'", self.SRC[create:edit])
+        self.assertLess(create, edit)
+
+    def test_cleanup_deletes_the_release_then_the_tag_and_reports_a_leftover(self):
+        self.assertNotIn("--cleanup-tag", self.SRC)
+        self.assertLess(self.SRC.index("'release', 'delete'"), self.SRC.index("git/refs/tags/"))
+        self.assertIn("was left behind", self.SRC)
+
+
 if __name__ == "__main__":
     unittest.main()
