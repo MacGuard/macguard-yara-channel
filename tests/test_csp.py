@@ -35,7 +35,7 @@ class RealPagesTests(unittest.TestCase):
     def test_no_inline_script_handler_or_javascript_url(self):
         for p in self.pages:
             s = p.read_text(encoding='utf-8')
-            for m in re.finditer(r'<script\b([^>]*)>(.*?)</script\s*>', s, re.S | re.I):
+            for m in re.finditer(r'<script\b([^>]*)>(.*?)</script[^>]*>', s, re.S | re.I):
                 self.assertIn('src=', m.group(1), f'{p.name}: inline script'); self.assertEqual(m.group(2).strip(), '', f'{p.name}: script with src has a body')
             self.assertIsNone(re.search(r'\son[a-z]+\s*=', re.sub(r'content="[^"]*"', '', s)), f'{p.name}: inline event handler')
             self.assertIsNone(re.search(r'(href|src|action)\s*=\s*"\s*javascript:', s, re.I), f'{p.name}: javascript: URL')

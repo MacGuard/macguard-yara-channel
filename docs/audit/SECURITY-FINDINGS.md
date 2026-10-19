@@ -52,7 +52,7 @@ No CRITICAL finding. One HIGH in the quarantine service (latent: the service is 
 |---|---|---|---|---|
 | 5→7→8 | `js/xss-through-dom` `web/docs-redirect.js:2` | `data-first` is written by `build_docs.py` from the first page slug; the target is `es/` or `en/` + `[a-z0-9-]` + `.html`, so it cannot start a `javascript:` or cross-origin URL (7 hostile ids pinned by `test_docs_redirect`). #5 closed itself on the validated rewrite; CodeQL re-raised the flow as #7 (closed) and #8 after my second rewrite because it does not model regex validation | not exploitable; input hardened | validation kept; #8 is the only alert left, to be dismissed by the owner as "false positive" with this row as justification, or left open |
 | 1–3 | `py/path-injection` `tests/test_verify_public_release.py` | the loopback fixture built `REAL / name` from the request path (`rsplit('/')` leaves no separator, only `..` was possible; it reads a temp folder, only in tests, bound to 127.0.0.1) | false positive in practice, real pattern | fixed: files are chosen by exact name from the folder listing (`real_bytes`); 42 tests incl. verifier green |
-| 4 | `py/bad-tag-filter` `tests/test_csp.py:38` | scans our own generated pages, not a sanitizer; `</script >` was not matched | false positive, but the regex was wrong | fixed: `</script\s*>` |
+| 4 | `py/bad-tag-filter` `tests/test_csp.py:38` | scans our own generated pages, not a sanitizer; `</script >` was not matched | false positive, but the regex was wrong | fixed: `</script[^>]*>` |
 | 6 | `js/bad-tag-filter` `service.test.js:237` | an assertion that stored hostile text is returned unchanged as JSON | false positive | fixed: `includes('<script>')` instead of a regex |
 
 ## Static analysis, triage
