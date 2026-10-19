@@ -1,35 +1,42 @@
-"""web/docs-redirect.js sends the reader to docs/<lang>/<first>.html. `first` comes from an attribute of the page; CodeQL (js/xss-through-dom)
-flagged it as a DOM-text-to-URL flow. It is build-generated, but the script now accepts only [a-z0-9-] and this pins it."""
+"""web/docs-redirect.js sends the reader to docs/<lang>/overview.html. CodeQL (js/xss-through-dom) flagged an earlier version that read the
+page id from a DOM attribute; the id is now a constant, so no DOM text reaches the URL. This pins both the behaviour and that property."""
 import json
+import re
 import shutil
 import subprocess
 import unittest
 from pathlib import Path
 
-JS = Path(__file__).resolve().parent.parent / "web" / "docs-redirect.js"
+ROOT = Path(__file__).resolve().parent.parent
+JS = ROOT / "web" / "docs-redirect.js"
 HARNESS = """
 const src = require('fs').readFileSync(process.argv[1], 'utf8');
-const [first, lang] = JSON.parse(process.argv[2]);
+const [lang, attr] = JSON.parse(process.argv[2]);
 let target = null;
 new Function('document', 'localStorage', 'navigator', 'location', src)(
-  { currentScript: { getAttribute: () => first } }, { getItem: () => lang }, { language: 'en' }, { replace: (u) => { target = u; } });
+  { currentScript: { getAttribute: () => attr } }, { getItem: () => lang }, { language: 'en' }, { replace: (u) => { target = u; } });
 console.log(JSON.stringify(target));
 """
 
 
 @unittest.skipUnless(shutil.which("node"), "node is needed")
 class DocsRedirect(unittest.TestCase):
-    def go(self, first, lang=None):
-        out = subprocess.run(["node", "-e", HARNESS, str(JS), json.dumps([first, lang])], capture_output=True, text=True, check=True).stdout
+    def go(self, lang, attr="../../evil"):
+        out = subprocess.run(["node", "-e", HARNESS, str(JS), json.dumps([lang, attr])], capture_output=True, text=True, check=True).stdout
         return json.loads(out)
 
-    def test_normal_targets(self):
-        self.assertEqual(self.go("overview", "es-ES"), "es/overview.html")
-        self.assertEqual(self.go("release-flow", "fr"), "en/release-flow.html")
+    def test_language_picks_the_target(self):
+        self.assertEqual(self.go("es-ES"), "es/overview.html")
+        self.assertEqual(self.go("fr"), "en/overview.html")
 
-    def test_hostile_first_page_falls_back(self):
-        for bad in ["../../evil", "//evil.example/x", "javascript:alert(1)", "a/b", "x.html?y", "", "A B"]:
-            self.assertEqual(self.go(bad, "en"), "en/overview.html", bad)
+    def test_nothing_from_the_page_reaches_the_url(self):
+        self.assertEqual(self.go("en", "javascript:alert(1)"), "en/overview.html")
+        self.assertIsNone(re.search(r"getAttribute|dataset|document\.|innerHTML|textContent", JS.read_text()))
+
+    def test_the_build_emits_no_attribute_and_requires_overview_first(self):
+        src = (ROOT / "scripts" / "build_docs.py").read_text()
+        self.assertNotIn("data-first", src)
+        self.assertIn("first != 'overview'", src)
 
 
 if __name__ == "__main__":

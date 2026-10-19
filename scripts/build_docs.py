@@ -218,9 +218,10 @@ def build(out: pathlib.Path, site_for_context: pathlib.Path = None, strict=True)
             target.write_text(page_html(lang, p['slug'], meta, content, toc, pages, ctx, prev_next), encoding='utf-8'); report['pages'] += 1; report['files'].append(str(target.relative_to(out)))
             for d in used: report['diagrams'].setdefault(lang, []).append(d)
     first = pages[0]['slug']
+    if first != 'overview': raise BuildError(f"the first documentation page must be 'overview' (web/docs-redirect.js sends readers there), got {first!r}")
     (out / 'index.html').write_text(f'''<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Documentation · MacGuard YARA Channel</title><link rel="stylesheet" href="../style.css">
 <meta http-equiv="refresh" content="3;url=en/{first}.html"><main style="max-width:640px;margin:60px auto;padding:0 16px"><h1>Documentación · Documentation</h1><p><a href="es/{first}.html">Leer en español</a> · <a href="en/{first}.html">Read in English</a></p>
-<script src="../docs-redirect.js" data-first="{first}"></script></main></html>''', encoding='utf-8')
+<script src="../docs-redirect.js"></script></main></html>''', encoding='utf-8')
     report['files'].append('index.html')
     return report
 
