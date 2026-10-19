@@ -2,12 +2,13 @@
 
 Generated from `logs/log.jsonl`; do not edit by hand. Times are UTC. Newest first.
 
-Entries: 128 (INFO 81, WARNING 25, ERROR 22)
+Entries: 129 (INFO 81, WARNING 25, ERROR 23)
 
 Latest signed checkpoint: 75 entries, Merkle root `1bab9bb9364b3a42f76835ae138bffad33eaa3694d0021afd208f5fd54e63d96`.
 
 | # | Date (UTC) | Level | Event | Message |
 |---|---|---|---|---|
+| 128 | 2026-10-19T13:04:42Z | ERROR | `site.build_failed` | The documentation checks failed (docs-check: failure). Nothing was deployed; the previous site stays online. See https://github.com/MacGuard/macguard-yara-channel/actions/runs/39256870571 |
 | 127 | 2026-10-19T12:47:48Z | INFO | `site.cloudflare_deployed` | Site deployed to Cloudflare Pages project macguard-rules and the public mirror was downloaded and verified. See https://github.com/MacGuard/macguard-yara-channel/actions/runs/39253998102 |
 | 126 | 2026-10-19T12:47:48Z | INFO | `site.live_verified` | The public GitHub Pages site was downloaded and verified: signatures, every rule hash, catalog, proof and links. See https://github.com/MacGuard/macguard-yara-channel/actions/runs/39253998102 |
 | 125 | 2026-10-19T12:47:48Z | INFO | `site.github_pages_deployed` | Site deployed to GitHub Pages. See https://github.com/MacGuard/macguard-yara-channel/actions/runs/39253998102 |
