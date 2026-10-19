@@ -11,6 +11,10 @@ sys.path.insert(0, str(ROOT / 'scripts'))
 import verify_public_release as V
 
 REAL = None
+
+def real_bytes(name):
+    """Bytes of a file of the fixture folder chosen by exact name from its listing (a request path never builds a filesystem path), or None."""
+    return next((f.read_bytes() for f in REAL.iterdir() if f.is_file() and f.name == name), None)
 def setUpModule():
     global REAL
     REAL = pathlib.Path(tempfile.mkdtemp(prefix='real-release-'))
@@ -140,10 +144,11 @@ class FakeGitHub(http.server.BaseHTTPRequestHandler):
             self.send_response(302); self.send_header('Location', f'{base}/MacGuard/macguard-yara-channel/releases/tag/{tag}'); self.send_header('Content-Length', '0'); self.end_headers(); return
         if '/releases/download/' in self.path:
             name = self.path.rsplit('/', 1)[1]
-            if not (REAL / name).exists(): self.send_response(404); self.send_header('Content-Length', '0'); self.end_headers(); return
-            data = (REAL / name).read_bytes(); self.send_response(200); self.send_header('Content-Length', str(len(data))); self.end_headers(); return self.wfile.write(data[:len(data) // 2] if cls.truncate == name else data)
+            data = real_bytes(name)
+            if data is None: self.send_response(404); self.send_header('Content-Length', '0'); self.end_headers(); return
+            self.send_response(200); self.send_header('Content-Length', str(len(data))); self.end_headers(); return self.wfile.write(data[:len(data) // 2] if cls.truncate == name else data)
         if self.path.startswith('/dl/'):
-            name = self.path.rsplit('/', 1)[1]; data = (REAL / name).read_bytes()
+            name = self.path.rsplit('/', 1)[1]; data = real_bytes(name)
             if cls.truncate == name:   # promise everything, deliver half
                 self.send_response(200); self.send_header('Content-Length', str(len(data))); self.end_headers(); self.wfile.write(data[:len(data) // 2]); return
             self.send_response(200); self.send_header('Content-Length', str(len(data))); self.end_headers(); return self.wfile.write(data)

@@ -235,7 +235,7 @@ test('responses carry strict security headers and rule code is only ever data', 
   const r = await w.call('GET', `/api/candidates/${ids[0]}`, { user: rita });
   assert.match(r.headers.get('Content-Security-Policy'), /default-src 'none'/); assert.equal(r.headers.get('X-Content-Type-Options'), 'nosniff'); assert.match(r.headers.get('Content-Type'), /application\/json/);
   const evil = await w.submit([cand('f', 'rules/x/f.yar', { content_b64: Buffer.from('<script>alert(1)</script> rule X { condition: true }').toString('base64') })]);
-  const c = (await w.call('GET', `/api/candidates/${evil.data.results[0].id}`, { user: rita })); assert.match(c.headers.get('Content-Type'), /json/); assert.match(c.data.content, /<script>/);
+  const c = (await w.call('GET', `/api/candidates/${evil.data.results[0].id}`, { user: rita })); assert.match(c.headers.get('Content-Type'), /json/); assert.ok(c.data.content.includes('<script>'));
 });
 
 test('logout destroys the server-side session', async () => {
