@@ -3,8 +3,8 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "test": "node --test test/",
-    "test:runtime": "node --test test-runtime/"
+    "test": "node --test test/*.test.js",
+    "test:runtime": "node --test test-runtime/*.test.mjs"
   },
   "devDependencies": {
     "miniflare": "^4.20260730.0"
