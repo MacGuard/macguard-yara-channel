@@ -27,7 +27,7 @@ Several failures: the report lists them all; the exit code is the first by prece
 
 Trust: this script is code you run. Read it (about 500 lines) or compare it with the signed copy attached to a release
 (docs: Verification page). Downloading it from the same site that hosts the rules is not an independent root of trust."""
-import argparse, base64, hashlib, json, os, pathlib, re, shutil, subprocess, sys, tarfile, tempfile, time, urllib.error, urllib.parse, urllib.request
+import argparse, base64, hashlib, json, os, pathlib, re, shutil, subprocess, sys, tarfile, tempfile, textwrap, time, urllib.error, urllib.parse, urllib.request
 
 VERSION = '1.0.0'
 SCHEMA = 1
@@ -231,12 +231,99 @@ def safe_extract(archive: pathlib.Path, dest: pathlib.Path):
         raise Fail(6, f'the package is not a readable tar.gz ({e})')
     return files, total
 
+# ---- terminal presentation (standard library only: no third-party package runs inside a verifier) -------------
+class UI:
+    """Colour and live progress for an interactive terminal. Off for pipes, files, CI logs, --json, NO_COLOR or
+    TERM=dumb, so machine-read output is byte-for-byte the plain report. Presentation only: it never decides a result."""
+    TITLES = {'dependency.cosign': 'cosign available', 'release.resolve': 'Release resolved and downloaded', 'artifacts': 'Release artifacts present and well-formed',
+              'signature.manifest': 'Manifest signature (Sigstore)', 'signature.checkpoint': 'Checkpoint signature (Sigstore)', 'package.extract': 'Package unpacked safely',
+              'files.sha256': 'Every rule file matches the signed manifest', 'merkle.rules_root': 'rules_root recomputed (Merkle)', 'counts': 'Declared counts',
+              'checkpoint.matches_manifest': 'Checkpoint equals the manifest log head', 'merkle.inclusion': 'Transparency-log inclusion proof',
+              'consistency': 'Consistency with your trusted checkpoint', 'metadata.release_json': 'release.json cross-check (unsigned)', 'trust_state': 'Trust state saved', 'run': 'Verification run'}
+    PENDING = {'dependency.cosign': 'Looking for cosign', 'release.resolve': 'Resolving the release and downloading its artifacts',
+               'signature.manifest': 'Checking the manifest signature with cosign', 'signature.checkpoint': 'Checking the checkpoint signature with cosign',
+               'package.extract': 'Unpacking the package with limits', 'files.sha256': 'Hashing every rule file', 'counts': 'Counting YARA rules'}
+
+    def __init__(self, mode='auto', stream=None):
+        self.out = stream or sys.stdout
+        tty = hasattr(self.out, 'isatty') and self.out.isatty()
+        self.color = mode == 'always' or (mode == 'auto' and tty and 'NO_COLOR' not in os.environ and os.environ.get('TERM') != 'dumb')
+        self.live = self.color and tty
+        enc = (getattr(self.out, 'encoding', '') or '').lower()
+        self.uni = 'utf' in enc
+        self.width = max(60, min(110, shutil.get_terminal_size((100, 24)).columns))
+        self.step = 0; self._pending = False
+
+    def s(self, text, *codes):
+        if not self.color or not codes: return text
+        return '\033[' + ';'.join(codes) + 'm' + text + '\033[0m'
+    BOLD, DIM, GREEN, RED, YELLOW, ORANGE, CYAN, BLUE, MAGENTA = '1', '2', '32', '31', '33', '38;5;208', '36', '34', '35'
+
+    def sym(self, status, mandatory=True):
+        u = self.uni
+        if status == 'pass': return self.s('✔' if u else 'OK', self.GREEN, self.BOLD)
+        if status == 'fail': return self.s('✘' if u else 'XX', self.RED if mandatory else self.ORANGE, self.BOLD)
+        return self.s('●' if u else '--', self.YELLOW, self.BOLD)
+    def label(self, status, mandatory=True):
+        if status == 'pass': return self.s('PASS', self.GREEN, self.BOLD)
+        if status == 'fail': return self.s('FAIL' if mandatory else 'WARN', self.RED if mandatory else self.ORANGE, self.BOLD)
+        return self.s('N/A ', self.YELLOW, self.BOLD)
+
+    def write(self, text=''): self.out.write(text + '\n'); self.out.flush()
+    def rule(self, title=''):
+        line = '─' if self.uni else '-'
+        if not title: self.write(self.s(line * self.width, self.DIM)); return
+        self.write(self.s(line * 2 + ' ', self.DIM) + self.s(title, self.BOLD) + ' ' + self.s(line * max(2, self.width - len(title) - 4), self.DIM))
+
+    def header(self, a):
+        if not self.live: return
+        what = f'tag {a.tag}' if a.tag else ('newest release' if a.latest else f'directory {a.directory}')
+        tl, tr, bl, br, h, v = ('╭', '╮', '╰', '╯', '─', '│') if self.uni else ('+', '+', '+', '+', '-', '|')
+        inner = self.width - 2
+        def fit(t):   # cut long paths in the middle so the start ("Verifying …") and the end (folder name) stay readable
+            room, dots = inner - 2, ('…' if self.uni else '...')
+            if len(t) <= room: return t
+            head = room // 2; return t[:head] + dots + t[-(room - head - len(dots)):]
+        def row(t, raw):
+            raw2 = fit(raw); t = t if raw2 == raw else self.s(raw2, self.DIM)
+            self.write(self.s(v, self.CYAN) + ' ' + t + ' ' * max(0, inner - 1 - len(raw2)) + self.s(v, self.CYAN))
+        self.write(self.s(tl + h * inner + tr, self.CYAN))
+        title = f'MacGuard YARA release verifier {VERSION}'
+        row(self.s(title, self.BOLD), title)
+        sub = f'Verifying {what}'
+        row(self.s(sub, self.DIM), sub)
+        idt = 'Expected signer: ' + a.identity.split('/.github/workflows/')[-1]
+        row(self.s(idt, self.DIM), idt)
+        self.write(self.s(bl + h * inner + br, self.CYAN)); self.write()
+
+    def pending(self, cid):
+        if not self.live: return
+        text = self.PENDING.get(cid) or self.TITLES.get(cid, cid)
+        self.out.write('\r\033[K  ' + self.s('…' if self.uni else '..', self.CYAN, self.BOLD) + ' ' + self.s(text + '…', self.DIM)); self.out.flush()
+        self._pending = True
+
+    def done(self, c):
+        if not self.live: return
+        if self._pending: self.out.write('\r\033[K'); self._pending = False
+        self.step += 1
+        title = self.TITLES.get(c['id'], c['id'])
+        opt = '' if c['mandatory'] else self.s(' (optional)', self.DIM)
+        self.write(f"  {self.sym(c['status'], c['mandatory'])} {self.s(f'{self.step:>2}.', self.DIM)} {self.s(title, self.BOLD)}{opt}  {self.s(c['id'], self.DIM)}")
+        colour = (self.DIM,) if c['status'] == 'pass' else ((self.RED,) if c['status'] == 'fail' and c['mandatory'] else (self.ORANGE,) if c['status'] == 'fail' else (self.YELLOW,))
+        for chunk in textwrap.wrap(str(c['detail']), self.width - 9) or ['']:
+            self.write('        ' + self.s(chunk, *colour))
+
+UI_ACTIVE = UI('never')
+
 # ---- the checks --------------------------------------------------------------------------------------------
 class Report:
     def __init__(self): self.checks, self.summary = [], {}
-    def add(self, cid, status, detail, category=None, mandatory=True): self.checks.append({'id': cid, 'status': status, 'mandatory': mandatory, 'category': category, 'detail': detail})
+    def add(self, cid, status, detail, category=None, mandatory=True):
+        self.checks.append({'id': cid, 'status': status, 'mandatory': mandatory, 'category': category, 'detail': detail})
+        UI_ACTIVE.done(self.checks[-1])
 
 def run_check(rep, cid, fn, category, mandatory=True):
+    UI_ACTIVE.pending(cid)
     try: detail = fn(); rep.add(cid, 'pass', detail or '', category, mandatory); return True
     except Fail as f: rep.add(cid, 'fail', f.message, f.code, mandatory); return False
     except Exception as e:   # a verifier that crashes must still fail loudly and explain itself, never end silently
@@ -323,8 +410,10 @@ def verify(a):
     keep = pathlib.Path(a.output_dir) if a.output_dir else None
     release, d = {}, None
     try:
+        UI_ACTIVE.pending('dependency.cosign')
         try: cosign = find_cosign(a.cosign); rep.add('dependency.cosign', 'pass', cosign, None)
         except Fail as f: rep.add('dependency.cosign', 'fail', f.message, f.code); return finish(rep, release, a)
+        UI_ACTIVE.pending('release.resolve')
         try: release, d = resolve_and_download(a, net, tmp, rep); rep.add('release.resolve', 'pass', f"{release['tag']} (from {release['resolved_from']})" + ('; `latest` moved while verifying, the pinned tag was verified' if release.get('latest_moved') else ''), None)
         except Fail as f: rep.add('release.resolve', 'fail', f.message, f.code); return finish(rep, release, a)
         if keep:
@@ -476,21 +565,80 @@ def render(r) -> str:
     lines += ['', 'A valid signature and matching hashes prove WHO published exactly THESE bytes. They do not prove the rules are good or that scanned files are safe.']
     return '\n'.join(lines)
 
+def render_plain_coloured(r, ui: UI) -> str:
+    """--color always into a pipe or file: the plain layout, with coloured status words."""
+    marks = {'pass': '[PASS]', 'fail': '[FAIL]', 'not_requested': '[n/a ]'}
+    lines = render(r).split('\n')
+    for i, l in enumerate(lines):
+        for st, m in marks.items():
+            if l.startswith('  ' + m):
+                lines[i] = '  ' + ui.s(m, ui.GREEN if st == 'pass' else ui.RED if st == 'fail' else ui.YELLOW, ui.BOLD) + l[2 + len(m):]
+    head = lines[0].replace('PASS', ui.s('PASS', ui.GREEN, ui.BOLD)).replace('FAIL', ui.s('FAIL', ui.RED, ui.BOLD))
+    return '\n'.join([ui.s(head, ui.BOLD)] + lines[1:])
+
+def render_styled(r, ui: UI) -> str:
+    """Summary panel after the live step list. The checks were already printed as they finished."""
+    s, rel, out = r['summary'], r['release'], []
+    w = lambda t='': out.append(t)
+    ok = r['result'] == 'PASS'
+    w()
+    ui_rule_char = '━' if ui.uni else '='
+    banner = (' ✔ VERIFIED ' if ui.uni else ' VERIFIED ') if ok else (' ✘ NOT VERIFIED ' if ui.uni else ' NOT VERIFIED ')
+    w(ui.s(banner, '1', '97', '42' if ok else '41') + '  ' + ui.s(f"exit {r['exit_code']}", ui.DIM)
+      + ('' if ok else '  ' + ui.s(EXIT_MEANING.get(r['exit_code'], ''), ui.RED, ui.BOLD)))
+    w(ui.s(ui_rule_char * ui.width, ui.GREEN if ok else ui.RED))
+    def kv(k, v, *codes): w(f"  {ui.s(k.ljust(18), ui.BOLD)}{ui.s(str(v), *codes) if codes else v}")
+    if rel:
+        kv('Release', rel.get('tag'), ui.BOLD)
+        if rel.get('url'): kv('', rel['url'], ui.BLUE)
+        if rel.get('note'): kv('Note', rel['note'], ui.YELLOW)
+    if s:
+        kv('Rule files', f"{s['files']:,}" + ui.s(f"   ({s['yara_rules']:,} individual YARA rules, {s['expanded_bytes']:,} bytes)", ui.DIM) if isinstance(s.get('yara_rules'), int) else s['files'])
+        kv('Package', f"{s['package_bytes']:,} bytes")
+        kv('Package SHA-256', s['package_sha256'], ui.CYAN)
+        kv('Manifest SHA-256', s['manifest_sha256'], ui.CYAN)
+        kv('rules_root', s['rules_root'], ui.MAGENTA)
+        kv('Checkpoint', s['checkpoint'], ui.DIM)
+    kv('Signer', r['expected']['identity'], ui.DIM)
+    kv('Issuer', r['expected']['issuer'], ui.DIM)
+    counts = {k: sum(1 for c in r['checks'] if (c['status'], c['mandatory']) == k) for k in (('pass', True), ('pass', False), ('fail', True), ('fail', False))}
+    na = sum(1 for c in r['checks'] if c['status'] not in ('pass', 'fail'))
+    w()
+    w('  ' + ui.s(f"{counts[('pass', True)] + counts[('pass', False)]} passed", ui.GREEN, ui.BOLD) + '   '
+      + ui.s(f"{counts[('fail', True)]} failed", ui.RED, ui.BOLD) + '   ' + ui.s(f"{counts[('fail', False)]} warnings", ui.ORANGE, ui.BOLD) + '   ' + ui.s(f"{na} not applicable", ui.YELLOW, ui.BOLD))
+    if any(c['id'] == 'consistency' and c['status'] == 'not_requested' for c in r['checks']):
+        w('  ' + ui.s('Tip:', ui.YELLOW, ui.BOLD) + ui.s(' add --trust-state ~/.macguard-trust.json to remember this checkpoint and detect rollbacks next time.', ui.DIM))
+    w()
+    w(ui.s('  A valid signature and matching hashes prove WHO published exactly THESE bytes.', ui.DIM))
+    w(ui.s('  They do not prove the rules are good or that scanned files are safe.', ui.DIM))
+    return '\n'.join(out)
+
+EXIT_MEANING = {1: 'integrity check failed', 2: 'signature or identity check failed', 3: 'Merkle / inclusion / consistency check failed',
+                4: 'download incomplete or network error', 5: 'missing dependency (cosign)', 6: 'invalid format or incomplete release'}
+
 def main(argv=None):
     ap = argparse.ArgumentParser(description='Verify a MacGuard YARA release independently.', epilog=(__doc__ or '').split('Exit codes')[-1].split('Trust:')[0], formatter_class=argparse.RawDescriptionHelpFormatter)
     g = ap.add_mutually_exclusive_group(required=True)
     g.add_argument('--latest', action='store_true', help='the newest published release (resolved once, then pinned)'); g.add_argument('--tag', help='a specific release tag'); g.add_argument('--directory', help='a folder that already holds the release artifacts')
-    ap.add_argument('--json', action='store_true', help='print the structured report only'); ap.add_argument('--repo', default=DEFAULT_REPO); ap.add_argument('--identity', default=DEFAULT_IDENTITY); ap.add_argument('--issuer', default=DEFAULT_ISSUER)
+    ap.add_argument('--json', action='store_true', help='print the structured report only'); ap.add_argument('--color', choices=['auto', 'always', 'never'], default='auto', help='colour and live progress (auto: only in an interactive terminal; NO_COLOR is honoured)'); ap.add_argument('--repo', default=DEFAULT_REPO); ap.add_argument('--identity', default=DEFAULT_IDENTITY); ap.add_argument('--issuer', default=DEFAULT_ISSUER)
     ap.add_argument('--workflow-repo', default=DEFAULT_REPO, help='source repository the certificate must name (empty to skip)'); ap.add_argument('--cosign'); ap.add_argument('--output-dir', help='keep the downloaded artifacts here')
     ap.add_argument('--previous-checkpoint', help='a checkpoint.txt you already trust: prove this release extends it'); ap.add_argument('--trust-state', help='JSON file holding the newest verified checkpoint; read for rollback protection, updated after a full pass')
     ap.add_argument('--api-url', default='https://api.github.com'); ap.add_argument('--web-url', default='https://github.com', help='used when the API quota is exhausted'); ap.add_argument('--raw-url', default='https://raw.githubusercontent.com'); ap.add_argument('--token', help='GitHub token (only to lift the anonymous rate limit)'); ap.add_argument('--tag-for-directory', dest='tag_dir')
     a = ap.parse_args(argv)
     if a.directory and a.tag is None: a.tag = None
+    global UI_ACTIVE
+    UI_ACTIVE = UI('never' if a.json else a.color)
+    UI_ACTIVE.header(a)
     try: rep = verify(a)
     except Exception as e:
         f = e if isinstance(e, Fail) else Fail(6, f'unexpected error: {type(e).__name__}: {str(e)[:200]}')
         rep = {'schemaVersion': SCHEMA, 'tool': 'verify_public_release.py', 'version': VERSION, 'result': 'FAIL', 'exit_code': f.code, 'release': {}, 'expected': {'identity': a.identity, 'issuer': a.issuer, 'repository': a.workflow_repo}, 'summary': {}, 'checks': [{'id': 'run', 'status': 'fail', 'mandatory': True, 'category': f.code, 'detail': f.message}], 'generated_at': time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime())}
-    print(json.dumps(rep, indent=1) if a.json else render(rep))
+    if a.json: print(json.dumps(rep, indent=1))
+    elif UI_ACTIVE.live:
+        if any(c['id'] == 'run' for c in rep['checks']): UI_ACTIVE.done(rep['checks'][-1])   # a crash outside the checks was never printed live
+        print(render_styled(rep, UI_ACTIVE))
+    elif UI_ACTIVE.color: print(render_plain_coloured(rep, UI_ACTIVE))
+    else: print(render(rep))
     return rep['exit_code']
 
 if __name__ == '__main__': sys.exit(main())
