@@ -28,7 +28,17 @@ export async function purgeExpired(db, now) {
   await db.prepare('DELETE FROM oauth_states WHERE expires_at < ?').bind(now).run();
   await db.prepare('DELETE FROM sessions WHERE expires_at < ?').bind(now).run();
 }
-export async function auditTail(db, limit = 50) { return (await db.prepare('SELECT seq, at, actor, role, action, target FROM audit ORDER BY seq DESC LIMIT ?').bind(limit).all()).results; }
+/** Newest first, filterable by action family (the part before the dot), actor and a `before` cursor. `detail` is parsed so the UI can describe what happened. */
+export async function auditQuery(db, { limit = 50, before, family, actor } = {}) {
+  const where = [], args = [];
+  if (before) { where.push('seq < ?'); args.push(before); }
+  if (family) { where.push('action LIKE ?'); args.push(`${family.replace(/[%_]/g, '')}.%`); }
+  if (actor) { where.push('actor = ?'); args.push(actor); }
+  const rows = (await db.prepare(`SELECT seq, at, actor, role, action, target, detail FROM audit ${where.length ? 'WHERE ' + where.join(' AND ') : ''} ORDER BY seq DESC LIMIT ?`).bind(...args, limit + 1).all()).results;
+  const page = rows.slice(0, limit).map((r) => ({ ...r, detail: parse(r.detail, {}) }));
+  return { entries: page, has_more: rows.length > limit, next_before: page.length ? page[page.length - 1].seq : null };
+}
+export async function auditHead(db) { return (await db.prepare('SELECT COUNT(*) AS n, MAX(seq) AS seq FROM audit').first()); }
 
 export async function upsertCandidate(db, item, now, newId) {
   const known = await db.prepare('SELECT * FROM candidates WHERE sha256 = ? AND path = ?').bind(item.sha256, item.path).first();
@@ -68,6 +78,9 @@ export async function getCandidate(db, id) {
   c.content = blob ? blob.content : null;
   c.history = (await db.prepare('SELECT id, sha256, state, detected_at, metrics, release_tag FROM candidates WHERE path = ? AND id != ? ORDER BY detected_at DESC LIMIT 20').bind(c.path, id).all()).results.map((h) => ({ ...h, metrics: parse(h.metrics, {}) }));
   return c;
+}
+export async function sourceCounts(db) {
+  const out = {}; for (const r of (await db.prepare('SELECT source, COUNT(*) AS n FROM candidates WHERE archived_at IS NULL GROUP BY source').all()).results) out[r.source] = r.n; return out;
 }
 export async function counts(db) {
   const out = {}; for (const r of (await db.prepare('SELECT state, COUNT(*) AS n FROM candidates WHERE archived_at IS NULL GROUP BY state').all()).results) out[r.state] = r.n; return out;

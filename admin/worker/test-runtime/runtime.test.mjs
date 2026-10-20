@@ -195,6 +195,6 @@ test('the login flow: state is bound to the browser that started it, and a callb
   assert.match(start.headers.get('location'), /^https:\/\/github\.com\/login\/oauth\/authorize\?/);
   const cookie = start.headers.get('set-cookie'); assert.match(cookie, /__Host-mg_oauth=/); assert.match(cookie, /HttpOnly/); assert.match(cookie, /Secure/);
   const state = new URL(start.headers.get('location')).searchParams.get('state');
-  assert.equal((await call('GET', `/auth/callback?code=abc&state=${state}`)).status, 400);                      // no cookie: someone else's login
-  assert.equal((await call('GET', '/auth/callback?code=abc&state=wrong', { headers: { Cookie: `__Host-mg_oauth=${state}` } })).status, 400);
+  assert.equal((await call('GET', `/auth/callback?code=abc&state=${state}`)).status, 302);                      // no cookie: someone else's login
+  assert.equal((await call('GET', '/auth/callback?code=abc&state=wrong', { headers: { Cookie: `__Host-mg_oauth=${state}` } })).status, 302);
 });

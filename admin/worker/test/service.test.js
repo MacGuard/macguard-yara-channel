@@ -338,8 +338,8 @@ test('FA-M4: the OAuth callback requires the state cookie of the browser that st
   const login = await handle(new Request(ORIGIN + '/auth/login'), w.env, w.deps); assert.equal(login.status, 302);
   const state = new URL(login.headers.get('Location')).searchParams.get('state'); const cookie = login.headers.get('Set-Cookie');
   assert.match(cookie, /__Host-mg_oauth=/); assert.match(cookie, /HttpOnly/); assert.match(cookie, /Secure/);
-  const noCookie = await handle(new Request(`${ORIGIN}/auth/callback?code=c&state=${state}`), w.env, w.deps); assert.equal(noCookie.status, 400);
-  const wrong = await handle(new Request(`${ORIGIN}/auth/callback?code=c&state=${state}`, { headers: { Cookie: '__Host-mg_oauth=' + 'f'.repeat(32) } }), w.env, w.deps); assert.equal(wrong.status, 400);
+  const noCookie = await handle(new Request(`${ORIGIN}/auth/callback?code=c&state=${state}`), w.env, w.deps); assert.equal(noCookie.status, 302); assert.equal(noCookie.headers.get('Location'), '/?e=state');
+  const wrong = await handle(new Request(`${ORIGIN}/auth/callback?code=c&state=${state}`, { headers: { Cookie: '__Host-mg_oauth=' + 'f'.repeat(32) } }), w.env, w.deps); assert.equal(wrong.status, 302); assert.equal(wrong.headers.get('Location'), '/?e=state');
   w.tick(700); await handle(new Request(ORIGIN + '/auth/login'), w.env, w.deps);
   assert.equal((await w.db.prepare('SELECT COUNT(*) AS n FROM oauth_states WHERE state = ?').bind(state).first()).n, 0);
 });
@@ -558,4 +558,35 @@ test('archived candidates leave every operational view (list, counts, public sta
   assert.equal((await w.call('GET', '/public/stats')).data.rejected, 0); assert.deepEqual(await dm(), {});
   assert.equal((await w.call('GET', `/api/candidates/${ids[0]}`, { user: rita })).data.decisions.length, 1, 'the decision is still readable by id');
   assert.equal((await w.db.prepare('SELECT COUNT(*) AS n FROM decisions').first()).n, 1);
+});
+
+// ---- sign-in screen states are real server states --------------------------------------------------------------------------------------
+test('a person without a role can only learn that and sign out; a declined or failed GitHub login returns to the sign-in screen with a reason', async () => {
+  const w = await world(); const nobody = await w.login('nobody', { pull: true });
+  const me = await w.call('GET', '/api/me', { user: nobody }); assert.equal(me.status, 403); assert.equal(me.data.code, 'no_access'); assert.equal(me.data.login, 'nobody'); assert.ok(me.data.csrf);
+  assert.doesNotMatch(JSON.stringify(me.data), /counts|candidates|members/);
+  for (const [m, p] of [['GET', '/api/candidates'], ['GET', '/api/stats'], ['GET', '/api/audit'], ['GET', '/api/members']]) { const r = await w.call(m, p, { user: nobody }); assert.equal(r.status, 403); assert.equal(r.data.code, 'no_access'); }
+  const out = await w.call('POST', '/api/logout', { user: { ...nobody, csrf: me.data.csrf } }); assert.equal(out.status, 200);
+  assert.equal((await w.call('GET', '/api/me', { user: nobody })).data.code, 'signin');
+  const start = await handle(new Request(ORIGIN + '/auth/login'), w.env, w.deps); const state = new URL(start.headers.get('Location')).searchParams.get('state');
+  const jar = { headers: { Cookie: `__Host-mg_oauth=${state}` } };
+  const declined = await handle(new Request(`${ORIGIN}/auth/callback?error=access_denied&state=${state}`, jar), w.env, w.deps); assert.equal(declined.headers.get('Location'), '/?e=cancelled');
+  const start2 = await handle(new Request(ORIGIN + '/auth/login'), w.env, w.deps); const s2 = new URL(start2.headers.get('Location')).searchParams.get('state');
+  const refused = await handle(new Request(`${ORIGIN}/auth/callback?code=bad&state=${s2}`, { headers: { Cookie: `__Host-mg_oauth=${s2}` } }), w.env, w.deps); assert.equal(refused.headers.get('Location'), '/?e=oauth');
+  const old = await w.login('old', { push: true }); w.tick(9 * 3600); assert.equal((await w.call('GET', '/api/me', { user: old })).data.code, 'signin');
+  const rev = await w.login('rev', { push: true }); delete w.perms['tok-rev']; w.tick(61); const r = await w.call('GET', '/api/candidates', { user: rev }); assert.equal(r.data.code, 'reauth');
+  delete w.env.TOKEN_ENC_KEY; const down = await handle(new Request(`${ORIGIN}/auth/callback?code=c&state=${s2}`), w.env, w.deps); assert.match(down.headers.get('Location'), /^\/\?e=/);
+});
+
+test('the audit API pages newest first, filters by action family and actor, and returns the parsed detail', async () => {
+  const { w, ids } = await seeded(['a', 'b', 'c']); const rita = await w.login('rita', { push: true }); w.reviewer = rita; const v = await versions(w, ids);
+  await decide(w, rita, { action: 'hold', ids: [ids[0]], reason: 'looking closer', request_id: rid(), expect: { [ids[0]]: v[ids[0]] } });
+  await decide(w, rita, { action: 'reject', ids: [ids[1]], reason: 'broken regex', request_id: rid(), expect: { [ids[1]]: v[ids[1]] } });
+  const all = (await w.call('GET', '/api/audit?limit=2', { user: rita })).data; assert.equal(all.entries.length, 2); assert.equal(all.has_more, true); assert.ok(all.entries[0].seq > all.entries[1].seq);
+  assert.equal(all.entries[0].action, 'decision.reject'); assert.equal(all.entries[0].detail.reason, 'broken regex');
+  const next = (await w.call('GET', `/api/audit?limit=50&before=${all.next_before}`, { user: rita })).data; assert.ok(next.entries.every((e) => e.seq < all.next_before));
+  const dec = (await w.call('GET', '/api/audit?family=decision', { user: rita })).data.entries; assert.deepEqual(dec.map((e) => e.action), ['decision.reject', 'decision.hold']);
+  assert.equal((await w.call('GET', '/api/audit?actor=nobody', { user: rita })).data.entries.length, 0);
+  assert.equal((await w.call('GET', '/api/audit?family=%25', { user: rita })).status, 200);
+  const stats = (await w.call('GET', '/api/stats', { user: rita })).data; assert.deepEqual(stats.sources, { nextron: 3 });
 });

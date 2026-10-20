@@ -9,6 +9,7 @@ export const HEADERS = {
 };
 const json = (obj, status = 200, extra = {}) => new Response(JSON.stringify(obj), { status, headers: { ...HEADERS, 'Content-Type': 'application/json; charset=utf-8', ...extra } });
 const err = (status, message, extra = {}) => json({ error: message, ...extra }, status);
+const back = (code, extra = {}) => new Response(null, { status: 302, headers: (() => { const h = new Headers(HEADERS); h.set('Location', `/?e=${code}`); for (const c of extra.cookies || []) h.append('Set-Cookie', c); return h; })() });   // failed browser navigations return to the sign-in screen, which explains them
 /** JSON body with a size cap (the platform's own limit is far above what any legitimate request needs). */
 async function readJson(request, max) {
   const declared = Number(request.headers.get('Content-Length') || 0); if (declared > max) return { tooLarge: true };
@@ -56,10 +57,12 @@ export async function handle(request, env, deps) {
       return new Response(null, { status: 302, headers: { ...HEADERS, Location: location, 'Set-Cookie': stateCookie(state) } });   // the state is also bound to this browser
     }
     if (path === '/auth/callback' && method === 'GET') {
+      const done = { cookies: [clearStateCookie()] };
+      if (url.searchParams.get('error')) return back('cancelled', done);   // the person declined on GitHub
       const bound = parseCookies(request.headers.get('Cookie'))[STATE_COOKIE] || '';
       const given = url.searchParams.get('state') || '';
-      if (!given || !timingSafeEqual(bound, given)) return err(400, 'login state does not belong to this browser');
-      const r = await finishLogin(db, env, url.searchParams.get('code'), given, deps, now); if (!r.ok) return err(400, r.error);
+      if (!given || !timingSafeEqual(bound, given)) return back('state', done);
+      const r = await finishLogin(db, env, url.searchParams.get('code'), given, deps, now); if (!r.ok) return back('oauth', done);
       const s = await createSession(db, r.user, now, env);
       await store.appendAudit(db, { actor: r.user.login, role: 'NONE', action: 'session.login', target: 'session', detail: { user_id: r.user.id } }, new Date(now * 1000).toISOString());
       return new Response(null, { status: 302, headers: (() => { const h = new Headers(HEADERS); h.set('Location', '/'); h.append('Set-Cookie', sessionCookie(s.id, s.ttl)); h.append('Set-Cookie', clearStateCookie()); return h; })() });
@@ -67,17 +70,18 @@ export async function handle(request, env, deps) {
 
     // ---- authenticated API ----
     if (path.startsWith('/api/')) {
-      const session = await getSession(db, request, now); if (!session) return err(401, 'sign in required');
+      const session = await getSession(db, request, now); if (!session) return err(401, 'sign in required', { code: 'signin' });
       const unsafe = method !== 'GET' && method !== 'HEAD';
       const role = await effectiveRole(db, session, env, deps, now, { fresh: unsafe });
-      if (role === REAUTH) return json({ error: 'sign in again: your GitHub authorization is no longer valid' }, 401, { 'Set-Cookie': clearCookie() });
-      if (!role) return err(403, 'your GitHub account has no access to this panel');
+      if (role === REAUTH) return json({ error: 'sign in again: your GitHub authorization is no longer valid', code: 'reauth' }, 401, { 'Set-Cookie': clearCookie() });
+      if (!role && !((method === 'GET' && path === '/api/me') || (method === 'POST' && path === '/api/logout'))) return err(403, 'your GitHub account has no access to this panel', { code: 'no_access' });   // a person without a role can only see that, and sign out
       const actor = { login: session.login, id: session.user_id, role };
       if (unsafe) {   // CSRF: same-origin request carrying the per-session token
         if (request.headers.get('Origin') !== url.origin) return err(403, 'cross-origin request refused');
         if (!timingSafeEqual(request.headers.get('X-CSRF-Token') || '', session.csrf)) return err(403, 'missing or wrong CSRF token');
       }
       const iso = new Date(now * 1000).toISOString();
+      if (method === 'GET' && path === '/api/me' && !role) return json({ error: 'your GitHub account has no access to this panel', code: 'no_access', login: session.login, csrf: session.csrf }, 403);
       if (method === 'GET' && path === '/api/me') return json({ login: session.login, user_id: session.user_id, role, csrf: session.csrf, max_batch: MAX_BATCH });
       if (method === 'POST' && path === '/api/logout') { await destroySession(db, session.id); return json({ ok: true }, 200, { 'Set-Cookie': clearCookie() }); }
       if (method === 'GET' && path === '/api/candidates') {
@@ -89,7 +93,7 @@ export async function handle(request, env, deps) {
         if (!(await store.viewedRecently(db, session.login, c.id, iso))) await store.appendAudit(db, { actor: session.login, role, action: 'access.view', target: c.id, detail: { path: c.path, sha256: c.sha256 } }, iso);   // who looked at which rule (once per 10 minutes)
         return json(c);
       }
-      if (method === 'GET' && path === '/api/stats') return json({ counts: await store.counts(db), public: publicStats(await store.counts(db)) });
+      if (method === 'GET' && path === '/api/stats') { const c = await store.counts(db); return json({ counts: c, sources: await store.sourceCounts(db), public: publicStats(c) }); }
       if (method === 'POST' && path === '/api/decisions') {
         const read = await readJson(request, 200_000); if (read.tooLarge) return err(413, 'request body too large');
         const v = validateDecisionRequest(read.body, role); if (!v.ok) return err(v.status, v.error);
@@ -98,7 +102,7 @@ export async function handle(request, env, deps) {
       }
       const rt = path.match(/^\/api\/candidates\/([0-9a-f-]{8,64})\/retest$/);
       if (method === 'POST' && rt) { if (!atLeast(role, 'REVIEWER')) return err(403, 'reviewer role required'); return (await store.requestRetest(db, rt[1], actor, iso)) ? json({ ok: true, note: 'the next pipeline run will test it again' }) : err(404, 'not found'); }
-      if (method === 'GET' && path === '/api/audit') { if (!atLeast(role, 'REVIEWER')) return err(403, 'reviewer role required'); return json({ entries: await store.auditTail(db, Math.min(+url.searchParams.get('limit') || 50, 200)) }); }
+      if (method === 'GET' && path === '/api/audit') { if (!atLeast(role, 'REVIEWER')) return err(403, 'reviewer role required'); const fam = url.searchParams.get('family') || ''; return json(await store.auditQuery(db, { limit: Math.min(+url.searchParams.get('limit') || 50, 200), before: +url.searchParams.get('before') || undefined, family: /^[a-z]{1,20}$/.test(fam) ? fam : undefined, actor: (url.searchParams.get('actor') || '').slice(0, 80) || undefined })); }
       if (method === 'GET' && path === '/api/audit/verify') { if (!atLeast(role, 'ADMIN')) return err(403, 'admin role required'); const rows = await store.auditRows(db, 100001); if (rows.length > 100000) return json({ ok: false, error: 'the audit log is longer than one verification pass covers; it was NOT verified' }); return json(await verifyChain(rows)); }
       if (path === '/api/members' || path.startsWith('/api/members/')) {
         if (!atLeast(role, 'ADMIN')) return err(403, 'admin role required');   // enforced here, whatever the UI shows
@@ -106,7 +110,7 @@ export async function handle(request, env, deps) {
         if (method === 'GET' && path === '/api/members') return json(await store.listPeople(db, { q: url.searchParams.get('q') || '', status: url.searchParams.get('status') || '', page: +url.searchParams.get('page') || 1, pageSize: +url.searchParams.get('pageSize') || 25 }, roleFromRepoPermission, highestRole));
         if (method === 'GET' && path === '/api/members/lookup') {   // resolves the real GitHub account before anything can be saved
           const login = url.searchParams.get('login') || ''; if (!/^[A-Za-z0-9-]{1,39}$/.test(login)) return err(400, 'a GitHub login is required');
-          const tok = await adminToken(); if (!tok) return json({ error: 'sign in again' }, 401, { 'Set-Cookie': clearCookie() });
+          const tok = await adminToken(); if (!tok) return json({ error: 'sign in again', code: 'reauth' }, 401, { 'Set-Cookie': clearCookie() });
           const r = await resolveGithubAccount(deps, env, tok, { login }); if (!r.ok) return err(r.status, r.error);
           const found = await store.findMember(db, r.account.id, r.account.login);
           return json({ account: { ...r.account, avatar_url: `https://avatars.githubusercontent.com/u/${r.account.id}?s=96` }, current_role: found.kind === 'other-identity' ? null : found.row ? found.row.role : null, legacy_unbound: found.kind === 'legacy', login_held_by_other_id: found.kind === 'other-identity' ? found.row.user_id : null, is_self: r.account.id === session.user_id });
@@ -118,7 +122,7 @@ export async function handle(request, env, deps) {
           if (!b || !Number.isInteger(b.user_id) || b.user_id < 1 || !['VIEWER', 'REVIEWER', 'ADMIN', null].includes(b.role)) return err(400, 'user_id (the GitHub account id) and role (VIEWER, REVIEWER, ADMIN or null to revoke) required');
           if (typeof b.reason !== 'string' || b.reason.replace(/[\s\p{Cf}]/gu, '').length < 5 || b.reason.length > 2000) return err(400, 'a reason of 5 to 2000 visible characters is required');
           if (b.user_id === session.user_id) return err(400, 'you cannot change your own role');
-          const tok = await adminToken(); if (!tok) return json({ error: 'sign in again' }, 401, { 'Set-Cookie': clearCookie() });
+          const tok = await adminToken(); if (!tok) return json({ error: 'sign in again', code: 'reauth' }, 401, { 'Set-Cookie': clearCookie() });
           const acc = await resolveGithubAccount(deps, env, tok, { id: b.user_id }); if (!acc.ok) return err(acc.status, acc.error);
           if (acc.account.login.toLowerCase() === session.login.toLowerCase()) return err(400, 'you cannot change your own role');
           const permNow = (await db.prepare('SELECT perm FROM sessions WHERE id = ?').bind(session.id).first())?.perm;   // fresh: the write above asked GitHub again
@@ -134,6 +138,7 @@ export async function handle(request, env, deps) {
     return err(404, 'not found');
   } catch (e) {
     // A failing store or API must never look like an approval.
+    if (path.startsWith('/auth/')) return back('unavailable');
     return err(500, 'the service could not complete the request; nothing was changed unless the response says so');
   }
 }
