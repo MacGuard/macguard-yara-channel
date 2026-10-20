@@ -1,0 +1,20 @@
+{
+ "at": "2026-10-20T20:25:07.171Z",
+ "variables": "AUTO_PUBLISH",
+ "release": {
+  "draft": false,
+  "published": "2026-10-18T17:44:25Z",
+  "tag": "rules-20261018-39150886414",
+  "rules_root": "16d082395ef1ec53d0ad25d5840d83e7f5f3a75a283ce66f8fa75da106790ec5",
+  "files": 1174
+ },
+ "upstream_heads": {
+  "nextron": "3ce6640c26046da8e6d8094af3eaaee3ee84e648",
+  "community": "0f93570194a80d2f2032869055808b0ddcdfb360"
+ },
+ "audit": {
+  "n": 7,
+  "head": "9f34849b87750f3885956bb85dce6c5e1d6f9f3ca2e6aefc9ece0c4ddb6672aa"
+ },
+ "visible_candidates": 0
+}

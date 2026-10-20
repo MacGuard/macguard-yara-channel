@@ -1,0 +1,12 @@
+PASS  run is daily.yml on main  — .github/workflows/daily.yml main workflow_dispatch success
+PASS  job log: the client reached the service (not "unavailable") for decisions and submit  — 6 new, 0 known
+PASS  D1 audit chain still valid  — 8 entries
+PASS  exactly the audit entries pipeline.submit written by pipeline:daily.yml for this run (OIDC validated: only then is the actor set)  — 1 new entries: pipeline.submit
+PASS  candidates really arrived in D1: 1 to 6 (the 6 withheld ones at most), equal to what the audit and the job log say  — D1 6, audit created 6, log 6
+PASS  every candidate path is one of the 10 withheld files (previous signed release minus the published set)  — all inside
+PASS  every candidate hash equals the hash in the previous SIGNED manifest for that path (content unchanged; anything else is reported, not hidden)  — 6 identical
+PASS  no technically rejected file entered the panel  — 0 with reject-class reasons; states PENDING
+PASS  no approval/rejection exists that could alter the set (old or synthetic ones are archived and filtered)  — 0 decisive visible, 1 decision rows total (the one synthetic hold)
+PASS  the review reproduced the published set: same rules_root, candidate.unchanged, no release requested  — rules_root 16d082395ef1ec53…
+PASS  no publish.yml run and latest release unchanged  — 0 publish runs since the dispatch; latest rules-20261018-39150886414
+PASS  rules.mac-guard.com still up
