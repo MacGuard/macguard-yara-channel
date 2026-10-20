@@ -826,3 +826,15 @@ test('revalidation failure still brings an approved or released rule back to PEN
   const f = await w.call('POST', '/api/pipeline/revalidation-failed', { bearer: await w.pipelineToken('daily.yml'), body: { hashes: [cs[0].sha256], reason: 'compile error after an engine upgrade' } });
   assert.equal(f.data.changed.length, 1); assert.equal(await state(w, ids[0]), 'PENDING'); assert.ok((await auditRows(w.db, 500)).some((e) => e.action === 'pipeline.revalidation_failed'));
 });
+
+test('right after publication GitHub may not serve the release yet: the callback retries with bounded waits, and still refuses what never appears', async () => {
+  const { w, ids, cs } = await fixture(['a']); const hashes = [cs[0].sha256];
+  const lagging = await w.release('rules-20261021-160', [cs[0]], { lag: 2 });                 // the API and the download answer 404 twice, then the release is there
+  const ok = await callback(w, 'rules-20261021-160', hashes); assert.equal(ok.status, 200); assert.equal(await state(w, ids[0]), 'RELEASED');
+  assert.equal(lagging.log.api, 3); assert.equal(lagging.log.download, 3); assert.deepEqual(w.sleeps, [1000, 2000, 1000, 2000], 'bounded: 1 s then 2 s per request, never more than 4 attempts');
+  const other = await fixture(['a']); const never = await other.w.release('rules-20261021-161', [other.cs[0]], { hidden: true });
+  const gone = await callback(other.w, 'rules-20261021-161', [other.cs[0].sha256]); assert.equal(gone.status, 409); assert.equal(never.log.api, 4, 'four attempts, then it is believed'); assert.deepEqual(other.w.sleeps, [1000, 2000, 4000]);
+  assert.equal(await state(other.w, other.ids[0]), 'PENDING'); assert.deepEqual(await releasedAudit(other.w), []);
+  const flaky = await fixture(['a']); await flaky.w.release('rules-20261021-162', [flaky.cs[0]], { manifestStatus: 503 });
+  assert.equal((await callback(flaky.w, 'rules-20261021-162', [flaky.cs[0].sha256])).status, 502); assert.equal(await state(flaky.w, flaky.ids[0]), 'PENDING');
+});

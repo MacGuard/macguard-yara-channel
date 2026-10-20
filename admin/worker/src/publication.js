@@ -2,6 +2,19 @@
 import { RELEASE_TAG, sha256Hex, verifyManifest } from './core.js';
 
 const MAX_MANIFEST_BYTES = 8_000_000;
+// The callback arrives right after the release is made public: GitHub can take a few seconds to serve the release and its assets, so a 404, a 5xx or a cut
+// connection is retried (0, 1, 2 and 4 seconds) before it is believed. `deps.sleep` is injectable so tests do not wait.
+const DELAYS = [0, 1000, 2000, 4000];
+const sleepOf = (deps) => deps.sleep || ((ms) => new Promise((resolve) => setTimeout(resolve, ms)));
+async function get(deps, url, init) {
+  let last = null;
+  for (const delay of DELAYS) {
+    if (delay) await sleepOf(deps)(delay);
+    try { last = await deps.fetch(url, { ...init, signal: stop() }); } catch { last = null; }
+    if (last && last.status !== 404 && last.status < 500) return last;
+  }
+  return last;   // the last answer, or null when GitHub could not be reached at all
+}
 const stop = () => (typeof AbortSignal !== 'undefined' && AbortSignal.timeout ? AbortSignal.timeout(10_000) : undefined);
 const fail = (status, error) => ({ ok: false, status, error });
 
@@ -13,11 +26,9 @@ export async function fetchPublication(env, deps, tag = null) {
   if (tag !== null && !RELEASE_TAG.test(tag)) return fail(400, 'not a release tag');
   const api = `${env.GITHUB_API || 'https://api.github.com'}/repos/${env.REPO}`, headers = { Accept: 'application/vnd.github+json', 'User-Agent': 'macguard-admin' };
   let rel = null;
-  try {
-    const r = await deps.fetch(tag ? `${api}/releases/tags/${tag}` : `${api}/releases/latest`, { headers, signal: stop() });
-    if (r.status === 404) return fail(409, 'there is no public release with that tag');
-    if (r.ok) rel = await r.json(); else if (!tag) return fail(502, `GitHub answered ${r.status}`);
-  } catch { if (!tag) return fail(502, 'GitHub could not be reached'); }
+  const r = await get(deps, tag ? `${api}/releases/tags/${tag}` : `${api}/releases/latest`, { headers });
+  if (r && r.status === 404) return fail(409, 'there is no public release with that tag');
+  if (r && r.ok) rel = await r.json(); else if (!tag) return fail(502, r ? `GitHub answered ${r.status}` : 'GitHub could not be reached');
   let url, digest = null, level = 'api';
   if (rel) {
     if (rel.draft || !rel.published_at) return fail(409, 'the release is a draft, not a public release');
@@ -30,13 +41,11 @@ export async function fetchPublication(env, deps, tag = null) {
   } else {   // the API is unreachable for an explicit tag: a public download is itself the proof that the release is public (assets of a draft are not served)
     url = `https://github.com/${env.REPO}/releases/download/${tag}/manifest.json`; level = 'download';
   }
-  let bytes;
-  try {
-    const res = await deps.fetch(url, { headers: { 'User-Agent': 'macguard-admin' }, signal: stop() });
-    if (res.status === 404) return fail(409, 'the manifest of that release is not publicly downloadable');
-    if (!res.ok) return fail(502, `the manifest download answered ${res.status}`);
-    bytes = new Uint8Array(await res.arrayBuffer());
-  } catch { return fail(502, 'the manifest could not be downloaded'); }
+  const res = await get(deps, url, { headers: { 'User-Agent': 'macguard-admin' } });
+  if (!res) return fail(502, 'the manifest could not be downloaded');
+  if (res.status === 404) return fail(409, 'the manifest of that release is not publicly downloadable');
+  if (!res.ok) return fail(502, `the manifest download answered ${res.status}`);
+  let bytes; try { bytes = new Uint8Array(await res.arrayBuffer()); } catch { return fail(502, 'the manifest could not be downloaded'); }
   if (bytes.length > MAX_MANIFEST_BYTES) return fail(422, 'the manifest is too large');
   const manifestSha = await sha256Hex(bytes);
   if (digest && /^sha256:[0-9a-f]{64}$/.test(digest) && digest.slice(7) !== manifestSha) return fail(422, 'the downloaded manifest does not match the digest GitHub reports for the asset');

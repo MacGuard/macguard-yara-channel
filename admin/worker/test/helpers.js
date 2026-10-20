@@ -23,12 +23,14 @@ export async function actionsToken(key, claims = {}, header = {}) {
 
 export async function world() {
   const db = newDb(); const key = await rsaKey();
+  const sleeps = [];
   const routes = [];           // [regex, handler] consulted before the built-in answers: pipeline records, site, raw files
   const accounts = {};         // login(lowercase) -> {id, login, type}: what the faked GitHub knows about
   const perms = {};            // token -> {admin, maintain, push, triage} or 'down'
   let clock = Math.floor(Date.now() / 1000), n = 0, idSeq = 100;
   const env = { DB: db, REPO, PUBLIC_URL: ORIGIN, OIDC_AUDIENCE: ORIGIN, GITHUB_CLIENT_ID: 'cid', GITHUB_CLIENT_SECRET: 'sec', TOKEN_ENC_KEY: Buffer.alloc(32, 7).toString('base64') };
   const deps = {
+    sleep: async (ms) => { sleeps.push(ms); },   // retries do not wait in tests; the delays asked for are recorded
     now: () => clock, uuid: () => `00000000-0000-4000-8000-${String(++n).padStart(12, '0')}`,
     fetch: async (url, init = {}) => {
       for (const [re, fn] of routes) if (re.test(String(url))) return fn(String(url), init);
@@ -50,7 +52,7 @@ export async function world() {
   };
   const route = (re, fn) => routes.unshift([re, fn]);
   const w = {
-    db, env, deps, key, perms, accounts, route, tick: (s) => { clock += s; }, now: () => clock,
+    db, env, deps, key, perms, accounts, route, sleeps, tick: (s) => { clock += s; }, now: () => clock,
     async login(login, permission, { id = ++idSeq } = {}) {
       accounts[login.toLowerCase()] = { id, login, type: 'User' }; const token = `tok-${login}`; perms[token] = permission === 'down' ? 'down' : permission; const s = await createSession(db, { login, id, token }, clock, env);
       return { cookie: `__Host-mg_session=${s.id}`, csrf: s.csrf, sid: s.id };
@@ -74,14 +76,14 @@ export async function world() {
     },
     /** What GitHub shows about a public release: its API record and its manifest.json. `entries` are the (path, sha256, bytes) the release lists.
      *  Options break one thing at a time: draft, hidden (404), api down, tampered rules_root, wrong asset digest, manifest download failing, extra raw fields. */
-    async release(tag, entries, { draft = false, hidden = false, apiStatus = 200, tamperRoot = false, wrongDigest = false, manifestStatus = 200, noDigest = false, noManifestAsset = false, rawManifest = null, downloadUrl = null } = {}) {
+    async release(tag, entries, { draft = false, hidden = false, apiStatus = 200, tamperRoot = false, wrongDigest = false, manifestStatus = 200, noDigest = false, noManifestAsset = false, rawManifest = null, downloadUrl = null, lag = 0 } = {}) {
       const files = entries.map((e) => ({ path: e.path, sha256: e.sha256, bytes: e.bytes ?? null }));
       const manifestBytes = new TextEncoder().encode(rawManifest ?? JSON.stringify({ schema: 1, files, rules_root: tamperRoot ? '0'.repeat(64) : await rulesRoot(files) }));
       const dl = downloadUrl ?? `https://github.com/${REPO}/releases/download/${tag}/manifest.json`, digest = wrongDigest ? 'sha256:' + 'f'.repeat(64) : 'sha256:' + await sha256Hex(manifestBytes);
       const rel = { id: 4242, tag_name: tag, draft, published_at: draft ? null : '2026-10-21T03:40:00Z', assets: noManifestAsset ? [] : [{ name: 'manifest.json', browser_download_url: dl, ...(noDigest ? {} : { digest }) }] };
       const log = { api: 0, download: 0 };
-      route(new RegExp(`/repos/${REPO}/releases/(tags/${tag}|latest)$`), () => { log.api++; return hidden ? new Response('{}', { status: 404 }) : apiStatus !== 200 ? new Response('x', { status: apiStatus }) : new Response(JSON.stringify(rel)); });
-      route(/\/releases\/download\/.*\/manifest\.json$/, () => { log.download++; return manifestStatus !== 200 ? new Response('x', { status: manifestStatus }) : new Response(manifestBytes); });
+      route(new RegExp(`/repos/${REPO}/releases/(tags/${tag}|latest)$`), () => { log.api++; return hidden || log.api <= lag ? new Response('{}', { status: 404 }) : apiStatus !== 200 ? new Response('x', { status: apiStatus }) : new Response(JSON.stringify(rel)); });
+      route(/\/releases\/download\/.*\/manifest\.json$/, () => { log.download++; return log.download <= lag ? new Response('x', { status: 404 }) : manifestStatus !== 200 ? new Response('x', { status: manifestStatus }) : new Response(manifestBytes); });
       return { tag, rel, manifestSha: await sha256Hex(manifestBytes), log, files };
     },
     async pipelineToken(workflow = 'daily.yml', claims = {}) { return actionsToken(key, { job_workflow_ref: `${REPO}/.github/workflows/${workflow}@refs/heads/main`, ...claims }); },

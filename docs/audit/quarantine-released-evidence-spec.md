@@ -41,6 +41,9 @@ The Worker does not use the hashes of the request. For the tag in the request (s
 4. releases a candidate only if the manifest lists its **exact path and exact SHA-256** (and, when both sides state it, the same size). The same content at
    another path, other content at the same path, or a missing entry release nothing.
 
+The callback arrives right after the release is made public and GitHub can take a few seconds to serve it, so a 404, a 5xx or a cut connection is retried
+with bounded waits (0, 1, 2 and 4 seconds, at most four attempts per request) before it is believed.
+
 Any failure answers 400/409/422/502 with `nothing was changed` and writes no audit entry. The workflow client treats the service as optional, so the
 publication is never blocked; the callback can be repeated.
 
