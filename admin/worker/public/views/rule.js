@@ -4,6 +4,24 @@ import { h, icon, stateBadge, reasonLabel, fmtDate, fmtDateTime, bytes, copyButt
 import { api, failure } from '../api.js';
 import { decide, retest } from './decide.js';
 
+/** What this rule needs, what needs it, and whether approving it will take effect (computed by the server from the same rules decide.py applies). */
+function dependencyCard(c) {
+  const d = c.dependencies; if (!d) return null;
+  if (!d.required.length && !d.dependents.length) return h('section', { class: 'card', 'aria-labelledby': 'h-dep' }, h('h2', { id: 'h-dep', text: t('dep_h') }), h('p', { class: 'muted', text: t('dep_none') }));
+  const link = (x) => (x.id ? h('a', { href: `#/rules/${x.id}`, class: 'rule-path', text: x.path }) : h('span', { class: 'rule-path', text: x.path }));
+  const chips = (codes) => (codes.length ? h('div', { class: 'reasons' }, ...codes.map((x) => h('span', { class: 'chip', title: x, text: reasonLabel(x) }))) : null);
+  const effect = d.effect === 'effective' ? h('p', { class: 'alert alert-ok', id: 'dep-effect' }, icon('info'), t('dep_effect_effective'))
+    : d.effect === 'conditional' ? h('p', { class: 'alert alert-info', id: 'dep-effect' }, icon('info'), t('dep_effect_conditional', { list: t('dep_approve_with', { list: d.needs_approval_of.join(', ') }) }))
+    : d.effect === 'ineffective' ? h('p', { class: 'alert alert-bad', id: 'dep-effect', role: 'alert' }, icon('alert'), t('dep_effect_ineffective', { path: d.blocked_by })) : null;
+  const required = d.required.length ? [h('h3', { class: 'dep-sub', text: t('dep_required') }), h('ul', { class: 'deplist' }, ...d.required.map((x) => h('li', {}, link(x), h('span', { class: 'note', text: t(`dep_s_${x.status}`) }), chips(x.reasons),
+    x.status === 'blocked' && x.blocked_by ? h('span', { class: 'note', text: t('dep_blocked_by', { path: x.blocked_by }) }) : null, x.status === 'needs_approval' && x.needs_approval_of.length ? h('span', { class: 'note', text: t('dep_needs_too', { list: x.needs_approval_of.join(', ') }) }) : null)))] : [];
+  const dependents = d.dependents.length ? [h('h3', { class: 'dep-sub', text: t('dep_dependents') }), h('ul', { class: 'deplist' }, ...d.dependents.map((x) => h('li', {}, link(x), stateBadge(x.state), chips(x.reasons.filter((r) => r !== 'dependency-not-validated')),
+    x.returns ? h('span', { class: 'note', text: t('dep_returns') }) : x.own_blockers.length ? h('span', { class: 'note', text: t('dep_own', { why: x.own_blockers.map(reasonLabel).join(', ') }) }) : null)))] : [];
+  const back = h('h3', { class: 'dep-sub', text: t('dep_would_return') });
+  const returning = d.would_return.length ? h('ul', { class: 'deplist' }, ...d.would_return.map((x) => h('li', {}, link(x)))) : h('p', { class: 'muted', text: t('dep_nothing_returns') });
+  return h('section', { class: 'card', 'aria-labelledby': 'h-dep' }, h('h2', { id: 'h-dep', text: t('dep_h') }), effect, ...required, ...dependents, ...(d.effect === 'effective' || d.effect === 'conditional' ? [back, returning] : []));
+}
+
 export async function renderRule(ctx, id) {
   const { root, me } = ctx;
   put(root, h('div', { class: 'skeleton sk-title' }), h('div', { class: 'skeleton sk-block' }));
@@ -23,7 +41,7 @@ export async function renderRule(ctx, id) {
   const decisions = (c.decisions || []).length ? h('ol', { class: 'timeline' }, ...c.decisions.slice().reverse().map((d) => h('li', {}, h('time', { datetime: d.at, text: fmtDateTime(d.at) }), h('strong', { text: `${d.actor} · ${t(`act_${d.action}`) || d.action}` }), h('div', { class: 'note', text: `${t(`st_${d.from_state}`)} → ${t(`st_${d.to_state}`)}` }), h('div', { class: 'quote', text: d.reason })))) : h('p', { class: 'muted', text: t('r_decisions_none') });
 
   const actions = canDecide ? h('div', { class: 'card' }, h('h2', { text: t('r_actions') }), h('p', { class: 'note mt-8 mb-14', text: t('r_actions_note') }), c.approvable === false ? h('p', { class: 'alert alert-info', id: 'not-approvable' }, icon('lock'), t('r_not_approvable', { reasons: c.blocking.map(reasonLabel).join(', ') })) : null, h('div', { class: 'actions-col' },
-    h('button', { type: 'button', class: 'btn btn-ok', disabled: c.approvable === false, ...(c.approvable === false ? { 'aria-describedby': 'not-approvable' } : {}), onclick: () => decide('approve', new Map([[c.id, c.version]]), reload) }, icon('check'), t('act_approve')),
+    h('button', { type: 'button', class: 'btn btn-ok', disabled: c.approvable === false || (c.dependencies && c.dependencies.effect === 'ineffective'), ...(c.approvable === false ? { 'aria-describedby': 'not-approvable' } : c.dependencies && c.dependencies.effect === 'ineffective' ? { 'aria-describedby': 'dep-effect' } : {}), onclick: () => decide('approve', new Map([[c.id, c.version]]), reload) }, icon('check'), t('act_approve')),
     h('button', { type: 'button', class: 'btn btn-bad', onclick: () => decide('reject', new Map([[c.id, c.version]]), reload) }, icon('x'), t('act_reject')),
     h('button', { type: 'button', class: 'btn', onclick: () => decide('hold', new Map([[c.id, c.version]]), reload) }, icon('pause'), t('act_hold')),
     h('button', { type: 'button', class: 'btn btn-ghost', onclick: () => retest(c.id) }, icon('refresh'), t('act_retest'))))
@@ -41,6 +59,7 @@ export async function renderRule(ctx, id) {
       h('div', { class: 'stack' },
         h('section', { class: 'card', 'aria-labelledby': 'h-sum' }, h('h2', { id: 'h-sum', text: t('r_summary') }), h('div', {}, h('div', { class: 'field' }, h('span', { text: t('r_sha') }), h('div', { class: 'flex-8 center' }, shaFull(c.sha256), copyButton(c.sha256, `${t('copy')} SHA-256`)))), kv),
         h('section', { class: 'card', 'aria-labelledby': 'h-why' }, h('h2', { id: 'h-why', text: t('r_why') }), h('div', { class: 'reasons' }, ...c.reasons.map((x) => h('span', { class: 'chip', title: x, text: reasonLabel(x) }))), (c.depends_on || []).length ? h('p', { class: 'note mt-10', text: `${t('r_deps')}: ${c.depends_on.join(', ')}` }) : null),
+        dependencyCard(c),
         h('section', { class: 'card', 'aria-labelledby': 'h-res' }, h('h2', { id: 'h-res', text: t('r_resources') }), metersNode),
         h('section', { class: 'card', 'aria-labelledby': 'h-code' }, h('div', { class: 'flex-between' }, h('h2', { id: 'h-code', text: t('r_code') }), codeText !== null ? h('button', { type: 'button', class: 'btn btn-sm', onclick: () => copyText(codeText) }, icon('copy'), t('copy')) : null),
           h('p', { class: 'note mt-6 mb-10', text: t('r_code_note') }), codeText !== null ? h('pre', { class: 'code', tabindex: '0', 'aria-label': t('r_code'), text: codeText }) : h('p', { class: 'muted', text: t('r_code_none') }))),

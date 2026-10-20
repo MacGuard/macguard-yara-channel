@@ -26,6 +26,8 @@ export async function handle(request, env, deps) {
       const auth = (request.headers.get('Authorization') || '').replace(/^Bearer /, '');
       const v = await verifyActionsToken(auth, env, deps, now); if (!v.ok) return err(401, v.error);
       const actor = `pipeline:${v.workflow}`;
+      // what the signed token says about this execution (not what the request body claims): which run and which attempt of it
+      const attempt = (tok, receipt) => ({ token_run_id: String(tok.claims.run_id ?? ''), run_attempt: Number(tok.claims.run_attempt) || null, receipt });
       if (method === 'GET' && path === '/api/pipeline/decisions') return json({ schema: 1, decisions: await store.decisionsMap(db), retest: await store.retestList(db) });
       if (method !== 'POST') return err(405, 'method not allowed');
       const read = await readJson(request, 64_000_000); if (read.tooLarge) return err(413, 'request body too large'); const body = read.body; if (!body) return err(400, 'JSON body required');
@@ -35,7 +37,7 @@ export async function handle(request, env, deps) {
         const results = [];
         for (const item of body.candidates) { const bad = validateSubmission(item) || await blobError(item); if (bad) return err(400, `${bad} (${String(item && item.path).slice(0, 80)}); nothing was stored`); }   // validate everything before writing anything
         for (const item of body.candidates) results.push({ sha256: item.sha256, ...(await store.upsertCandidate(db, item, new Date(now * 1000).toISOString(), deps.uuid)) });
-        await store.appendAudit(db, { actor, role: 'PIPELINE', action: 'pipeline.submit', target: String(body.run_id || 'run'), detail: { count: results.length, created: results.filter((r) => r.status === 'created').length, run_url: body.run_url || null } }, new Date(now * 1000).toISOString());
+        await store.appendAudit(db, { actor, role: 'PIPELINE', action: 'pipeline.submit', target: String(body.run_id || 'run'), detail: { count: results.length, created: results.filter((r) => r.status === 'created').length, run_url: body.run_url || null, ...attempt(v, results.some((r) => r.status === 'created') ? 'first' : 'idempotent_retry') } }, new Date(now * 1000).toISOString());
         if (Array.isArray(body.retested)) await store.clearRetest(db, body.retested.filter((i) => typeof i === 'string'));
         return json({ schema: 1, results });
       }
@@ -43,7 +45,7 @@ export async function handle(request, env, deps) {
         if (!Array.isArray(body.hashes) || body.hashes.some((h) => !/^[0-9a-f]{64}$/.test(h))) return err(400, 'hashes required');
         const ev = path.endsWith('released') ? 'released' : 'revalidation_failed';
         if (ev === 'released' && v.workflow !== 'publish.yml') return err(403, 'only the publish workflow marks rules as released');
-        return json(await store.pipelineEvent(db, ev, body.hashes, { tag: body.tag, reason: body.reason, run_url: body.run_url, run_id: body.run_id }, actor, new Date(now * 1000).toISOString()));
+        return json(await store.pipelineEvent(db, ev, body.hashes, { tag: body.tag, reason: body.reason, run_url: body.run_url, run_id: body.run_id, token: attempt(v, null) }, actor, new Date(now * 1000).toISOString()));
       }
       return err(404, 'unknown pipeline endpoint');
     }

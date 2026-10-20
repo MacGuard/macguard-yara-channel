@@ -97,6 +97,8 @@ img, svg { display: block; max-width: 100%; }
 .badge-approved { background: var(--ok-soft); color: var(--ok); } .badge-rejected { background: var(--bad-soft); color: var(--bad); }
 .badge-released { background: var(--ok-soft); color: var(--ok); } .badge-neutral { background: var(--surface-2); color: var(--muted); border-color: var(--line); }
 .badge-admin { background: var(--accent-soft); color: var(--accent); } .badge-none::before { background: var(--faint); }
+.deplist { list-style: none; padding: 0; margin: 0; display: grid; gap: 10px; } .deplist li { display: grid; gap: 6px; padding: 10px 12px; border: 1px solid var(--line); border-radius: var(--radius-sm); background: var(--surface-2); min-width: 0; }
+.deplist .rule-path, .deplist a { overflow-wrap: anywhere; } .dep-sub { margin: 14px 0 8px; font-size: .88rem; color: var(--muted); font-weight: 600; }
 .chip { display: inline-block; padding: 1px 9px; border: 1px solid var(--line); border-radius: 999px; background: var(--surface-2); color: var(--muted); font-size: .78rem; }
 .kv { display: grid; grid-template-columns: max-content 1fr; gap: 6px 16px; font-size: .9rem; }
 .kv dt { color: var(--muted); } .kv dd { min-width: 0; }

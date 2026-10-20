@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { world, cand, sha, rid, actionsToken, REPO, ORIGIN } from './helpers.js';
-import { verifyChain } from '../src/core.js';
+import { verifyChain, dependencyEffect } from '../src/core.js';
 import { auditRows } from '../src/store.js';
 
 async function seeded(items = ['a', 'b', 'c', 'd']) {
@@ -617,4 +617,61 @@ test('the panel waivable list is exactly the one scripts/decide.py enforces when
   const py = readFileSync(new URL('../../../scripts/decide.py', import.meta.url), 'utf8').match(/^WAIVABLE = \{([^}]*)\}/m);
   assert.ok(py, 'WAIVABLE found in decide.py'); const codes = [...py[1].matchAll(/'([a-z-]+)'/g)].map((m) => m[1]).sort();
   assert.deepEqual([...WAIVABLE].sort(), codes);
+});
+
+test('the sheet says whether an approval will take effect; the server refuses one that never can and counts a joint approval', async () => {
+  const w = await world(); const rita = await w.login('rita', { push: true }); w.reviewer = rita;
+  const r = await w.submit([cand('cap', 'rules/x/cap.yar', { reasons: ['matches-benign-corpus'] }),
+    cand('d1', 'rules/x/d1.yar', { reasons: ['dependency-not-validated'], depends_on: ['rules/x/cap.yar'] }), cand('d2', 'rules/x/d2.yar', { reasons: ['dependency-not-validated'], depends_on: ['rules/x/cap.yar'] }),
+    cand('bad', 'rules/x/bad.yar', { reasons: ['blocked-module'] }), cand('x', 'rules/x/x.yar', { reasons: ['dependency-not-validated'], depends_on: ['rules/x/bad.yar'] })]);
+  const [cap, d1, d2, bad, x] = r.data.results.map((i) => i.id); const v = await versions(w, [cap, d1, d2, bad, x]);
+  const dep = async (id) => (await w.call('GET', `/api/candidates/${id}`, { user: rita })).data.dependencies;
+  const c = await dep(cap); assert.equal(c.effect, 'effective'); assert.deepEqual(c.would_return.map((q) => q.path).sort(), ['rules/x/d1.yar', 'rules/x/d2.yar']); assert.ok(c.dependents.every((q) => q.returns && q.own_blockers.length === 0));
+  const a = await dep(d1); assert.equal(a.effect, 'conditional'); assert.deepEqual(a.needs_approval_of, ['rules/x/cap.yar']); assert.equal(a.required[0].status, 'needs_approval'); assert.deepEqual(a.required[0].reasons, ['matches-benign-corpus']);
+  const b = await dep(x); assert.equal(b.effect, 'ineffective'); assert.equal(b.blocked_by, 'rules/x/bad.yar'); assert.equal(b.required[0].status, 'blocked'); assert.deepEqual(b.required[0].blocking, ['blocked-module']);
+  assert.equal((await dep(bad)).effect, 'not_approvable'); assert.equal((await dep(bad)).dependents[0].returns, false, 'approving what cannot be approved brings nothing back');
+  const audit0 = (await auditRows(w.db, 500)).length;
+  const refused = await decide(w, rita, { action: 'approve', ids: [x, cap], reason: 'try both', request_id: rid(), expect: { [x]: v[x], [cap]: v[cap] }, confirm_count: 2 });
+  assert.equal(refused.status, 409); assert.deepEqual(refused.data.conflicts.map((q) => [q.id, q.code, q.blocked_by]), [[x, 'dependency_blocked', 'rules/x/bad.yar']]);
+  assert.equal(await state(w, cap), 'PENDING', 'all or nothing'); assert.equal((await auditRows(w.db, 500)).length, audit0, 'a refused approval leaves no audit entry');
+  assert.equal((await decide(w, rita, { action: 'approve', ids: [d1], reason: 'dependent first', request_id: rid(), expect: { [d1]: v[d1] } })).status, 200, 'a conditional approval is allowed: it just does nothing yet');
+  assert.equal((await dep(d1)).effect, 'conditional', 'still waiting for the file it needs');
+  assert.equal((await decide(w, rita, { action: 'approve', ids: [cap, d2], reason: 'the file and a dependent together', request_id: rid(), expect: { [cap]: v[cap], [d2]: v[d2] }, confirm_count: 2 })).status, 200);
+  const after = await dep(d1); assert.equal(after.effect, 'effective'); assert.equal(after.required[0].status, 'approved');
+  assert.equal((await dep(d2)).effect, 'effective');
+});
+
+test('the panel never calls an approval effective when decide.py leaves the file out: the same scenarios as the pipeline suite', async () => {
+  const sc = JSON.parse(readFileSync(new URL('../../../tests/fixtures/dependency_scenarios.json', import.meta.url), 'utf8')).scenarios; let checked = 0;
+  const rowsFor = (s, approved) => s.panel.map((p) => ({ id: p.path, path: p.path, state: approved.includes(p.path) ? 'APPROVED_PENDING_VALIDATION' : 'PENDING', reasons: p.reasons, depends_on: p.deps, detected_at: '2026-10-20' }));
+  for (const s of sc) for (const k of s.cases) {
+    const panelPaths = s.panel.map((p) => p.path), inPanel = k.included.filter((q) => panelPaths.includes(q)).sort();
+    // everything the reviewer approved is already approved: the effect of each approval must match what decide.py publishes
+    for (const x of k.approve.filter((q) => panelPaths.includes(q))) {
+      const d = dependencyEffect(rowsFor(s, k.approve), x), published = k.included.includes(x);
+      assert.equal(d.effect === 'effective', published, `${s.name} / approved ${k.approve}: effect of ${x} is ${d.effect} but decide.py ${published ? 'publishes' : 'leaves out'} it`); checked++;
+    }
+    // one approval about to be made: what the sheet promises it brings back is exactly what the pipeline then publishes among the panel files
+    if (k.approve.length === 1 && panelPaths.includes(k.approve[0])) {
+      const d = dependencyEffect(rowsFor(s, []), k.approve[0]);
+      if (d.effect === 'effective') assert.deepEqual([k.approve[0], ...d.would_return.map((q) => q.path)].sort(), inPanel, `${s.name} / approve ${k.approve}: what would return`);
+      else assert.deepEqual(inPanel, [], `${s.name} / approve ${k.approve}: the sheet says it will not take effect, so nothing from the panel is published`);
+      checked++;
+    }
+  }
+  assert.ok(checked >= 15, `checked ${checked}`);
+});
+
+test('every pipeline receipt records the run and attempt from the verified token; a retry is told apart and creates nothing', async () => {
+  const w = await world(); const rita = await w.login('rita', { push: true }); w.reviewer = rita;
+  const items = [cand('p', 'rules/x/p.yar'), cand('q', 'rules/x/q.yar')];
+  const send = async (attempt, runIdInBody = '777') => w.call('POST', '/api/pipeline/submit', { bearer: await w.pipelineToken('daily.yml', { run_id: '777', run_attempt: String(attempt) }), body: { run_id: runIdInBody, run_url: `${ORIGIN}/runs/777`, candidates: items } });
+  const first = await send(1), retry = await send(2), third = await send(3, '999');
+  assert.deepEqual([first.status, retry.status, third.status], [200, 200, 200]);
+  assert.deepEqual(first.data.results.map((q) => q.status), ['created', 'created']); assert.deepEqual(retry.data.results.map((q) => q.status), ['known', 'known']);
+  const rows = (await auditRows(w.db, 100)).filter((e) => e.action === 'pipeline.submit').map((e) => ({ target: e.target, ...JSON.parse(e.detail) }));
+  assert.deepEqual(rows.map((q) => [q.receipt, q.run_attempt, q.token_run_id, q.created, q.count]), [['first', 1, '777', 2, 2], ['idempotent_retry', 2, '777', 0, 2], ['idempotent_retry', 3, '777', 0, 2]]);
+  assert.equal(rows[2].target, '999', 'what the body claims is kept as it was, and the verified token run is recorded next to it');
+  const list = (await w.call('GET', '/api/candidates?pageSize=50', { user: rita })).data; assert.equal(list.total, 2, 'no duplicates after three receipts'); assert.ok(list.items.every((q) => q.version === 1));
+  assert.equal((await verifyChain(await auditRows(w.db, 100))).ok, true, 'the chain still verifies');
 });

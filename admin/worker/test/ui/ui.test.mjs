@@ -143,6 +143,29 @@ for (const name of WANT) {
         assert.deepEqual(page.errors, []);
       } finally { await page.context().close(); s.stop(); }
     });
+    test('the sheet shows what a rule needs, what needs it, whether approving will take effect and what would come back; an approval that cannot take effect is disabled', async () => {
+      const s = await startServer(['--deps']); const page = await newPage(browser, s, 'reviewer', VIEWPORTS.desktop);
+      try {
+        const open = async (file) => { await goto(page, s, '/#/quarantine'); await page.waitForSelector('.rule'); await page.locator('.rule-title', { hasText: file }).click(); await page.waitForSelector('#h-dep'); };
+        await open('shared_base.yar');
+        let card = page.locator('section', { has: page.locator('#h-dep') }); let txt = (await card.innerText()).replace(/\s+/g, ' ');
+        assert.ok(txt.includes('podrá entrar en el conjunto publicable de la siguiente ejecución diaria') && txt.includes('Aprobar no publica nada'), txt);
+        assert.ok(txt.includes('Dependen de ella') && txt.includes('uses_base_1.yar') && txt.includes('uses_base_2.yar') && txt.includes('Volvería sola al conjunto'));
+        assert.ok(txt.includes('Reglas que volverían al conjunto publicable con esta aprobación'));
+        assert.equal(await page.getByRole('button', { name: 'Aprobar' }).isEnabled(), true);
+        await open('uses_base_1.yar'); card = page.locator('section', { has: page.locator('#h-dep') }); txt = (await card.innerText()).replace(/\s+/g, ' ');
+        assert.ok(txt.includes('Necesita estas reglas') && txt.includes('shared_base.yar') && txt.includes('Falta aprobarla') && txt.includes('Aprobarla sola no tendrá efecto todavía'), txt);
+        assert.equal(await page.getByRole('button', { name: 'Aprobar' }).isEnabled(), true, 'a conditional approval is allowed');
+        assert.equal(await card.locator('a[href^="#/rules/"]').first().innerText(), 'rules/community/pack/shared_base.yar', 'the needed rule is a link to its own sheet');
+        await open('uses_cuckoo.yar'); card = page.locator('section', { has: page.locator('#h-dep') }); txt = (await card.innerText()).replace(/\s+/g, ' ');
+        assert.ok(txt.includes('Bloqueada: no se puede aprobar') && txt.includes('Aprobarla no tendrá efecto: necesita rules/community/pack/needs_cuckoo.yar'), txt);
+        assert.equal(await page.getByRole('button', { name: 'Aprobar' }).isDisabled(), true); assert.equal(await page.getByRole('button', { name: 'Rechazar' }).isEnabled(), true);
+        assert.deepEqual(await axeViolations(page), [], 'the dependency card meets WCAG 2.2 AA');
+        assert.deepEqual(page.errors, []);
+        const dark = await newPage(browser, s, 'reviewer', VIEWPORTS.desktop, { colorScheme: 'dark' });   // a page that starts in the dark theme: no transitions in flight when contrast is measured
+        try { await goto(dark, s, '/#/quarantine'); await dark.waitForSelector('.rule'); await dark.locator('.rule-title', { hasText: 'uses_cuckoo.yar' }).click(); await dark.waitForSelector('#h-dep'); assert.deepEqual(await axeViolations(dark), [], 'and in the dark theme'); } finally { await dark.context().close(); }
+      } finally { await page.context().close(); s.stop(); }
+    });
     test('an administrator manages members: resolve the real account, grant, history, revoke; self and non-personal accounts are refused', async () => {
       const s = await startServer(); const page = await newPage(browser, s, 'admin', VIEWPORTS.desktop);
       try {

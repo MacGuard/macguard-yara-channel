@@ -20,6 +20,10 @@ const items = []; const empty = process.argv.includes('--empty');
 for (let i = 0; i < 6; i++) items.push(cand(String(i), `rules/community/pack/rule_${i}.yar`, { reasons: i % 2 ? ['costly-regex'] : ['filesize-loop', 'unknown-module'], metrics: { cpu_s: 0.4 + i, rss_mb: 30 + i * 12, compile_s: 0.8, scan_p95_s: 0.03 } }));
 items.push(cand('9', 'rules/community/pack/evil.yar', { reasons: ['costly-regex'], content_b64: Buffer.from('<img src=x onerror="window.__xss=1"> rule X { condition: true }').toString('base64') }));
 if (process.argv.includes('--blocked')) items.push(cand('t', 'rules/community/pack/truncated.yar', { reasons: ['ends-mid-file'] }));   // a technical finding: not approvable
+if (process.argv.includes('--deps')) items.push(   // a shared dependency (approvable) with two dependents, and a dependency that can never be approved with one dependent
+  cand('c', 'rules/community/pack/shared_base.yar', { reasons: ['matches-benign-corpus'] }), cand('d1', 'rules/community/pack/uses_base_1.yar', { reasons: ['dependency-not-validated'], depends_on: ['rules/community/pack/shared_base.yar'] }),
+  cand('d2', 'rules/community/pack/uses_base_2.yar', { reasons: ['dependency-not-validated'], depends_on: ['rules/community/pack/shared_base.yar'] }),
+  cand('b', 'rules/community/pack/needs_cuckoo.yar', { reasons: ['blocked-module'] }), cand('x', 'rules/community/pack/uses_cuckoo.yar', { reasons: ['dependency-not-validated'], depends_on: ['rules/community/pack/needs_cuckoo.yar'] }));
 if (!empty) await w.submit(items);
 const sessions = {
   viewer: await w.login('vera', { pull: true }, { id: 11 }), reviewer: await w.login('rita', { push: true }, { id: 12 }), admin: await w.login('ada', { admin: true }, { id: 13 }),
