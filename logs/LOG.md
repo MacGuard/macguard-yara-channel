@@ -2,12 +2,17 @@
 
 Generated from `logs/log.jsonl`; do not edit by hand. Times are UTC. Newest first.
 
-Entries: 166 (INFO 114, WARNING 29, ERROR 23)
+Entries: 171 (INFO 117, WARNING 31, ERROR 23)
 
 Latest signed checkpoint: 75 entries, Merkle root `1bab9bb9364b3a42f76835ae138bffad33eaa3694d0021afd208f5fd54e63d96`.
 
 | # | Date (UTC) | Level | Event | Message |
 |---|---|---|---|---|
+| 170 | 2026-10-20T20:39:54Z | INFO | `candidate.unchanged` | The approved rule files are identical to the latest release. No new release is created. |
+| 169 | 2026-10-20T20:39:54Z | WARNING | `candidate.not_publishable` | No release from this run: no effective change against the latest release |
+| 168 | 2026-10-20T20:39:54Z | WARNING | `candidate.accepted` | 1174 rule files passed every mandatory check. Candidate rules root is 16d082395ef1ec53... |
+| 167 | 2026-10-20T20:39:54Z | INFO | `candidate.classified` | Examined 1184 rule files: 1174 accepted, 6 quarantined for review, 4 rejected, 0 deprecated; 0 files of the previous release are no longer upstream. |
+| 166 | 2026-10-20T20:39:54Z | INFO | `sources.fetched` | Fetched 3 upstream sources at pinned commits. |
 | 165 | 2026-10-20T20:32:33Z | INFO | `candidate.unchanged` | The approved rule files are identical to the latest release. No new release is created. |
 | 164 | 2026-10-20T20:32:33Z | WARNING | `candidate.not_publishable` | No release from this run: no effective change against the latest release |
 | 163 | 2026-10-20T20:32:33Z | WARNING | `candidate.accepted` | 1174 rule files passed every mandatory check. Candidate rules root is 16d082395ef1ec53... |
