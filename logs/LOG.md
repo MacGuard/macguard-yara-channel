@@ -2,12 +2,16 @@
 
 Generated from `logs/log.jsonl`; do not edit by hand. Times are UTC. Newest first.
 
-Entries: 171 (INFO 117, WARNING 31, ERROR 23)
+Entries: 175 (INFO 121, WARNING 31, ERROR 23)
 
 Latest signed checkpoint: 75 entries, Merkle root `1bab9bb9364b3a42f76835ae138bffad33eaa3694d0021afd208f5fd54e63d96`.
 
 | # | Date (UTC) | Level | Event | Message |
 |---|---|---|---|---|
+| 174 | 2026-10-20T22:06:13Z | INFO | `candidate.changes` | The approved set differs from the latest release. A new release will be requested. |
+| 173 | 2026-10-20T22:06:13Z | INFO | `candidate.accepted` | 1178 rule files passed every mandatory check. Candidate rules root is b92e0216828b4ec7... |
+| 172 | 2026-10-20T22:06:13Z | INFO | `candidate.classified` | Examined 1184 rule files: 1178 accepted, 2 quarantined for review, 4 rejected, 0 deprecated; 0 files of the previous release are no longer upstream. |
+| 171 | 2026-10-20T22:06:13Z | INFO | `sources.fetched` | Fetched 3 upstream sources at pinned commits. |
 | 170 | 2026-10-20T20:39:54Z | INFO | `candidate.unchanged` | The approved rule files are identical to the latest release. No new release is created. |
 | 169 | 2026-10-20T20:39:54Z | WARNING | `candidate.not_publishable` | No release from this run: no effective change against the latest release |
 | 168 | 2026-10-20T20:39:54Z | WARNING | `candidate.accepted` | 1174 rule files passed every mandatory check. Candidate rules root is 16d082395ef1ec53... |
