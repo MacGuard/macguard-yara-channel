@@ -43,11 +43,12 @@ export async function renderQuarantine(ctx) {
     const clearBtn = filtered ? h('button', { type: 'button', class: 'btn', text: t('q_clear'), onclick: () => apply({ state: '', q: '', source: '' }) }) : null;
     put(listBox, h('div', { class: 'card empty' }, icon('quarantine'), h('h2', { text: filtered ? t('q_nomatch_h') : t('q_empty_h') }), h('p', { text: filtered ? t('q_nomatch_p') : t('q_empty_p') }), clearBtn)); return;
   }
+  const blocked = new Set(items.filter((c) => c.approvable === false).map((c) => c.id));
   const rows = items.map((c) => {
     const box = canDecide ? h('input', { type: 'checkbox', 'aria-label': t('q_select', { name: c.name }), checked: selection.has(c.id) }) : null;
     const li = h('li', { class: `rule ${selection.has(c.id) ? 'selected' : ''}` });
     if (box) box.addEventListener('change', () => { if (box.checked) selection.set(c.id, c.version); else selection.delete(c.id); li.classList.toggle('selected', box.checked); drawBar(); });
-    const why = c.reasons.slice(0, 3).map((x) => h('span', { class: 'chip', text: reasonLabel(x) })); if (c.reasons.length > 3) why.push(h('span', { class: 'chip', text: t('q_more', { n: c.reasons.length - 3 }) }));
+    const why = (c.approvable === false ? [h('span', { class: 'chip', text: t('q_blocked_chip') })] : []).concat(c.reasons.slice(0, 3).map((x) => h('span', { class: 'chip', text: reasonLabel(x) }))); if (c.reasons.length > 3) why.push(h('span', { class: 'chip', text: t('q_more', { n: c.reasons.length - 3 }) }));
     li.append(box ? h('div', { class: 'pick' }, box) : null, h('div', { class: 'rule-main' },
       h('a', { class: 'rule-title', href: `#/rules/${c.id}`, text: c.name }), h('div', { class: 'rule-path', text: c.path }), why.length ? h('div', { class: 'reasons' }, why) : null,
       h('div', { class: 'rule-meta' }, stateBadge(c.state), h('span', { text: c.source }), h('span', { text: t('q_detected', { date: fmtDate(c.detected_at) }) }), h('span', { class: 'sha', title: c.sha256 }, shortSha(c.sha256), copyButton(c.sha256, `${t('copy')} SHA-256`)))));
@@ -62,9 +63,11 @@ export async function renderQuarantine(ctx) {
   function drawBar() {
     clear(bar); const n = selection.size; if (!n) return;
     const done = () => { selection.clear(); ctx.rerender(); };
+    const noApprove = [...selection.keys()].some((id) => blocked.has(id));
     bar.append(h('div', { class: 'bulkbar', role: 'region', 'aria-label': t('q_bulk') }, h('span', { class: 'count', text: n === 1 ? t('q_selected_one') : t('q_selected_n', { n }) }),
       h('button', { type: 'button', class: 'btn btn-sm btn-ghost', text: t('q_clear_sel'), onclick: () => { selection.clear(); ctx.rerender(); } }),
-      h('div', { class: 'btns' }, h('button', { type: 'button', class: 'btn btn-sm btn-ok', onclick: () => decide('approve', new Map(selection), done) }, icon('check'), t('act_approve')),
+      noApprove ? h('span', { class: 'note', id: 'bulk-not-approvable', text: t('q_not_approvable') }) : null,
+      h('div', { class: 'btns' }, h('button', { type: 'button', class: 'btn btn-sm btn-ok', disabled: noApprove, ...(noApprove ? { 'aria-describedby': 'bulk-not-approvable' } : {}), onclick: () => decide('approve', new Map(selection), done) }, icon('check'), t('act_approve')),
         h('button', { type: 'button', class: 'btn btn-sm btn-bad', onclick: () => decide('reject', new Map(selection), done) }, icon('x'), t('act_reject')),
         h('button', { type: 'button', class: 'btn btn-sm', onclick: () => decide('hold', new Map(selection), done) }, icon('pause'), t('act_hold')))));
   }

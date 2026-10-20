@@ -1,0 +1,126 @@
+{
+ "schemaVersion": 1,
+ "tool": "verify_public_release.py",
+ "version": "1.0.0",
+ "result": "FAIL",
+ "exit_code": 3,
+ "release": {
+  "tag": "rules-20261018-39150886414",
+  "resolved_from": "tag via github.com",
+  "url": "https://github.com/MacGuard/macguard-yara-channel/releases/tag/rules-20261018-39150886414",
+  "published_at": null,
+  "latest_moved": false,
+  "note": "GitHub API rate limit reached, so the release was resolved through github.com instead (no API sizes/digests; Content-Length is checked): https://api.github.com/repos/MacGuard/macguard-yara-channel/releases/tags/rules-20261018-39150886414: GitHub rate limit reached (HTTP 403; anonymous requests ar"
+ },
+ "expected": {
+  "identity": "https://github.com/MacGuard/macguard-yara-channel/.github/workflows/publish.yml@refs/heads/main",
+  "issuer": "https://token.actions.githubusercontent.com",
+  "repository": "MacGuard/macguard-yara-channel"
+ },
+ "summary": {
+  "files": 1174,
+  "yara_rules": 9958,
+  "expanded_bytes": 7861571,
+  "package_bytes": 2052960,
+  "package_sha256": "97304ccc48e2ab69368618c49dbf40f18cd7d0c310dfd4ee736ed8823170a8d0",
+  "manifest_sha256": "f75c214683d6c169716be1a5ac6f90a7c9a74f408c5cd139553a87e5a25370ad",
+  "rules_root": "16d082395ef1ec53d0ad25d5840d83e7f5f3a75a283ce66f8fa75da106790ec5",
+  "log_size": 75,
+  "log_root": "1bab9bb9364b3a42f76835ae138bffad33eaa3694d0021afd208f5fd54e63d96",
+  "checkpoint": "macguard-rules-log v1 | 75 | G6ubuTZLOkL3aDWuE4v/rTPqo2lNACGv0gj1/VTmPZY="
+ },
+ "checks": [
+  {
+   "id": "dependency.cosign",
+   "status": "pass",
+   "mandatory": true,
+   "category": null,
+   "detail": "/usr/local/bin/cosign"
+  },
+  {
+   "id": "release.resolve",
+   "status": "pass",
+   "mandatory": true,
+   "category": null,
+   "detail": "rules-20261018-39150886414 (from tag via github.com)"
+  },
+  {
+   "id": "artifacts",
+   "status": "pass",
+   "mandatory": true,
+   "category": 6,
+   "detail": "1174 files declared; consistency.json, release.json, changes.json, CHANGELOG.md present"
+  },
+  {
+   "id": "signature.manifest",
+   "status": "pass",
+   "mandatory": true,
+   "category": 2,
+   "detail": "/usr/local/bin/cosign verify-blob ok"
+  },
+  {
+   "id": "signature.checkpoint",
+   "status": "pass",
+   "mandatory": true,
+   "category": 2,
+   "detail": "/usr/local/bin/cosign verify-blob ok"
+  },
+  {
+   "id": "package.extract",
+   "status": "pass",
+   "mandatory": true,
+   "category": null,
+   "detail": "1174 rule files, 8055352 bytes expanded, no links, no traversal"
+  },
+  {
+   "id": "files.sha256",
+   "status": "pass",
+   "mandatory": true,
+   "category": 1,
+   "detail": "1174 files match the signed manifest byte for byte"
+  },
+  {
+   "id": "merkle.rules_root",
+   "status": "pass",
+   "mandatory": true,
+   "category": 3,
+   "detail": "16d082395ef1ec53d0ad25d5840d83e7f5f3a75a283ce66f8fa75da106790ec5"
+  },
+  {
+   "id": "counts",
+   "status": "pass",
+   "mandatory": true,
+   "category": 1,
+   "detail": "1174 files, 7861571 bytes, 9958 individual YARA rules"
+  },
+  {
+   "id": "checkpoint.matches_manifest",
+   "status": "pass",
+   "mandatory": true,
+   "category": 3,
+   "detail": "log size 75, root 1bab9bb9364b3a42\u2026"
+  },
+  {
+   "id": "merkle.inclusion",
+   "status": "pass",
+   "mandatory": true,
+   "category": 3,
+   "detail": "entry 72 of 75 is in the checkpoint and names rules_root 16d082395ef1ec53\u2026"
+  },
+  {
+   "id": "consistency",
+   "status": "fail",
+   "mandatory": true,
+   "category": 3,
+   "detail": "consistency.json starts from size 20, not from the trusted checkpoint (20); a chain of proofs from an older release is needed"
+  },
+  {
+   "id": "metadata.release_json",
+   "status": "pass",
+   "mandatory": false,
+   "category": null,
+   "detail": "release.json (unsigned convenience metadata) agrees with the verified values"
+  }
+ ],
+ "generated_at": "2026-10-20T19:09:17Z"
+}

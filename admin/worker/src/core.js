@@ -21,6 +21,11 @@ const HUMAN = {
   hold: { from: ['PENDING', 'UNDER_REVIEW', 'APPROVED_PENDING_VALIDATION'], to: 'UNDER_REVIEW' },
   release_review: { from: ['UNDER_REVIEW'], to: 'PENDING' },
 };
+/** Findings a person's judgement may waive. Everything else (truncation, corruption, compile errors, a dynamic failure, a changed licence, a blocked module,
+ *  a missing engine, a hash rejected before) is a technical control that no approval can skip, so such a candidate is not approvable. Mirrors WAIVABLE in
+ *  scripts/decide.py, which enforces it again when the pipeline applies decisions; a test keeps the two lists identical. */
+export const WAIVABLE = new Set(['costly-regex', 'filesize-loop', 'many-loops', 'unknown-module', 'include', 'license-unchecked', 'matches-benign-corpus', 'dependency-not-validated']);
+export const blockingReasons = (reasons) => (Array.isArray(reasons) ? reasons : []).filter((code) => !WAIVABLE.has(code));
 export function humanTransition(action, fromState) {
   const t = HUMAN[action];
   if (!t) return { ok: false, error: 'unknown action' };
