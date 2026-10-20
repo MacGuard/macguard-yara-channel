@@ -87,13 +87,11 @@ def run(dist, classification, previous_dir, policy, decisions, yara, yarac, max_
             if cmp_['verdict'] in ('ok', 'no-baseline'):
                 # detection and benign-corpus hit rate, measured on exactly this set
                 w = work / f'final{it}'; w.mkdir(); comp = w / 'rules.yarc'; bench.compile_set(yarac, dist, cand['files'], cand['deps'], comp)
-                clean, _ = bench.detections(yara, comp, corpus, canaries) if comp.exists() else ({}, 0)
+                rules_by_file = {f['path']: f.get('rules', []) for f in approved}
+                clean, _ = bench.detections(yara, comp, corpus, canaries, bench.rule_owners(cand['files'], cand['deps'], rules_by_file)) if comp.exists() else ({}, 0)
                 (w / 'c.yar').write_text(bench.CANARY_RULES); subprocess.run([yarac, str(w / 'c.yar'), str(w / 'c.yarc')], capture_output=True)
                 fired = sum(1 for f in canaries if 'MacGuard_Canary_' in subprocess.run([yara, '-p', '1', '-C', str(w / 'c.yarc'), str(f)], capture_output=True, text=True).stdout) if (w / 'c.yarc').exists() else 0
-                by_rule = {r: f['path'] for f in approved for r in f.get('rules', [])}
-                for rule, files in clean.items():
-                    p = by_rule.get(rule.split(':')[-1])
-                    if p: hits_known[p] = max(hits_known.get(p, 0), len(files))
+                for p, n in bench.benign_hits_by_file(clean, rules_by_file).items(): hits_known[p] = max(hits_known.get(p, 0), n)
                 dyn = {'schema': 1, 'platform': sys.platform, 'engine': subprocess.run([yara, '--version'], capture_output=True, text=True).stdout.strip(), 'verdict': cmp_['verdict'], 'reasons': cmp_['reasons'], 'metrics': cmp_['metrics'],
                        'set_root': decide.set_root(approved), 'canaries_detected': fired, 'canaries_expected': len(canaries), 'culprits': sorted(culprits), 'corpus': {'clean_files': len(corpus), 'canaries': len(canaries)},
                        'benign_hits_by_file': hits_known, 'runs': policy['dynamic']['runs'], 'iterations': log, 'baseline': bool(base), 'candidate_runs': c, 'baseline_runs': b,

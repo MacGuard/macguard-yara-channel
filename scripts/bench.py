@@ -90,16 +90,50 @@ def measure_set(yara, yarac, root, files, deps, corpus, canaries, workdir, timeo
                    'errors': errors, 'timeouts': timeouts, 'crashes': crashes, 'aborted_early': aborted}
     return res
 
-def detections(yara, compiled, corpus, canaries):
-    """Rule matches on the clean corpus (possible false positives) and on the canaries (must all fire)."""
+def rule_owners(files, deps, rules_by_file):
+    """{namespace: {rule name: path of the file that defines it}} for the namespaces compile_set creates: ns<i> holds files[i] and its dependency closure."""
+    owners = {}
+    for i, f in enumerate(files):
+        ns = owners.setdefault(f'ns{i}', {})
+        for p in closure(f, deps):
+            for r in rules_by_file.get(p, ()): ns.setdefault(r, p)
+    return owners
+
+def parse_matches(stdout):
+    """yara -e prints `namespace:rule file` (`default:rule file` for the default namespace): [(namespace or None, rule)], one per output line."""
+    out = []
+    for line in stdout.splitlines():
+        if line.strip():
+            ns, _, rule = line.split()[0].rpartition(':'); out.append((None if ns in ('', 'default') else ns, rule))
+    return out
+
+def detections(yara, compiled, corpus, canaries, owners=None):
+    """Rule matches on the clean corpus (possible false positives) and on the canaries (must all fire).
+
+    `clean` maps a LOGICAL rule to the sorted DISTINCT corpus files it matched. A file and every file that depends on it each hold a copy of it in
+    their own namespace, so one benign file used to be counted once per copy; it counts once. Two different rules that merely share a name stay apart.
+    With `owners` (see rule_owners) the key is `path::rule`, the rule as defined in its file; a match that owners cannot place is keyed `?::rule`, which
+    merges every namespace (never fewer files than the truth). Without owners the key is the bare rule name."""
     def scan(f):
-        r = subprocess.run([yara, '-p', '1', '-C', str(compiled), str(f)], capture_output=True, text=True, timeout=30)
-        return [l.split()[0].split(':')[-1] for l in r.stdout.splitlines() if l.strip()]
+        r = subprocess.run([yara, '-p', '1', '-e', '-C', str(compiled), str(f)], capture_output=True, text=True, timeout=30)   # -e: print the namespace, which is how a copy is told from another
+        return parse_matches(r.stdout)
     clean = {}
     for f in corpus:
-        for rule in scan(f): clean.setdefault(rule, []).append(f.name)
-    fired = sum(1 for f in canaries if any(r.startswith('MacGuard_Canary_') for r in scan(f)))
-    return clean, fired
+        for ns, rule in scan(f):
+            key = rule if owners is None else f"{owners[ns][rule]}::{rule}" if rule in owners.get(ns, {}) else f'?::{rule}'
+            clean.setdefault(key, set()).add(f.name)
+    fired = sum(1 for f in canaries if any(rule.startswith('MacGuard_Canary_') for _, rule in scan(f)))
+    return {k: sorted(v) for k, v in clean.items()}, fired
+
+def benign_hits_by_file(clean, rules_by_file):
+    """{path: the most distinct clean-corpus files any one of its rules matched}, the figure decide.py compares with the hit-rate limit.
+    Keys placed by `path::rule` credit their own file; `?::rule` credits every file that defines that rule name (conservative)."""
+    out = {}
+    for key, files in clean.items():
+        path, _, rule = key.partition('::')
+        for p in ([path] if path != '?' else [q for q, names in rules_by_file.items() if rule in names]):
+            out[p] = max(out.get(p, 0), len(files))
+    return out
 
 def mad(xs):
     m = statistics.median(xs); return statistics.median([abs(x - m) for x in xs])
@@ -175,7 +209,8 @@ def main():
         # detection on the candidate set (+ canary rules compiled alongside)
         w = td / 'det'; w.mkdir(); comp = w / 'rules.yarc'
         compile_set(yarac, dist, cand_files, deps, comp)
-        clean, fired = detections(yara, comp, corpus, canaries) if comp.exists() else ({}, 0)
+        owners = rule_owners(cand_files, deps, {f['path']: f.get('rules', []) for f in approved['files']})
+        clean, fired = detections(yara, comp, corpus, canaries, owners) if comp.exists() else ({}, 0)
         canary_ok = subprocess.run([yarac, str(canary_dir / 'canary.yar'), str(w / 'canary.yarc')], capture_output=True).returncode == 0
         canary_fired = 0
         if canary_ok:

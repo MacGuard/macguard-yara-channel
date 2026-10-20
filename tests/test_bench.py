@@ -90,4 +90,65 @@ class EngineTests(unittest.TestCase):
         comp = self.d / 'c.yarc'; self.assertEqual(__import__('subprocess').run([YARAC, str(self.d / 'c.yar'), str(comp)]).returncode, 0)
         clean, fired = bench.detections(YARA, comp, self.corpus, self.canaries)
         self.assertEqual(fired, 5); self.assertEqual(clean, {})
+
+class HitCountingUnitTests(unittest.TestCase):
+    def test_match_lines_keep_namespace_and_rule(self):
+        out = 'ns3:ldpreload /tmp/c/sys_awk\ndefault:plain_rule /tmp/c/x\nbare_rule /tmp/c/z\n\nns12:Same_Name /tmp/c/y\n'
+        self.assertEqual(bench.parse_matches(out), [('ns3', 'ldpreload'), (None, 'plain_rule'), (None, 'bare_rule'), ('ns12', 'Same_Name')])
+    def test_owners_place_each_rule_in_every_namespace_that_holds_a_copy_of_its_file(self):
+        o = bench.rule_owners(['cap.yar', 'd1.yar', 'x.yar'], {'d1.yar': ['cap.yar']}, {'cap.yar': ['cap'], 'd1.yar': ['dep'], 'x.yar': ['cap']})
+        self.assertEqual(o, {'ns0': {'cap': 'cap.yar'}, 'ns1': {'cap': 'cap.yar', 'dep': 'd1.yar'}, 'ns2': {'cap': 'x.yar'}})   # same name, different files: kept apart per namespace
+    def test_hits_per_file_are_the_most_distinct_corpus_files_any_one_rule_matched(self):
+        clean = {'a.yar::r1': ['f1', 'f2'], 'a.yar::r2': ['f3'], 'b.yar::r1': ['f1']}
+        self.assertEqual(bench.benign_hits_by_file(clean, {}), {'a.yar': 2, 'b.yar': 1})
+    def test_a_match_that_owners_cannot_place_credits_every_file_defining_that_rule_name(self):
+        clean = {'?::dup': ['f1', 'f2', 'f3']}
+        self.assertEqual(bench.benign_hits_by_file(clean, {'a.yar': ['dup'], 'b.yar': ['dup', 'z'], 'c.yar': ['other']}), {'a.yar': 3, 'b.yar': 3})
+
+@unittest.skipUnless(YARA and YARAC, 'yara is not installed; counting matches needs the real engine (a skipped test is not a pass)')
+class HitCountingEngineTests(unittest.TestCase):
+    """The reproduced defect: a rule file that other files depend on is compiled once per namespace, and one benign file used to be counted once per copy."""
+    def setUp(self):
+        self.d = pathlib.Path(tempfile.mkdtemp()); self.corpus = []
+        for i in range(8):
+            q = self.d / f'clean{i}.txt'; q.write_text(f'nothing to see {i}'); self.corpus.append(q)
+    def tearDown(self): shutil.rmtree(self.d, ignore_errors=True)
+    def build(self, files, deps, marked=()):
+        for name, text in files.items(): (self.d / name).write_text(text)
+        for i in marked: self.corpus[i].write_text('LD_PRELOAD-style benign text')
+        comp = self.d / 'all.yarc'; names = sorted(files)
+        self.assertEqual(bench.compile_set(YARAC, self.d, names, deps, comp)['code'], 0)
+        rules = {n: __import__('re').findall(r'rule\s+(\w+)', t) for n, t in files.items()}
+        return comp, names, bench.rule_owners(names, deps, rules), rules
+    CAP = 'rule ldpreload { strings: $a = "LD_PRELOAD" condition: $a }'
+    DEPS = {'d1.yar': ['cap.yar'], 'd2.yar': ['cap.yar'], 'd3.yar': ['cap.yar']}
+    def files(self): return {'cap.yar': self.CAP, **{f'd{i}.yar': f'rule dep{i} {{ strings: $a = "dep-only-{i}" condition: $a }}' for i in (1, 2, 3)}}
+    def raw_lines(self, comp, f): return len(bench.parse_matches(__import__('subprocess').run([YARA, '-p', '1', '-e', '-C', str(comp), str(f)], capture_output=True, text=True).stdout))
+
+    def test_four_output_lines_for_one_benign_file_are_one_match(self):
+        comp, names, owners, rules = self.build(self.files(), self.DEPS, marked=[0])
+        self.assertEqual(self.raw_lines(comp, self.corpus[0]), 4, 'the engine really prints one line per namespace copy: this is the reproduction')
+        clean, _ = bench.detections(YARA, comp, self.corpus, [], owners)
+        self.assertEqual(clean, {'cap.yar::ldpreload': ['clean0.txt']})
+        self.assertEqual(bench.benign_hits_by_file(clean, rules), {'cap.yar': 1})
+        self.assertEqual(bench.detections(YARA, comp, self.corpus, [])[0], {'ldpreload': ['clean0.txt']}, 'even without owners the same file is not repeated')
+    def test_distinct_files_are_still_counted_one_each_across_every_namespace(self):
+        comp, names, owners, rules = self.build(self.files(), self.DEPS, marked=[0, 1, 2])
+        clean, _ = bench.detections(YARA, comp, self.corpus, [], owners)
+        self.assertEqual(clean, {'cap.yar::ldpreload': ['clean0.txt', 'clean1.txt', 'clean2.txt']})   # three files, not twelve and not one
+        self.assertEqual(bench.benign_hits_by_file(clean, rules), {'cap.yar': 3})
+    def test_the_same_rule_name_in_different_files_is_not_merged(self):
+        files = {'x.yar': 'rule Same { strings: $a = "AAA" condition: $a }', 'y.yar': 'rule Same { strings: $a = "BBB" condition: $a }'}
+        comp, names, owners, rules = self.build(files, {})
+        self.corpus[0].write_text('AAA'); self.corpus[1].write_text('BBB'); self.corpus[2].write_text('AAA and BBB')
+        clean, _ = bench.detections(YARA, comp, self.corpus, [], owners)
+        self.assertEqual(clean, {'x.yar::Same': ['clean0.txt', 'clean2.txt'], 'y.yar::Same': ['clean1.txt', 'clean2.txt']})
+        self.assertEqual(bench.benign_hits_by_file(clean, rules), {'x.yar': 2, 'y.yar': 2})
+        self.assertEqual(bench.detections(YARA, comp, self.corpus, [])[0], {'Same': ['clean0.txt', 'clean1.txt', 'clean2.txt']}, 'what the old keys did: two different rules became one')
+    def test_canaries_are_still_found_through_the_parsed_output(self):
+        (self.d / 'c.yar').write_text(bench.CANARY_RULES); comp = self.d / 'c.yarc'; self.assertEqual(__import__('subprocess').run([YARAC, str(self.d / 'c.yar'), str(comp)]).returncode, 0)
+        canaries = []
+        for i in range(5): q = self.d / f'can{i}'; q.write_text(f'MACGUARD-CANARY-{i}-DETECT-ME'); canaries.append(q)
+        self.assertEqual(bench.detections(YARA, comp, self.corpus, canaries)[1], 5)
+
 if __name__ == '__main__': unittest.main()
