@@ -4,9 +4,12 @@
   "type": "module",
   "scripts": {
     "test": "node --test test/*.test.js",
-    "test:runtime": "node --test test-runtime/*.test.mjs"
+    "test:runtime": "node --test test-runtime/*.test.mjs",
+    "test:ui": "node --no-warnings --test --test-concurrency=1 test/ui/ui.test.mjs"
   },
   "devDependencies": {
-    "miniflare": "^4.20260730.0"
+    "axe-core": "4.10.2",
+    "miniflare": "^4.20260730.0",
+    "playwright": "1.64.1"
   }
 }
