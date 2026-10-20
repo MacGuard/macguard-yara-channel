@@ -1,7 +1,7 @@
 // MacGuard quarantine service: private API + admin UI assets. The public site never talks to this worker.
 import { MAX_BATCH, atLeast, blobError, publicStats, validateDecisionRequest, validateSubmission, verifyChain } from './core.js';
 import * as store from './store.js';
-import { STATE_COOKIE, clearCookie, clearStateCookie, createSession, destroySession, effectiveRole, finishLogin, getSession, parseCookies, sessionCookie, startLogin, stateCookie, timingSafeEqual, verifyActionsToken } from './auth.js';
+import { REAUTH, STATE_COOKIE, clearCookie, clearStateCookie, createSession, destroySession, effectiveRole, finishLogin, getSession, parseCookies, sessionCookie, startLogin, stateCookie, timingSafeEqual, verifyActionsToken } from './auth.js';
 
 export const HEADERS = {
   'Content-Security-Policy': "default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'",
@@ -60,7 +60,7 @@ export async function handle(request, env, deps) {
       const given = url.searchParams.get('state') || '';
       if (!given || !timingSafeEqual(bound, given)) return err(400, 'login state does not belong to this browser');
       const r = await finishLogin(db, env, url.searchParams.get('code'), given, deps, now); if (!r.ok) return err(400, r.error);
-      const s = await createSession(db, r.user, now);
+      const s = await createSession(db, r.user, now, env);
       await store.appendAudit(db, { actor: r.user.login, role: 'NONE', action: 'session.login', target: 'session', detail: {} }, new Date(now * 1000).toISOString());
       return new Response(null, { status: 302, headers: (() => { const h = new Headers(HEADERS); h.set('Location', '/'); h.append('Set-Cookie', sessionCookie(s.id, s.ttl)); h.append('Set-Cookie', clearStateCookie()); return h; })() });
     }
@@ -70,6 +70,7 @@ export async function handle(request, env, deps) {
       const session = await getSession(db, request, now); if (!session) return err(401, 'sign in required');
       const unsafe = method !== 'GET' && method !== 'HEAD';
       const role = await effectiveRole(db, session, env, deps, now, { fresh: unsafe });
+      if (role === REAUTH) return json({ error: 'sign in again: your GitHub authorization is no longer valid' }, 401, { 'Set-Cookie': clearCookie() });
       if (!role) return err(403, 'your GitHub account has no access to this panel');
       const actor = { login: session.login, id: session.user_id, role };
       if (unsafe) {   // CSRF: same-origin request carrying the per-session token

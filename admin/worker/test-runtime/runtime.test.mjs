@@ -16,6 +16,7 @@ const root = fileURLToPath(new URL('..', import.meta.url));
 const MODULES = ['index', 'core', 'store', 'auth'].map((n) => ({ type: 'ESModule', path: `${n}.js`, contents: readFileSync(join(root, 'src', `${n}.js`), 'utf8') }));
 const persist = mkdtempSync(join(tmpdir(), 'mg-d1-'));
 const key = await rsaKey(), otherKey = await rsaKey();
+const ENC_KEY = Buffer.alloc(32, 9).toString('base64');   // test-only key for sealing session tokens
 const perms = {};   // access token -> GitHub repository permissions, answered by the fake GitHub
 let mf, db;
 
@@ -33,7 +34,7 @@ const boot = async () => {
     modules: MODULES, compatibilityDate: '2026-08-01',
     d1Databases: { DB: 'quarantine' }, d1Persist: join(persist, 'd1'),
     assets: { directory: join(root, 'public'), binding: 'ASSETS', routerConfig: { has_user_worker: true } },
-    bindings: { REPO, PUBLIC_URL: ORIGIN, OIDC_AUDIENCE: ORIGIN, GITHUB_CLIENT_ID: 'cid', GITHUB_CLIENT_SECRET: 'sec', PIPELINE_WORKFLOWS: 'daily.yml,publish.yml' },
+    bindings: { REPO, PUBLIC_URL: ORIGIN, OIDC_AUDIENCE: ORIGIN, GITHUB_CLIENT_ID: 'cid', GITHUB_CLIENT_SECRET: 'sec', TOKEN_ENC_KEY: ENC_KEY, PIPELINE_WORKFLOWS: 'daily.yml,publish.yml' },
     outboundService: fakeGithub,
   });
   db = await mf.getD1Database('DB');
@@ -46,7 +47,7 @@ after(async () => { await mf.dispose(); rmSync(persist, { recursive: true, force
 let users = 0;
 async function login(name, permission) {
   const token = `tok-${name}-${++users}`; perms[token] = permission;
-  const s = await createSession(db, { login: name, id: 100 + users, token }, Math.floor(Date.now() / 1000));
+  const s = await createSession(db, { login: name, id: 100 + users, token }, Math.floor(Date.now() / 1000), { TOKEN_ENC_KEY: ENC_KEY });
   return { cookie: `__Host-mg_session=${s.id}`, csrf: s.csrf, name };
 }
 async function call(method, path, { user, body, bearer, headers = {} } = {}) {
@@ -181,7 +182,7 @@ test('data survives a restart of the runtime (same persisted D1)', async () => {
   mf = new Miniflare({
     modules: MODULES, compatibilityDate: '2026-08-01',
     d1Databases: { DB: 'quarantine' }, d1Persist: join(persist, 'd1'), assets: { directory: join(root, 'public'), binding: 'ASSETS', routerConfig: { has_user_worker: true } },
-    bindings: { REPO, PUBLIC_URL: ORIGIN, OIDC_AUDIENCE: ORIGIN, GITHUB_CLIENT_ID: 'cid', GITHUB_CLIENT_SECRET: 'sec', PIPELINE_WORKFLOWS: 'daily.yml,publish.yml' }, outboundService: fakeGithub,
+    bindings: { REPO, PUBLIC_URL: ORIGIN, OIDC_AUDIENCE: ORIGIN, GITHUB_CLIENT_ID: 'cid', GITHUB_CLIENT_SECRET: 'sec', TOKEN_ENC_KEY: ENC_KEY, PIPELINE_WORKFLOWS: 'daily.yml,publish.yml' }, outboundService: fakeGithub,
   });
   db = await mf.getD1Database('DB');
   assert.equal((await db.prepare('SELECT COUNT(*) n FROM candidates').first()).n, before);

@@ -24,7 +24,7 @@ export async function world() {
   const db = newDb(); const key = await rsaKey();
   const perms = {};            // token -> {admin, maintain, push, triage} or 'down'
   let clock = Math.floor(Date.now() / 1000), n = 0;
-  const env = { DB: db, REPO, PUBLIC_URL: ORIGIN, OIDC_AUDIENCE: ORIGIN, GITHUB_CLIENT_ID: 'cid', GITHUB_CLIENT_SECRET: 'sec' };
+  const env = { DB: db, REPO, PUBLIC_URL: ORIGIN, OIDC_AUDIENCE: ORIGIN, GITHUB_CLIENT_ID: 'cid', GITHUB_CLIENT_SECRET: 'sec', TOKEN_ENC_KEY: Buffer.alloc(32, 7).toString('base64') };
   const deps = {
     now: () => clock, uuid: () => `00000000-0000-4000-8000-${String(++n).padStart(12, '0')}`,
     fetch: async (url, init = {}) => {
@@ -32,6 +32,7 @@ export async function world() {
       if (String(url).endsWith(`/repos/${REPO}`)) {
         const token = (init.headers?.Authorization || '').replace('Bearer ', ''); const p = perms[token];
         if (p === 'down') return new Response('boom', { status: 502 });
+        if (p === 'denied') return new Response('no', { status: 403 });   // GitHub refuses the repository to this person (permissions removed)
         if (!p) return new Response('no', { status: 401 });
         return new Response(JSON.stringify({ permissions: p }));
       }
@@ -41,7 +42,7 @@ export async function world() {
   const w = {
     db, env, deps, key, perms, tick: (s) => { clock += s; }, now: () => clock,
     async login(login, permission, { id = 1 } = {}) {
-      const token = `tok-${login}`; perms[token] = permission === 'down' ? 'down' : permission; const s = await createSession(db, { login, id, token }, clock);
+      const token = `tok-${login}`; perms[token] = permission === 'down' ? 'down' : permission; const s = await createSession(db, { login, id, token }, clock, env);
       return { cookie: `__Host-mg_session=${s.id}`, csrf: s.csrf, sid: s.id };
     },
     async call(method, path, { user, body, headers = {}, csrf = true, origin = true, bearer } = {}) {

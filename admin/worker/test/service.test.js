@@ -388,3 +388,55 @@ test('a decision never starts a release: the service has no way to call a GitHub
   assert.equal((await decide(w, w.reviewer, { action: 'approve', ids, reason: 'reviewed by hand', request_id: rid(), confirm_count: 2, expect: v })).status, 200);
   assert.deepEqual(calls.filter((c) => !/ GET$/.test(c)), [], 'a decision made no outbound write');
 });
+
+test('the GitHub token is sealed at rest: D1 holds no usable token, and a row cannot be replayed under another session', async () => {
+  const w = await world(); const rita = await w.login('rita', { push: true }); const ada = await w.login('ada', { admin: true }, { id: 3 });
+  const rows = (await w.db.prepare('SELECT id, token FROM sessions').all()).results;
+  assert.equal(rows.length, 2); assert.ok(rows.every((r) => /^v1\.[A-Za-z0-9+/=]+\.[A-Za-z0-9+/=]+$/.test(r.token) && !r.token.includes('tok-')), 'no plaintext token in D1');
+  assert.equal((await w.call('GET', '/api/candidates', { user: rita })).status, 200);
+  // a seal copied onto another session fails authentication (AAD = session id): the person must sign in again
+  const adaRow = rows.find((r) => r.id === ada.sid);
+  await w.db.prepare('UPDATE sessions SET token = ?, perm = NULL WHERE id = ?').bind(adaRow.token, rita.sid).run();
+  const r = await w.call('GET', '/api/candidates', { user: rita }); assert.equal(r.status, 401);
+  assert.equal((await w.db.prepare('SELECT 1 AS x FROM sessions WHERE id = ?').bind(rita.sid).first()), null, 'the session was destroyed');
+});
+
+test('a legacy plaintext token or a wrong or missing key never authorizes; sealing needs a valid key', async () => {
+  const w = await world(); const rita = await w.login('rita', { push: true });
+  await w.db.prepare('UPDATE sessions SET token = ?, perm = NULL WHERE id = ?').bind('tok-rita', rita.sid).run();
+  assert.equal((await w.call('GET', '/api/candidates', { user: rita })).status, 401);
+  const { createSession } = await import('../src/auth.js');
+  await assert.rejects(createSession(w.db, { login: 'x', id: 9, token: 't' }, w.now(), {}), /TOKEN_ENC_KEY/);
+  await assert.rejects(createSession(w.db, { login: 'x', id: 9, token: 't' }, w.now(), { TOKEN_ENC_KEY: Buffer.alloc(16).toString('base64') }), /32 random bytes/);
+});
+
+test('a revoked or expired GitHub token ends the session at once; it keeps nothing, not even a members grant', async () => {
+  const w = await world(); const ada = await w.login('ada', { admin: true }, { id: 3 }); const vera = await w.login('vera', { pull: true }, { id: 5 });
+  assert.equal((await w.call('POST', '/api/members', { user: ada, body: { login: 'vera', role: 'VIEWER' } })).status, 200);
+  assert.equal((await w.call('GET', '/api/candidates', { user: vera })).status, 200);
+  delete w.perms['tok-vera']; w.tick(61);   // GitHub now answers 401 Bad credentials for her token
+  const r = await w.call('GET', '/api/candidates', { user: vera });
+  assert.equal(r.status, 401); assert.match(r.data.error, /sign in again/); assert.match(r.headers.get('Set-Cookie'), /Max-Age=0/);
+  assert.equal((await w.db.prepare('SELECT 1 AS x FROM sessions WHERE id = ?').bind(vera.sid).first()), null);
+  assert.equal((await w.call('GET', '/api/candidates', { user: vera })).status, 401, 'the old cookie stays dead');
+  const again = await w.login('vera', { pull: true }, { id: 5 });   // signing in again restores the explicit grant
+  assert.equal((await w.call('GET', '/api/candidates', { user: again })).status, 200);
+});
+
+test('administrative revocation is different: losing repository permissions keeps only an explicit members grant, and a write is refused at once', async () => {
+  const { w, ids } = await seeded(['a']); const rita = await w.login('rita', { push: true }); const ada = await w.login('ada', { admin: true }, { id: 3 });
+  assert.equal((await w.call('GET', '/api/candidates', { user: rita })).status, 200);
+  w.perms['tok-rita'] = 'denied';   // GitHub 403: the person lost access to the repository, the token itself is still valid
+  assert.equal((await decide(w, rita, { action: 'approve', ids, reason: 'reviewed carefully', request_id: rid(), expect: { [ids[0]]: 1 } })).status, 403);
+  assert.equal((await w.call('GET', '/api/candidates', { user: rita })).status, 403);
+  assert.equal((await w.call('POST', '/api/members', { user: ada, body: { login: 'rita', role: 'VIEWER' } })).status, 200);
+  assert.equal((await w.call('GET', '/api/candidates', { user: rita })).status, 200, 'an explicit VIEWER grant survives');
+  assert.equal((await decide(w, rita, { action: 'approve', ids, reason: 'reviewed carefully', request_id: rid(), expect: { [ids[0]]: 1 } })).status, 403, 'VIEWER cannot decide');
+});
+
+test('a session never outlives an expiring GitHub token', async () => {
+  const w = await world(); const { createSession } = await import('../src/auth.js');
+  const s = await createSession(w.db, { login: 'x', id: 9, token: 't', expires_in: 3600 }, w.now(), w.env);
+  assert.equal(s.ttl, 3540);
+  assert.equal((await createSession(w.db, { login: 'y', id: 10, token: 't' }, w.now(), w.env)).ttl, 8 * 3600);
+});

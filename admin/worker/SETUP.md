@@ -13,6 +13,7 @@
    wrangler secret put GITHUB_CLIENT_ID     --config wrangler.staging.toml     # paste when prompted
    wrangler secret put GITHUB_CLIENT_SECRET --config wrangler.staging.toml     # paste when prompted
    ```
+   A third secret, `TOKEN_ENC_KEY`, seals the users' GitHub tokens in D1 (AES-256-GCM). Generate it straight into the pipe, never to a file: `openssl rand -base64 32 | tr -d '\n' | wrangler secret put TOKEN_ENC_KEY --config <env toml>`. Without it the service refuses every login (fail closed). Rotating it signs everyone out.
    The client secret then lives only as a Worker secret. It is never in a repo, a GitHub secret, a variable or `wrangler.toml`; the browser never sees it (token exchange is server-side).
 
 ## I do afterwards (you only tell me "listo" and the hostname)
