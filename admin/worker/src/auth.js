@@ -72,7 +72,21 @@ export async function effectiveRole(db, session, env, deps, now, { fresh = false
       perm = session.perm;
     }
   }
-  return highestRole(roleFromRepoPermission(perm), await memberRole(db, session.login));
+  return highestRole(roleFromRepoPermission(perm), await memberRole(db, session.login, session.user_id));
+}
+
+/** Resolve a GitHub account with the acting administrator's own token. `by` is {id} (authoritative) or {login} (lookup for the add form). Returns
+ *  {ok, account:{id, login, type}} or {ok:false, status, error}. Only real user accounts can be members. */
+export async function resolveGithubAccount(deps, env, token, by) {
+  const path = by.id != null ? `/user/${encodeURIComponent(by.id)}` : `/users/${encodeURIComponent(by.login)}`;
+  let r; try { r = await deps.fetch(`${env.GITHUB_API || 'https://api.github.com'}${path}`, { headers: { Authorization: `Bearer ${token}`, Accept: 'application/vnd.github+json', 'User-Agent': 'macguard-admin' } }); } catch { return { ok: false, status: 502, error: 'GitHub could not be reached; nothing was changed' }; }
+  if (r.status === 401) return { ok: false, status: 401, error: 'sign in again: your GitHub authorization is no longer valid' };
+  if (r.status === 404) return { ok: false, status: 404, error: 'no such GitHub account' };
+  if (!r.ok) return { ok: false, status: 502, error: `GitHub answered ${r.status}; nothing was changed` };
+  const u = await r.json();
+  if (u.type !== 'User' || !Number.isInteger(u.id) || typeof u.login !== 'string') return { ok: false, status: 400, error: 'only personal GitHub accounts can be members' };
+  if (by.id != null && u.id !== Number(by.id)) return { ok: false, status: 409, error: 'GitHub returned a different account id' };
+  return { ok: true, account: { id: u.id, login: u.login, type: u.type } };
 }
 
 // ---- GitHub OAuth ----------------------------------------------------------------------------

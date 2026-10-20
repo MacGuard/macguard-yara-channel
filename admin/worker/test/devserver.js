@@ -18,7 +18,7 @@ if (!empty) await w.submit(items);
 const sessions = {
   viewer: await w.login('vera', { pull: true }, { id: 11 }), reviewer: await w.login('rita', { push: true }, { id: 12 }), admin: await w.login('ada', { admin: true }, { id: 13 }),
 };
-await w.call('POST', '/api/members', { user: sessions.admin, body: { login: 'vera', role: 'VIEWER' } });
+await w.grant(sessions.admin, 'vera', 'VIEWER');
 w.env.ASSETS = { fetch: async (req) => {
   const p = new URL(req.url).pathname; const f = normalize(join(root, p === '/' ? 'index.html' : p));
   if (p === '/__e2e.js') return new Response(readFileSync(new URL('./ui_e2e.js', import.meta.url)), { headers: { 'Content-Type': types['.js'] } });

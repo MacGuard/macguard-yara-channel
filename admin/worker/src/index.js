@@ -1,10 +1,10 @@
 // MacGuard quarantine service: private API + admin UI assets. The public site never talks to this worker.
-import { MAX_BATCH, atLeast, blobError, publicStats, validateDecisionRequest, validateSubmission, verifyChain } from './core.js';
+import { MAX_BATCH, atLeast, blobError, highestRole, roleFromRepoPermission, publicStats, validateDecisionRequest, validateSubmission, verifyChain } from './core.js';
 import * as store from './store.js';
-import { REAUTH, STATE_COOKIE, clearCookie, clearStateCookie, createSession, destroySession, effectiveRole, finishLogin, getSession, parseCookies, sessionCookie, startLogin, stateCookie, timingSafeEqual, verifyActionsToken } from './auth.js';
+import { REAUTH, STATE_COOKIE, openToken, resolveGithubAccount, clearCookie, clearStateCookie, createSession, destroySession, effectiveRole, finishLogin, getSession, parseCookies, sessionCookie, startLogin, stateCookie, timingSafeEqual, verifyActionsToken } from './auth.js';
 
 export const HEADERS = {
-  'Content-Security-Policy': "default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'",
+  'Content-Security-Policy': "default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data: https://avatars.githubusercontent.com; connect-src 'self'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'",
   'X-Content-Type-Options': 'nosniff', 'Referrer-Policy': 'no-referrer', 'Cache-Control': 'no-store', 'Cross-Origin-Opener-Policy': 'same-origin', 'Strict-Transport-Security': 'max-age=31536000',
 };
 const json = (obj, status = 200, extra = {}) => new Response(JSON.stringify(obj), { status, headers: { ...HEADERS, 'Content-Type': 'application/json; charset=utf-8', ...extra } });
@@ -61,7 +61,7 @@ export async function handle(request, env, deps) {
       if (!given || !timingSafeEqual(bound, given)) return err(400, 'login state does not belong to this browser');
       const r = await finishLogin(db, env, url.searchParams.get('code'), given, deps, now); if (!r.ok) return err(400, r.error);
       const s = await createSession(db, r.user, now, env);
-      await store.appendAudit(db, { actor: r.user.login, role: 'NONE', action: 'session.login', target: 'session', detail: {} }, new Date(now * 1000).toISOString());
+      await store.appendAudit(db, { actor: r.user.login, role: 'NONE', action: 'session.login', target: 'session', detail: { user_id: r.user.id } }, new Date(now * 1000).toISOString());
       return new Response(null, { status: 302, headers: (() => { const h = new Headers(HEADERS); h.set('Location', '/'); h.append('Set-Cookie', sessionCookie(s.id, s.ttl)); h.append('Set-Cookie', clearStateCookie()); return h; })() });
     }
 
@@ -78,7 +78,7 @@ export async function handle(request, env, deps) {
         if (!timingSafeEqual(request.headers.get('X-CSRF-Token') || '', session.csrf)) return err(403, 'missing or wrong CSRF token');
       }
       const iso = new Date(now * 1000).toISOString();
-      if (method === 'GET' && path === '/api/me') return json({ login: session.login, role, csrf: session.csrf, max_batch: MAX_BATCH });
+      if (method === 'GET' && path === '/api/me') return json({ login: session.login, user_id: session.user_id, role, csrf: session.csrf, max_batch: MAX_BATCH });
       if (method === 'POST' && path === '/api/logout') { await destroySession(db, session.id); return json({ ok: true }, 200, { 'Set-Cookie': clearCookie() }); }
       if (method === 'GET' && path === '/api/candidates') {
         return json(await store.listCandidates(db, { state: url.searchParams.get('state') || undefined, q: url.searchParams.get('q') || undefined, source: url.searchParams.get('source') || undefined, page: +url.searchParams.get('page') || 1, pageSize: +url.searchParams.get('pageSize') || 25 }));
@@ -100,16 +100,30 @@ export async function handle(request, env, deps) {
       if (method === 'POST' && rt) { if (!atLeast(role, 'REVIEWER')) return err(403, 'reviewer role required'); return (await store.requestRetest(db, rt[1], actor, iso)) ? json({ ok: true, note: 'the next pipeline run will test it again' }) : err(404, 'not found'); }
       if (method === 'GET' && path === '/api/audit') { if (!atLeast(role, 'REVIEWER')) return err(403, 'reviewer role required'); return json({ entries: await store.auditTail(db, Math.min(+url.searchParams.get('limit') || 50, 200)) }); }
       if (method === 'GET' && path === '/api/audit/verify') { if (!atLeast(role, 'ADMIN')) return err(403, 'admin role required'); const rows = await store.auditRows(db, 100001); if (rows.length > 100000) return json({ ok: false, error: 'the audit log is longer than one verification pass covers; it was NOT verified' }); return json(await verifyChain(rows)); }
-      if (path === '/api/members') {
-        if (!atLeast(role, 'ADMIN')) return err(403, 'admin role required');
-        if (method === 'GET') return json({ members: await store.listMembers(db) });
-        if (method === 'POST') {
+      if (path === '/api/members' || path.startsWith('/api/members/')) {
+        if (!atLeast(role, 'ADMIN')) return err(403, 'admin role required');   // enforced here, whatever the UI shows
+        const adminToken = () => openToken(env, session.id, session.token);
+        if (method === 'GET' && path === '/api/members') return json(await store.listPeople(db, { q: url.searchParams.get('q') || '', status: url.searchParams.get('status') || '', page: +url.searchParams.get('page') || 1, pageSize: +url.searchParams.get('pageSize') || 25 }, roleFromRepoPermission, highestRole));
+        if (method === 'GET' && path === '/api/members/lookup') {   // resolves the real GitHub account before anything can be saved
+          const login = url.searchParams.get('login') || ''; if (!/^[A-Za-z0-9-]{1,39}$/.test(login)) return err(400, 'a GitHub login is required');
+          const tok = await adminToken(); if (!tok) return json({ error: 'sign in again' }, 401, { 'Set-Cookie': clearCookie() });
+          const r = await resolveGithubAccount(deps, env, tok, { login }); if (!r.ok) return err(r.status, r.error);
+          const found = await store.findMember(db, r.account.id, r.account.login);
+          return json({ account: { ...r.account, avatar_url: `https://avatars.githubusercontent.com/u/${r.account.id}?s=96` }, current_role: found.kind === 'other-identity' ? null : found.row ? found.row.role : null, legacy_unbound: found.kind === 'legacy', login_held_by_other_id: found.kind === 'other-identity' ? found.row.user_id : null, is_self: r.account.id === session.user_id });
+        }
+        const hm = path.match(/^\/api\/members\/(\d{1,12})\/history$/);
+        if (method === 'GET' && hm) return json({ history: await store.memberHistory(db, +hm[1], url.searchParams.get('login') || '') });
+        if (method === 'POST' && path === '/api/members') {
           const read = await readJson(request, 10_000); if (read.tooLarge) return err(413, 'request body too large'); const b = read.body;
-          if (!b || typeof b.login !== 'string' || !/^[A-Za-z0-9-]{1,39}$/.test(b.login) || !['VIEWER', 'REVIEWER', 'ADMIN', null].includes(b.role)) return err(400, 'login and role (VIEWER, REVIEWER, ADMIN or null) required');
-          if (b.login.toLowerCase() === session.login.toLowerCase()) return err(400, 'you cannot change your own role');
-          await store.setMember(db, b.login, b.role, session.login, iso);
-          await store.appendAudit(db, { actor: session.login, role, action: 'member.set', target: b.login.toLowerCase(), detail: { role: b.role } }, iso);
-          return json({ ok: true });
+          if (!b || !Number.isInteger(b.user_id) || b.user_id < 1 || !['VIEWER', 'REVIEWER', 'ADMIN', null].includes(b.role)) return err(400, 'user_id (the GitHub account id) and role (VIEWER, REVIEWER, ADMIN or null to revoke) required');
+          if (typeof b.reason !== 'string' || b.reason.replace(/[\s\p{Cf}]/gu, '').length < 5 || b.reason.length > 2000) return err(400, 'a reason of 5 to 2000 visible characters is required');
+          if (b.user_id === session.user_id) return err(400, 'you cannot change your own role');
+          const tok = await adminToken(); if (!tok) return json({ error: 'sign in again' }, 401, { 'Set-Cookie': clearCookie() });
+          const acc = await resolveGithubAccount(deps, env, tok, { id: b.user_id }); if (!acc.ok) return err(acc.status, acc.error);
+          if (acc.account.login.toLowerCase() === session.login.toLowerCase()) return err(400, 'you cannot change your own role');
+          const permNow = (await db.prepare('SELECT perm FROM sessions WHERE id = ?').bind(session.id).first())?.perm;   // fresh: the write above asked GitHub again
+          const r = await store.changeMember(db, { account: acc.account, role: b.role, reason: b.reason.trim(), actor: { login: session.login, id: session.user_id, role }, durableAdmin: permNow === 'admin' }, iso);
+          const { status, ...rest } = r; return json(rest, status);
         }
       }
       return err(404, 'unknown endpoint');

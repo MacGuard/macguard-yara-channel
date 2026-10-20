@@ -19,6 +19,7 @@ CREATE TABLE IF NOT EXISTS candidates (
   retest_requested INTEGER NOT NULL DEFAULT 0,
   revalidation_failed TEXT,
   updated_at TEXT NOT NULL,
+  archived_at TEXT,   -- set = hidden from every operational view; decisions and audit are never touched
   UNIQUE (sha256, path)
 );
 CREATE INDEX IF NOT EXISTS candidates_state ON candidates (state);
@@ -41,7 +42,10 @@ CREATE TABLE IF NOT EXISTS decisions (
   at TEXT NOT NULL,
   UNIQUE (request_id, candidate_id)
 );
-CREATE TABLE IF NOT EXISTS members (login TEXT PRIMARY KEY, role TEXT NOT NULL CHECK (role IN ('VIEWER','REVIEWER','ADMIN')), granted_by TEXT NOT NULL, at TEXT NOT NULL);
+-- A member is identified by the immutable GitHub account id. `login` is only the name seen at the last change; a row with user_id NULL is a legacy
+-- grant by name that is honoured but flagged "unbound" until an ADMIN resolves it to an account (see migrations/0002).
+CREATE TABLE IF NOT EXISTS members (login TEXT PRIMARY KEY, role TEXT NOT NULL CHECK (role IN ('VIEWER','REVIEWER','ADMIN')), granted_by TEXT NOT NULL, at TEXT NOT NULL, user_id INTEGER, updated_at TEXT);
+CREATE UNIQUE INDEX IF NOT EXISTS members_user_id ON members (user_id) WHERE user_id IS NOT NULL;
 -- Append-only, hash-chained: hash = SHA-256(prev_hash || canonical entry). Any edit or deletion breaks the chain.
 CREATE TABLE IF NOT EXISTS audit (
   seq INTEGER PRIMARY KEY AUTOINCREMENT,
