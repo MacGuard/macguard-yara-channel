@@ -40,7 +40,8 @@ export async function renderRule(ctx, id) {
   const codeText = c.content === null ? null : c.content.slice(0, 200000);
   const decisions = (c.decisions || []).length ? h('ol', { class: 'timeline' }, ...c.decisions.slice().reverse().map((d) => h('li', {}, h('time', { datetime: d.at, text: fmtDateTime(d.at) }), h('strong', { text: `${d.actor} · ${t(`act_${d.action}`) || d.action}` }), h('div', { class: 'note', text: `${t(`st_${d.from_state}`)} → ${t(`st_${d.to_state}`)}` }), h('div', { class: 'quote', text: d.reason })))) : h('p', { class: 'muted', text: t('r_decisions_none') });
 
-  const actions = canDecide ? h('div', { class: 'card' }, h('h2', { text: t('r_actions') }), h('p', { class: 'note mt-8 mb-14', text: t('r_actions_note') }), c.approvable === false ? h('p', { class: 'alert alert-info', id: 'not-approvable' }, icon('lock'), t('r_not_approvable', { reasons: c.blocking.map(reasonLabel).join(', ') })) : null, h('div', { class: 'actions-col' },
+  const actions = c.state === 'RELEASED' ? h('div', { class: 'card' }, h('p', { class: 'alert alert-ok' }, icon('check'), t('r_released_note')))
+    : canDecide ? h('div', { class: 'card' }, h('h2', { text: t('r_actions') }), h('p', { class: 'note mt-8 mb-14', text: t('r_actions_note') }), c.approvable === false ? h('p', { class: 'alert alert-info', id: 'not-approvable' }, icon('lock'), t('r_not_approvable', { reasons: c.blocking.map(reasonLabel).join(', ') })) : null, h('div', { class: 'actions-col' },
     h('button', { type: 'button', class: 'btn btn-ok', disabled: c.approvable === false || (c.dependencies && c.dependencies.effect === 'ineffective'), ...(c.approvable === false ? { 'aria-describedby': 'not-approvable' } : c.dependencies && c.dependencies.effect === 'ineffective' ? { 'aria-describedby': 'dep-effect' } : {}), onclick: () => decide('approve', new Map([[c.id, c.version]]), reload) }, icon('check'), t('act_approve')),
     h('button', { type: 'button', class: 'btn btn-bad', onclick: () => decide('reject', new Map([[c.id, c.version]]), reload) }, icon('x'), t('act_reject')),
     h('button', { type: 'button', class: 'btn', onclick: () => decide('hold', new Map([[c.id, c.version]]), reload) }, icon('pause'), t('act_hold')),
@@ -49,7 +50,9 @@ export async function renderRule(ctx, id) {
 
   const kv = h('dl', { class: 'kv' }, h('dt', { text: t('r_source') }), h('dd', { text: c.source }), c.upstream_commit ? [h('dt', { text: t('r_commit') }), h('dd', { class: 'mono', text: c.upstream_commit.slice(0, 12) })] : null,
     h('dt', { text: t('r_size') }), h('dd', { text: bytes(c.bytes) }), h('dt', { text: t('r_detected') }), h('dd', { text: fmtDateTime(c.detected_at) }), h('dt', { text: t('r_version') }), h('dd', { text: `v${c.version}` }),
-    c.release_tag ? [h('dt', { text: t('r_release') }), h('dd', { text: c.release_tag })] : null);
+    c.release_tag ? [h('dt', { text: t('r_release') }), h('dd', { text: c.release_tag })] : null,
+    c.release ? [h('dt', { text: t('r_release_basis') }), h('dd', { text: t(`rel_basis_${c.release.basis}`) }), h('dt', { text: t('r_release_proof') }), h('dd', { class: 'mono', title: c.release.manifest_sha256, text: `${String(c.release.manifest_sha256).slice(0, 12)}…` }),
+      c.release.token_run_id ? [h('dt', { text: t('r_release_runlabel') }), h('dd', { text: t('r_release_run', { run: c.release.token_run_id, attempt: c.release.run_attempt ?? '?' }) })] : null] : null);
 
   put(root, back,
     h('div', { class: 'page-head' }, h('div', {}, h('h1', { id: 'page-title', tabindex: '-1', text: c.name }), h('p', { class: 'rule-path mt-6', text: c.path })), h('div', { class: 'actions' }, stateBadge(c.state))),

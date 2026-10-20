@@ -708,6 +708,9 @@ test('a pending rule the pipeline publishes goes to RELEASED only on the evidenc
   assert.equal(r.status, 200); assert.deepEqual(r.data.changed.map((c) => c.to), ['RELEASED', 'RELEASED']);
   assert.deepEqual([await state(w, ids[0]), await state(w, ids[1]), await state(w, ids[2])], ['RELEASED', 'PENDING', 'RELEASED']);
   const detail = (await w.call('GET', `/api/candidates/${ids[0]}`, { user: w.reviewer })).data; assert.equal(detail.release_tag, 'rules-20261021-100'); assert.equal(detail.version, 2);
+  assert.deepEqual([detail.release.tag, detail.release.from, detail.release.basis, detail.release.release_id, detail.release.evidence, detail.release.run_attempt, detail.release.token_run_id], ['rules-20261021-100', 'PENDING', 'pipeline_checks_only', 4242, 'api', 2, '5551']);
+  assert.equal(detail.release.manifest_sha256, rel.manifestSha, 'the sheet shows the evidence the audit holds, not a claim');
+  assert.equal((await w.call('GET', `/api/candidates/${ids[1]}`, { user: w.reviewer })).data.release, null, 'a candidate that is not released has no release');
   const [e] = await releasedAudit(w); assert.equal(after, before + 1, 'one audit entry for the whole callback');
   assert.equal(e.actor, 'pipeline:publish.yml'); assert.equal(e.role, 'PIPELINE'); assert.equal(e.target, 'rules-20261021-100'); assert.equal(e.trigger, 'publish'); assert.equal(e.receipt, 'first');
   assert.equal(e.token_run_id, '5551'); assert.equal(e.run_attempt, 2); assert.equal(e.release.id, 4242); assert.equal(e.release.evidence, 'api'); assert.equal(e.release.asset_digest_checked, true);

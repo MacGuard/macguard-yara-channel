@@ -74,6 +74,12 @@ export async function listCandidates(db, { state, q, source, page = 1, pageSize 
 async function dependencyRows(db) {
   return (await db.prepare('SELECT id, path, state, reasons, depends_on, detected_at FROM candidates WHERE archived_at IS NULL').all()).results.map((r) => ({ ...r, reasons: parse(r.reasons, []), depends_on: parse(r.depends_on, []) }));
 }
+/** Why a candidate is RELEASED, read back from the append-only audit entry that moved it (null for anything released before entries carried this evidence). */
+async function releaseEvidence(db, id) {
+  const e = await db.prepare("SELECT a.seq, a.at, a.detail FROM audit a, json_each(a.detail, '$.transitions') t WHERE a.action = 'pipeline.released' AND json_extract(t.value, '$.id') = ? ORDER BY a.seq DESC LIMIT 1").bind(id).first();
+  if (!e) return null; const d = parse(e.detail, {}), t = (d.transitions || []).find((x) => x.id === id); if (!t) return null;
+  return { tag: d.tag, at: e.at, from: t.from, basis: t.basis, reason: t.reason, manifest_sha256: d.manifest_sha256, rules_root: d.rules_root, release_id: d.release ? d.release.id : null, evidence: d.release ? d.release.evidence : null, run_url: d.run_url, token_run_id: d.token_run_id, run_attempt: d.run_attempt, audit_seq: e.seq };
+}
 export async function getCandidate(db, id) {
   const c = row(await db.prepare('SELECT * FROM candidates WHERE id = ?').bind(id).first());
   if (!c) return null;
@@ -81,6 +87,7 @@ export async function getCandidate(db, id) {
   const blob = await db.prepare('SELECT content FROM blobs WHERE sha256 = ?').bind(c.sha256).first();
   c.content = blob ? blob.content : null;
   c.dependencies = c.archived_at ? null : dependencyEffect(await dependencyRows(db), id);
+  c.release = c.state === 'RELEASED' ? await releaseEvidence(db, id) : null;
   c.history = (await db.prepare('SELECT id, sha256, state, detected_at, metrics, release_tag FROM candidates WHERE path = ? AND id != ? ORDER BY detected_at DESC LIMIT 20').bind(c.path, id).all()).results.map((h) => ({ ...h, metrics: parse(h.metrics, {}) }));
   return c;
 }

@@ -25,6 +25,10 @@ if (process.argv.includes('--deps')) items.push(   // a shared dependency (appro
   cand('d2', 'rules/community/pack/uses_base_2.yar', { reasons: ['dependency-not-validated'], depends_on: ['rules/community/pack/shared_base.yar'] }),
   cand('b', 'rules/community/pack/needs_cuckoo.yar', { reasons: ['blocked-module'] }), cand('x', 'rules/community/pack/uses_cuckoo.yar', { reasons: ['dependency-not-validated'], depends_on: ['rules/community/pack/needs_cuckoo.yar'] }));
 if (!empty) await w.submit(items);
+if (process.argv.includes('--released') && !empty) {   // one pending rule that the pipeline then published: the release callback with the evidence GitHub serves
+  const first = items[0]; await w.release('rules-20261021-900', [first]);
+  await w.call('POST', '/api/pipeline/released', { bearer: await w.pipelineToken('publish.yml', { run_id: '900', run_attempt: '1' }), body: { tag: 'rules-20261021-900', hashes: [first.sha256], run_url: `${w.env.PUBLIC_URL}/runs/900` } });
+}
 const sessions = {
   viewer: await w.login('vera', { pull: true }, { id: 11 }), reviewer: await w.login('rita', { push: true }, { id: 12 }), admin: await w.login('ada', { admin: true }, { id: 13 }),
   nobody: await w.login('sam', { pull: true }, { id: 14 }),   // signed in with GitHub but holds no role
