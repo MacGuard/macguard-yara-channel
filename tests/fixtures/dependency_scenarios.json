@@ -1,0 +1,93 @@
+{
+  "about": "Dependency scenarios shared by two suites: tests/test_dependency_parity.py runs the pipeline's decide.py on them, admin/worker/test/service.test.js runs the panel's dependencyEffect on the same ones. `files` is what the static classification says; `panel` is what the pipeline submits to the quarantine panel (reasons of the files it leaves out, with no approvals); `cases` say which files a reviewer approved and which files decide.py then publishes. Synthetic names only.",
+  "scenarios": [
+    {
+      "name": "one rule file that three others depend on",
+      "files": [
+        {"path": "rules/cap.yar", "state": "QUARANTINED", "reasons": [["matches-benign-corpus", "review"]], "deps": []},
+        {"path": "rules/d1.yar", "state": "VALIDATED", "deps": ["rules/cap.yar"]},
+        {"path": "rules/d2.yar", "state": "VALIDATED", "deps": ["rules/cap.yar"]},
+        {"path": "rules/d3.yar", "state": "VALIDATED", "deps": ["rules/cap.yar"]},
+        {"path": "rules/g.yar", "state": "VALIDATED", "deps": []}
+      ],
+      "panel": [
+        {"path": "rules/cap.yar", "reasons": ["matches-benign-corpus"], "deps": []},
+        {"path": "rules/d1.yar", "reasons": ["dependency-not-validated"], "deps": ["rules/cap.yar"]},
+        {"path": "rules/d2.yar", "reasons": ["dependency-not-validated"], "deps": ["rules/cap.yar"]},
+        {"path": "rules/d3.yar", "reasons": ["dependency-not-validated"], "deps": ["rules/cap.yar"]}
+      ],
+      "cases": [
+        {"approve": [], "included": ["rules/g.yar"]},
+        {"approve": ["rules/cap.yar"], "included": ["rules/cap.yar", "rules/d1.yar", "rules/d2.yar", "rules/d3.yar", "rules/g.yar"]},
+        {"approve": ["rules/d1.yar"], "included": ["rules/g.yar"]},
+        {"approve": ["rules/cap.yar", "rules/d1.yar"], "included": ["rules/cap.yar", "rules/d1.yar", "rules/d2.yar", "rules/d3.yar", "rules/g.yar"]}
+      ]
+    },
+    {
+      "name": "the needed file has a technical finding",
+      "files": [
+        {"path": "rules/blocked.yar", "state": "QUARANTINED", "reasons": [["blocked-module", "review"]], "deps": []},
+        {"path": "rules/x.yar", "state": "VALIDATED", "deps": ["rules/blocked.yar"]}
+      ],
+      "panel": [
+        {"path": "rules/blocked.yar", "reasons": ["blocked-module"], "deps": []},
+        {"path": "rules/x.yar", "reasons": ["dependency-not-validated"], "deps": ["rules/blocked.yar"]}
+      ],
+      "cases": [
+        {"approve": [], "included": []},
+        {"approve": ["rules/blocked.yar"], "included": []},
+        {"approve": ["rules/x.yar"], "included": []},
+        {"approve": ["rules/blocked.yar", "rules/x.yar"], "included": []}
+      ]
+    },
+    {
+      "name": "a chain of three",
+      "files": [
+        {"path": "rules/a.yar", "state": "VALIDATED", "deps": ["rules/b.yar"]},
+        {"path": "rules/b.yar", "state": "VALIDATED", "deps": ["rules/c.yar"]},
+        {"path": "rules/c.yar", "state": "QUARANTINED", "reasons": [["filesize-loop", "review"]], "deps": []}
+      ],
+      "panel": [
+        {"path": "rules/c.yar", "reasons": ["filesize-loop"], "deps": []},
+        {"path": "rules/b.yar", "reasons": ["dependency-not-validated"], "deps": ["rules/c.yar"]},
+        {"path": "rules/a.yar", "reasons": ["dependency-not-validated"], "deps": ["rules/b.yar"]}
+      ],
+      "cases": [
+        {"approve": [], "included": []},
+        {"approve": ["rules/c.yar"], "included": ["rules/a.yar", "rules/b.yar", "rules/c.yar"]},
+        {"approve": ["rules/a.yar"], "included": []},
+        {"approve": ["rules/b.yar"], "included": []}
+      ]
+    },
+    {
+      "name": "the needed file was rejected and never reaches the panel",
+      "files": [
+        {"path": "rules/rejected.yar", "state": "REJECTED", "reasons": [["no-rules", "reject"]], "deps": []},
+        {"path": "rules/y.yar", "state": "VALIDATED", "deps": ["rules/rejected.yar"]}
+      ],
+      "panel": [
+        {"path": "rules/y.yar", "reasons": ["dependency-not-validated"], "deps": ["rules/rejected.yar"]}
+      ],
+      "cases": [
+        {"approve": [], "included": []},
+        {"approve": ["rules/y.yar"], "included": []}
+      ]
+    },
+    {
+      "name": "one needed file is in the panel and another is already in the validated set",
+      "files": [
+        {"path": "rules/cap.yar", "state": "QUARANTINED", "reasons": [["filesize-loop", "review"]], "deps": []},
+        {"path": "rules/lib.yar", "state": "VALIDATED", "deps": []},
+        {"path": "rules/m.yar", "state": "VALIDATED", "deps": ["rules/cap.yar", "rules/lib.yar"]}
+      ],
+      "panel": [
+        {"path": "rules/cap.yar", "reasons": ["filesize-loop"], "deps": []},
+        {"path": "rules/m.yar", "reasons": ["dependency-not-validated"], "deps": ["rules/cap.yar", "rules/lib.yar"]}
+      ],
+      "cases": [
+        {"approve": [], "included": ["rules/lib.yar"]},
+        {"approve": ["rules/cap.yar"], "included": ["rules/cap.yar", "rules/lib.yar", "rules/m.yar"]}
+      ]
+    }
+  ]
+}

@@ -26,6 +26,55 @@ const HUMAN = {
  *  scripts/decide.py, which enforces it again when the pipeline applies decisions; a test keeps the two lists identical. */
 export const WAIVABLE = new Set(['costly-regex', 'filesize-loop', 'many-loops', 'unknown-module', 'include', 'license-unchecked', 'matches-benign-corpus', 'dependency-not-validated']);
 export const blockingReasons = (reasons) => (Array.isArray(reasons) ? reasons : []).filter((code) => !WAIVABLE.has(code));
+/** Dependencies between candidates. A rule file may need other rule files (`depends_on`, paths). decide.py puts a file in the release only if it has no
+ *  technical finding, is approved when it has judgement findings, and everything it needs is in the release too; the panel computes the same thing so that a
+ *  reviewer sees, before approving, whether an approval will take effect. `rows` are the candidates of the panel: { id, path, state, reasons: [codes],
+ *  depends_on: [paths], detected_at }. A needed path that is not a candidate in the panel is not in quarantine and is taken to be in the validated set. */
+const HELD = new Set(['APPROVED_PENDING_VALIDATION', 'RELEASED']);   // approved, or already released
+const needsOwnApproval = (r) => r.reasons.length === 0 || r.reasons.some((c) => c !== 'dependency-not-validated');   // a file held only by its dependencies needs no approval of its own
+const permanentlyBlocked = (r) => r.state === 'REJECTED' || blockingReasons(r.reasons).length > 0;
+/** A file the pipeline holds back for `dependency-not-validated` whose visible dependencies are all approved already, while it also needs files that are not
+ *  in the panel: what holds it back is outside the panel (a rejected or retired file never reaches it), so no approval here can release it. Returns that path. */
+function outsideBlock(r, byPath) {
+  const deps = r.depends_on || []; if (!r.reasons.includes('dependency-not-validated')) return null;
+  const outside = deps.filter((d) => !byPath.has(d)); if (!outside.length) return null;
+  return deps.filter((d) => byPath.has(d)).every((d) => HELD.has(byPath.get(d).state)) ? outside[0] : null;
+}
+function latestByPath(rows) { const m = new Map(); for (const r of rows) { const k = m.get(r.path); if (!k || String(r.detected_at) > String(k.detected_at)) m.set(r.path, r); } return m; }
+/** The ids that would be in the release if exactly `approved` ids (plus the states already HELD) were approved. */
+function includedIds(rows, byPath, approved) {
+  const memo = new Map();
+  const inc = (r, seen) => {
+    if (memo.has(r.id)) return memo.get(r.id);
+    if (seen.has(r.id)) return true;                         // a cycle does not exclude by itself, as in decide.py
+    if (permanentlyBlocked(r) || outsideBlock(r, byPath) || (needsOwnApproval(r) && !approved.has(r.id))) { memo.set(r.id, false); return false; }
+    const next = new Set(seen).add(r.id); let ok = true;
+    for (const d of r.depends_on || []) { const dr = byPath.get(d); if (dr && !inc(dr, next)) { ok = false; break; } }
+    memo.set(r.id, ok); return ok;
+  };
+  return new Set(rows.filter((r) => inc(r, new Set())).map((r) => r.id));
+}
+export function dependencyEffect(rows, id, together = []) {
+  const byPath = latestByPath(rows), target = rows.find((r) => r.id === id); if (!target) return null;
+  const base = new Set(rows.filter((r) => HELD.has(r.state)).map((r) => r.id)), hyp = new Set([...base, id, ...together]);
+  const incBase = includedIds(rows, byPath, base), incHyp = includedIds(rows, byPath, hyp);
+  const chainBlocked = (r, seen = new Set()) => { if (seen.has(r.id)) return null; if (permanentlyBlocked(r)) return r.path; const out = outsideBlock(r, byPath); if (out) return out; const next = new Set(seen).add(r.id);
+    for (const d of r.depends_on || []) { const dr = byPath.get(d); const b = dr && chainBlocked(dr, next); if (b) return b; } return null; };
+  const closure = (r, acc = new Map()) => { for (const d of r.depends_on || []) { const dr = byPath.get(d); if (dr && !acc.has(dr.id)) { acc.set(dr.id, dr); closure(dr, acc); } } return acc; };
+  const needs = [...closure(target).values(), target].filter((r) => !incHyp.has(r.id) && !chainBlocked(r) && needsOwnApproval(r) && !hyp.has(r.id)).map((r) => r.path);
+  const required = (target.depends_on || []).map((p) => {
+    const r = byPath.get(p); if (!r) return { path: p, id: null, in_panel: false, state: null, reasons: [], blocking: [], approvable: null, status: 'not_in_quarantine', needs_approval_of: [] };
+    const sub = [...closure(r).values(), r].filter((q) => !incHyp.has(q.id) && !chainBlocked(q) && needsOwnApproval(q) && !hyp.has(q.id)).map((q) => q.path);
+    const status = incHyp.has(r.id) ? (HELD.has(r.state) ? 'approved' : needsOwnApproval(r) ? 'together' : 'validated') : chainBlocked(r) ? 'blocked' : 'needs_approval';
+    return { path: p, id: r.id, in_panel: true, state: r.state, reasons: r.reasons, blocking: blockingReasons(r.reasons), approvable: !permanentlyBlocked(r), status, blocked_by: status === 'blocked' ? chainBlocked(r) : null, needs_approval_of: sub };
+  });
+  const own = blockingReasons(target.reasons), blockedBy = chainBlocked(target);
+  const effect = own.length || target.state === 'REJECTED' ? 'not_approvable' : incHyp.has(id) ? 'effective' : blockedBy ? 'ineffective' : 'conditional';
+  const returning = rows.filter((r) => r.id !== id && incHyp.has(r.id) && !incBase.has(r.id) && r.state !== 'REJECTED');
+  return { effect, required, needs_approval_of: effect === 'conditional' ? needs.filter((p) => p !== target.path) : [], blocked_by: effect === 'ineffective' ? blockedBy : null,
+    dependents: rows.filter((r) => (r.depends_on || []).includes(target.path)).map((r) => ({ id: r.id, path: r.path, state: r.state, reasons: r.reasons, own_blockers: r.reasons.filter((c) => c !== 'dependency-not-validated'), returns: returning.some((q) => q.id === r.id) })),
+    would_return: returning.map((r) => ({ id: r.id, path: r.path })) };
+}
 export function humanTransition(action, fromState) {
   const t = HUMAN[action];
   if (!t) return { ok: false, error: 'unknown action' };
