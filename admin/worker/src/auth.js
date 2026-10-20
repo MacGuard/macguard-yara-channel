@@ -16,9 +16,33 @@ export function stateCookie(state) { return `${STATE_COOKIE}=${state}; Path=/; H
 export function clearStateCookie() { return `${STATE_COOKIE}=; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=0`; }
 export function clearCookie() { return `${COOKIE}=; Path=/; HttpOnly; Secure; SameSite=Strict; Max-Age=0`; }
 
-export async function createSession(db, user, now, ttl = 8 * 3600) {
+// The GitHub access token is sealed at rest (AES-256-GCM, key = Worker secret TOKEN_ENC_KEY, bound to the session id): a copy of D1 alone
+// does not yield usable tokens. A missing or malformed key throws, so the service cannot silently fall back to plaintext.
+const toB64 = (u8) => btoa(String.fromCharCode(...u8));
+const fromB64 = (s) => Uint8Array.from(atob(s), (c) => c.charCodeAt(0));
+async function aesKey(env) {
+  const raw = fromB64(env.TOKEN_ENC_KEY || '');
+  if (raw.length !== 32) throw new Error('TOKEN_ENC_KEY must be 32 random bytes, base64-encoded');
+  return crypto.subtle.importKey('raw', raw, 'AES-GCM', false, ['encrypt', 'decrypt']);
+}
+export async function sealToken(env, sessionId, token) {
+  const key = await aesKey(env), iv = crypto.getRandomValues(new Uint8Array(12));
+  const ct = new Uint8Array(await crypto.subtle.encrypt({ name: 'AES-GCM', iv, additionalData: enc.encode(sessionId) }, key, enc.encode(token)));
+  return `v1.${toB64(iv)}.${toB64(ct)}`;
+}
+/** null when the value is not a valid seal for this session (legacy plaintext, tampering, another session's row). */
+export async function openToken(env, sessionId, sealed) {
+  const key = await aesKey(env), parts = String(sealed || '').split('.');
+  if (parts.length !== 3 || parts[0] !== 'v1') return null;
+  try { return new TextDecoder().decode(await crypto.subtle.decrypt({ name: 'AES-GCM', iv: fromB64(parts[1]), additionalData: enc.encode(sessionId) }, key, fromB64(parts[2]))); } catch { return null; }
+}
+/** Returned by effectiveRole when the GitHub authorization itself is gone (revoked or expired token): the person must sign in again. */
+export const REAUTH = 'REAUTH';
+
+export async function createSession(db, user, now, env, ttl = 8 * 3600) {
   const id = randomToken(32), csrf = randomToken(24);
-  await db.prepare('INSERT INTO sessions (id, login, user_id, token, csrf, created_at, expires_at) VALUES (?,?,?,?,?,?,?)').bind(id, user.login, user.id, user.token, csrf, now, now + ttl).run();
+  if (user.expires_in) ttl = Math.max(60, Math.min(ttl, Number(user.expires_in) - 60));   // never outlive an expiring GitHub token
+  await db.prepare('INSERT INTO sessions (id, login, user_id, token, csrf, created_at, expires_at) VALUES (?,?,?,?,?,?,?)').bind(id, user.login, user.id, await sealToken(env, id, user.token), csrf, now, now + ttl).run();
   return { id, csrf, ttl };
 }
 export async function getSession(db, request, now) {
@@ -28,13 +52,18 @@ export async function getSession(db, request, now) {
 }
 export async function destroySession(db, id) { await db.prepare('DELETE FROM sessions WHERE id = ?').bind(id).run(); }
 
-/** The role is recomputed from GitHub on every protected call (cached 60 s). Fail closed when GitHub cannot be asked. */
+/** The role is recomputed from GitHub on every protected call (cached 60 s). Fail closed when GitHub cannot be asked.
+ *  A 401 means the person's token was revoked or expired: the session is destroyed and REAUTH is returned (no role survives, not even a `members` grant).
+ *  A 403/404 means GitHub denies the repository to this person (permissions removed): only an explicit `members` grant can still give a role. */
 export async function effectiveRole(db, session, env, deps, now, { fresh = false } = {}) {
   let perm = session.perm;
   if (fresh || !perm || now - session.perm_at > 60) {   // `fresh`: a change of state always asks GitHub again, and never falls back to a stale grant
+    const token = await openToken(env, session.id, session.token);
+    if (!token) { await destroySession(db, session.id); return REAUTH; }
     try {
-      const r = await deps.fetch(`${env.GITHUB_API || 'https://api.github.com'}/repos/${env.REPO}`, { headers: { Authorization: `Bearer ${session.token}`, Accept: 'application/vnd.github+json', 'User-Agent': 'macguard-admin' } });
-      if (r.status === 401 || r.status === 403 || r.status === 404) { perm = 'none'; }
+      const r = await deps.fetch(`${env.GITHUB_API || 'https://api.github.com'}/repos/${env.REPO}`, { headers: { Authorization: `Bearer ${token}`, Accept: 'application/vnd.github+json', 'User-Agent': 'macguard-admin' } });
+      if (r.status === 401) { await destroySession(db, session.id); return REAUTH; }
+      else if (r.status === 403 || r.status === 404) { perm = 'none'; }
       else if (!r.ok) throw new Error(`GitHub ${r.status}`);
       else { const p = (await r.json()).permissions || {}; perm = p.admin ? 'admin' : p.maintain ? 'maintain' : p.push ? 'write' : p.triage ? 'triage' : 'read'; }
       await db.prepare('UPDATE sessions SET perm = ?, perm_at = ? WHERE id = ?').bind(perm, now, session.id).run();
@@ -43,7 +72,21 @@ export async function effectiveRole(db, session, env, deps, now, { fresh = false
       perm = session.perm;
     }
   }
-  return highestRole(roleFromRepoPermission(perm), await memberRole(db, session.login));
+  return highestRole(roleFromRepoPermission(perm), await memberRole(db, session.login, session.user_id));
+}
+
+/** Resolve a GitHub account with the acting administrator's own token. `by` is {id} (authoritative) or {login} (lookup for the add form). Returns
+ *  {ok, account:{id, login, type}} or {ok:false, status, error}. Only real user accounts can be members. */
+export async function resolveGithubAccount(deps, env, token, by) {
+  const path = by.id != null ? `/user/${encodeURIComponent(by.id)}` : `/users/${encodeURIComponent(by.login)}`;
+  let r; try { r = await deps.fetch(`${env.GITHUB_API || 'https://api.github.com'}${path}`, { headers: { Authorization: `Bearer ${token}`, Accept: 'application/vnd.github+json', 'User-Agent': 'macguard-admin' } }); } catch { return { ok: false, status: 502, error: 'GitHub could not be reached; nothing was changed' }; }
+  if (r.status === 401) return { ok: false, status: 401, error: 'sign in again: your GitHub authorization is no longer valid' };
+  if (r.status === 404) return { ok: false, status: 404, error: 'no such GitHub account' };
+  if (!r.ok) return { ok: false, status: 502, error: `GitHub answered ${r.status}; nothing was changed` };
+  const u = await r.json();
+  if (u.type !== 'User' || !Number.isInteger(u.id) || typeof u.login !== 'string') return { ok: false, status: 400, error: 'only personal GitHub accounts can be members' };
+  if (by.id != null && u.id !== Number(by.id)) return { ok: false, status: 409, error: 'GitHub returned a different account id' };
+  return { ok: true, account: { id: u.id, login: u.login, type: u.type } };
 }
 
 // ---- GitHub OAuth ----------------------------------------------------------------------------
@@ -62,7 +105,7 @@ export async function finishLogin(db, env, code, state, deps, now) {
   const tok = await t.json(); if (!tok.access_token) return { ok: false, error: 'GitHub refused the code' };
   const u = await deps.fetch(`${env.GITHUB_API || 'https://api.github.com'}/user`, { headers: { Authorization: `Bearer ${tok.access_token}`, 'User-Agent': 'macguard-admin' } });
   if (!u.ok) return { ok: false, error: 'could not read the GitHub profile' };
-  const user = await u.json(); return { ok: true, user: { login: user.login, id: user.id, token: tok.access_token } };
+  const user = await u.json(); return { ok: true, user: { login: user.login, id: user.id, token: tok.access_token, expires_in: tok.expires_in } };
 }
 
 // ---- GitHub Actions OIDC (pipeline -> service, no stored secret) ----------------------------

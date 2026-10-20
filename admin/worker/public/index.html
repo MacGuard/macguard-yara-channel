@@ -1,31 +1,18 @@
-<!doctype html><html lang="es"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex,nofollow"><title>MacGuard · Panel de cuarentena</title><link rel="stylesheet" href="admin.css">
-<a class="skip" href="#main" data-t="skip">Saltar al contenido</a>
-<header class="top"><strong>🛡 MacGuard · <span data-t="title">Panel de cuarentena</span></strong><span class="grow"></span>
-<span id="who" class="muted"></span><span id="role" class="badge" hidden></span>
-<label class="sr" for="lang">Idioma</label><select id="lang"><option value="es">Español</option><option value="en">English</option></select>
-<button id="theme" type="button" aria-label="Claro / oscuro">◐</button><button id="logout" type="button" hidden data-t="logout">Salir</button></header>
-<main id="main">
-<section id="login" hidden class="card"><h1 data-t="login_h">Acceso restringido</h1><p data-t="login_p">Este panel es privado. Inicia sesión con GitHub; se comprobarán tus permisos reales en el repositorio.</p><p><a class="btn primary" href="/auth/login" data-t="login_b">Entrar con GitHub</a></p></section>
-<section id="denied" hidden class="card"><h1 data-t="denied_h">Sin acceso</h1><p data-t="denied_p">Tu cuenta de GitHub no tiene permiso para este panel. Pide a un administrador que te dé acceso.</p></section>
-<div id="app" hidden>
-<nav class="tabs" aria-label="Secciones"><button type="button" data-tab="q" aria-selected="true" data-t="tab_q">Cuarentena</button><button type="button" data-tab="a" data-t="tab_a" hidden>Auditoría</button><button type="button" data-tab="m" data-t="tab_m" hidden>Miembros</button></nav>
-<p id="status" role="status" aria-live="polite" class="muted"></p>
-<section id="tab-q">
-<div id="cards" class="cards"></div>
-<div class="toolbar"><label><span data-t="f_q">Buscar</span><input id="q" type="search" autocomplete="off" placeholder="ruta o SHA-256"></label>
-<label><span data-t="f_state">Estado</span><select id="state"><option value="">—</option><option>PENDING</option><option>UNDER_REVIEW</option><option>APPROVED_PENDING_VALIDATION</option><option>REJECTED</option><option>RELEASED</option></select></label>
-<label><span data-t="f_src">Fuente</span><input id="source" type="text" placeholder="nextron, community…"></label></div>
-<div class="bulk"><button id="selall" type="button" data-t="selall">Seleccionar página</button><span id="selcount" aria-live="polite"></span>
-<button id="bulk-approve" type="button" class="btn ok" disabled data-t="b_approve">Aprobar selección (se publica en la próxima ejecución)</button><button id="bulk-reject" type="button" class="btn bad" disabled data-t="b_reject">Eliminar selección (rechazar)</button><button id="bulk-hold" type="button" class="btn" disabled data-t="b_hold">Mantener selección en cuarentena</button></div>
-<div class="tablewrap"><table id="list"><caption class="sr" data-t="cap">Reglas en cuarentena</caption><thead><tr><th scope="col"><span class="sr" data-t="sel">Seleccionar</span></th><th scope="col" data-t="c_file">Fichero</th><th scope="col" data-t="c_state">Estado</th><th scope="col" data-t="c_why">Motivos</th><th scope="col" data-t="c_src">Fuente</th><th scope="col" data-t="c_when">Detectada</th></tr></thead><tbody></tbody></table></div>
-<nav class="pager"><button id="prev" type="button" data-t="prev">Anterior</button><span id="pageinfo"></span><button id="next" type="button" data-t="next">Siguiente</button></nav>
-</section>
-<section id="tab-a" hidden><div class="toolbar"><button id="verify-chain" type="button" class="btn" data-t="verify_chain" hidden>Verificar la cadena de auditoría</button><span id="chain-out" aria-live="polite"></span></div>
-<div class="tablewrap"><table id="audit"><caption class="sr" data-t="tab_a">Auditoría</caption><thead><tr><th scope="col">#</th><th scope="col" data-t="c_when">Fecha</th><th scope="col" data-t="c_actor">Quién</th><th scope="col" data-t="c_action">Acción</th><th scope="col" data-t="c_target">Objetivo</th></tr></thead><tbody></tbody></table></div></section>
-<section id="tab-m" hidden><form id="member-form" class="toolbar"><label><span>GitHub login</span><input id="m-login" required pattern="[A-Za-z0-9-]{1,39}"></label><label><span data-t="m_role">Rol</span><select id="m-role"><option>VIEWER</option><option>REVIEWER</option><option>ADMIN</option><option value="">(quitar)</option></select></label><button class="btn" type="submit" data-t="m_save">Guardar</button></form>
-<ul id="members"></ul><p class="muted" data-t="m_note">Escribir en el repositorio da el rol REVIEWER y administrar el repositorio da ADMIN; aquí se concede VIEWER o se quita un acceso explícito. Leer un repositorio público no da acceso.</p></section>
-</div>
-<aside id="detail" hidden aria-label="Detalle"></aside>
-</main>
-<dialog id="confirm" aria-labelledby="confirm-h"><form method="dialog"><h2 id="confirm-h"></h2><p id="confirm-p"></p><label><span data-t="reason">Motivo (obligatorio)</span><textarea id="confirm-reason" rows="3" maxlength="2000" aria-describedby="confirm-err"></textarea></label><p id="confirm-err" class="badmsg" role="alert"></p><div class="row"><button value="cancel" class="btn" data-t="cancel">Cancelar</button><button id="confirm-go" value="ok" class="btn primary" data-t="confirm">Confirmar</button></div></form></dialog>
-<script src="admin.js"></script></html>
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex,nofollow">
+<meta name="color-scheme" content="light dark">
+<title>MacGuard Quarantine</title>
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="/admin.css">
+<script src="/theme-init.js"></script>
+</head>
+<body>
+<div id="root"><p role="status" class="boot">Cargando / Loading…</p></div>
+<noscript><p class="boot">MacGuard Quarantine necesita JavaScript. / MacGuard Quarantine needs JavaScript.</p></noscript>
+<script type="module" src="/app.js"></script>
+</body>
+</html>

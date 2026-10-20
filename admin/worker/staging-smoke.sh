@@ -23,6 +23,6 @@ done
 l="$(curl -s -D - -o /dev/null --max-time 20 "$base/auth/login")"
 echo "$l" | grep -qi '^location: https://github.com/login/oauth/authorize?.*client_id=[A-Za-z0-9]' && ok "login redirects to GitHub with a client_id" || bad "login redirect"
 echo "$l" | grep -qi '^set-cookie: __Host-mg_oauth=.*HttpOnly' && ok "login state cookie is __Host-, HttpOnly" || bad "login state cookie"
-[ "$(code "$base/auth/callback?code=x&state=y")" = 400 ] && ok "callback without the browser's state cookie -> 400" || bad "callback without cookie"
+[ "$(code "$base/auth/callback?code=x&state=y")" = 302 ] && ok "callback without the browser's state cookie -> 302 back to the sign-in screen" || bad "callback without cookie"
 [ "$(code "$base/does-not-exist")" = 404 ] && ok "unknown path -> 404" || bad "unknown path"
 exit $fail
