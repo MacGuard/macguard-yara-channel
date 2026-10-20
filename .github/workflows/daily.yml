@@ -90,6 +90,7 @@ jobs:
         env:
           CLASSIFY: ${{ steps.classify.outputs.seconds }}
           GATE: ${{ steps.gate.outputs.seconds }}
+          ACCEPTANCE: ${{ github.event_name == 'workflow_dispatch' && inputs.acceptance }}
         run: |
           if [ -f dist/decision.json ]; then
             PERF="$(python3 - <<'PY'
@@ -107,7 +108,9 @@ jobs:
             if [ "${{ steps.changes.outputs.changed }}" = "false" ]; then
               python3 scripts/tlog.py event --level INFO --code candidate.unchanged --run-id "$RUN_ID" --message "The approved rule files are identical to the latest release. No new release is created." --detail "run_url=$RUN_URL"
             elif [ "${{ steps.changes.outputs.changed }}" = "true" ]; then
-              python3 scripts/tlog.py event --level INFO --code candidate.changes --run-id "$RUN_ID" --message "The approved set differs from the latest release. A new release will be requested." --detail "run_url=$RUN_URL"
+              CHANGES_MSG="The approved set differs from the latest release. A new release will be requested."
+              if [ "$ACCEPTANCE" = "true" ]; then CHANGES_MSG="The approved set differs from the latest release. This was an acceptance run: no release is requested."; fi
+              python3 scripts/tlog.py event --level INFO --code candidate.changes --run-id "$RUN_ID" --message "$CHANGES_MSG" --detail "run_url=$RUN_URL"
             fi
           else
             python3 scripts/tlog.py event --level ERROR --code run.failed --run-id "$RUN_ID" \
