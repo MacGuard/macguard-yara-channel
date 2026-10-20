@@ -1,5 +1,5 @@
 // Data access for the quarantine service. `db` is a Cloudflare D1 binding (or the test shim with the same API).
-import { GENESIS, blockingReasons, chainHash, dependencyEffect, humanTransition, pipelineTransition } from './core.js';
+import { GENESIS, blockingReasons, chainHash, dependencyEffect, humanTransition, pipelineTransition, releaseTransition } from './core.js';
 
 const J = (v) => JSON.stringify(v ?? null);
 const parse = (s, d) => { try { return JSON.parse(s); } catch { return d; } };
@@ -88,7 +88,10 @@ export async function sourceCounts(db) {
   const out = {}; for (const r of (await db.prepare('SELECT source, COUNT(*) AS n FROM candidates WHERE archived_at IS NULL GROUP BY source').all()).results) out[r.source] = r.n; return out;
 }
 export async function counts(db) {
-  const out = {}; for (const r of (await db.prepare('SELECT state, COUNT(*) AS n FROM candidates WHERE archived_at IS NULL GROUP BY state').all()).results) out[r.state] = r.n; return out;
+  const out = {}; for (const r of (await db.prepare('SELECT state, COUNT(*) AS n FROM candidates WHERE archived_at IS NULL GROUP BY state').all()).results) out[r.state] = r.n;
+  // released AND approved by a person: what the public counter calls "released after review" (a rule the pipeline released without any human decision is not that)
+  out.RELEASED_REVIEWED = (await db.prepare("SELECT COUNT(*) AS n FROM candidates c WHERE c.archived_at IS NULL AND c.state = 'RELEASED' AND EXISTS (SELECT 1 FROM decisions d WHERE d.candidate_id = c.id AND d.action = 'approve')").first()).n;
+  return out;
 }
 
 /** Apply one human action to a set of candidates. All-or-nothing on the pre-check; each update is also guarded by version. */
@@ -174,6 +177,38 @@ export async function pipelineEvent(db, event, hashes, info, actor, now) {
   }
   await appendAudit(db, { actor, role: 'PIPELINE', action: `pipeline.${event}`, target: info.tag || info.run_id || 'run', detail: { changed: changed.length, skipped: skipped.length, run_url: info.run_url || null, ...(info.token ? { token_run_id: info.token.token_run_id, run_attempt: info.token.run_attempt } : {}) } }, now);
   return { changed, skipped };
+}
+/** Move candidates to RELEASED on evidence that the public release lists their exact path and SHA-256 (`pub` comes from fetchPublication, not from the request).
+ *  All-or-nothing with its audit entry: previous state, new state, release, run and attempt, and the reason of every transition. Idempotent: what is already
+ *  RELEASED is left alone, and a retry only records itself. A rejected candidate that the release lists is not moved and is reported as a conflict. */
+export async function markReleased(db, pub, ctx, actor, now, { always = true } = {}) {
+  const MAX = 400;
+  for (let attempt = 0; attempt < 3; attempt++) {
+    const rows = (await db.prepare("SELECT id, sha256, path, bytes, state, version FROM candidates WHERE archived_at IS NULL AND state != 'RELEASED'").all()).results;
+    const transitions = [], conflicts = [];
+    for (const r of rows) {
+      const m = pub.files.get(r.path); if (!m || m.sha256 !== r.sha256) continue;   // the exact path with the exact content, or nothing
+      if (m.bytes !== null && r.bytes && m.bytes !== r.bytes) { conflicts.push({ id: r.id, path: r.path, state: r.state, reason: 'size_differs_from_manifest' }); continue; }
+      const t = releaseTransition(r.state);
+      if (t.ok) transitions.push({ id: r.id, path: r.path, sha256: r.sha256, from: r.state, to: t.to, basis: t.basis, version: r.version });
+      else if (t.conflict) conflicts.push({ id: r.id, path: r.path, state: r.state, reason: t.conflict });
+    }
+    const todo = transitions.slice(0, MAX), already = (await db.prepare("SELECT COUNT(*) AS n FROM candidates WHERE archived_at IS NULL AND state = 'RELEASED' AND release_tag = ?").bind(pub.tag).first()).n;
+    if (!always && !todo.length && !conflicts.length) return { changed: [], skipped: [], conflicts: [], recorded: false };
+    // each guarded update is followed by a check that THIS statement changed exactly one row: if a person or another callback moved the candidate first, nothing is applied and nothing is claimed
+    const stmts = todo.flatMap((t) => [db.prepare("UPDATE candidates SET state = 'RELEASED', version = version + 1, release_tag = ?, revalidation_failed = NULL, updated_at = ? WHERE id = ? AND version = ? AND state = ?").bind(pub.tag, now, t.id, t.version, t.from),
+      db.prepare("SELECT CASE WHEN changes() = 1 THEN 1 ELSE json('not-json') END")]);
+    const reason = 'the exact path and SHA-256 are listed in the manifest of the public release';
+    const entry = { at: now, actor: actor, role: 'PIPELINE', action: 'pipeline.released', target: pub.tag, detail: J({
+      tag: pub.tag, trigger: ctx.trigger, receipt: todo.length ? 'first' : 'idempotent_retry', release: pub.release, manifest_sha256: pub.manifest_sha256, rules_root: pub.rules_root, manifest_files: pub.files.size,
+      changed: todo.length, remaining: transitions.length - todo.length, already_released: already, conflicts, claimed: ctx.claimed ?? null, claimed_not_in_manifest: ctx.claimed_not_in_manifest ?? null,
+      run_url: ctx.run_url || null, token_run_id: ctx.token_run_id ?? null, run_attempt: ctx.run_attempt ?? null,
+      transitions: todo.map((t) => ({ id: t.id, path: t.path, sha256: t.sha256, from: t.from, to: t.to, basis: t.basis, reason })) }) };
+    const last = await db.prepare('SELECT hash FROM audit ORDER BY seq DESC LIMIT 1').first(), prev = last ? last.hash : GENESIS;
+    stmts.push(db.prepare('INSERT INTO audit (at, actor, role, action, target, detail, prev_hash, hash) VALUES (?,?,?,?,?,?,?,?)').bind(entry.at, entry.actor, entry.role, entry.action, entry.target, entry.detail, prev, await chainHash(prev, entry)));
+    try { await db.batch(stmts); } catch (e) { if (attempt === 2) throw e; continue; }   // a person decided meanwhile or another writer took the audit link: read again
+    return { changed: todo.map((t) => ({ id: t.id, sha256: t.sha256, to: t.to })), skipped: conflicts, conflicts, recorded: true };
+  }
 }
 export async function recordRun(db, run, now) { await db.prepare('INSERT OR REPLACE INTO pipeline_runs (run_id, workflow, at, summary) VALUES (?,?,?,?)').bind(run.run_id, run.workflow, now, J(run.summary)).run(); }
 /** A grant is honoured only for the account it was made to, by immutable id. A row bound to an id never matches another account that now carries the

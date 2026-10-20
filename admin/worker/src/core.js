@@ -82,10 +82,47 @@ export function humanTransition(action, fromState) {
   return { ok: true, to: t.to };
 }
 export function pipelineTransition(event, fromState) {
-  if (event === 'released' && fromState === 'APPROVED_PENDING_VALIDATION') return { ok: true, to: 'RELEASED' };
   if (event === 'revalidation_failed' && fromState === 'APPROVED_PENDING_VALIDATION') return { ok: true, to: 'PENDING' };
   if (event === 'revalidation_failed' && fromState === 'RELEASED') return { ok: true, to: 'PENDING' };
   return { ok: false, error: `${event} does not apply to ${fromState}` };
+}
+
+// ---- publication evidence ---------------------------------------------------------------------
+// A candidate becomes RELEASED only when the public release itself shows its exact (path, SHA-256) in the manifest of a non-draft release. Passing the
+// checks, being approved by a person, or being named in a request is never enough. A person can never produce this transition: it has no human action.
+export const RELEASE_TAG = /^rules-\d{8}-\d+$/;
+const enc = new TextEncoder();
+const hex = (u8) => [...u8].map((b) => b.toString(16).padStart(2, '0')).join('');
+const sha = async (bytes) => new Uint8Array(await crypto.subtle.digest('SHA-256', bytes));
+const cat = (...parts) => { const out = new Uint8Array(parts.reduce((n, p) => n + p.length, 0)); let o = 0; for (const p of parts) { out.set(p, o); o += p.length; } return out; };
+export const sha256Hex = async (bytes) => hex(await sha(bytes));
+/** The rules root of scripts/tlog.py: RFC 6962 Merkle tree over `path\0sha256` leaves sorted by path. */
+export async function rulesRoot(files) {
+  const sorted = [...files].sort((a, b) => (a.path < b.path ? -1 : a.path > b.path ? 1 : 0));
+  const mth = async (ls) => { const n = ls.length; if (n === 0) return sha(new Uint8Array(0)); if (n === 1) return ls[0]; let k = 1; while (k * 2 < n) k *= 2; return sha(cat(Uint8Array.of(1), await mth(ls.slice(0, k)), await mth(ls.slice(k)))); };
+  return hex(await mth(await Promise.all(sorted.map((f) => sha(cat(Uint8Array.of(0), enc.encode(`${f.path}\0${f.sha256}`)))))));
+}
+/** A release manifest as evidence: well formed, unique printable paths, and a `rules_root` that really is the root of its own file list. */
+export async function verifyManifest(bytes) {
+  let m; try { m = JSON.parse(new TextDecoder('utf-8', { fatal: true }).decode(bytes)); } catch { return { ok: false, error: 'the manifest is not valid JSON' }; }
+  if (!m || !Array.isArray(m.files) || m.files.length === 0 || m.files.length > 20000) return { ok: false, error: 'the manifest has no usable file list' };
+  const files = new Map();
+  for (const f of m.files) {
+    if (!f || typeof f.path !== 'string' || !/^[\x21-\x7e]+(?: [\x21-\x7e]+)*$/.test(f.path) || !/^[0-9a-f]{64}$/.test(f.sha256 || '')) return { ok: false, error: 'the manifest lists an entry that is not a printable path with a SHA-256' };
+    if (files.has(f.path)) return { ok: false, error: 'the manifest lists a path twice' };
+    files.set(f.path, { sha256: f.sha256, bytes: Number.isInteger(f.bytes) ? f.bytes : null });
+  }
+  const root = await rulesRoot(m.files);
+  if (m.rules_root !== root) return { ok: false, error: 'the manifest rules_root does not match its own file list' };
+  return { ok: true, files, rules_root: root };
+}
+/** What happens to a candidate whose exact content the verified manifest lists. A rejected one is never moved: that would be a release in spite of a human rejection, so it is reported. */
+export function releaseTransition(fromState) {
+  if (fromState === 'RELEASED') return { ok: false, already: true };
+  if (fromState === 'REJECTED') return { ok: false, conflict: 'published_despite_rejection' };
+  if (fromState === 'APPROVED_PENDING_VALIDATION') return { ok: true, to: 'RELEASED', basis: 'human_approval_and_pipeline_checks' };
+  if (fromState === 'PENDING' || fromState === 'UNDER_REVIEW') return { ok: true, to: 'RELEASED', basis: 'pipeline_checks_only' };
+  return { ok: false, conflict: 'unknown_state' };
 }
 
 export function validateDecisionRequest(body, role) {
@@ -150,5 +187,5 @@ export async function verifyChain(rows) {
 /** What may appear on the public site: counts only. No names, rules, hashes or identities. */
 export function publicStats(counts) {
   const n = (k) => Number(counts[k] || 0);
-  return { schema: 1, pending_review: n('PENDING') + n('UNDER_REVIEW'), approved_waiting_validation: n('APPROVED_PENDING_VALIDATION'), rejected: n('REJECTED'), released_after_review: n('RELEASED') };
+  return { schema: 1, pending_review: n('PENDING') + n('UNDER_REVIEW'), approved_waiting_validation: n('APPROVED_PENDING_VALIDATION'), rejected: n('REJECTED'), released_after_review: n('RELEASED_REVIEWED') };
 }

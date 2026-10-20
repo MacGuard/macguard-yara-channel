@@ -1,7 +1,8 @@
 // MacGuard quarantine service: private API + admin UI assets. The public site never talks to this worker.
-import { MAX_BATCH, atLeast, blobError, highestRole, roleFromRepoPermission, publicStats, validateDecisionRequest, validateSubmission, verifyChain } from './core.js';
+import { MAX_BATCH, RELEASE_TAG, atLeast, blobError, highestRole, roleFromRepoPermission, publicStats, validateDecisionRequest, validateSubmission, verifyChain } from './core.js';
 import * as store from './store.js';
 import * as ops from './ops.js';
+import { fetchPublication } from './publication.js';
 import { REAUTH, STATE_COOKIE, openToken, resolveGithubAccount, clearCookie, clearStateCookie, createSession, destroySession, effectiveRole, finishLogin, getSession, parseCookies, sessionCookie, startLogin, stateCookie, timingSafeEqual, verifyActionsToken } from './auth.js';
 
 export const HEADERS = {
@@ -45,6 +46,12 @@ export async function handle(request, env, deps) {
         if (!Array.isArray(body.hashes) || body.hashes.some((h) => !/^[0-9a-f]{64}$/.test(h))) return err(400, 'hashes required');
         const ev = path.endsWith('released') ? 'released' : 'revalidation_failed';
         if (ev === 'released' && v.workflow !== 'publish.yml') return err(403, 'only the publish workflow marks rules as released');
+        if (ev === 'released') {   // never on the word of the request: the Worker reads the public release itself and only an exact (path, SHA-256) listed in its manifest is released
+          const tag = String(body.tag || ''); if (!RELEASE_TAG.test(tag)) return err(400, 'a release tag like rules-YYYYMMDD-N is required');
+          const pub = await fetchPublication(env, deps, tag); if (!pub.ok) return err(pub.status, `${pub.error}; nothing was changed`);
+          const listed = new Set([...pub.files.values()].map((f) => f.sha256));
+          return json(await store.markReleased(db, pub, { trigger: 'publish', claimed: body.hashes.length, claimed_not_in_manifest: body.hashes.filter((h) => !listed.has(h)).length, run_url: body.run_url, token_run_id: String(v.claims.run_id ?? ''), run_attempt: Number(v.claims.run_attempt) || null }, actor, new Date(now * 1000).toISOString()));
+        }
         return json(await store.pipelineEvent(db, ev, body.hashes, { tag: body.tag, reason: body.reason, run_url: body.run_url, run_id: body.run_id, token: attempt(v, null) }, actor, new Date(now * 1000).toISOString()));
       }
       return err(404, 'unknown pipeline endpoint');

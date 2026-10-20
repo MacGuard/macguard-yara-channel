@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { world, cand, sha, rid, actionsToken, REPO, ORIGIN } from './helpers.js';
-import { verifyChain, dependencyEffect } from '../src/core.js';
+import { verifyChain, dependencyEffect, rulesRoot, verifyManifest } from '../src/core.js';
 import { auditRows } from '../src/store.js';
 
 async function seeded(items = ['a', 'b', 'c', 'd']) {
@@ -151,10 +151,12 @@ test('rejected content is never re-opened by the pipeline; an edited version is 
 test('approved rules are released only by the publish workflow, and can fall back to PENDING if revalidation fails', async () => {
   const { w, ids } = await seeded(['a', 'b']); const rita = await w.login('rita', { push: true }); w.reviewer = rita;
   await decide(w, rita, { action: 'approve', ids, reason: 'approved after review', request_id: rid(), confirm_count: 2, expect: { [ids[0]]: 1, [ids[1]]: 1 } });
-  const tryRelease = async (wf, hashes) => w.call('POST', '/api/pipeline/released', { bearer: await w.pipelineToken(wf), body: { tag: 'rules-1', hashes } });
+  await w.release('rules-20261021-1', [cand('a')]);   // the public release lists only the first one
+  const tryRelease = async (wf, hashes) => w.call('POST', '/api/pipeline/released', { bearer: await w.pipelineToken(wf), body: { tag: 'rules-20261021-1', hashes } });
   assert.equal((await tryRelease('daily.yml', [sha('a')])).status, 403);
   assert.equal((await tryRelease('publish.yml', [sha('a')])).data.changed.length, 1);
-  assert.equal(await state(w, ids[0]), 'RELEASED'); assert.equal((await w.call('GET', `/api/candidates/${ids[0]}`, { user: rita })).data.release_tag, 'rules-1');
+  assert.equal(await state(w, ids[0]), 'RELEASED'); assert.equal((await w.call('GET', `/api/candidates/${ids[0]}`, { user: rita })).data.release_tag, 'rules-20261021-1');
+  assert.equal(await state(w, ids[1]), 'APPROVED_PENDING_VALIDATION', 'approved but not in the manifest: still waiting');
   const f = await w.call('POST', '/api/pipeline/revalidation-failed', { bearer: await w.pipelineToken('daily.yml'), body: { hashes: [sha('b')], reason: 'compile error after engine upgrade' } });
   assert.equal(f.data.changed.length, 1); assert.equal(await state(w, ids[1]), 'PENDING');
   const d = await w.call('GET', '/api/pipeline/decisions', { bearer: await w.pipelineToken('daily.yml') });
@@ -279,7 +281,8 @@ test('keeping a rule in quarantine is an explicit choice and also takes back an 
   assert.equal(dm.data.decisions[sha('a')], undefined); assert.equal(dm.data.decisions[sha('b')], undefined, 'neither is released by the next run');
   // and a released rule cannot be pulled back by hand
   await decide(w, rita, { action: 'approve', ids: [ids[0]], reason: 'ok now', request_id: rid(), expect: { [ids[0]]: 3 } });
-  await w.call('POST', '/api/pipeline/released', { bearer: await w.pipelineToken('publish.yml'), body: { tag: 't', hashes: [sha('a')] } });
+  await w.release('rules-20261021-2', [cand('a')]);
+  await w.call('POST', '/api/pipeline/released', { bearer: await w.pipelineToken('publish.yml'), body: { tag: 'rules-20261021-2', hashes: [sha('a')] } });
   assert.equal((await decide(w, rita, { action: 'hold', ids: [ids[0]], reason: 'too late', request_id: rid(), expect: { [ids[0]]: 5 } })).status, 409);
 });
 
@@ -297,7 +300,8 @@ test('FA-H1: a human rejection of a path wins over an approval or release of ide
   assert.equal((await decide(w, rita, { action: 'reject', ids: [ids[0]], reason: 'malicious', request_id: rid(), expect: { [ids[0]]: v[ids[0]] } })).status, 200);
   assert.equal((await decide(w, rita, { action: 'approve', ids: [ids[1]], reason: 'looks fine', request_id: rid(), expect: { [ids[1]]: v[ids[1]] } })).status, 200);
   assert.equal((await decisionsMap(w.db))[a.sha256].state, 'REJECTED');
-  const rel = await w.call('POST', '/api/pipeline/released', { bearer: await w.pipelineToken('publish.yml'), body: { hashes: [a.sha256], tag: 'rules-x' } });
+  await w.release('rules-20261021-3', [b]);   // only the approved path is listed
+  const rel = await w.call('POST', '/api/pipeline/released', { bearer: await w.pipelineToken('publish.yml'), body: { hashes: [a.sha256], tag: 'rules-20261021-3' } });
   assert.equal(rel.status, 200); assert.equal((await decisionsMap(w.db))[a.sha256].state, 'REJECTED');   // RELEASED elsewhere must not hide the rejection
 });
 
@@ -674,4 +678,148 @@ test('every pipeline receipt records the run and attempt from the verified token
   assert.equal(rows[2].target, '999', 'what the body claims is kept as it was, and the verified token run is recorded next to it');
   const list = (await w.call('GET', '/api/candidates?pageSize=50', { user: rita })).data; assert.equal(list.total, 2, 'no duplicates after three receipts'); assert.ok(list.items.every((q) => q.version === 1));
   assert.equal((await verifyChain(await auditRows(w.db, 100))).ok, true, 'the chain still verifies');
+});
+
+// ---- RELEASED needs evidence of publication ---------------------------------------------------
+const callback = async (w, tag, hashes, { workflow = 'publish.yml', claims = {}, bearer } = {}) => w.call('POST', '/api/pipeline/released', { bearer: bearer ?? await w.pipelineToken(workflow, { run_id: '5551', run_attempt: '1', ...claims }), body: { tag, hashes, run_url: `${ORIGIN}/runs/5551` } });
+const releasedAudit = async (w) => (await auditRows(w.db, 500)).filter((e) => e.action === 'pipeline.released').map((e) => ({ seq: e.seq, actor: e.actor, role: e.role, target: e.target, ...JSON.parse(e.detail) }));
+async function fixture(items = ['a', 'b', 'c']) { const x = await seeded(items); x.rita = await x.w.login('rita', { push: true }); x.w.reviewer = x.rita; x.cs = items.map((i) => cand(i)); return x; }
+
+test('rulesRoot equals the Python reference (scripts/tlog.py) on every shared vector, whatever the order of the list', async () => {
+  const vectors = JSON.parse(readFileSync(new URL('../../../tests/fixtures/rules_root_vectors.json', import.meta.url), 'utf8')).vectors;
+  for (const v of vectors) { assert.equal(await rulesRoot(v.files), v.rules_root, `n=${v.n}`); assert.equal(await rulesRoot([...v.files].reverse()), v.rules_root); }
+  assert.deepEqual(Object.keys(vectors).length, 8);
+});
+
+test('a manifest is evidence only if it is well formed and its rules_root is the root of its own list', async () => {
+  const good = (files) => new TextEncoder().encode(JSON.stringify({ files, rules_root: null }));
+  const files = [{ path: 'rules/x/a.yar', sha256: sha('a'), bytes: 120 }, { path: 'rules/x/b.yar', sha256: sha('b'), bytes: 120 }];
+  const ok = await verifyManifest(new TextEncoder().encode(JSON.stringify({ files, rules_root: await rulesRoot(files) }))); assert.equal(ok.ok, true); assert.equal(ok.files.size, 2);
+  for (const [why, bytes] of [['not json', new TextEncoder().encode('{nope')], ['no files', good([])], ['wrong root', good(files)], ['duplicate path', new TextEncoder().encode(JSON.stringify({ files: [files[0], files[0]], rules_root: await rulesRoot([files[0], files[0]]) }))],
+    ['bad sha', new TextEncoder().encode(JSON.stringify({ files: [{ path: 'rules/x/a.yar', sha256: 'zz' }], rules_root: '0'.repeat(64) }))], ['control character in a path', new TextEncoder().encode(JSON.stringify({ files: [{ path: 'rules/x/\u0000.yar', sha256: sha('a') }], rules_root: '0'.repeat(64) }))]]) {
+    assert.equal((await verifyManifest(bytes)).ok, false, why);
+  }
+});
+
+test('a pending rule the pipeline publishes goes to RELEASED only on the evidence of the public release, and the audit says why, from where and to where', async () => {
+  const { w, ids, cs } = await fixture(); const before = (await auditRows(w.db, 500)).length;
+  const rel = await w.release('rules-20261021-100', [cs[0], cs[2]]);                // a and c are in the public release; b is not
+  const r = await callback(w, 'rules-20261021-100', cs.map((c) => c.sha256), { claims: { run_attempt: '2' } }); const after = (await auditRows(w.db, 500)).length;   // before any read, which audits its own view
+  assert.equal(r.status, 200); assert.deepEqual(r.data.changed.map((c) => c.to), ['RELEASED', 'RELEASED']);
+  assert.deepEqual([await state(w, ids[0]), await state(w, ids[1]), await state(w, ids[2])], ['RELEASED', 'PENDING', 'RELEASED']);
+  const detail = (await w.call('GET', `/api/candidates/${ids[0]}`, { user: w.reviewer })).data; assert.equal(detail.release_tag, 'rules-20261021-100'); assert.equal(detail.version, 2);
+  const [e] = await releasedAudit(w); assert.equal(after, before + 1, 'one audit entry for the whole callback');
+  assert.equal(e.actor, 'pipeline:publish.yml'); assert.equal(e.role, 'PIPELINE'); assert.equal(e.target, 'rules-20261021-100'); assert.equal(e.trigger, 'publish'); assert.equal(e.receipt, 'first');
+  assert.equal(e.token_run_id, '5551'); assert.equal(e.run_attempt, 2); assert.equal(e.release.id, 4242); assert.equal(e.release.evidence, 'api'); assert.equal(e.release.asset_digest_checked, true);
+  assert.equal(e.manifest_sha256, rel.manifestSha); assert.equal(e.rules_root, await rulesRoot(rel.files)); assert.equal(e.manifest_files, 2); assert.equal(e.claimed, 3); assert.equal(e.claimed_not_in_manifest, 1);
+  assert.deepEqual(e.transitions.map((t) => [t.path, t.sha256 === cs[0].sha256 || t.sha256 === cs[2].sha256, t.from, t.to, t.basis]), [['rules/x/a.yar', true, 'PENDING', 'RELEASED', 'pipeline_checks_only'], ['rules/x/c.yar', true, 'PENDING', 'RELEASED', 'pipeline_checks_only']]);
+  assert.match(e.transitions[0].reason, /exact path and SHA-256 are listed in the manifest of the public release/);
+  assert.equal((await decide(w, w.reviewer, { action: 'approve', ids: [ids[0]], reason: 'too late', request_id: rid(), expect: { [ids[0]]: 2 } })).status, 409, 'a released candidate cannot be decided any more');
+  assert.equal((await verifyChain(await auditRows(w.db, 500))).ok, true);
+});
+
+test('a rule a person approved is released on the same evidence, and only then counts as released after review', async () => {
+  const { w, ids, cs, rita } = await fixture(['a', 'b']); const v = await versions(w, ids);
+  await decide(w, rita, { action: 'approve', ids: [ids[0]], reason: 'reviewed by hand', request_id: rid(), expect: { [ids[0]]: v[ids[0]] } });
+  assert.equal((await w.call('GET', '/public/stats')).data.released_after_review, 0, 'approval alone releases nothing');
+  await w.release('rules-20261021-101', cs); const r = await callback(w, 'rules-20261021-101', cs.map((c) => c.sha256)); assert.equal(r.status, 200);
+  const [e] = await releasedAudit(w); assert.deepEqual(e.transitions.map((t) => [t.from, t.basis]).sort(), [['APPROVED_PENDING_VALIDATION', 'human_approval_and_pipeline_checks'], ['PENDING', 'pipeline_checks_only']]);
+  const stats = (await w.call('GET', '/public/stats')).data; assert.equal(stats.released_after_review, 1, 'two released, one of them after a human decision'); assert.equal((await w.call('GET', '/api/stats', { user: rita })).data.counts.RELEASED, 2);
+});
+
+test('being technically valid, being approved by a person or being named in the request never releases anything', async () => {
+  const { w, ids, cs, rita } = await fixture(['a', 'b']); const v = await versions(w, ids);
+  await decide(w, rita, { action: 'approve', ids: [ids[0]], reason: 'reviewed by hand', request_id: rid(), expect: { [ids[0]]: v[ids[0]] } });
+  assert.equal(await state(w, ids[0]), 'APPROVED_PENDING_VALIDATION');
+  await w.release('rules-20261021-102', []);                                         // a public release that lists none of them (an empty list is not even a manifest)
+  const empty = await callback(w, 'rules-20261021-102', cs.map((c) => c.sha256)); assert.equal(empty.status, 422); assert.match(empty.data.error, /no usable file list/);
+  await w.release('rules-20261021-103', [cand('z')]);
+  const none = await callback(w, 'rules-20261021-103', cs.map((c) => c.sha256)); assert.equal(none.status, 200); assert.deepEqual(none.data.changed, []);
+  assert.deepEqual([await state(w, ids[0]), await state(w, ids[1])], ['APPROVED_PENDING_VALIDATION', 'PENDING']);
+  const [e] = await releasedAudit(w); assert.equal(e.changed, 0); assert.equal(e.receipt, 'idempotent_retry'); assert.equal(e.claimed_not_in_manifest, 2, 'the claim of the request is recorded as unverified, never trusted');
+});
+
+test('the exact path and the exact content are both required: other content at the same path, the same content at another path and a different size release nothing', async () => {
+  const { w, ids, cs } = await fixture(['a', 'b', 'c']);
+  const swapped = [{ path: cs[0].path, sha256: cs[1].sha256, bytes: 120 }, { path: 'rules/elsewhere/b.yar', sha256: cs[1].sha256, bytes: 120 }, { path: cs[2].path, sha256: cs[2].sha256, bytes: 999 }];
+  await w.release('rules-20261021-104', swapped); const r = await callback(w, 'rules-20261021-104', cs.map((c) => c.sha256)); assert.equal(r.status, 200);
+  assert.deepEqual(r.data.changed, []); assert.deepEqual([await state(w, ids[0]), await state(w, ids[1]), await state(w, ids[2])], ['PENDING', 'PENDING', 'PENDING']);
+  const [e] = await releasedAudit(w); assert.deepEqual(e.conflicts.map((c) => [c.path, c.reason]), [['rules/x/c.yar', 'size_differs_from_manifest']]);
+});
+
+test('the same content at two paths: only the path the release lists is released', async () => {
+  const w = await world(); const a = cand('a', 'rules/a/dup.yar'), b = cand('a', 'rules/b/dup.yar'); const ids = (await w.submit([a, b])).data.results.map((r) => r.id);
+  await w.release('rules-20261021-105', [b]); assert.equal((await callback(w, 'rules-20261021-105', [a.sha256])).status, 200);
+  assert.deepEqual([await state2(w, ids[0]), await state2(w, ids[1])], ['PENDING', 'RELEASED']);
+});
+const state2 = async (w, id) => (await w.db.prepare('SELECT state FROM candidates WHERE id = ?').bind(id).first()).state;
+
+test('a rejected candidate that a release lists is never moved: it is reported as a conflict', async () => {
+  const { w, ids, cs, rita } = await fixture(['a', 'b']); const v = await versions(w, ids);
+  await decide(w, rita, { action: 'reject', ids: [ids[0]], reason: 'it is malicious', request_id: rid(), expect: { [ids[0]]: v[ids[0]] } });
+  await w.release('rules-20261021-106', cs); const r = await callback(w, 'rules-20261021-106', cs.map((c) => c.sha256)); assert.equal(r.status, 200);
+  assert.deepEqual([await state(w, ids[0]), await state(w, ids[1])], ['REJECTED', 'RELEASED']);
+  const [e] = await releasedAudit(w); assert.deepEqual(e.conflicts, [{ id: ids[0], path: 'rules/x/a.yar', state: 'REJECTED', reason: 'published_despite_rejection' }]);
+});
+
+test('without verifiable evidence nothing changes and nothing is claimed: draft, hidden, wrong digest, forged root, unreachable or malformed', async () => {
+  const { w, ids, cs } = await fixture(['a']); const hashes = [cs[0].sha256]; const audits = async () => (await auditRows(w.db, 500)).length; const n0 = await audits();
+  const cases = [
+    ['a draft is not a public release', 'rules-20261021-110', { draft: true }, 409, /draft/],
+    ['no public release with that tag', 'rules-20261021-111', { hidden: true, manifestStatus: 404 }, 409, /no public release|not publicly downloadable/],
+    ['the manifest does not match the digest of the asset', 'rules-20261021-112', { wrongDigest: true }, 422, /digest/],
+    ['the rules_root is forged', 'rules-20261021-113', { tamperRoot: true }, 422, /rules_root/],
+    ['the release has no manifest', 'rules-20261021-114', { noManifestAsset: true }, 422, /no manifest/],
+    ['the manifest lives somewhere else', 'rules-20261021-115', { downloadUrl: 'https://evil.example/manifest.json' }, 422, /does not live where/],
+    ['the manifest cannot be downloaded', 'rules-20261021-116', { manifestStatus: 500 }, 502, /answered 500/],
+    ['the manifest is not JSON', 'rules-20261021-117', { rawManifest: '<html>' }, 422, /not valid JSON/],
+  ];
+  for (const [why, tag, opts, status, re] of cases) { await w.release(tag, [cs[0]], opts); const r = await callback(w, tag, hashes); assert.equal(r.status, status, why); assert.match(r.data.error, re, why); assert.match(r.data.error, /nothing was changed/); }
+  assert.equal(await audits(), n0, 'a failed verification leaves no audit entry and no claim'); assert.equal(await state(w, ids[0]), 'PENDING');
+  assert.equal((await callback(w, 'latest', hashes)).status, 400); assert.equal((await callback(w, 'rules-1', hashes)).status, 400, 'only real release tags');
+});
+
+test('connectivity: with the API down the public download is the evidence; with everything down nothing changes and the callback can simply be repeated', async () => {
+  const { w, ids, cs } = await fixture(['a']); const hashes = [cs[0].sha256];
+  const rel = await w.release('rules-20261021-120', [cs[0]], { apiStatus: 503 }); const viaDownload = await callback(w, 'rules-20261021-120', hashes);
+  assert.equal(viaDownload.status, 200); assert.equal(await state(w, ids[0]), 'RELEASED'); assert.equal((await releasedAudit(w))[0].release.evidence, 'download'); assert.equal((await releasedAudit(w))[0].release.asset_digest_checked, false);
+  const w2 = await fixture(['a']); w2.w.route(/\/releases\//, () => { throw new Error('network down'); });   // the release endpoints are unreachable; OIDC keys and repository permissions are served as usual
+  const down = await callback(w2.w, 'rules-20261021-121', [w2.cs[0].sha256]); assert.equal(down.status, 502); assert.equal(await state(w2.w, w2.ids[0]), 'PENDING');
+  assert.deepEqual((await releasedAudit(w2.w)), []); assert.ok(rel.log.api >= 1);
+});
+
+test('a repeated or concurrent callback releases once: idempotent, linear audit, no duplicate transitions', async () => {
+  const { w, ids, cs } = await fixture(['a', 'b']); await w.release('rules-20261021-130', cs); const hashes = cs.map((c) => c.sha256);
+  const [x, y] = await Promise.all([callback(w, 'rules-20261021-130', hashes), callback(w, 'rules-20261021-130', hashes, { claims: { run_attempt: '2' } })]);
+  assert.deepEqual([x.status, y.status], [200, 200]); assert.deepEqual([await state(w, ids[0]), await state(w, ids[1])], ['RELEASED', 'RELEASED']);
+  const rows = await releasedAudit(w); assert.equal(rows.reduce((n, e) => n + e.changed, 0), 2, 'every transition is claimed exactly once'); assert.equal(rows.filter((e) => e.receipt === 'first').length, 1);
+  assert.equal((await w.db.prepare('SELECT MAX(version) v FROM candidates').first()).v, 2, 'one transition per candidate, whatever the number of callbacks');
+  const again = await callback(w, 'rules-20261021-130', hashes, { claims: { run_attempt: '3' } }); assert.deepEqual(again.data.changed, []);
+  const last = (await releasedAudit(w)).at(-1); assert.equal(last.receipt, 'idempotent_retry'); assert.equal(last.run_attempt, 3); assert.equal(last.already_released, 2);
+  assert.equal((await verifyChain(await auditRows(w.db, 500))).ok, true);
+});
+
+test('only the authenticated publish workflow can release: people (reviewer or administrator), the daily workflow and anonymous callers cannot, and there is no human action for it', async () => {
+  const { w, ids, cs, rita } = await fixture(['a']); await w.release('rules-20261021-140', cs); const ada = await w.login('ada', { admin: true });
+  const body = { tag: 'rules-20261021-140', hashes: [cs[0].sha256] };
+  for (const user of [rita, ada]) { const r = await w.call('POST', '/api/pipeline/released', { user, body }); assert.equal(r.status, 401, 'a session is not a workflow token'); }
+  assert.equal((await w.call('POST', '/api/pipeline/released', { body })).status, 401);
+  assert.equal((await callback(w, 'rules-20261021-140', body.hashes, { workflow: 'daily.yml' })).status, 403);
+  assert.equal((await callback(w, 'rules-20261021-140', body.hashes, { bearer: await w.pipelineToken('publish.yml', { ref: 'refs/heads/other' }) })).status, 401, 'only main');
+  for (const user of [rita, ada]) for (const action of ['release', 'released', 'RELEASED', 'publish']) assert.equal((await decide(w, user, { action, ids, reason: 'force it through', request_id: rid(), expect: { [ids[0]]: 1 } })).status, 400, `${action}`);
+  assert.equal(await state(w, ids[0]), 'PENDING'); assert.deepEqual(await releasedAudit(w), []);
+  assert.equal((await callback(w, 'rules-20261021-140', body.hashes)).status, 200); assert.equal(await state(w, ids[0]), 'RELEASED');
+});
+
+test('human approval keeps its limits: it cannot approve what has a technical finding, and the release evidence does not bypass that rule', async () => {
+  const w = await world(); const rita = await w.login('rita', { push: true }); w.reviewer = rita;
+  const blocked = cand('t', 'rules/x/t.yar', { reasons: ['ends-mid-file'] }); const id = (await w.submit([blocked])).data.results[0].id;
+  assert.equal((await decide(w, rita, { action: 'approve', ids: [id], reason: 'try it', request_id: rid(), expect: { [id]: 1 } })).status, 409);
+  assert.equal(await state(w, id), 'PENDING', 'a person cannot approve it'); assert.equal((await w.call('GET', '/api/pipeline/decisions', { bearer: await w.pipelineToken() })).data.decisions[blocked.sha256], undefined);
+});
+
+test('revalidation failure still brings an approved or released rule back to PENDING, with its own audit entry', async () => {
+  const { w, ids, cs } = await fixture(['a']); await w.release('rules-20261021-150', cs); await callback(w, 'rules-20261021-150', [cs[0].sha256]);
+  const f = await w.call('POST', '/api/pipeline/revalidation-failed', { bearer: await w.pipelineToken('daily.yml'), body: { hashes: [cs[0].sha256], reason: 'compile error after an engine upgrade' } });
+  assert.equal(f.data.changed.length, 1); assert.equal(await state(w, ids[0]), 'PENDING'); assert.ok((await auditRows(w.db, 500)).some((e) => e.action === 'pipeline.revalidation_failed'));
 });
