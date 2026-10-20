@@ -2,12 +2,17 @@
 
 Generated from `logs/log.jsonl`; do not edit by hand. Times are UTC. Newest first.
 
-Entries: 153 (INFO 105, WARNING 25, ERROR 23)
+Entries: 158 (INFO 108, WARNING 27, ERROR 23)
 
 Latest signed checkpoint: 75 entries, Merkle root `1bab9bb9364b3a42f76835ae138bffad33eaa3694d0021afd208f5fd54e63d96`.
 
 | # | Date (UTC) | Level | Event | Message |
 |---|---|---|---|---|
+| 157 | 2026-10-20T03:53:03Z | INFO | `candidate.unchanged` | The approved rule files are identical to the latest release. No new release is created. |
+| 156 | 2026-10-20T03:53:03Z | WARNING | `candidate.not_publishable` | No release from this run: no effective change against the latest release |
+| 155 | 2026-10-20T03:53:03Z | WARNING | `candidate.accepted` | 1174 rule files passed every mandatory check. Candidate rules root is 16d082395ef1ec53... |
+| 154 | 2026-10-20T03:53:03Z | INFO | `candidate.classified` | Examined 1184 rule files: 1174 accepted, 6 quarantined for review, 4 rejected, 0 deprecated; 0 files of the previous release are no longer upstream. |
+| 153 | 2026-10-20T03:53:03Z | INFO | `sources.fetched` | Fetched 3 upstream sources at pinned commits. |
 | 152 | 2026-10-19T20:39:26Z | INFO | `site.cloudflare_deployed` | Site deployed to Cloudflare Pages project macguard-rules and the public mirror was downloaded and verified. See https://github.com/MacGuard/macguard-yara-channel/actions/runs/39320898010 |
 | 151 | 2026-10-19T20:39:26Z | INFO | `site.live_verified` | The public GitHub Pages site was downloaded and verified: signatures, every rule hash, catalog, proof and links. See https://github.com/MacGuard/macguard-yara-channel/actions/runs/39320898010 |
 | 150 | 2026-10-19T20:39:26Z | INFO | `site.github_pages_deployed` | Site deployed to GitHub Pages. See https://github.com/MacGuard/macguard-yara-channel/actions/runs/39320898010 |
