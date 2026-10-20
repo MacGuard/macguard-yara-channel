@@ -1,0 +1,156 @@
+{
+  "what": "Production acceptance test of the quarantine panel with four synthetic candidates (source synthetic-test). Exported read-only from the production D1 before the synthetic rows are archived. Contains no secrets, tokens or session data.",
+  "exported_at": "2026-10-20T02:49:50.253Z",
+  "database": "macguard-quarantine (D1) behind https://panel.mac-guard.com",
+  "worker_version_at_export": "467aeac3-326d-44e4-b42b-44e6ccedc50a",
+  "audit_chain_verified_locally": {
+    "ok": true,
+    "entries": 7,
+    "head": "9f34849b87750f3885956bb85dce6c5e1d6f9f3ca2e6aefc9ece0c4ddb6672aa"
+  },
+  "candidates": [
+    {
+      "id": "680aae67-48ce-4bd1-bbd3-627f4bee53da",
+      "sha256": "4fa1288eb21c0c29772c5da12cde20a357536ad16f491d1206f8ec35b9e87ad7",
+      "path": "synthetic-quarantine-test/s1.yar",
+      "source": "synthetic-test",
+      "state": "UNDER_REVIEW",
+      "version": 2,
+      "detected_at": "2026-10-20T00:28:32.914Z",
+      "updated_at": "2026-10-20T00:51:08.000Z"
+    },
+    {
+      "id": "e4bcc33a-cc1e-4dd1-b8ce-7ce0dae47379",
+      "sha256": "e54fb21f53ec406b1083d6575c61c110fa69d336d3abbba2dce43a1afc8200da",
+      "path": "synthetic-quarantine-test/s2.yar",
+      "source": "synthetic-test",
+      "state": "PENDING",
+      "version": 1,
+      "detected_at": "2026-10-20T00:28:32.914Z",
+      "updated_at": "2026-10-20T00:28:32.914Z"
+    },
+    {
+      "id": "621e4ade-f4f9-47e6-beaa-2f743f29928d",
+      "sha256": "55ba01dd805b6d3cf8b90c7e24c8749a95c79fc567edad651b9be6393a04d66f",
+      "path": "synthetic-quarantine-test/s3.yar",
+      "source": "synthetic-test",
+      "state": "PENDING",
+      "version": 1,
+      "detected_at": "2026-10-20T00:28:32.914Z",
+      "updated_at": "2026-10-20T00:28:32.914Z"
+    },
+    {
+      "id": "b922891f-4683-407b-9434-c97eb49c6fa2",
+      "sha256": "fa4fa1a5b0a1008cfb84ab7ada3d27912649d2e52f5ff682f8439863d2c1b250",
+      "path": "synthetic-quarantine-test/s4.yar",
+      "source": "synthetic-test",
+      "state": "PENDING",
+      "version": 1,
+      "detected_at": "2026-10-20T00:28:32.914Z",
+      "updated_at": "2026-10-20T00:28:32.914Z"
+    }
+  ],
+  "decisions": [
+    {
+      "id": 1,
+      "candidate_id": "680aae67-48ce-4bd1-bbd3-627f4bee53da",
+      "sha256": "4fa1288eb21c0c29772c5da12cde20a357536ad16f491d1206f8ec35b9e87ad7",
+      "action": "hold",
+      "from_state": "PENDING",
+      "to_state": "UNDER_REVIEW",
+      "candidate_version": 2,
+      "actor": "dmuinoo",
+      "actor_id": 21372139,
+      "role": "REVIEWER",
+      "reason": "Es una prueba",
+      "batch_id": null,
+      "request_id": "req_bc52a9af-636a-4d17-9ebc-b6df436e89f2",
+      "at": "2026-10-20T00:51:08.000Z"
+    }
+  ],
+  "audit": [
+    {
+      "seq": 1,
+      "at": "2026-10-20T00:32:49.000Z",
+      "actor": "dmuinoo",
+      "role": "NONE",
+      "action": "session.login",
+      "target": "session",
+      "detail": "{}",
+      "prev_hash": "0000000000000000000000000000000000000000000000000000000000000000",
+      "hash": "aa30020187dc14e0331fe9ef7b41f38823bc03b66c3f78987d3163c35ab14b83"
+    },
+    {
+      "seq": 2,
+      "at": "2026-10-20T00:47:26.000Z",
+      "actor": "dmuinoo",
+      "role": "NONE",
+      "action": "session.login",
+      "target": "session",
+      "detail": "{}",
+      "prev_hash": "aa30020187dc14e0331fe9ef7b41f38823bc03b66c3f78987d3163c35ab14b83",
+      "hash": "2399e223f9cc1a36430b6eed15cc315292813acc1ffc129963877333f859b280"
+    },
+    {
+      "seq": 3,
+      "at": "2026-10-20T00:49:56.000Z",
+      "actor": "dmuinoo",
+      "role": "NONE",
+      "action": "session.login",
+      "target": "session",
+      "detail": "{}",
+      "prev_hash": "2399e223f9cc1a36430b6eed15cc315292813acc1ffc129963877333f859b280",
+      "hash": "135a0078e4f4154178fc50086fd22e33f3d48c0abbe8e99ca3b1596c0624bb9d"
+    },
+    {
+      "seq": 4,
+      "at": "2026-10-20T00:51:08.000Z",
+      "actor": "dmuinoo",
+      "role": "REVIEWER",
+      "action": "decision.hold",
+      "target": "680aae67-48ce-4bd1-bbd3-627f4bee53da",
+      "detail": "{\"request_id\":\"req_bc52a9af-636a-4d17-9ebc-b6df436e89f2\",\"reason\":\"Es una prueba\",\"applied\":[{\"id\":\"680aae67-48ce-4bd1-bbd3-627f4bee53da\",\"sha256\":\"4fa1288eb21c0c29772c5da12cde20a357536ad16f491d1206f8ec35b9e87ad7\",\"to\":\"UNDER_REVIEW\"}]}",
+      "prev_hash": "135a0078e4f4154178fc50086fd22e33f3d48c0abbe8e99ca3b1596c0624bb9d",
+      "hash": "396ac8ad46dd823f771b5b596f4226e0cc973cdc7a4933831c0082724c9db0a4"
+    },
+    {
+      "seq": 5,
+      "at": "2026-10-20T00:55:36.000Z",
+      "actor": "dmuinoo",
+      "role": "NONE",
+      "action": "session.login",
+      "target": "session",
+      "detail": "{}",
+      "prev_hash": "396ac8ad46dd823f771b5b596f4226e0cc973cdc7a4933831c0082724c9db0a4",
+      "hash": "d204ffe66dcb309ccc554177f0db964a5cf697e14cde746a1f7c06b96981bf00"
+    },
+    {
+      "seq": 6,
+      "at": "2026-10-20T00:56:00.000Z",
+      "actor": "dmuinoo",
+      "role": "NONE",
+      "action": "session.login",
+      "target": "session",
+      "detail": "{}",
+      "prev_hash": "d204ffe66dcb309ccc554177f0db964a5cf697e14cde746a1f7c06b96981bf00",
+      "hash": "eba1631835de8ecf96a8d9386cb5d43becd6ef75ca8b5bac874ebcad3e7b7670"
+    },
+    {
+      "seq": 7,
+      "at": "2026-10-20T00:58:04.000Z",
+      "actor": "MacGuard",
+      "role": "NONE",
+      "action": "session.login",
+      "target": "session",
+      "detail": "{}",
+      "prev_hash": "eba1631835de8ecf96a8d9386cb5d43becd6ef75ca8b5bac874ebcad3e7b7670",
+      "hash": "9f34849b87750f3885956bb85dce6c5e1d6f9f3ca2e6aefc9ece0c4ddb6672aa"
+    }
+  ],
+  "members": [],
+  "notes": [
+    "The only decision is a real REVIEWER action (hold) by dmuinoo on s1.yar through the real GitHub OAuth login and the panel UI.",
+    "Real sign-ins were recorded for dmuinoo (read, then write permission) and MacGuard (admin).",
+    "No release or pipeline run was started; QUARANTINE_URL was not set."
+  ]
+}
