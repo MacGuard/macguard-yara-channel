@@ -1,5 +1,5 @@
 // Data access for the quarantine service. `db` is a Cloudflare D1 binding (or the test shim with the same API).
-import { GENESIS, blockingReasons, chainHash, humanTransition, pipelineTransition } from './core.js';
+import { GENESIS, blockingReasons, chainHash, dependencyEffect, humanTransition, pipelineTransition } from './core.js';
 
 const J = (v) => JSON.stringify(v ?? null);
 const parse = (s, d) => { try { return JSON.parse(s); } catch { return d; } };
@@ -70,12 +70,17 @@ export async function listCandidates(db, { state, q, source, page = 1, pageSize 
   const rows = (await db.prepare(`SELECT * FROM candidates ${clause} ORDER BY detected_at DESC, path ASC LIMIT ? OFFSET ?`).bind(...args, size, off).all()).results.map(row);
   return { total, page, pageSize: size, items: rows };
 }
+/** Every visible candidate in the shape dependencyEffect reads. */
+async function dependencyRows(db) {
+  return (await db.prepare('SELECT id, path, state, reasons, depends_on, detected_at FROM candidates WHERE archived_at IS NULL').all()).results.map((r) => ({ ...r, reasons: parse(r.reasons, []), depends_on: parse(r.depends_on, []) }));
+}
 export async function getCandidate(db, id) {
   const c = row(await db.prepare('SELECT * FROM candidates WHERE id = ?').bind(id).first());
   if (!c) return null;
   c.decisions = (await db.prepare('SELECT action, from_state, to_state, candidate_version, actor, role, reason, batch_id, at FROM decisions WHERE candidate_id = ? ORDER BY id ASC').bind(id).all()).results;
   const blob = await db.prepare('SELECT content FROM blobs WHERE sha256 = ?').bind(c.sha256).first();
   c.content = blob ? blob.content : null;
+  c.dependencies = c.archived_at ? null : dependencyEffect(await dependencyRows(db), id);
   c.history = (await db.prepare('SELECT id, sha256, state, detected_at, metrics, release_tag FROM candidates WHERE path = ? AND id != ? ORDER BY detected_at DESC LIMIT 20').bind(c.path, id).all()).results.map((h) => ({ ...h, metrics: parse(h.metrics, {}) }));
   return c;
 }
@@ -108,6 +113,10 @@ export async function decide(db, req, actor, now) {
     if (!t.ok) conflicts.push({ id: r.id, error: t.error });
     else if (r.version !== expect[r.id]) conflicts.push({ id: r.id, error: `changed since you loaded it (version ${r.version}, you saw ${expect[r.id]})` });
     else if (action === 'approve' && blockingReasons(parse(r.reasons, [])).length) conflicts.push({ id: r.id, error: `not approvable: it has technical findings no approval can skip (${blockingReasons(parse(r.reasons, [])).join(', ')})`, code: 'not_approvable' });
+  }
+  if (action === 'approve' && !conflicts.length) {   // an approval that can never take effect: something it needs is blocked or rejected (approving the needed file in the same request counts)
+    const all = await dependencyRows(db);
+    for (const r of rows) { const d = dependencyEffect(all, r.id, ids); if (d && d.effect === 'ineffective') conflicts.push({ id: r.id, code: 'dependency_blocked', error: `an approval would have no effect: it needs ${d.blocked_by}, which cannot be approved`, blocked_by: d.blocked_by }); }
   }
   if (conflicts.length) return { status: 409, error: 'nothing was changed', conflicts };
   // One atomic batch: guarded updates, their decision rows, a guard that aborts everything if any update did not apply,
@@ -163,7 +172,7 @@ export async function pipelineEvent(db, event, hashes, info, actor, now) {
       changed.push({ id: r.id, sha256: sha, to: t.to });
     }
   }
-  await appendAudit(db, { actor, role: 'PIPELINE', action: `pipeline.${event}`, target: info.tag || info.run_id || 'run', detail: { changed: changed.length, skipped: skipped.length, run_url: info.run_url || null } }, now);
+  await appendAudit(db, { actor, role: 'PIPELINE', action: `pipeline.${event}`, target: info.tag || info.run_id || 'run', detail: { changed: changed.length, skipped: skipped.length, run_url: info.run_url || null, ...(info.token ? { token_run_id: info.token.token_run_id, run_attempt: info.token.run_attempt } : {}) } }, now);
   return { changed, skipped };
 }
 export async function recordRun(db, run, now) { await db.prepare('INSERT OR REPLACE INTO pipeline_runs (run_id, workflow, at, summary) VALUES (?,?,?,?)').bind(run.run_id, run.workflow, now, J(run.summary)).run(); }
