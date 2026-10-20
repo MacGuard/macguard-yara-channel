@@ -457,15 +457,14 @@ test('a grant belongs to the GitHub account id: the same login on another accoun
   assert.equal(conflict.status, 409); assert.match(conflict.data.error, /different GitHub account \(id 7\)/);
 });
 
-test('legacy name-only grants are honoured but flagged unbound until an administrator resolves the account', async () => {
+test('a legacy name-only grant authorizes nobody until an administrator re-validates the account and binds it to its immutable id', async () => {
   const w = await world(); const ada = await w.login('ada', { admin: true }); const lou = await w.login('lou', { pull: true }, { id: 55 });
-  await w.db.prepare('INSERT INTO members (login, role, granted_by, at) VALUES (?,?,?,?)').bind('lou', 'REVIEWER', 'old-admin', '2026-10-01T00:00:00.000Z').run();
-  assert.equal((await w.call('GET', '/api/candidates', { user: lou })).status, 200);
-  const row = (await people(w, ada)).items.find((p) => p.login === 'lou'); assert.equal(row.state, 'unbound'); assert.equal(row.bound, false); assert.equal(row.effective_role, 'REVIEWER');
-  assert.equal((await w.grant(ada, 'lou', 'REVIEWER')).status, 409, 'same role: nothing to bind through a no-op');
-  assert.equal((await w.grant(ada, 'lou', 'VIEWER', 'rebinding to the verified account')).status, 200);
-  const after = (await people(w, ada)).items.find((p) => p.login === 'lou'); assert.equal(after.bound, true); assert.equal(after.user_id, 55); assert.equal(after.manual_role, 'VIEWER');
-  const d = JSON.parse((await auditRows(w.db, 100)).find((e) => e.action === 'member.set').detail); assert.equal(d.bound_legacy, true); assert.equal(d.from_role, 'REVIEWER');
+  await w.db.prepare('INSERT INTO members (login, role, granted_by, at) VALUES (?,?,?,?)').bind('lou', 'ADMIN', 'old-admin', '2026-10-01T00:00:00.000Z').run();
+  assert.equal((await w.call('POST', '/api/members', { user: lou, body: { user_id: 99, role: 'ADMIN', reason: 'x' } })).status, 403, 'a same-name account does not inherit the legacy ADMIN grant');
+  const row = (await people(w, ada)).items.find((p) => p.login === 'lou'); assert.equal(row.state, 'unbound'); assert.equal(row.bound, false); assert.equal(row.effective_role, 'NONE', 'read-only on GitHub and the legacy ADMIN row is ignored');
+  assert.equal((await w.grant(ada, 'lou', 'REVIEWER')).status, 200, 'the same role is accepted when it binds a legacy row');
+  const after = (await people(w, ada)).items.find((p) => p.login === 'lou'); assert.equal(after.bound, true); assert.equal(after.user_id, 55); assert.equal(after.manual_role, 'REVIEWER');
+  const d = JSON.parse((await auditRows(w.db, 100)).find((e) => e.action === 'member.set').detail); assert.equal(d.bound_legacy, true); assert.equal(d.from_role, 'ADMIN'); assert.equal(d.to_role, 'REVIEWER');
 });
 
 test('every membership change is audited with actor, account id, previous role, new role, reason and date; the history is readable', async () => {
@@ -532,15 +531,17 @@ test('the member list separates authorized, unauthorized sign-ins and revoked ac
 test('migration 0002 upgrades a v1 database in place, keeps every decision and audit row, archives only the synthetic candidates and can be rolled back', async () => {
   const db = new DatabaseSync(':memory:'); db.exec(readFileSync(SCHEMA_V1, 'utf8'));
   const t = '2026-10-20T00:00:00.000Z'; const ins = db.prepare('INSERT INTO candidates (id, sha256, path, name, source, detected_at, state, updated_at) VALUES (?,?,?,?,?,?,?,?)');
-  ins.run('s1', 'a'.repeat(64), 'synthetic-quarantine-test/s1.yar', 's1.yar', 'synthetic-test', t, 'UNDER_REVIEW', t); ins.run('r1', 'b'.repeat(64), 'rules/x/real.yar', 'real.yar', 'nextron', t, 'PENDING', t);
-  db.prepare("INSERT INTO decisions (candidate_id, sha256, action, from_state, to_state, candidate_version, actor, role, reason, request_id, at) VALUES ('s1', ?, 'hold','PENDING','UNDER_REVIEW',2,'dmuinoo','REVIEWER','Es una prueba','req_x',?)").run('a'.repeat(64), t);
+  const S1 = ['680aae67-48ce-4bd1-bbd3-627f4bee53da', '4fa1288eb21c0c29772c5da12cde20a357536ad16f491d1206f8ec35b9e87ad7'];
+  ins.run(S1[0], S1[1], 'synthetic-quarantine-test/s1.yar', 's1.yar', 'synthetic-test', t, 'UNDER_REVIEW', t); ins.run('r1', 'b'.repeat(64), 'rules/x/real.yar', 'real.yar', 'nextron', t, 'PENDING', t);
+  ins.run('look-alike', 'c'.repeat(64), 'synthetic-quarantine-test/s9.yar', 's9.yar', 'synthetic-test', t, 'PENDING', t);   // same source and path pattern, not one of the four ids
+  db.prepare("INSERT INTO decisions (candidate_id, sha256, action, from_state, to_state, candidate_version, actor, role, reason, request_id, at) VALUES (?, ?, 'hold','PENDING','UNDER_REVIEW',2,'dmuinoo','REVIEWER','Es una prueba','req_x',?)").run(S1[0], S1[1], t);
   db.prepare("INSERT INTO members (login, role, granted_by, at) VALUES ('old','VIEWER','adm',?)").run(t);
   const snap = () => JSON.stringify([db.prepare('SELECT * FROM decisions').all(), db.prepare('SELECT * FROM audit').all(), db.prepare('SELECT id, sha256, state, version FROM candidates ORDER BY id').all()]);
   const before = snap(); db.exec(readFileSync(new URL('0002_member_identity.sql', MIG), 'utf8'));
   const cols = (d, tb) => d.prepare(`SELECT name, type FROM pragma_table_info('${tb}')`).all().map((c) => `${c.name}:${c.type}`).sort();
   const fresh = new DatabaseSync(':memory:'); fresh.exec(readFileSync(new URL('../schema.sql', import.meta.url), 'utf8'));
   for (const tb of ['members', 'candidates', 'sessions', 'decisions', 'audit']) assert.deepEqual(cols(db, tb), cols(fresh, tb), `${tb} matches a fresh install`);
-  assert.deepEqual(db.prepare('SELECT id FROM candidates WHERE archived_at IS NOT NULL').all().map((r) => r.id), ['s1']);
+  assert.deepEqual(db.prepare('SELECT id FROM candidates WHERE archived_at IS NOT NULL').all().map((r) => r.id), [S1[0]], 'only the exact synthetic candidate; a look-alike and a real rule stay visible');
   assert.equal(snap().replace(/"archived_at":"[^"]*"/g, ''), before.replace(/"archived_at":"[^"]*"/g, ''), 'decisions, audit and candidate state/version untouched');
   assert.deepEqual(db.prepare("SELECT login, role, user_id FROM members").all().map((r) => ({ ...r })), [{ login: 'old', role: 'VIEWER', user_id: null }]);
   db.exec(readFileSync(new URL('0002_rollback.sql', MIG), 'utf8')); for (const tb of ['members', 'candidates']) assert.deepEqual(cols(db, tb), cols(new (class { prepare(q) { const d = new DatabaseSync(':memory:'); d.exec(readFileSync(SCHEMA_V1, 'utf8')); return d.prepare(q); } })(), tb));

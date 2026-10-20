@@ -166,13 +166,12 @@ export async function pipelineEvent(db, event, hashes, info, actor, now) {
   return { changed, skipped };
 }
 export async function recordRun(db, run, now) { await db.prepare('INSERT OR REPLACE INTO pipeline_runs (run_id, workflow, at, summary) VALUES (?,?,?,?)').bind(run.run_id, run.workflow, now, J(run.summary)).run(); }
-/** A grant is honoured only for the account it was made to. A row bound to an id never matches another account that now carries the same login
- *  (renames and re-registration); a legacy row without an id matches by name and is reported as unbound until an ADMIN resolves it. */
-export async function memberRole(db, login, userId) {
+/** A grant is honoured only for the account it was made to, by immutable id. A row bound to an id never matches another account that now carries the
+ *  same login (renames, re-registration), and a legacy row without an id grants nothing: a reused name could otherwise inherit it. An ADMIN re-validates
+ *  the legacy row against GitHub (changeMember) and that binds it. The login argument is kept for callers; it plays no part in the decision. */
+export async function memberRole(db, _login, userId) {
   const byId = userId == null ? null : await db.prepare('SELECT role FROM members WHERE user_id = ?').bind(userId).first();
-  if (byId) return byId.role;
-  const legacy = await db.prepare('SELECT role FROM members WHERE login = ? AND user_id IS NULL').bind(String(login).toLowerCase()).first();
-  return legacy ? legacy.role : null;
+  return byId ? byId.role : null;
 }
 const memberRow = (r) => r && { login: r.login, user_id: r.user_id ?? null, role: r.role, granted_by: r.granted_by, at: r.at, updated_at: r.updated_at || r.at };
 export async function findMember(db, userId, login) {
@@ -189,10 +188,10 @@ export async function changeMember(db, { account, role, reason, actor, durableAd
   const found = await findMember(db, account.id, account.login);
   if (found.kind === 'other-identity') return { status: 409, error: `the login ${account.login} is held by a different GitHub account (id ${found.row.user_id}); revoke that grant first` };
   const from = found.row ? found.row.role : null;
-  if (from === role) return { status: 409, error: role === null ? 'this account has no explicit grant to revoke' : 'the account already has this role' };
+  if (from === role && found.kind !== 'legacy') return { status: 409, error: role === null ? 'this account has no explicit grant to revoke' : 'the account already has this role' };
   const stmts = [];
   if (from === 'ADMIN' && role !== 'ADMIN' && !durableAdmin) {   // never leave the panel without an administrator who cannot be removed from it
-    stmts.push(db.prepare(`SELECT CASE WHEN (SELECT COUNT(*) FROM members WHERE role = 'ADMIN' AND COALESCE(user_id, -1) != ? AND login != ?) >= 1 THEN 1 ELSE json('not-json') END`).bind(account.id, account.login.toLowerCase()));
+    stmts.push(db.prepare(`SELECT CASE WHEN (SELECT COUNT(*) FROM members WHERE role = 'ADMIN' AND user_id IS NOT NULL AND user_id != ? AND login != ?) >= 1 THEN 1 ELSE json('not-json') END`).bind(account.id, account.login.toLowerCase()));
   }
   const key = found.kind === 'legacy' ? ['login = ? AND user_id IS NULL', found.row.login] : ['user_id = ?', account.id];
   if (role === null) stmts.push(db.prepare(`DELETE FROM members WHERE ${key[0]}`).bind(key[1]));
@@ -222,9 +221,9 @@ export async function listPeople(db, { q = '', status = '', page = 1, pageSize =
   for (const a of (await db.prepare("SELECT at, detail FROM audit WHERE action = 'member.set' ORDER BY seq ASC").all()).results) { let d = {}; try { d = JSON.parse(a.detail); } catch {} if (d.login) changes.set(d.user_id != null ? `id:${d.user_id}` : `login:${String(d.login).toLowerCase()}`, { at: a.at, to: d.to_role, id: d.user_id ?? null, login: d.login }); }
   for (const c of changes.values()) { const p = at(c.login, c.id); if (c.to === null && p.manual_role === null) p.revoked_at = c.at; }
   let out = [...people.values()].map((p) => {
-    const repo_role = p.repo_perm ? roleFromPerm(p.repo_perm) : null, effective = highest(repo_role, p.manual_role);
+    const repo_role = p.repo_perm ? roleFromPerm(p.repo_perm) : null, effective = highest(repo_role, p.bound ? p.manual_role : null);
     const origin = repo_role && p.manual_role ? 'both' : repo_role ? 'repo' : p.manual_role ? 'manual' : 'none';
-    const state = effective ? (p.manual_role && !p.bound ? 'unbound' : 'authorized') : p.revoked_at ? 'revoked' : 'unauthorized';
+    const state = p.manual_role && !p.bound ? 'unbound' : effective ? 'authorized' : p.revoked_at ? 'revoked' : 'unauthorized';
     return { user_id: p.user_id, login: p.login, effective_role: effective || 'NONE', origin, repo_role, repo_perm: p.repo_perm, repo_checked_at: p.perm_at, manual_role: p.manual_role, state, bound: p.bound, granted_by: p.granted_by, created_at: p.created_at, updated_at: p.updated_at, revoked_at: p.revoked_at, last_login: p.last_login, logins: p.logins };
   });
   const counts = { authorized: 0, unauthorized: 0, revoked: 0, unbound: 0 }; for (const p of out) counts[p.state] = (counts[p.state] || 0) + 1;
