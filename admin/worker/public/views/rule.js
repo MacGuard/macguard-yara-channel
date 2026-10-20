@@ -22,8 +22,8 @@ export async function renderRule(ctx, id) {
   const codeText = c.content === null ? null : c.content.slice(0, 200000);
   const decisions = (c.decisions || []).length ? h('ol', { class: 'timeline' }, ...c.decisions.slice().reverse().map((d) => h('li', {}, h('time', { datetime: d.at, text: fmtDateTime(d.at) }), h('strong', { text: `${d.actor} · ${t(`act_${d.action}`) || d.action}` }), h('div', { class: 'note', text: `${t(`st_${d.from_state}`)} → ${t(`st_${d.to_state}`)}` }), h('div', { class: 'quote', text: d.reason })))) : h('p', { class: 'muted', text: t('r_decisions_none') });
 
-  const actions = canDecide ? h('div', { class: 'card' }, h('h2', { text: t('r_actions') }), h('p', { class: 'note mt-8 mb-14', text: t('r_actions_note') }), h('div', { class: 'actions-col' },
-    h('button', { type: 'button', class: 'btn btn-ok', onclick: () => decide('approve', new Map([[c.id, c.version]]), reload) }, icon('check'), t('act_approve')),
+  const actions = canDecide ? h('div', { class: 'card' }, h('h2', { text: t('r_actions') }), h('p', { class: 'note mt-8 mb-14', text: t('r_actions_note') }), c.approvable === false ? h('p', { class: 'alert alert-info', id: 'not-approvable' }, icon('lock'), t('r_not_approvable', { reasons: c.blocking.map(reasonLabel).join(', ') })) : null, h('div', { class: 'actions-col' },
+    h('button', { type: 'button', class: 'btn btn-ok', disabled: c.approvable === false, ...(c.approvable === false ? { 'aria-describedby': 'not-approvable' } : {}), onclick: () => decide('approve', new Map([[c.id, c.version]]), reload) }, icon('check'), t('act_approve')),
     h('button', { type: 'button', class: 'btn btn-bad', onclick: () => decide('reject', new Map([[c.id, c.version]]), reload) }, icon('x'), t('act_reject')),
     h('button', { type: 'button', class: 'btn', onclick: () => decide('hold', new Map([[c.id, c.version]]), reload) }, icon('pause'), t('act_hold')),
     h('button', { type: 'button', class: 'btn btn-ghost', onclick: () => retest(c.id) }, icon('refresh'), t('act_retest'))))

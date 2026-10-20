@@ -1,9 +1,9 @@
 // Data access for the quarantine service. `db` is a Cloudflare D1 binding (or the test shim with the same API).
-import { GENESIS, chainHash, humanTransition, pipelineTransition } from './core.js';
+import { GENESIS, blockingReasons, chainHash, humanTransition, pipelineTransition } from './core.js';
 
 const J = (v) => JSON.stringify(v ?? null);
 const parse = (s, d) => { try { return JSON.parse(s); } catch { return d; } };
-const row = (r) => r && { ...r, reasons: parse(r.reasons, []), metrics: parse(r.metrics, {}), depends_on: parse(r.depends_on, []), related: parse(r.related, []) };
+const row = (r) => { if (!r) return r; const reasons = parse(r.reasons, []), blocking = blockingReasons(reasons); return { ...r, reasons, blocking, approvable: blocking.length === 0, metrics: parse(r.metrics, {}), depends_on: parse(r.depends_on, []), related: parse(r.related, []) }; };
 
 export async function appendAudit(db, { actor, role, action, target, detail }, now) {
   for (let attempt = 0; attempt < 6; attempt++) {
@@ -107,6 +107,7 @@ export async function decide(db, req, actor, now) {
     const t = humanTransition(action, r.state);
     if (!t.ok) conflicts.push({ id: r.id, error: t.error });
     else if (r.version !== expect[r.id]) conflicts.push({ id: r.id, error: `changed since you loaded it (version ${r.version}, you saw ${expect[r.id]})` });
+    else if (action === 'approve' && blockingReasons(parse(r.reasons, [])).length) conflicts.push({ id: r.id, error: `not approvable: it has technical findings no approval can skip (${blockingReasons(parse(r.reasons, [])).join(', ')})`, code: 'not_approvable' });
   }
   if (conflicts.length) return { status: 409, error: 'nothing was changed', conflicts };
   // One atomic batch: guarded updates, their decision rows, a guard that aborts everything if any update did not apply,

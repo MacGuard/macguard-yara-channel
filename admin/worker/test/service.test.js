@@ -591,3 +591,30 @@ test('the audit API pages newest first, filters by action family and actor, and 
   assert.equal((await w.call('GET', '/api/audit?family=%25', { user: rita })).status, 200);
   const stats = (await w.call('GET', '/api/stats', { user: rita })).data; assert.deepEqual(stats.sources, { nextron: 3 });
 });
+
+test('a candidate with a technical finding is not approvable: the server refuses the approval, all-or-nothing, and says why; reject and hold stay possible', async () => {
+  const w = await world(); const rita = await w.login('rita', { push: true }); w.reviewer = rita;
+  const r = await w.submit([cand('ok', 'rules/x/ok.yar', { reasons: ['costly-regex', 'matches-benign-corpus'] }), cand('trunc', 'rules/x/trunc.yar', { reasons: ['ends-mid-file'] }), cand('dyn', 'rules/x/dyn.yar', { reasons: ['costly-regex', 'dynamic-failure'] }), cand('none', 'rules/x/none.yar', { reasons: [] })]);
+  const [ok, trunc, dyn, none] = r.data.results.map((x) => x.id); const v = await versions(w, [ok, trunc, dyn, none]);
+  const list = (await w.call('GET', '/api/candidates?pageSize=50', { user: rita })).data.items; const by = (id) => list.find((c) => c.id === id);
+  assert.deepEqual([ok, trunc, dyn, none].map((i) => by(i).approvable), [true, false, false, true]); assert.deepEqual(by(trunc).blocking, ['ends-mid-file']); assert.deepEqual(by(dyn).blocking, ['dynamic-failure']);
+  const auditBefore = (await auditRows(w.db, 500)).length;
+  const refused = await decide(w, rita, { action: 'approve', ids: [ok, trunc], reason: 'approve both', request_id: rid(), expect: { [ok]: v[ok], [trunc]: v[trunc] }, confirm_count: 2 });
+  assert.equal(refused.status, 409); assert.deepEqual(refused.data.conflicts.map((c) => [c.id, c.code]), [[trunc, 'not_approvable']]); assert.match(refused.data.conflicts[0].error, /ends-mid-file/);
+  assert.equal(await state(w, ok), 'PENDING', 'the approvable one in the same batch was not applied either'); assert.equal(await state(w, trunc), 'PENDING');
+  assert.equal((await auditRows(w.db, 500)).length, auditBefore, 'a refused approval writes neither a decision nor an audit entry');
+  assert.equal((await decide(w, rita, { action: 'approve', ids: [dyn], reason: 'dynamic failure', request_id: rid(), expect: { [dyn]: v[dyn] } })).status, 409);
+  assert.equal((await decide(w, rita, { action: 'approve', ids: [ok, none], reason: 'both are judgement-only', request_id: rid(), expect: { [ok]: v[ok], [none]: v[none] }, confirm_count: 2 })).status, 200);
+  assert.equal((await decide(w, rita, { action: 'reject', ids: [trunc], reason: 'truncated upstream', request_id: rid(), expect: { [trunc]: v[trunc] } })).status, 200);
+  assert.equal((await decide(w, rita, { action: 'hold', ids: [dyn], reason: 'wait for upstream fix', request_id: rid(), expect: { [dyn]: v[dyn] } })).status, 200);
+  const approved = (await w.call('GET', '/api/pipeline/decisions', { bearer: await w.pipelineToken('daily.yml') })).data.decisions;
+  assert.deepEqual(Object.keys(approved).sort(), [ok, none, trunc].map((i) => by(i).sha256).sort(), 'the pipeline hears only about the two approvals and the rejection');
+  assert.equal(approved[by(trunc).sha256].state, 'REJECTED'); assert.equal(approved[by(dyn).sha256], undefined);
+});
+
+test('the panel waivable list is exactly the one scripts/decide.py enforces when the pipeline applies decisions', async () => {
+  const { WAIVABLE } = await import('../src/core.js');
+  const py = readFileSync(new URL('../../../scripts/decide.py', import.meta.url), 'utf8').match(/^WAIVABLE = \{([^}]*)\}/m);
+  assert.ok(py, 'WAIVABLE found in decide.py'); const codes = [...py[1].matchAll(/'([a-z-]+)'/g)].map((m) => m[1]).sort();
+  assert.deepEqual([...WAIVABLE].sort(), codes);
+});

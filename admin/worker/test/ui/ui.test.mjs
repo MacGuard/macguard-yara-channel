@@ -126,6 +126,23 @@ for (const name of WANT) {
       } finally { await page.context().close(); s.stop(); }
     });
 
+    test('a candidate with a technical finding cannot be approved: the control is disabled with the reason, in the list and in the sheet; reject and hold stay available', async () => {
+      const s = await startServer(['--blocked']); const page = await newPage(browser, s, 'reviewer', VIEWPORTS.desktop);
+      try {
+        await goto(page, s, '/#/quarantine'); await page.waitForSelector('.rule');
+        const row = page.locator('.rule', { hasText: 'truncated.yar' }); assert.ok((await row.innerText()).includes('No aprobable'));
+        await row.locator('input[type=checkbox]').check(); await page.waitForSelector('.bulkbar');
+        assert.equal(await page.locator('.bulkbar').getByRole('button', { name: 'Aprobar' }).isDisabled(), true); assert.ok((await page.locator('.bulkbar').innerText()).includes('no se pueden aprobar'));
+        assert.equal(await page.locator('.bulkbar').getByRole('button', { name: 'Rechazar' }).isEnabled(), true);
+        await row.locator('input[type=checkbox]').uncheck(); await page.locator('.rule', { hasText: 'rule_1.yar' }).locator('input[type=checkbox]').check();
+        assert.equal(await page.locator('.bulkbar').getByRole('button', { name: 'Aprobar' }).isEnabled(), true, 'a judgement-only rule stays approvable');
+        await row.locator('.rule-title').click(); await page.waitForSelector('.code');
+        assert.equal(await page.getByRole('button', { name: 'Aprobar' }).isDisabled(), true); assert.ok((await page.locator('#not-approvable').innerText()).includes('ninguna aprobación humana'));
+        assert.equal(await page.getByRole('button', { name: 'Rechazar' }).isEnabled(), true); assert.equal(await page.getByRole('button', { name: 'Mantener en cuarentena' }).isEnabled(), true);
+        assert.deepEqual(await axeViolations(page), [], 'the not-approvable sheet meets WCAG 2.2 AA');
+        assert.deepEqual(page.errors, []);
+      } finally { await page.context().close(); s.stop(); }
+    });
     test('an administrator manages members: resolve the real account, grant, history, revoke; self and non-personal accounts are refused', async () => {
       const s = await startServer(); const page = await newPage(browser, s, 'admin', VIEWPORTS.desktop);
       try {
