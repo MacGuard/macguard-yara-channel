@@ -17,9 +17,9 @@ function tlsFiles() {
 }
 
 const free = () => new Promise((res) => { const s = createServer(); s.listen(0, '127.0.0.1', () => { const p = s.address().port; s.close(() => res(p)); }); });
-export async function startServer(args = []) {
+export async function startServer(args = [], opts = {}) {
   const port = await free(); const base = `https://127.0.0.1:${port}`, t = tlsFiles();
-  const child = spawn(process.execPath, ['--no-warnings', fileURLToPath(new URL('../devserver.js', import.meta.url)), String(port), ...args], { stdio: ['ignore', 'pipe', 'ignore'], env: { ...process.env, MG_TLS_KEY: t.key, MG_TLS_CERT: t.cert } }); process.on('exit', () => child.kill());   // never leave the server behind, whatever ends the test run
+  const child = spawn(process.execPath, ['--no-warnings', fileURLToPath(new URL('../devserver.js', import.meta.url)), String(port), ...args], { stdio: ['ignore', 'pipe', 'ignore'], env: { ...process.env, MG_TLS_KEY: t.key, MG_TLS_CERT: t.cert, MG_OPS_DOWN: opts.opsDown || '' } }); process.on('exit', () => child.kill());   // never leave the server behind, whatever ends the test run
   await new Promise((res, rej) => { const to = setTimeout(() => rej(new Error('dev server did not start')), 20000); child.stdout.on('data', (d) => { if (String(d).includes('ready')) { clearTimeout(to); res(); } }); child.on('exit', (c) => rej(new Error(`dev server exited ${c}`))); });
   const sessions = await new Promise((res, rej) => https.get(`${base}/__sessions`, { rejectUnauthorized: false }, (r) => { let d = ''; r.on('data', (c) => (d += c)); r.on('end', () => res(JSON.parse(d))); }).on('error', rej));
   return { base, port, sessions, stop: () => { child.kill(); child.stdout.destroy(); } };

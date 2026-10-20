@@ -6,6 +6,7 @@ import { extname, join, normalize } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { world, cand, actionsToken } from './helpers.js';
 import * as store from '../src/store.js';
+import { installOps } from './ops_fixture.js';
 
 const root = fileURLToPath(new URL('../public/', import.meta.url));
 const types = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript', '.css': 'text/css', '.svg': 'image/svg+xml' };
@@ -23,6 +24,7 @@ const sessions = {
   viewer: await w.login('vera', { pull: true }, { id: 11 }), reviewer: await w.login('rita', { push: true }, { id: 12 }), admin: await w.login('ada', { admin: true }, { id: 13 }),
   nobody: await w.login('sam', { pull: true }, { id: 14 }),   // signed in with GitHub but holds no role
 };
+installOps(w, { down: (process.env.MG_OPS_DOWN || '').split(',').filter(Boolean) });   // pipeline records the panel reads (faked GitHub, site and raw files)
 w.account('newbie', 900); w.account('acme-org', 901, 'Organization');   // exist on the faked GitHub, for the add-member flow
 for (const u of Object.values(sessions)) await w.call('GET', '/api/me', { user: u });   // every session asks GitHub once, so the member list knows each repository permission
 for (const [l, id] of [['ada', 13], ['rita', 12], ['vera', 11], ['sam', 14]]) await store.appendAudit(w.db, { actor: l, role: 'NONE', action: 'session.login', target: 'session', detail: { user_id: id } }, new Date().toISOString());

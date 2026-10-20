@@ -95,9 +95,9 @@ for (const name of WANT) {
 
     test('a viewer can read but nothing that decides or administers is offered, and the server refuses it anyway', async () => {
       const page = await newPage(browser, srv, 'viewer', VIEWPORTS.desktop); await goto(page, srv, '/#/quarantine'); await page.waitForSelector('.rule');
-      assert.deepEqual(await page.locator('.sidebar .nav a').allInnerTexts(), ['Cuarentena']); assert.equal(await page.locator('.rule input[type=checkbox]').count(), 0); assert.equal(await page.locator('.bulkbar').count(), 0);
+      assert.deepEqual(await page.locator('.sidebar .nav a').allInnerTexts(), ['Panel', 'Cuarentena', 'Actividad', 'Fuentes']); assert.equal(await page.locator('.rule input[type=checkbox]').count(), 0); assert.equal(await page.locator('.bulkbar').count(), 0);
       await page.locator('.rule-title').first().click(); await page.waitForSelector('.sheet'); assert.ok((await page.locator('main').innerText()).includes('solo lectura')); assert.equal(await page.getByRole('button', { name: /Aprobar|Rechazar/ }).count(), 0);
-      for (const hash of ['/#/audit', '/#/members']) { await goto(page, srv, hash); await page.waitForSelector('.rule'); assert.equal(await page.locator('h1').innerText(), 'Cuarentena', `${hash} falls back`); }
+      for (const hash of ['/#/audit', '/#/members']) { await goto(page, srv, hash); await page.waitForSelector('.kpis'); assert.equal(await page.locator('h1').innerText(), 'Panel', `${hash} falls back to the dashboard`); }
       const codes = await page.evaluate(async () => Promise.all(['/api/audit', '/api/members', '/api/audit/verify'].map((p) => fetch(p).then((r) => r.status)))); assert.deepEqual(codes, [403, 403, 403]);
       assert.deepEqual(page.errors, []);
     });
@@ -105,7 +105,7 @@ for (const name of WANT) {
     test('a reviewer decides in a batch: exact count, mandatory reason, versions sent, nothing without a reason; approving only changes state', async () => {
       const s = await startServer(); const page = await newPage(browser, s, 'reviewer', VIEWPORTS.desktop);
       try {
-        await goto(page, s, '/#/quarantine'); await page.waitForSelector('.rule'); assert.deepEqual(await page.locator('.sidebar .nav a').allInnerTexts(), ['Cuarentena', 'Auditoría']);
+        await goto(page, s, '/#/quarantine'); await page.waitForSelector('.rule'); assert.deepEqual(await page.locator('.sidebar .nav a').allInnerTexts(), ['Panel', 'Cuarentena', 'Actividad', 'Fuentes', 'Auditoría']);
         const posts = []; page.on('request', (r) => { if (r.method() === 'POST') posts.push(r); });
         await page.locator('.rule input[type=checkbox]').nth(0).check(); await page.locator('.rule input[type=checkbox]').nth(1).check(); await page.waitForSelector('.bulkbar');
         assert.ok((await page.locator('.bulkbar').innerText()).includes('2 seleccionadas'));
@@ -166,12 +166,43 @@ for (const name of WANT) {
       assert.deepEqual(await rev.evaluate(async () => Promise.all(['/api/members', '/api/audit/verify'].map((p) => fetch(p).then((r) => r.status)))), [403, 403]); await rev.context().close();
     });
 
+    test('dashboard, calendar, charts and sources show real records with their provenance; missing data is SIN DATOS, never zero', async () => {
+      const page = await newPage(browser, srv, 'viewer', VIEWPORTS.desktop); await goto(page, srv, '/#/dashboard'); await page.waitForSelector('.kpis .kpi');
+      const kpi = async (label) => (await page.locator('.kpi', { has: page.locator(`.kpi-label:text-is("${label}")`) }).innerText()).replace(/\s+/g, ' ');
+      assert.match(await kpi('Reglas por revisar'), /^Reglas por revisar 7 /i); assert.match(await kpi('Última ejecución diaria'), /En curso.*Programada/i); assert.match(await kpi('Último día observado'), /1184 .*1174 aceptadas · 6 en cuarentena · 4 rechazadas/i);
+      assert.match(await kpi('Éxito de ejecuciones programadas (30 d)'), /93\.8% 15 de 16 días/i); assert.match(await kpi('Última release publicada'), /independiente del resultado de la ejecución/i);
+      assert.match(await kpi('Duración media (7 d)'), /min/i); assert.ok((await page.locator('.freshness').innerText()).includes('GitHub Actions')); assert.ok((await page.locator('.freshness').innerText()).includes('cuota de GitHub: 4981 de 5000'));
+      assert.equal(await page.locator('.strip li').count(), 14); assert.equal(await page.locator('.chart-svg').count(), 1);
+      await page.getByRole('link', { name: 'Abrir actividad' }).click(); await page.waitForSelector('table.cal');
+      assert.equal(await page.locator('table.cal button').count(), 30); const lab = (re) => page.locator('table.cal button', { hasText: '' }).filter({ has: page.locator('.cal-n') }).evaluateAll((els, src) => els.map((e) => e.getAttribute('aria-label')).filter((l) => new RegExp(src).test(l)), re);
+      const states = await page.locator('table.cal button').evaluateAll((els) => els.map((e) => e.getAttribute('aria-label').split(': ')[1].split(' (')[0].split('.')[0]));
+      for (const want of ['OK', 'Fallo', 'Cancelada', 'Sin ejecución', 'Aviso', 'En curso', 'Anterior al registro']) assert.ok(states.includes(want), `calendar has a "${want}" day (${[...new Set(states)]})`);
+      const click = async (re) => { const n = await page.locator('table.cal button').evaluateAll((els, src) => els.findIndex((e) => new RegExp(src).test(e.getAttribute('aria-label'))), re); assert.ok(n >= 0, re); await page.locator('table.cal button').nth(n).click(); await page.waitForTimeout(150); return (await page.locator('#cal-detail').innerText()).replace(/\s+/g, ' '); };
+      let d = await click(': Fallo'); assert.ok(d.includes('una ejecución manual posterior terminó bien') && d.includes('El fallo no se oculta')); assert.ok(d.includes('Programada') && d.includes('Manual')); const link = page.locator('#cal-detail a', { hasText: 'Abrir en GitHub' }).first(); assert.match(await link.getAttribute('href'), /^https:\/\/github\.com\/MacGuard\/macguard-yara-channel\/actions\/runs\/\d+$/); assert.equal(await link.getAttribute('rel'), 'noopener noreferrer');
+      d = await click(': Sin ejecución'); assert.ok(d.includes('no hay observación')); d = await click(': Cancelada'); assert.ok(d.includes('Cancelada'));
+      d = await click('\\(manual\\)'); assert.ok(d.includes('solo hubo ejecuciones manuales')); d = await click(': Aviso'); assert.ok(d.includes('10 reglas ya publicadas')); assert.ok(d.includes('Release publicada'), 'a published release is its own fact'); assert.ok(d.includes('Una ejecución correcta puede no generar release') || d.includes('hechos distintos'));
+      await page.getByText('Leyenda y definiciones').click(); assert.ok((await page.locator('.legend.wide').innerText()).includes('no es un acierto ni un cero'));
+      assert.equal(await page.locator('.chart-svg').count(), 3); assert.equal(await page.locator('figure.chart').nth(0).locator('tbody tr').count(), 30);
+      await page.getByRole('button', { name: '7 días' }).click(); assert.equal(await page.locator('figure.chart').nth(0).locator('tbody tr').count(), 7); assert.ok(await page.locator('.event.hist').count() >= 5, 'history follows the period');
+      await page.getByRole('link', { name: 'Fuentes' }).first().click(); await page.waitForSelector('.person'); assert.equal(await page.locator('.person').count(), 3);
+      const nex = (await page.locator('.person', { has: page.locator('strong:text-is("nextron")') }).innerText()).replace(/\s+/g, ' '); assert.ok(nex.includes('3ce6640c26') && nex.includes('Sincronizada') && /En cuarentena ahora 7/i.test(nex), nex);
+      assert.ok((await page.locator('.person', { has: page.locator('strong:text-is("yara-x")') }).innerText()).includes('Motor YARA-X')); assert.ok((await page.locator('main').innerText()).includes('todavía no se publica'));
+      for (const a of await page.locator('.person a[href^="https://github.com/"]').all()) { assert.equal(await a.getAttribute('target'), '_blank'); assert.equal(await a.getAttribute('rel'), 'noopener noreferrer'); } assert.deepEqual(page.errors, []);
+      await page.getByRole('button', { name: 'EN' }).click(); await page.waitForSelector('h1:has-text("YARA sources")'); await page.getByRole('link', { name: 'Dashboard' }).first().click(); await page.waitForSelector('.kpi-label:text-is("Rules to review")'); assert.ok((await page.locator('main').innerText()).toLowerCase().includes('scheduled-run success'));
+      await page.context().close();
+      const s2 = await startServer([], { opsDown: 'stats' }); const p2 = await newPage(browser, s2, 'viewer', VIEWPORTS.desktop);
+      try {
+        await goto(p2, s2, '/#/dashboard'); await p2.waitForSelector('.kpis'); assert.ok((await p2.locator('main').innerText()).includes('Datos parciales: no se pudo leer estadísticas del sitio')); assert.match(await p2.locator('.kpi', { has: p2.locator('.kpi-label:text-is("Último día observado")') }).innerText(), /SIN DATOS/i);
+        await goto(p2, s2, '/#/activity'); await p2.waitForSelector('figure.chart'); assert.equal(await p2.locator('figure.chart .nodata').count(), 3 - 1, 'the charts without real data say SIN DATOS (the duration chart still has run data)'); assert.ok((await p2.locator('figure.chart .nodata').first().innerText()).includes('SIN DATOS'));
+      } finally { await p2.context().close(); s2.stop(); }
+    });
+
     test('layout holds at iPhone, tablet and desktop: no page overflow, no clipped elements, SHA-256 never broken vertically', async () => {
       const vps = [['iphone', mobile().viewport], ['tablet', VIEWPORTS.tablet], ['desktop', VIEWPORTS.desktop]];
       for (const [vn, vp] of vps) {
         const page = await newPage(browser, srv, 'admin', vp, vn === 'iphone' ? mobile().device : {});
-        for (const hash of ['/#/quarantine', '/#/audit', '/#/members']) {
-          await goto(page, srv, hash); await page.waitForSelector('main h1'); await page.waitForTimeout(250); const l = await layout(page);
+        for (const hash of ['/#/dashboard', '/#/quarantine', '/#/activity', '/#/sources', '/#/audit', '/#/members']) {
+          await goto(page, srv, hash); await page.waitForSelector('main h1'); await page.waitForTimeout(500); const l = await layout(page);
           assert.ok(l.scrollW <= l.W, `${vn}${hash}: page scrolls horizontally (${l.scrollW} > ${l.W})`); assert.deepEqual(l.bad, [], `${vn}${hash}`); assert.equal(l.shaTooTall, 0, `${vn}${hash}: SHA wraps vertically`);
           await shot(page, `${name}-${vn}-${hash.replace(/\W/g, '')}`);
         }
@@ -190,7 +221,7 @@ for (const name of WANT) {
           failures.push(...(await axeViolations(anon)).map((v) => `[login ${scheme} ${vn}] ${v}`));
           await goto(anon, srv, '/?e=state'); failures.push(...(await axeViolations(anon)).map((v) => `[login-error ${scheme} ${vn}] ${v}`)); await anon.context().close();
           const page = await newPage(browser, srv, 'admin', vp, { colorScheme: scheme, locale, device: dev });
-          for (const hash of ['/#/quarantine', '/#/audit', '/#/members']) { await goto(page, srv, hash); await page.waitForTimeout(300); failures.push(...(await axeViolations(page)).map((v) => `[${hash} ${scheme} ${vn}] ${v}`)); }
+          for (const hash of ['/#/dashboard', '/#/quarantine', '/#/activity', '/#/sources', '/#/audit', '/#/members']) { await goto(page, srv, hash); await page.waitForTimeout(600); failures.push(...(await axeViolations(page)).map((v) => `[${hash} ${scheme} ${vn}] ${v}`)); }
           await goto(page, srv, '/#/quarantine'); await page.locator('.rule-title').first().click(); await page.waitForSelector('.sheet'); failures.push(...(await axeViolations(page)).map((v) => `[rule ${scheme} ${vn}] ${v}`));
           await goto(page, srv, '/#/quarantine'); await page.locator('.rule input[type=checkbox]').first().check(); await page.locator('.bulkbar').getByRole('button').nth(2).click(); await page.waitForSelector('dialog[open]'); failures.push(...(await axeViolations(page)).map((v) => `[decision dialog ${scheme} ${vn}] ${v}`));
           await page.keyboard.press('Escape'); await goto(page, srv, '/#/members'); await page.waitForSelector('.person'); await page.getByRole('button', { name: /Añadir miembro|Add member/ }).click(); await page.waitForSelector('dialog[open]'); failures.push(...(await axeViolations(page)).map((v) => `[member dialog ${scheme} ${vn}] ${v}`));

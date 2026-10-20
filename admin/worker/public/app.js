@@ -4,6 +4,9 @@ import { h, icon, avatar, roleBadge, put } from './ui.js';
 import { api, setCsrf } from './api.js';
 import { renderLogin } from './views/login.js';
 import { renderQuarantine } from './views/quarantine.js';
+import { renderDashboard } from './views/dashboard.js';
+import { renderActivity } from './views/activity.js';
+import { renderSources } from './views/sources.js';
 import { renderRule } from './views/rule.js';
 import { renderAudit } from './views/audit.js';
 import { renderMembers } from './views/members.js';
@@ -11,11 +14,11 @@ import { tools } from './views/tools.js';
 
 const root = document.getElementById('root');
 const RANK = { VIEWER: 1, REVIEWER: 2, ADMIN: 3 };
-const NAV = [{ id: 'quarantine', icon: 'quarantine', label: 'nav_quarantine', min: 1 }, { id: 'audit', icon: 'audit', label: 'nav_audit', min: 2 }, { id: 'members', icon: 'users', label: 'nav_members', min: 3 }];
+const NAV = [{ id: 'dashboard', icon: 'grid', label: 'nav_dashboard', min: 1 }, { id: 'quarantine', icon: 'quarantine', label: 'nav_quarantine', min: 1 }, { id: 'activity', icon: 'calendar', label: 'nav_activity', min: 1 }, { id: 'sources', icon: 'source', label: 'nav_sources', min: 1 }, { id: 'audit', icon: 'audit', label: 'nav_audit', min: 2 }, { id: 'members', icon: 'users', label: 'nav_members', min: 3 }];
 let me = null, content = null, links = [];
 const wasIn = { get: () => { try { return localStorage.getItem('mg_was_in') === '1'; } catch { return false; } }, set: (v) => { try { if (v) localStorage.setItem('mg_was_in', '1'); else localStorage.removeItem('mg_was_in'); } catch { /* ignore */ } } };
 
-const parse = () => { const raw = location.hash.replace(/^#/, '') || '/quarantine'; const [path, qs] = raw.split('?'); return { path, query: new URLSearchParams(qs || '') }; };
+const parse = () => { const raw = location.hash.replace(/^#/, '') || '/dashboard'; const [path, qs] = raw.split('?'); return { path, query: new URLSearchParams(qs || '') }; };
 function go(hash, replace) { if (replace) { history.replaceState(null, '', hash); route(); } else location.hash = hash; }
 
 async function logout(thenSignIn) { await api('POST', '/api/logout'); wasIn.set(false); location.replace(thenSignIn ? '/auth/login' : '/'); }
@@ -28,7 +31,7 @@ function userBlock() {
   return h('div', { class: 'side-foot' }, tools(), h('div', { class: 'usercard' }, avatar(me.user_id, me.login, 36), h('div', {}, h('strong', { text: me.login }), roleBadge(me.role))),
     h('button', { type: 'button', class: 'btn btn-sm', onclick: () => logout(false) }, icon('logout'), t('signout')));
 }
-const brand = () => h('a', { class: 'brand', href: '#/quarantine', 'aria-label': `${t('app')}` }, icon('logo'), h('div', {}, h('div', { class: 'brand-name', text: 'MacGuard' }), h('div', { class: 'brand-sub', text: 'Quarantine' })));
+const brand = () => h('a', { class: 'brand', href: '#/dashboard', 'aria-label': `${t('app')}` }, icon('logo'), h('div', {}, h('div', { class: 'brand-name', text: 'MacGuard' }), h('div', { class: 'brand-sub', text: 'Quarantine' })));
 
 function shell() {
   const drawer = h('dialog', { class: 'drawer', 'aria-label': t('menu') });
@@ -51,8 +54,11 @@ async function route() {
     if (rm) await renderRule(ctx, rm[1]);
     else if (seg === 'audit' && RANK[me.role] >= 2) await renderAudit(ctx);
     else if (seg === 'members' && RANK[me.role] >= 3) await renderMembers(ctx);
-    else if (seg === 'quarantine' || !seg) await renderQuarantine(ctx);
-    else { go('#/quarantine', true); return; }
+    else if (seg === 'quarantine') await renderQuarantine(ctx);
+    else if (seg === 'activity') await renderActivity(ctx);
+    else if (seg === 'sources') await renderSources(ctx);
+    else if (seg === 'dashboard' || !seg) await renderDashboard(ctx);
+    else { go('#/dashboard', true); return; }
   } catch (e) {
     console.error('view failed', e);
     view.replaceChildren(h('p', { class: 'alert alert-bad', role: 'alert' }, icon('alert'), t('err_generic')));
