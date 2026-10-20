@@ -2,12 +2,15 @@
 
 Generated from `logs/log.jsonl`; do not edit by hand. Times are UTC. Newest first.
 
-Entries: 158 (INFO 108, WARNING 27, ERROR 23)
+Entries: 161 (INFO 111, WARNING 27, ERROR 23)
 
 Latest signed checkpoint: 75 entries, Merkle root `1bab9bb9364b3a42f76835ae138bffad33eaa3694d0021afd208f5fd54e63d96`.
 
 | # | Date (UTC) | Level | Event | Message |
 |---|---|---|---|---|
+| 160 | 2026-10-20T04:39:44Z | INFO | `site.cloudflare_deployed` | Site deployed to Cloudflare Pages project macguard-rules and the public mirror was downloaded and verified. See https://github.com/MacGuard/macguard-yara-channel/actions/runs/39370602093 |
+| 159 | 2026-10-20T04:39:44Z | INFO | `site.live_verified` | The public GitHub Pages site was downloaded and verified: signatures, every rule hash, catalog, proof and links. See https://github.com/MacGuard/macguard-yara-channel/actions/runs/39370602093 |
+| 158 | 2026-10-20T04:39:44Z | INFO | `site.github_pages_deployed` | Site deployed to GitHub Pages. See https://github.com/MacGuard/macguard-yara-channel/actions/runs/39370602093 |
 | 157 | 2026-10-20T03:53:03Z | INFO | `candidate.unchanged` | The approved rule files are identical to the latest release. No new release is created. |
 | 156 | 2026-10-20T03:53:03Z | WARNING | `candidate.not_publishable` | No release from this run: no effective change against the latest release |
 | 155 | 2026-10-20T03:53:03Z | WARNING | `candidate.accepted` | 1174 rule files passed every mandatory check. Candidate rules root is 16d082395ef1ec53... |
