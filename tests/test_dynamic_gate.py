@@ -89,21 +89,21 @@ class BenignHitRateTests(unittest.TestCase):
         policy = json.loads(json.dumps(POLICY)); policy['dynamic']['absolute']['max_scan_p95_s'] = 2.0
         with mock.patch.object(dynamic_gate.bench, 'build_corpus', with_marked_files):
             return dynamic_gate.run(self.d, cls, None, policy, None, YARA, YARAC, max_iter=3, timeout_file=2)
-    CAP = {'cap.yar': 'rule CAP { strings: $a = "LD_PRELOAD" condition: $a }', **{f'dep{i}.yar': f'rule DEP{i} {{ strings: $a = "only-dep-{i}" condition: $a }}' for i in (1, 2, 3)}}
+    CAP = {'cap.yar': 'rule CAP { strings: $a = "SHARED-BENIGN-MARK" condition: $a }', **{f'dep{i}.yar': f'rule DEP{i} {{ strings: $a = "only-dep-{i}" condition: $a }}' for i in (1, 2, 3)}}
     DEPS = {f'dep{i}.yar': ['cap.yar'] for i in (1, 2, 3)}
 
     def test_one_benign_file_matched_through_four_namespaces_does_not_make_a_rule_generic(self):
-        final, dyn = self.gate(self.CAP, self.DEPS, {'LD_PRELOAD': 1})
+        final, dyn = self.gate(self.CAP, self.DEPS, {'SHARED-BENIGN-MARK': 1})
         self.assertEqual(sorted(f['path'] for f in final['approved']), sorted(self.CAP), 'the rule file and its three dependents stay in the set')
         self.assertEqual(dyn['benign_hits_by_file'].get('cap.yar'), 1); self.assertTrue(final['publishable'], final['blockers'])
         self.assertEqual(dyn['canaries_detected'], dyn['canaries_expected'])
     def test_the_five_percent_limit_still_applies_to_distinct_files_through_every_namespace(self):
-        final, dyn = self.gate({**self.CAP, **{f'g{i}.yar': GOOD % (i, i) for i in range(4)}}, self.DEPS, {'LD_PRELOAD': 4})          # 4 of 62 distinct files = 6.5%
+        final, dyn = self.gate({**self.CAP, **{f'g{i}.yar': GOOD % (i, i) for i in range(4)}}, self.DEPS, {'SHARED-BENIGN-MARK': 4})          # 4 of 62 distinct files = 6.5%
         self.assertEqual(dyn['benign_hits_by_file'].get('cap.yar'), 4, 'four files, not sixteen')
         self.assertNotIn('cap.yar', [f['path'] for f in final['approved']]); self.assertTrue(any(s['path'] == 'cap.yar' and 'matches-benign-corpus' in s['reasons'] for s in final['submissions']))
         self.assertTrue(all(d not in [f['path'] for f in final['approved']] for d in self.DEPS), 'its dependents cannot ship without it')
     def test_three_distinct_files_stay_under_the_limit_exactly_as_the_arithmetic_says(self):
-        final, dyn = self.gate(self.CAP, self.DEPS, {'LD_PRELOAD': 3})          # 3 of 61 = 4.9%
+        final, dyn = self.gate(self.CAP, self.DEPS, {'SHARED-BENIGN-MARK': 3})          # 3 of 61 = 4.9%
         self.assertEqual(dyn['benign_hits_by_file'].get('cap.yar'), 3); self.assertIn('cap.yar', [f['path'] for f in final['approved']])
     def test_a_generic_rule_cannot_hide_behind_a_same_named_rule_in_another_file(self):
         files = {'generic.yar': 'rule SAME { strings: $a = "the" condition: $a }', 'quiet.yar': 'rule SAME { strings: $a = "never-in-the-corpus" condition: $a }'}   # same name, listed so that the quiet one is last

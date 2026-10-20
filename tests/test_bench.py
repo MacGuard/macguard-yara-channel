@@ -93,8 +93,8 @@ class EngineTests(unittest.TestCase):
 
 class HitCountingUnitTests(unittest.TestCase):
     def test_match_lines_keep_namespace_and_rule(self):
-        out = 'ns3:ldpreload /tmp/c/sys_awk\ndefault:plain_rule /tmp/c/x\nbare_rule /tmp/c/z\n\nns12:Same_Name /tmp/c/y\n'
-        self.assertEqual(bench.parse_matches(out), [('ns3', 'ldpreload'), (None, 'plain_rule'), (None, 'bare_rule'), ('ns12', 'Same_Name')])
+        out = 'ns3:marked_rule /tmp/c/sys_awk\ndefault:plain_rule /tmp/c/x\nbare_rule /tmp/c/z\n\nns12:Same_Name /tmp/c/y\n'
+        self.assertEqual(bench.parse_matches(out), [('ns3', 'marked_rule'), (None, 'plain_rule'), (None, 'bare_rule'), ('ns12', 'Same_Name')])
     def test_owners_place_each_rule_in_every_namespace_that_holds_a_copy_of_its_file(self):
         o = bench.rule_owners(['cap.yar', 'd1.yar', 'x.yar'], {'d1.yar': ['cap.yar']}, {'cap.yar': ['cap'], 'd1.yar': ['dep'], 'x.yar': ['cap']})
         self.assertEqual(o, {'ns0': {'cap': 'cap.yar'}, 'ns1': {'cap': 'cap.yar', 'dep': 'd1.yar'}, 'ns2': {'cap': 'x.yar'}})   # same name, different files: kept apart per namespace
@@ -115,12 +115,12 @@ class HitCountingEngineTests(unittest.TestCase):
     def tearDown(self): shutil.rmtree(self.d, ignore_errors=True)
     def build(self, files, deps, marked=()):
         for name, text in files.items(): (self.d / name).write_text(text)
-        for i in marked: self.corpus[i].write_text('LD_PRELOAD-style benign text')
+        for i in marked: self.corpus[i].write_text('a benign text with SHARED-BENIGN-MARK')
         comp = self.d / 'all.yarc'; names = sorted(files)
         self.assertEqual(bench.compile_set(YARAC, self.d, names, deps, comp)['code'], 0)
         rules = {n: __import__('re').findall(r'rule\s+(\w+)', t) for n, t in files.items()}
         return comp, names, bench.rule_owners(names, deps, rules), rules
-    CAP = 'rule ldpreload { strings: $a = "LD_PRELOAD" condition: $a }'
+    CAP = 'rule marked_rule { strings: $a = "SHARED-BENIGN-MARK" condition: $a }'
     DEPS = {'d1.yar': ['cap.yar'], 'd2.yar': ['cap.yar'], 'd3.yar': ['cap.yar']}
     def files(self): return {'cap.yar': self.CAP, **{f'd{i}.yar': f'rule dep{i} {{ strings: $a = "dep-only-{i}" condition: $a }}' for i in (1, 2, 3)}}
     def raw_lines(self, comp, f): return len(bench.parse_matches(__import__('subprocess').run([YARA, '-p', '1', '-e', '-C', str(comp), str(f)], capture_output=True, text=True).stdout))
@@ -129,13 +129,13 @@ class HitCountingEngineTests(unittest.TestCase):
         comp, names, owners, rules = self.build(self.files(), self.DEPS, marked=[0])
         self.assertEqual(self.raw_lines(comp, self.corpus[0]), 4, 'the engine really prints one line per namespace copy: this is the reproduction')
         clean, _ = bench.detections(YARA, comp, self.corpus, [], owners)
-        self.assertEqual(clean, {'cap.yar::ldpreload': ['clean0.txt']})
+        self.assertEqual(clean, {'cap.yar::marked_rule': ['clean0.txt']})
         self.assertEqual(bench.benign_hits_by_file(clean, rules), {'cap.yar': 1})
-        self.assertEqual(bench.detections(YARA, comp, self.corpus, [])[0], {'ldpreload': ['clean0.txt']}, 'even without owners the same file is not repeated')
+        self.assertEqual(bench.detections(YARA, comp, self.corpus, [])[0], {'marked_rule': ['clean0.txt']}, 'even without owners the same file is not repeated')
     def test_distinct_files_are_still_counted_one_each_across_every_namespace(self):
         comp, names, owners, rules = self.build(self.files(), self.DEPS, marked=[0, 1, 2])
         clean, _ = bench.detections(YARA, comp, self.corpus, [], owners)
-        self.assertEqual(clean, {'cap.yar::ldpreload': ['clean0.txt', 'clean1.txt', 'clean2.txt']})   # three files, not twelve and not one
+        self.assertEqual(clean, {'cap.yar::marked_rule': ['clean0.txt', 'clean1.txt', 'clean2.txt']})   # three files, not twelve and not one
         self.assertEqual(bench.benign_hits_by_file(clean, rules), {'cap.yar': 3})
     def test_the_same_rule_name_in_different_files_is_not_merged(self):
         files = {'x.yar': 'rule Same { strings: $a = "AAA" condition: $a }', 'y.yar': 'rule Same { strings: $a = "BBB" condition: $a }'}
