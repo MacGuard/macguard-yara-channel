@@ -52,6 +52,10 @@ async function handler(req, res) {
     const t = await actionsToken(w.key, { aud: u.searchParams.get('audience'), job_workflow_ref: `${w.env.REPO}/.github/workflows/${u.searchParams.get('workflow') || 'daily.yml'}@refs/heads/main` });
     res.setHeader('Content-Type', 'application/json'); return res.end(JSON.stringify({ value: t }));
   }
+  if (req.url.startsWith('/__release') && req.method === 'POST') {   // test-only: what GitHub serves for a public release (python client tests need the evidence the Worker now reads itself)
+    const u = new URL(req.url, 'http://x'); const files = JSON.parse(Buffer.concat(chunks).toString() || '[]'); await w.release(u.searchParams.get('tag'), files);
+    res.setHeader('Content-Type', 'application/json'); return res.end('{"ok":true}');
+  }
   const { handle } = await import('../src/index.js');
   const r = await handle(new Request(`${scheme}://127.0.0.1:${port}${req.url}`, { method: req.method, headers: req.headers, body: chunks.length ? Buffer.concat(chunks) : undefined }), w.env, w.deps);
   const hdr = Object.fromEntries(r.headers); if (hdr['content-security-policy']) hdr['content-security-policy'] = hdr['content-security-policy'].replace("; frame-ancestors 'none'", "; frame-src 'self'"); /* test server only: the harness frames the panel */

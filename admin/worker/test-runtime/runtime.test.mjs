@@ -11,7 +11,7 @@ import { fileURLToPath } from 'node:url';
 import { Miniflare } from 'miniflare';
 import { actionsToken, cand, rid, rsaKey, sha, ORIGIN, REPO } from '../test/helpers.js';
 import { createSession } from '../src/auth.js';
-import { rulesRoot, sha256Hex, verifyChain } from '../src/core.js';
+import { chainHash, rulesRoot, sha256Hex, verifyChain } from '../src/core.js';
 
 const root = fileURLToPath(new URL('..', import.meta.url));
 const MODULES = readdirSync(join(root, 'src')).filter((f) => f.endsWith('.js')).sort((a, b) => (a === 'index.js' ? -1 : b === 'index.js' ? 1 : a.localeCompare(b))).map((f) => ({ type: 'ESModule', path: f, contents: readFileSync(join(root, 'src', f), 'utf8') }));   // every source module, so a new import can never be missing from the runtime test; index.js first because workerd takes the first module as the entry point
@@ -248,5 +248,7 @@ test('the release callback on the real runtime: evidence from the public release
   assert.equal(audit.find((d) => d.receipt === 'first').transitions.length, 25); const rita = await login('rel-rita', { push: true });
   const sheet = await get(rita, ids[0]); assert.equal(sheet.state, 'RELEASED'); assert.equal(sheet.release.tag, tag); assert.equal(sheet.release.basis, 'pipeline_checks_only', 'json_each finds the transition in the real D1');
   assert.equal((await get(rita, ids[30])).state, 'PENDING'); assert.equal((await get(rita, ids[30])).release, null);
-  const rows = (await db.prepare('SELECT * FROM audit ORDER BY seq').all()).results; const { verifyChain } = await import('../src/core.js'); assert.equal((await verifyChain(rows)).ok, true);
+  // the chain of the whole file is broken on purpose by an earlier test, so check this callback's own links: linear, and every hash is the one the entry hashes to
+  const rows = (await db.prepare('SELECT * FROM audit ORDER BY seq').all()).results, at = rows.findIndex((r) => r.action === 'pipeline.released'), mine = rows.slice(Math.max(at - 1, 0));
+  for (let i = 1; i < mine.length; i++) { assert.equal(mine[i].prev_hash, mine[i - 1].hash, `link ${i}`); assert.equal(mine[i].hash, await chainHash(mine[i].prev_hash, { at: mine[i].at, actor: mine[i].actor, role: mine[i].role, action: mine[i].action, target: mine[i].target, detail: mine[i].detail }), `hash ${i}`); }
 });
