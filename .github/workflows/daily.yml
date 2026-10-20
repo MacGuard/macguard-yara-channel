@@ -10,6 +10,10 @@ on:
         description: 'A person has looked at an unusually large change (more than 15% removed or 40% touched) and allows it'
         type: boolean
         default: false
+      acceptance:
+        description: 'Acceptance run: review, classify, validate and talk to the quarantine service as usual, but never request a release (request-publish is skipped even when the approved set changed)'
+        type: boolean
+        default: false
 permissions:
   contents: read
 concurrency:
@@ -210,7 +214,8 @@ jobs:
 
   request-publish:
     needs: [review, macos]
-    if: needs.review.outputs.publishable == 'true' && needs.review.outputs.changed == 'true' && needs.macos.result == 'success'
+    # A manual acceptance run exercises everything up to here and must never start a release; scheduled runs are unaffected (inputs is empty there).
+    if: needs.review.outputs.publishable == 'true' && needs.review.outputs.changed == 'true' && needs.macos.result == 'success' && !(github.event_name == 'workflow_dispatch' && inputs.acceptance)
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     permissions:
