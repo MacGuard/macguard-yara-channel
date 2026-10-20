@@ -1,6 +1,7 @@
 // MacGuard quarantine service: private API + admin UI assets. The public site never talks to this worker.
 import { MAX_BATCH, atLeast, blobError, highestRole, roleFromRepoPermission, publicStats, validateDecisionRequest, validateSubmission, verifyChain } from './core.js';
 import * as store from './store.js';
+import * as ops from './ops.js';
 import { REAUTH, STATE_COOKIE, openToken, resolveGithubAccount, clearCookie, clearStateCookie, createSession, destroySession, effectiveRole, finishLogin, getSession, parseCookies, sessionCookie, startLogin, stateCookie, timingSafeEqual, verifyActionsToken } from './auth.js';
 
 export const HEADERS = {
@@ -93,6 +94,15 @@ export async function handle(request, env, deps) {
         if (!(await store.viewedRecently(db, session.login, c.id, iso))) await store.appendAudit(db, { actor: session.login, role, action: 'access.view', target: c.id, detail: { path: c.path, sha256: c.sha256 } }, iso);   // who looked at which rule (once per 10 minutes)
         return json(c);
       }
+      if (method === 'GET' && path === '/api/ops/overview') {   // public pipeline records, cached at the edge; any signed-in role may read them
+        const key = new Request(`${env.PUBLIC_URL}/__cache/ops-overview-v1`);
+        const hit = deps.cache ? await deps.cache.match(key) : null;
+        if (hit) { const body = await hit.json(); return json({ ...body, cache: { hit: true, age_s: Math.max(0, now - Math.floor(Date.parse(body.generated_at) / 1000)) } }); }
+        const tok = await openToken(env, session.id, session.token); if (!tok) return json({ error: 'sign in again', code: 'reauth' }, 401, { 'Set-Cookie': clearCookie() });
+        const data = await ops.loadOverview(env, deps, tok, now * 1000, 30);
+        if (deps.cache) await deps.cache.put(key, new Response(JSON.stringify(data), { headers: { 'Content-Type': 'application/json', 'Cache-Control': `max-age=${data.unavailable.length ? 60 : ops.CACHE_SECONDS}` } }));   // a partial answer is kept for a minute only
+        return json({ ...data, cache: { hit: false, age_s: 0 } });
+      }
       if (method === 'GET' && path === '/api/stats') { const c = await store.counts(db); return json({ counts: c, sources: await store.sourceCounts(db), public: publicStats(c) }); }
       if (method === 'POST' && path === '/api/decisions') {
         const read = await readJson(request, 200_000); if (read.tooLarge) return err(413, 'request body too large');
@@ -144,5 +154,5 @@ export async function handle(request, env, deps) {
 }
 
 export default {
-  fetch(request, env) { return handle(request, env, { fetch: (...a) => fetch(...a), now: () => Math.floor(Date.now() / 1000), uuid: () => crypto.randomUUID() }); },
+  fetch(request, env) { return handle(request, env, { cache: typeof caches !== 'undefined' ? caches.default : null, fetch: (...a) => fetch(...a), now: () => Math.floor(Date.now() / 1000), uuid: () => crypto.randomUUID() }); },
 };

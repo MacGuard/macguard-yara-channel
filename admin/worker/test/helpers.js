@@ -22,6 +22,7 @@ export async function actionsToken(key, claims = {}, header = {}) {
 
 export async function world() {
   const db = newDb(); const key = await rsaKey();
+  const routes = [];           // [regex, handler] consulted before the built-in answers: pipeline records, site, raw files
   const accounts = {};         // login(lowercase) -> {id, login, type}: what the faked GitHub knows about
   const perms = {};            // token -> {admin, maintain, push, triage} or 'down'
   let clock = Math.floor(Date.now() / 1000), n = 0, idSeq = 100;
@@ -29,6 +30,7 @@ export async function world() {
   const deps = {
     now: () => clock, uuid: () => `00000000-0000-4000-8000-${String(++n).padStart(12, '0')}`,
     fetch: async (url, init = {}) => {
+      for (const [re, fn] of routes) if (re.test(String(url))) return fn(String(url), init);
       if (String(url).includes('/.well-known/jwks')) return new Response(JSON.stringify({ keys: [key.jwk] }));
       if (String(url).endsWith(`/repos/${REPO}`)) {
         const token = (init.headers?.Authorization || '').replace('Bearer ', ''); const p = perms[token];
@@ -46,7 +48,7 @@ export async function world() {
     },
   };
   const w = {
-    db, env, deps, key, perms, accounts, tick: (s) => { clock += s; }, now: () => clock,
+    db, env, deps, key, perms, accounts, route: (re, fn) => routes.unshift([re, fn]), tick: (s) => { clock += s; }, now: () => clock,
     async login(login, permission, { id = ++idSeq } = {}) {
       accounts[login.toLowerCase()] = { id, login, type: 'User' }; const token = `tok-${login}`; perms[token] = permission === 'down' ? 'down' : permission; const s = await createSession(db, { login, id, token }, clock, env);
       return { cookie: `__Host-mg_session=${s.id}`, csrf: s.csrf, sid: s.id };
