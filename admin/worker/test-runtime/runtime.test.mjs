@@ -4,7 +4,7 @@
 // replaced: no GitHub account is involved, so it does NOT prove the real OAuth app or real Actions tokens (see docs/audit/RESIDUAL-RISKS.md, RR-03).
 import test, { after, before } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { mkdtempSync, readdirSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -13,10 +13,11 @@ import { actionsToken, cand, rid, rsaKey, sha, ORIGIN, REPO } from '../test/help
 import { createSession } from '../src/auth.js';
 
 const root = fileURLToPath(new URL('..', import.meta.url));
-const MODULES = ['index', 'core', 'store', 'auth'].map((n) => ({ type: 'ESModule', path: `${n}.js`, contents: readFileSync(join(root, 'src', `${n}.js`), 'utf8') }));
+const MODULES = readdirSync(join(root, 'src')).filter((f) => f.endsWith('.js')).sort((a, b) => (a === 'index.js' ? -1 : b === 'index.js' ? 1 : a.localeCompare(b))).map((f) => ({ type: 'ESModule', path: f, contents: readFileSync(join(root, 'src', f), 'utf8') }));   // every source module, so a new import can never be missing from the runtime test; index.js first because workerd takes the first module as the entry point
 const persist = mkdtempSync(join(tmpdir(), 'mg-d1-'));
 const key = await rsaKey(), otherKey = await rsaKey();
 const ENC_KEY = Buffer.alloc(32, 9).toString('base64');   // test-only key for sealing session tokens
+const accounts = {}; let opsCalls = 0;   // the faked GitHub: known accounts and a counter of pipeline-record reads
 const perms = {};   // access token -> GitHub repository permissions, answered by the fake GitHub
 let mf, db;
 
@@ -27,6 +28,15 @@ const fakeGithub = async (req) => {
     const p = perms[(req.headers.get('Authorization') || '').replace('Bearer ', '')];
     return p ? Response.json({ permissions: p }) : new Response('no', { status: 401 });
   }
+  const acc = u.hostname === 'api.github.com' && /^\/user\/(\d+)$/.exec(u.pathname), accL = u.hostname === 'api.github.com' && /^\/users\/([A-Za-z0-9-]+)$/.exec(u.pathname);
+  if (acc || accL) { const a = Object.values(accounts).find((x) => (acc ? x.id === +acc[1] : x.login === accL[1])); return a ? Response.json(a) : new Response('{}', { status: 404 }); }
+  const day = new Date().toISOString().slice(0, 10), ok = (o) => Response.json(o, { headers: { 'x-ratelimit-remaining': '4999', 'x-ratelimit-limit': '5000' } });
+  if (u.hostname === 'api.github.com' && /actions\/workflows\/daily\.yml\/runs/.test(u.pathname)) { opsCalls++; return ok({ workflow_runs: [{ id: 1, event: 'schedule', status: 'completed', conclusion: 'success', created_at: `${day}T03:20:00Z`, run_started_at: `${day}T03:20:00Z`, updated_at: `${day}T03:29:00Z`, html_url: 'https://github.com/x/y/actions/runs/1' }] }); }
+  if (u.hostname === 'api.github.com' && /actions\/workflows\/publish\.yml\/runs/.test(u.pathname)) return ok({ workflow_runs: [] });
+  if (u.hostname === 'api.github.com' && u.pathname.endsWith('/releases')) return ok([]);
+  if (u.hostname === 'raw.githubusercontent.com' && u.pathname.endsWith('/log.jsonl')) return new Response('');
+  if (u.hostname === 'raw.githubusercontent.com' && u.pathname.endsWith('/sources.json')) return Response.json({ sources: [{ id: 'nextron', repo: 'a/b', kind: 'rules', paths: [] }] });
+  if (u.hostname === 'rules.mac-guard.com' && u.pathname === '/stats.json') return Response.json({ days: [] });
   return new Response('{}', { status: 404 });
 };
 const boot = async () => {
@@ -46,7 +56,7 @@ after(async () => { await mf.dispose(); rmSync(persist, { recursive: true, force
 
 let users = 0;
 async function login(name, permission) {
-  const token = `tok-${name}-${++users}`; perms[token] = permission;
+  const token = `tok-${name}-${++users}`; perms[token] = permission; accounts[name] = { id: 100 + users, login: name, type: 'User' };
   const s = await createSession(db, { login: name, id: 100 + users, token }, Math.floor(Date.now() / 1000), { TOKEN_ENC_KEY: ENC_KEY });
   return { cookie: `__Host-mg_session=${s.id}`, csrf: s.csrf, name };
 }
@@ -197,4 +207,22 @@ test('the login flow: state is bound to the browser that started it, and a callb
   const state = new URL(start.headers.get('location')).searchParams.get('state');
   assert.equal((await call('GET', `/auth/callback?code=abc&state=${state}`)).status, 302);                      // no cookie: someone else's login
   assert.equal((await call('GET', '/auth/callback?code=abc&state=wrong', { headers: { Cookie: `__Host-mg_oauth=${state}` } })).status, 302);
+});
+
+test('pipeline activity through the real runtime: the Cache API serves the second read, GitHub is asked once', async () => {
+  const admin = await login('olga3', { admin: true }); const before = opsCalls;
+  const a = await call('GET', '/api/ops/overview', { user: admin }); assert.equal(a.status, 200, JSON.stringify(a.data)); assert.equal(a.data.cache.hit, false); assert.equal(a.data.days.length, 30); assert.deepEqual(a.data.unavailable, []);
+  assert.equal(a.data.days[29].state, 'OK'); assert.equal(a.data.sources[0].id, 'nextron'); assert.equal(opsCalls, before + 1);
+  const b = await call('GET', '/api/ops/overview', { user: admin }); assert.equal(b.data.cache.hit, true); assert.equal(opsCalls, before + 1, 'served from the edge cache');
+  assert.equal((await call('GET', '/api/ops/overview')).status, 401);
+});
+
+test('members by immutable id through the real runtime: resolve, grant, audit with previous role and reason, self-change refused', async () => {
+  const admin = await login('olga4', { admin: true }); await login('newcomer', { pull: true });
+  const me = (await call('GET', '/api/me', { user: admin })).data;
+  const look = await call('GET', '/api/members/lookup?login=newcomer', { user: admin }); assert.equal(look.status, 200); assert.equal(look.data.account.login, 'newcomer');
+  const grant = await call('POST', '/api/members', { user: admin, body: { user_id: look.data.account.id, role: 'REVIEWER', reason: 'joins the weekly review' } }); assert.equal(grant.status, 200, JSON.stringify(grant.data));
+  assert.equal((await call('POST', '/api/members', { user: admin, body: { user_id: me.user_id, role: 'VIEWER', reason: 'trying to demote myself' } })).status, 400);
+  const e = (await call('GET', '/api/audit?family=member', { user: admin })).data.entries[0]; assert.deepEqual([e.detail.from_role, e.detail.to_role, e.detail.reason, e.detail.user_id], [null, 'REVIEWER', 'joins the weekly review', look.data.account.id]);
+  assert.equal((await call('GET', '/api/audit/verify', { user: admin })).data.ok, false, 'the earlier test dropped a trigger and tampered a row on purpose: the chain stays broken and says so');
 });
