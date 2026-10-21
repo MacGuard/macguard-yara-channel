@@ -46,7 +46,7 @@ CREATE TABLE IF NOT EXISTS source_proposal_events (
   actor TEXT NOT NULL,
   actor_id INTEGER,
   role TEXT NOT NULL,
-  event TEXT NOT NULL CHECK (event IN ('proposed','verify.ok','verify.rejected','verify.unavailable','approved','rejected','pr.opened','activated','retired')),
+  event TEXT NOT NULL CHECK (event IN ('proposed','verify.ok','verify.rejected','verify.unavailable','approved','rejected','pr.opened','pr.closed','activated','retired')),
   from_state TEXT,
   to_state TEXT NOT NULL,
   version INTEGER NOT NULL,
