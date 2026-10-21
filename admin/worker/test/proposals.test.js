@@ -324,7 +324,7 @@ test('migration 0005: schema.sql mirrors it exactly, it upgrades an older databa
   const dir = new URL('../', import.meta.url), up = readFileSync(new URL('migrations/0005_source_proposals.sql', dir), 'utf8'), down = readFileSync(new URL('migrations/0005_rollback.sql', dir), 'utf8'), schema = readFileSync(new URL('schema.sql', dir), 'utf8');
   const marker = schema.match(/-- >>> 0005[^\n]*\n([\s\S]*?)-- <<< 0005/); assert.ok(marker, 'delimited mirror'); assert.equal(marker[1], up, 'schema.sql carries the migration verbatim');
   const objects = (db) => db.prepare("SELECT type, name, sql FROM sqlite_master WHERE name NOT LIKE 'sqlite_%' ORDER BY type, name").all().map((r) => `${r.type}:${r.name}:${r.sql}`);
-  const old = new DatabaseSync(':memory:'); old.exec(schema.slice(0, schema.indexOf('-- >>> 0005'))); const base = objects(old);
+  const old = new DatabaseSync(':memory:'); old.exec(schema.replace(marker[0], '')); const base = objects(old);   // the database as it is before 0005: every other migration (0003, 0004) already applied, whatever their order in schema.sql
   old.exec("INSERT INTO audit (at, actor, role, action, target, detail, prev_hash, hash) VALUES ('t','a','ADMIN','x','y','{}','" + '0'.repeat(64) + "','" + '1'.repeat(64) + "')");
   old.exec(up); const upgraded = objects(old); assert.ok(upgraded.length > base.length); assert.deepEqual(upgraded, objects(newDb().raw), 'an upgraded database equals a fresh one');
   old.exec(up); assert.deepEqual(objects(old), upgraded, 'idempotent (IF NOT EXISTS)');
