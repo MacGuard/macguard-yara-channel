@@ -332,3 +332,57 @@ test('migration 0005: schema.sql mirrors it exactly, it upgrades an older databa
   old.exec(down); assert.deepEqual(objects(old), base, 'back to the previous schema, object for object'); assert.equal(old.prepare('SELECT COUNT(*) AS n FROM audit').get().n, 1, 'audit untouched');
   old.exec(down); old.exec(up); assert.deepEqual(objects(old), upgraded, 'up again after a rollback');
 });
+
+// ---------- phase 2: the pull workflow reports back (pr, sync) ----------
+const VECTOR_DIGEST = '44cd18e84160d7f1ee456a1fa8c9f48dd3ae61f17f7564da088cb336469ee6d5';   // tests/test_source_proposal.py computes the same value in Python
+const pipe = async (w, wf = 'source-proposals.yml', claims = {}) => ({ bearer: await w.pipelineToken(wf, { run_id: 4242, run_attempt: 1, ...claims }) });
+async function approved(w) {
+  const { cur } = await verified(w); assert.equal((await authorize(w, cur)).status, 200); const a = await get(w, cur.id);
+  const branch = `proposal/${a.source_id}-${a.payload_sha256.slice(0, 8)}`;
+  return { a, branch, pr: (n = 7, over = {}) => ({ pr_number: n, pr_url: `https://github.com/${REPO}/pull/${n}`, branch, head_sha: 'b'.repeat(40), payload_sha256: a.payload_sha256, ...over }) };
+}
+const postPr = async (w, id, body, wf, claims) => w.call('POST', `/api/pipeline/source-proposals/${id}/pr`, { ...(await pipe(w, wf, claims)), body });
+const sync = async (w, body, wf) => w.call('POST', '/api/pipeline/source-proposals/sync', { ...(await pipe(w, wf)), body });
+
+test('pipeline /pr: records the pull request once, only for the dedicated workflow, only for the exact branch and payload', async () => {
+  const w = await setup(); const { a, pr, branch } = await approved(w);
+  for (const wf of ['daily.yml', 'publish.yml']) assert.equal((await postPr(w, a.id, pr(), wf)).status, 403, wf);
+  assert.equal((await w.call('POST', `/api/pipeline/source-proposals/${a.id}/pr`, { body: pr() })).status, 401);
+  assert.equal((await w.call('POST', `/api/pipeline/source-proposals/${a.id}/pr`, { user: w.admin, body: pr() })).status, 401, 'a signed-in person is not the pipeline');
+  for (const over of [{ branch: 'proposal/evil-12345678' }, { branch: 'main' }, { pr_url: 'https://github.com/evil/x/pull/7' }, { pr_url: `https://github.com/${REPO}/pull/8` }, { head_sha: 'xyz' }, { pr_number: 0 }, { pr_number: '7' }, { pr_number: 1e9 }]) assert.equal((await postPr(w, a.id, pr(7, over))).status, 400, JSON.stringify(over));
+  assert.equal((await postPr(w, a.id, pr(7, { payload_sha256: 'f'.repeat(64) }))).status, 409);
+  assert.equal((await get(w, a.id)).state, 'approved', 'nothing changed yet');
+  const ok = await postPr(w, a.id, pr()); assert.equal(ok.status, 200); const now = await get(w, a.id); assert.equal(now.state, 'pr_open'); assert.equal(now.pr_branch, branch); assert.equal(now.pr_number, 7);
+  const again = await postPr(w, a.id, pr()); assert.equal(again.status, 200); assert.equal(again.data.replay, true); assert.equal(await count(w, "SELECT COUNT(*) AS n FROM source_proposal_events WHERE event = 'pr.opened'"), 1);
+  assert.equal((await postPr(w, a.id, pr(9))).status, 409, 'a second pull request for the same proposal');
+  const ev = now.events.at(-1); assert.equal(ev.role, 'PIPELINE'); assert.equal(ev.detail.token_run_id, '4242'); assert.equal(ev.detail.head_sha, 'b'.repeat(40));
+  assert.deepEqual((await w.call('GET', '/api/pipeline/source-proposals', await pipe(w))).data.proposals, [], 'a proposal with a pull request is no longer handed out');
+  assert.equal((await verifyChain(await auditRows(w.db))).ok, true);
+  const w2 = await setup(); const { cur } = await verified(w2); assert.equal((await postPr(w2, cur.id, { pr_number: 1, pr_url: `https://github.com/${REPO}/pull/1`, branch: 'proposal/x-12345678', head_sha: 'b'.repeat(40), payload_sha256: 'a'.repeat(64) })).status, 400);
+});
+test('pipeline /sync: merged is believed only when main itself contains the entry exactly as authorized', async () => {
+  const w = await setup(); const { a, pr, branch } = await approved(w); await postPr(w, a.id, pr());
+  const entry = { id: 'acme-feed', repo: 'acme/yara-feed', kind: 'rules', paths: ['yara'], admission: 'probation' };
+  const main = (over) => rawSources(w, { body: { sources: [...SOURCES.sources, ...(over === null ? [] : [{ ...entry, ...over }])] } });
+  for (const over of [null, { repo: 'evil/yara-feed' }, { paths: ['yara', 'extra'] }, { admission: undefined }, { kind: 'engine' }, { id: 'other' }]) { main(over); const r = await sync(w, { branch, outcome: 'merged' }); assert.equal(r.status, 409, JSON.stringify(over)); assert.equal((await get(w, a.id)).state, 'pr_open'); }
+  rawSources(w, { status: 502 }); assert.equal((await sync(w, { branch, outcome: 'merged' })).status, 502); assert.equal((await get(w, a.id)).state, 'pr_open');
+  assert.equal((await sync(w, { branch, outcome: 'merged' }, 'daily.yml')).status, 403);
+  for (const body of [{ branch: 'main', outcome: 'merged' }, { branch, outcome: 'whatever' }, { outcome: 'merged' }]) assert.equal((await sync(w, body)).status, 400);
+  assert.equal((await sync(w, { branch: 'proposal/unknown-12345678', outcome: 'merged' })).status, 404);
+  main({}); const ok = await sync(w, { branch, outcome: 'merged' }); assert.equal(ok.status, 200); const end = await get(w, a.id); assert.equal(end.state, 'active');
+  assert.equal(end.events.at(-1).detail.equal, true); assert.match(end.events.at(-1).detail.main_entry_sha256, /^[0-9a-f]{64}$/);
+  assert.equal((await sync(w, { branch, outcome: 'merged' })).status, 404, 'no longer open: the second call finds nothing to do');
+  assert.equal((await act(w, w.admin, a.id, 'retire', { expect_version: end.version, reason: 'removed again' })).status, 200);
+});
+test('pipeline /sync: a pull request closed without merging returns the proposal to approved and a new one can be recorded', async () => {
+  const w = await setup(); const { a, pr, branch } = await approved(w); await postPr(w, a.id, pr(7));
+  assert.equal((await sync(w, { branch, outcome: 'closed_unmerged' })).status, 200); const back = await get(w, a.id); assert.equal(back.state, 'approved'); assert.equal(back.pr_number, null); assert.equal(back.pr_branch, null);
+  assert.equal((await postPr(w, a.id, pr(8))).status, 200); assert.equal((await get(w, a.id)).pr_number, 8);
+  assert.equal((await verifyChain(await auditRows(w.db))).ok, true);
+});
+test('canonical payload digest: key order does not matter and the vector is shared with scripts/source_proposal.py', async () => {
+  const p = { admission: 'probation', id: 'acme-feed', kind: 'rules', license: { sha256: 'a'.repeat(64), spdx: 'MIT' }, paths: ['yara', 'rules/x'], repo: 'acme/yara-feed', verified_commit: 'b'.repeat(40) };
+  assert.equal(await P.payloadDigest({ verified_commit: p.verified_commit, repo: p.repo, paths: p.paths, license: { spdx: 'MIT', sha256: 'a'.repeat(64) }, kind: 'rules', id: p.id, admission: 'probation' }), await P.payloadDigest(p));
+  assert.equal(await P.payloadDigest(p), createHash('sha256').update(JSON.stringify(p)).digest('hex'), 'keys already sorted: the digest is the SHA-256 of the compact JSON');
+  assert.equal(await P.payloadDigest(p), VECTOR_DIGEST);
+});

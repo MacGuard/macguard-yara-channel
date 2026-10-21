@@ -3,7 +3,7 @@
 Positive tests download the official release. Negative tests start from copies of those real files, damage exactly one thing and
 check the exit code and the reported cause. Nothing here touches the official release. They need the network and cosign; if either is
 missing they ERROR instead of skipping: a skipped verifier test proves nothing."""
-import hashlib, http.server, io, json, os, pathlib, shutil, subprocess, sys, tarfile, tempfile, threading, unittest, urllib.request
+import hashlib, http.server, io, json, os, pathlib, shutil, subprocess, sys, tarfile, tempfile, threading, unittest, urllib.error, urllib.request
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 SCRIPT = ROOT / 'scripts/verify_public_release.py'
@@ -15,6 +15,14 @@ REAL = None
 # they keep their meaning when later releases are published. The newest release has its own test (it extends the checkpoint of this one).
 PINNED = 'rules-20261018-39150886414'
 NEXT = 'rules-20261021-39541028283'
+
+def checkpoint_txt(size):
+    """A signed checkpoint from the repository: the `logs` branch first (where the transparency log lives), then main, which keeps the log frozen at the move."""
+    for ref, path in (('logs', 'logs/checkpoints'), ('main', 'logs/checkpoints')):
+        try: return urllib.request.urlopen(f'https://raw.githubusercontent.com/MacGuard/macguard-yara-channel/{ref}/{path}/{size}.txt').read()
+        except urllib.error.HTTPError as e:
+            if e.code != 404: raise
+    raise AssertionError(f'checkpoint {size} is on neither the logs branch nor main')
 
 def real_bytes(name):
     """Bytes of a file of the fixture folder chosen by exact name from its listing (a request path never builds a filesystem path), or None."""
@@ -56,11 +64,11 @@ class RealRelease(unittest.TestCase):
     def test_the_directory_mode_verifies_the_same_files(self):
         code, rep, _, err = run('--directory', str(REAL), '--json'); self.assertEqual(code, 0, err); self.assertEqual(rep['release']['resolved_from'], 'directory')
     def test_consistency_between_two_real_releases_verifies(self):
-        cp = urllib.request.urlopen('https://raw.githubusercontent.com/MacGuard/macguard-yara-channel/main/logs/checkpoints/00000020.txt').read()
+        cp = checkpoint_txt('00000020')
         f = pathlib.Path(tempfile.mkdtemp()) / 'prev.txt'; f.write_bytes(cp); code, rep, _, err = run('--directory', str(REAL), '--previous-checkpoint', str(f), '--json')
         self.assertEqual(code, 0, err); self.assertEqual(next(c for c in rep['checks'] if c['id'] == 'consistency')['status'], 'pass')
     def test_the_release_that_followed_extends_the_checkpoint_of_the_pinned_one(self):
-        cp = urllib.request.urlopen('https://raw.githubusercontent.com/MacGuard/macguard-yara-channel/main/logs/checkpoints/00000075.txt').read()
+        cp = checkpoint_txt('00000075')
         f = pathlib.Path(tempfile.mkdtemp()) / 'prev.txt'; f.write_bytes(cp); code, rep, _, err = run('--tag', NEXT, '--previous-checkpoint', str(f), '--json')
         self.assertEqual(code, 0, err); self.assertEqual(next(c for c in rep['checks'] if c['id'] == 'consistency')['status'], 'pass')
     def test_trust_state_is_written_only_after_a_full_pass_and_prevents_rollback(self):
@@ -99,7 +107,7 @@ class Tampering(unittest.TestCase):
         d = variant(); p = json.loads((d / 'inclusion-proof.json').read_text()); e = json.loads(p['entry']); e['details']['rules_root'] = '0' * 64; p['entry'] = json.dumps(e, sort_keys=True, separators=(',', ':')); (d / 'inclusion-proof.json').write_text(json.dumps(p)); self.check(d, 3, 'merkle.inclusion')
     def test_a_forged_consistency_proof_is_rejected(self):
         d = variant(); c = json.loads((d / 'consistency.json').read_text()); c['proof'][0] = 'ee' * 32; (d / 'consistency.json').write_text(json.dumps(c))
-        cp = pathlib.Path(tempfile.mkdtemp()) / 'prev.txt'; cp.write_bytes(urllib.request.urlopen('https://raw.githubusercontent.com/MacGuard/macguard-yara-channel/main/logs/checkpoints/00000020.txt').read())
+        cp = pathlib.Path(tempfile.mkdtemp()) / 'prev.txt'; cp.write_bytes(checkpoint_txt('00000020'))
         self.check(d, 3, 'consistency', '--previous-checkpoint', str(cp), contains='does not verify')
     def test_a_fork_at_the_same_size_is_detected(self):
         d = variant(); size = int((d / 'checkpoint.txt').read_text().split('\n')[1]); ts = d / 'trust.json'; ts.write_text(json.dumps({'size': size, 'root': 'cd' * 32}))

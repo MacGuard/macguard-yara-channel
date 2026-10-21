@@ -53,7 +53,14 @@ class MainRuleset(unittest.TestCase):
         self.assertEqual(rc.check_live([live]), [])
         live['bypass_actors'].append({'actor_id': 15368, 'actor_type': 'Integration', 'bypass_mode': 'always'}); self.assertTrue(rc.check_live([live]))
         self.assertEqual(rc.check_live([]), ['no active ruleset targets the default branch']); self.assertTrue(rc.check_live([load('ruleset-logs-branch.json')]))
-        self.assertEqual(rc.check_live([load('ruleset-main-v2.json')], extra_checks=('source-proposal-gate',)), ['main: reviewed by a code owner, checked, no history rewrite: required status check source-proposal-gate is missing'])
+        self.assertEqual(rc.check_live([load('ruleset-main-v2.json')], extra_checks=('another-check',)), ['main: reviewed by a code owner, checked, no history rewrite: required status check another-check is missing'])
+
+    def test_every_required_check_is_a_job_that_runs_on_every_pull_request(self):
+        import re
+        ci = (ROOT / '.github' / 'workflows' / 'ci.yml').read_text(); jobs = set(re.findall(r'^  ([a-z][a-z0-9-]*):$', ci.split('\njobs:\n', 1)[1], re.M))
+        names = {c['context'] for r in load('ruleset-main-v2.json')['rules'] if r['type'] == 'required_status_checks' for c in r['parameters']['required_status_checks']}
+        self.assertEqual(names, set(rc.REQUIRED_CHECKS)); self.assertLessEqual(names, jobs, 'a required check that no job reports would block every merge')
+        self.assertNotRegex(ci.split('\njobs:\n', 1)[0], r'paths(-ignore)?:', 'no path filter: a skipped required check stays pending')
 
 
 class LogsRuleset(unittest.TestCase):

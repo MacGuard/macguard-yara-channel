@@ -113,7 +113,7 @@ export async function verify(mode, args, io0, opts = {}) {
 
   const run = String(args.run); let base;
   try { base = JSON.parse(await io.readFile(args.baseline)); } catch { results.push({ id: 'baseline', name: 'baseline readable', status: INCOMPLETE, detail: 'baseline file unreadable' }); return done(); }
-  async function events() { return memo('events', async () => { await io.git(['fetch', '-q', 'origin']); return (await io.git(['show', 'origin/main:logs/log.jsonl'])).trim().split('\n').map((l) => JSON.parse(l)); }); }
+  async function events() { return memo('events', async () => { await io.git(['fetch', '-q', 'origin']); let text; try { text = await io.git(['show', 'origin/logs:logs/log.jsonl']); } catch { text = await io.git(['show', 'origin/main:logs/log.jsonl']); } return text.trim().split('\n').map((l) => JSON.parse(l)); }); }
   async function chain() {
     const rows = await io.d1('SELECT seq, at, actor, role, action, target, detail, prev_hash, hash FROM audit ORDER BY seq'); let prev = GENESIS;
     for (const r of rows) { const h = await chainHash(prev, { at: r.at, actor: r.actor, role: r.role, action: r.action, target: r.target, detail: r.detail }); if (r.prev_hash !== prev || r.hash !== h) return { ok: false, rows, n: rows.length }; prev = r.hash; }

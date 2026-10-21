@@ -804,3 +804,19 @@ Nothing below is deployed, applied or run against GitHub, Cloudflare or D1. Owne
 Rollback: revert the merge; `0005_rollback.sql` after `wrangler rollback`; flag to `"0"`.
 
 Open items: (1) `config/sources.json` entries are untouched (B6). The hold's fail-safe (no file in the previous release) would hold an existing source that has never released a file; no explicit `admission` value was added to them; owner to confirm. (2) The licence allow-list is a constant in `proposals.js` (MIT, Apache-2.0, BSD-2/3, ISC, CC0); anything else needs an acknowledged `LIC_NEEDS_LEGAL` (decision 4). (3) `source-proposal-gate` is not yet a required check (Phase 2 adds the job). (4) Admin bypass for owner-authored PRs (decision 15) kept as in 9.6.
+
+### Phase 2, branch `feat/sources-p2` (stacked on p1; changes publication and repository guarantees: NOT to be merged without the owner's specific acceptance)
+
+| Item | Where | State |
+|---|---|---|
+| Option Q: the log moves to branch `logs` (one commit on top of main whose tree is exactly the `logs/` subtree object of main: byte-identical by construction, no commit rewritten; main keeps `logs/` frozen) | `scripts/migrate_logs_branch.sh` (`check`, `create`, `verify`), `scripts/logs_branch.sh`, `scripts/commit_logs.sh` | proved on a local simulation in `tests/test_logs_migration.py` (tree object equality, checkpoints 20/75/180 and their bundles identical, Merkle roots and consistency still verify, growth only by appending, a writer that lost a race refuses instead of overwriting, main never written). The Sigstore signatures are not re-verified offline: they are byte-identical and `tests/test_verify_public_release.py` (network) re-verifies them |
+| The three workflows | `daily.yml` job review, `publish.yml` job publish, `site.yml` jobs build and record | each runs `logs_branch.sh materialize` after the checkout; they still hold `contents: write` because the log branch is written with it |
+| Readers | `verify_public_release.py` (logs branch first, then main, always the pair from ONE place), `ops.js`, `acceptance-check.mjs`, `tests/test_verify_public_release.py` | updated, with fallback to main |
+| Pull workflow | `.github/workflows/source-proposals.yml`, `scripts/source_proposal.py` | actionlint clean; `list`, `prepare` (re-validation from scratch, GitHub re-check, four template edits and a note), `report`, `sync`, `gate`. Permissions exactly contents, pull-requests, id-token (write); environment `source-proposals`; no secret; no `actions: write`, so it does not dispatch CI: a person closes and reopens the pull request to start the checks (T-P5 unproven) |
+| Worker endpoints for it | `POST /api/pipeline/source-proposals/{id}/pr`, `POST .../sync` (merge believed only after the Worker reads `config/sources.json` of main) | tested; `pr_open`, `active`, `pr.closed` |
+| Required check | `source-proposal-gate` job in `ci.yml`; `ruleset-main-v2.json` now requires it | tested |
+| New-source hold switched on | `dynamic_gate.py --sources config/sources.json` | the three current sources are not held while each has files in the previous release; if one has none, the fail-safe holds it (open item) |
+
+Deviation from the brief, on purpose: the proposal pull request changes `config/sources.json` plus `config/policy.json`, `docs-src/{es,en}/sources.md` and one note. Without the licence entry every file of the new source would be quarantined with a finding nobody can waive, and `tests/test_docs.py` fails a source with no documentation row.
+
+Rollback: revert the Phase 2 merge (workflows write `main/logs` again; the `logs` branch can stay); delete `source-proposals.yml`; `ruleset-main-v2.json` must not be applied before this phase is merged and the migration verified (runbook `docs/audit/repo-hardening/OPERATIONS.md`).

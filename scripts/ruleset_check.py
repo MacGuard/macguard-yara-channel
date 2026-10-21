@@ -15,7 +15,7 @@ scripts/ruleset_probe.sh runs these against the sandbox repository and then prov
 import fnmatch, json, pathlib, re, sys
 
 ACTIONS_APP_ID = 15368
-REQUIRED_CHECKS = ('python-tests', 'quarantine-service')
+REQUIRED_CHECKS = ('python-tests', 'quarantine-service', 'source-proposal-gate')
 MUST_BE_OWNED = ('config/sources.json', 'config/policy.json', '.github/CODEOWNERS', '.github/workflows/daily.yml', '.github/workflows/publish.yml', '.github/workflows/source-proposals.yml',
                  '.github/workflows/new-future-workflow.yml', '.github/workflows/nested/dir/x.yml', 'scripts/decide.py', 'scripts/prepare.py', 'scripts/a/b/future.sh')
 OWNER = re.compile(r'^@[A-Za-z0-9](?:[A-Za-z0-9-]{0,38})(?:/[A-Za-z0-9._-]+)?$|^[^@\s]+@[^@\s]+\.[A-Za-z]{2,}$')

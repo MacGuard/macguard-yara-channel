@@ -5,7 +5,7 @@ rules responsible for a failure, quarantine only those, rebuild the set, and mea
 A set is never published unless the measurement that passed was taken on exactly that set (decide.py checks set_root)."""
 import argparse, json, pathlib, shutil, subprocess, sys, tempfile
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
-import bench, decide, rulecheck
+import admission, bench, decide, rulecheck
 
 def absolute_ok(run, cfg):
     s, c = run.get('scan'), run['compile']
@@ -64,7 +64,7 @@ class Gate:
             return bool(absolute_ok(c[0], self.cfg['absolute']))
         return bench.ddmin(suspects, fails, budget=budget)
 
-def run(dist, classification, previous_dir, policy, decisions, yara, yarac, max_iter=3, previously_rejected=None, timeout_file=10, allow_large_change=False):
+def run(dist, classification, previous_dir, policy, decisions, yara, yarac, max_iter=3, previously_rejected=None, timeout_file=10, allow_large_change=False, sources=None):
     dist = pathlib.Path(dist); prev_manifest = None; base = None
     if previous_dir and (pathlib.Path(previous_dir) / 'manifest.json').exists():
         prev_manifest = json.loads((pathlib.Path(previous_dir) / 'manifest.json').read_text())
@@ -75,7 +75,7 @@ def run(dist, classification, previous_dir, policy, decisions, yara, yarac, max_
         td = pathlib.Path(td); corpus, canaries = bench.build_corpus(td / 'corpus'); work = td / 'work'; work.mkdir()
         gate = Gate(yara, yarac, policy, work, corpus, canaries, timeout_file)
         def decide_now(dyn=None, required=False):
-            return decide.decide(classification, prev_manifest, decisions, dyn if dyn is not None else {'culprits': sorted(culprits)}, hits_known, required, corpus_size=len(corpus), previously_rejected=previously_rejected, anomaly=policy.get('anomaly'), allow_large_change=allow_large_change)
+            return decide.decide(classification, prev_manifest, decisions, dyn if dyn is not None else {'culprits': sorted(culprits)}, hits_known, required, corpus_size=len(corpus), previously_rejected=previously_rejected, anomaly=policy.get('anomaly'), allow_large_change=allow_large_change, sources=sources)
         for it in range(1, max_iter + 1):
             dec = decide_now(); approved = dec['approved']
             cand = {'root': dist, 'files': [f['path'] for f in approved], 'deps': {f['path']: f.get('depends_on', []) for f in approved}}
@@ -127,7 +127,7 @@ def tlog_root(files): return decide.set_root(files)
 
 if __name__ == '__main__':
     ap = argparse.ArgumentParser(); ap.add_argument('--verify-only', action='store_true', help='measure the candidate in --dist as it is (platform check)'); ap.add_argument('--allow-large-change', action='store_true', help='a person has looked at an unusually large change'); ap.add_argument('--dist', default='dist'); ap.add_argument('--classification', default='dist/classification.json'); ap.add_argument('--previous'); ap.add_argument('--decisions')
-    ap.add_argument('--policy', default='config/policy.json'); ap.add_argument('--rejected'); ap.add_argument('--out', default='dist/decision.json'); ap.add_argument('--dynamic-out', default='dist/dynamic.json'); ap.add_argument('--approved-out', default='dist/approved.json')
+    ap.add_argument('--policy', default='config/policy.json'); ap.add_argument('--sources', default='config/sources.json', help='turns on the new-source hold (scripts/admission.py)'); ap.add_argument('--rejected'); ap.add_argument('--out', default='dist/decision.json'); ap.add_argument('--dynamic-out', default='dist/dynamic.json'); ap.add_argument('--approved-out', default='dist/approved.json')
     a = ap.parse_args(); load = lambda p: json.loads(pathlib.Path(p).read_text()) if p and pathlib.Path(p).exists() else None
     yara, yarac = shutil.which('yara'), shutil.which('yarac')
     if not yara or not yarac: sys.exit('yara and yarac are required for the dynamic gate')
@@ -135,7 +135,7 @@ if __name__ == '__main__':
         yd = verify_only(a.dist, a.previous, json.loads(pathlib.Path(a.policy).read_text()), yara, yarac, a.dynamic_out)
         print(f"verdict={yd['verdict']}"); print(json.dumps(yd['reasons']), file=sys.stderr); sys.exit(0 if yd['verdict'] in ('ok', 'no-baseline') and yd['canaries_detected'] == yd['canaries_expected'] else 1)
     cls = json.loads(pathlib.Path(a.classification).read_text())['files']
-    final, dyn = run(a.dist, cls, a.previous, json.loads(pathlib.Path(a.policy).read_text()), load(a.decisions), yara, yarac, previously_rejected=load(a.rejected))
+    final, dyn = run(a.dist, cls, a.previous, json.loads(pathlib.Path(a.policy).read_text()), load(a.decisions), yara, yarac, previously_rejected=load(a.rejected), sources=admission.load_sources(a.sources))
     pathlib.Path(a.out).write_text(json.dumps(final, indent=1) + '\n'); pathlib.Path(a.dynamic_out).write_text(json.dumps(dyn, indent=1) + '\n')
     pathlib.Path(a.approved_out).write_text(json.dumps({'files': final['approved'], 'rules_root': final['rules_root']}, indent=1) + '\n')
     print(f"publishable={'true' if final['publishable'] else 'false'}"); print(json.dumps(final['public_stats']) + ' blockers=' + json.dumps(final['blockers']), file=sys.stderr)

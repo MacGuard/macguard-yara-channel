@@ -34,6 +34,8 @@ jobs:
         with:
           ref: ${{ github.ref_name }}
           persist-credentials: false
+      - name: Materialize the transparency log from the logs branch
+        run: bash scripts/logs_branch.sh materialize   # public repository: an anonymous fetch is enough
       - name: Fetch latest signed release
         env:
           GH_TOKEN: ${{ github.token }}
@@ -295,6 +297,8 @@ jobs:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           ref: ${{ github.ref_name }}
+      - name: Materialize the transparency log from the logs branch
+        run: bash scripts/logs_branch.sh materialize
       - name: Record result in transparency log
         run: |
           RUN="${{ github.run_id }}"
