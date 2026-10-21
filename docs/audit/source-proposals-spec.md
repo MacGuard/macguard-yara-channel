@@ -1,6 +1,6 @@
 # Propose a source from the admin panel: design specification (V1.1)
 
-Status: **PROPOSAL, design only.** Nothing here is implemented, deployed or applied. No D1 command, `wrangler` call, token creation or GitHub write was run to produce this document. Every statement about current behaviour cites `file:line` in this repository (state at `cc37633`); every statement that starts with "Proposal" is a design decision still to be made by the owner (see OPEN DECISIONS, section 14).
+Status: **PROPOSAL, design only.** Nothing here is implemented, deployed or applied. No D1 command, `wrangler` call, token creation or GitHub write was run to produce this document. Every statement about current behaviour cites `file:line` in this repository (state at `cc37633`); every statement that starts with "Proposal" is a design proposal. Owner decisions D1-D7 of 2026-10-21 are recorded and applied in section 16.1; what is still open is in 16.2 and 16.3. No current source is changed and no new source is activated by this document.
 
 Privacy: this document names no real quarantined rule, path, hash or reason. Examples use `acme/yara-feed` (fictitious).
 
@@ -174,13 +174,25 @@ The Worker is internet-facing, holds sealed GitHub OAuth tokens of its users and
 | **Failure modes** | Key expiry/rotation outage; App suspended; ruleset mis-scope lets the App write elsewhere; installation token over-scoped by mistake | Token expiry silently stops PRs; token leak = person leak | Latency: up to one schedule interval (Proposal: hourly) or a manual run; `GITHUB_TOKEN` PRs do not start `pull_request` workflows (7.5); repo setting "Allow GitHub Actions to create and approve pull requests" must be enabled; the GitHub Actions app is a **bypass actor on `main`** (7.6) | Slowest, most error-prone (hand-edited JSON, forgotten docs rows, forgotten licence entry), but zero new attack surface |
 | **Meets R1 / R2?** | R1 yes (with CODEOWNERS). **R2 no**: the Worker holds write on contents | R1 yes. **R2 no** | R1 yes. **R2 yes** | R1 yes. R2 yes |
 
-### 7.3 Recommendation (Proposal)
+### 7.3 Decision and phases
 
-**Recommend (c), the pull model, with (d) delivered first as the always-available manual fallback.**
+**Decided by the owner (2026-10-21): the Worker gets NO general GitHub write permission. The pull model (c) is adopted; (d) is phase 1.** Reasons are in 7.2: no GitHub write credential outside GitHub, no stored secret, the invariant test `service.test.js:388-393` stays true unchanged, and the Worker reuses the OIDC pipeline pattern (`auth.js:114-129`, `index.js:26-58`). (a) and (b) are rejected because they place a contents-write credential in the Worker.
 
-Why: it is the only automated option in which the Worker holds no GitHub write credential at all, it adds no stored secret, it reuses the pipeline-authentication pattern already built and tested (`auth.js:114-129`, `index.js:26-58`), and the existing safety test stays true as written. The price is latency and two GitHub quirks (7.5, 7.6), both manageable and both listed as OPEN DECISIONS. (a) is the right choice only if the owner wants instant PR creation and accepts that the Worker then holds contents write; it would also require rewriting the invariant test.
+**Phase 1: manual PR, no new GitHub credential anywhere.** Deliverables:
 
-Phasing (Proposal): **Phase 1** = (d): D1 + verification + approval + `GET /api/source-proposals/:id/patch` returning the three diffs and a prefilled `https://github.com/MacGuard/macguard-yara-channel/compare/main...` hint; the human opens the PR. **Phase 2** = (c): add `source-proposals.yml`.
+| # | Deliverable | Notes |
+|---|---|---|
+| P1-1 | `admin/worker/migrations/0003_source_proposals.sql` + `0003_rollback.sql`; same tables appended to `admin/worker/schema.sql` | section 13 |
+| P1-2 | `src/sourceproposals.js` (pure: URL parse, `assertAllowedUrl`, verification, findings, state machine) and store functions with one D1 `batch` per transition | no I/O in the pure part, like `core.js` |
+| P1-3 | Endpoints `GET/POST /api/source-proposals`, `/verify`, `/approve`, `/reject`, `GET /patch`, `POST /pr-link`, `POST /refresh` (section 8) | the Worker still has no non-GET `fetch` except the OAuth exchange |
+| P1-4 | UI view `public/views/source_proposals.js` + es/en strings; form of section 4 | CSP unchanged (`index.js:9`) |
+| P1-5 | `scripts/source_proposal.py` with `validate`, `apply`, `gate` | the **same** code renders the patch shown to the admin and (phase 2) the PR commit, so what was approved is byte-identical to what is proposed |
+| P1-6 | `GET /api/source-proposals/{id}/patch` returns the unified diffs of `config/sources.json`, `config/policy.json`, `docs-src/{es,en}/sources.md`, plus a command block: `git switch -c proposal/<id>-<hash8> origin/main`, `git apply`, `git push origin HEAD:refs/heads/proposal/<id>-<hash8>`, `gh pr create --base main --body-file <template>` | the human opens the PR |
+| P1-7 | `POST /api/source-proposals/{id}/pr-link` (ADMIN, `{pr_number}`): the Worker GETs `https://api.github.com/repos/{REPO}/pulls/{n}` and `.../pulls/{n}/files` (fixed host, same guard) and accepts only if base is `main`, head is in the same repository (not a fork), head ref is `proposal/<id>-<hash8>`, and the changed files are a subset of the four template files; `approved_for_pr -> pr_open` | the Worker reads, never writes |
+| P1-8 | `POST /api/source-proposals/{id}/refresh` (ADMIN): re-reads the PR (closed unmerged -> `pr_closed`) and, for a merged PR, `config/sources.json` of `main` from `raw.githubusercontent.com` (precedent `ops.js:98`); `merged` only if the entry equals the frozen payload | same check as 7.4 step 9 |
+| P1-9 | Tests T-S*, T-V*, T-A*, T-D* of section 12 | |
+
+**Phase 2: the pull workflow** (7.4). Deliverables: `.github/workflows/source-proposals.yml`, pipeline endpoints (`GET /api/pipeline/source-proposals`, `POST .../{id}/pr`, `POST .../{id}/sync`), `source-proposals.yml` added to `PIPELINE_WORKFLOWS` (`wrangler.toml:15`, default list in `auth.js:127`), environment `source-proposals` restricted to `main`, repository setting "Allow GitHub Actions to create and approve pull requests", tests T-P*. **Entry criteria:** (i) the ruleset and CODEOWNERS delta of section 9 verified on the sandbox repository by the procedure in 9.6; (ii) T-P5 (CI attaching to a dispatched run) passed; (iii) the `new-source` first-run quarantine of section 10.2 implemented and tested, so that a merged proposal cannot contribute rules without an ADMIN decision.
 
 ### 7.4 Specification of the workflow (Proposal, `.github/workflows/source-proposals.yml`)
 
@@ -221,8 +233,8 @@ Events created by `GITHUB_TOKEN` do not start `pull_request` workflows (document
 | Role | May |
 |---|---|
 | VIEWER | nothing on proposals (404 shaped as `no_access`-style 403) |
-| REVIEWER (GitHub `write`/`maintain`) | **read-only**: list, detail, diff, events. Proposal rationale: a REVIEWER can already approve rules; adding sources has a larger blast radius, and GitHub `write` is a broad population |
-| ADMIN | everything REVIEWER may, plus create, verify, approve, reject, withdraw, request removal/modification |
+| REVIEWER (GitHub `write`/`maintain`) | list, detail, diff, events; **create and verify** proposals (owner decision D1: people may propose; reading to confirm, decision 16). Cannot authorise anything: a REVIEWER can already approve rules, but adding a source has a larger blast radius |
+| ADMIN | everything REVIEWER may, plus **authorise** (owner decision D2): approve, reject, pr-link, refresh, withdraw, request removal/modification, graduate a source, and approve rules held as `new-source` (10.2) |
 | OIDC `source-proposals.yml` on `main` | the pipeline endpoints below, nothing else |
 
 All unsafe verbs inherit: session, CSRF token, same-origin `Origin` (`index.js:82-92`), fresh role check (`index.js:85`), body cap (`index.js:16`; Proposal 20,000 bytes), `request_id` idempotency like decisions, no self-referential privileges. Errors never include response bodies from GitHub.
@@ -246,35 +258,189 @@ Allowed state transitions (everything else answers 409): `proposed -> verified |
 
 Baseline: on first reconcile the Worker imports the entries already in `main`'s `sources.json` as `merged` rows with `proposer='baseline'` (event `baseline.import`), so that removal and modification have something to target. No licence evidence is invented for them.
 
-## 9. Mandatory CI, human review and branch protection (Proposal; nothing applied)
+## 9. Mandatory CI, human review, CODEOWNERS and ruleset (Proposal; nothing applied)
+
+Scope of this section: stop any **unauthorized automatic addition** of a source, whether by the proposal workflow, by a log job, by Dependabot or by a stolen `GITHUB_TOKEN`. Nothing below was applied; `docs/audit/repo-hardening/IMPACT.md:3` says no ruleset exists as of 2026-10-19, so these are changes to the **files** `ruleset-main.json` and `apply.sh` before their first application. Re-run `apply.sh verify` first: the live state may have changed since that read.
 
 ### 9.1 CI that must be green before merge
 
 * Existing required checks: `python-tests` (includes `test_sources_match_config`, `tests/test_docs.py:212-218`, and the licensing tests) and `quarantine-service` (`ci.yml`).
-* New required check `source-proposal-gate` (job in `ci.yml`, **no path filter**, as `ci.yml:2` demands, so it is trivially green when the PR touches neither file) running `scripts/source_proposal.py gate`: if the PR changes `config/sources.json` or `config/policy.json.licenses`, then (i) the change is exactly one source added/changed/removed; (ii) the new entry passes the same validator as 7.4 step 2; (iii) a `licenses[repo]` entry with `sha256` exists for every `rules` source; (iv) no other file outside the template-generated docs rows is touched when the head branch starts with `proposal/`; (v) `.github/**` and `scripts/**` are untouched by a `proposal/*` branch. A Python unit test covers each rule (section 12).
-* The heavy dynamic checks are not run on the PR (they need upstream content); they run on the first daily run after merge (section 10).
+* New required check `source-proposal-gate`: a job in `ci.yml` with **no path filter** (`ci.yml:2` explains why: a skipped required check stays pending), running `scripts/source_proposal.py gate`. It is trivially green when the PR touches neither `config/sources.json` nor `config/policy.json`. Otherwise: (i) exactly one source added, changed or removed; (ii) the entry passes the validator of 7.4 step 2; (iii) every `rules` source has a `policy.licenses[repo]` entry with `sha256`; (iv) a **new** entry carries `"admission": "probation"` (section 10.2); (v) for a `proposal/*` head branch, no file outside the four template files is touched, and nothing under `.github/`, `scripts/`, `admin/` or `tests/`.
+* Dynamic checks need upstream content and run on the first daily run after merge (section 10), not on the PR.
 
-### 9.2 CODEOWNERS (new file `.github/CODEOWNERS`, Proposal)
+### 9.2 `.github/CODEOWNERS` (exact proposed content)
 
 ```
-/config/                 @MacGuard/owners   # or @<owner login>
-/.github/                @MacGuard/owners
-/scripts/                @MacGuard/owners
-/admin/worker/src/       @MacGuard/owners
-/docs/audit/repo-hardening/ @MacGuard/owners
+# .github/CODEOWNERS  (PROPOSAL)
+# Replace <OWNER> in every line with the owner's GitHub login (or a team handle with write access) before use.
+# An invalid owner makes GitHub ignore the line silently: check `gh api repos/MacGuard/macguard-yara-channel/codeowners/errors` after adding the file.
+# Last matching pattern wins. /logs/ is deliberately not listed: it is written by the log jobs, not reviewed.
+/.github/                       <OWNER>
+/config/                        <OWNER>
+/scripts/                       <OWNER>
+/tests/                         <OWNER>
+/admin/worker/src/              <OWNER>
+/admin/worker/schema.sql        <OWNER>
+/admin/worker/migrations/       <OWNER>
+/admin/worker/wrangler.toml     <OWNER>
+/docs-src/en/sources.md         <OWNER>
+/docs-src/es/sources.md         <OWNER>
+/docs/audit/repo-hardening/     <OWNER>
 ```
 
-### 9.3 Ruleset changes on `main` (Proposal, delta against `ruleset-main.json`)
+`/config/` covers `sources.json`, `policy.json` and the proposed `license-allowlist.json` and `known-sources.json`. Side effect to accept: Dependabot PRs (`.github/dependabot.yml` exists) touch `.github/` or package files and will need the owner's approval.
 
-* `require_code_owner_review: true` (currently `false`, line 15-18 region) so that a PR touching `/config/` needs the code owner.
-* `required_approving_review_count`: 0 now. With one owner a PR **authored by the owner** could not be approved by anyone else; a PR authored by the Actions bot can be approved by the owner. **Unverified:** whether GitHub enforces code-owner review when the count is 0; test on a throwaway PR (`apply.sh verify` plus a deliberate PR) before relying on it; if not enforced, set the count to 1 and give the owner a `pull_request`-mode bypass for their own PRs (owner-authored PRs then merge without a second pair of eyes, which is the status quo).
-* `require_last_push_approval: true`, so a push after approval invalidates it (`dismiss_stale_reviews_on_push` is already true).
-* Add `source-proposal-gate` to `required_status_checks`.
-* Disable auto-merge on the repository; the proposal workflow never enables it; nothing with `pull-requests: write` is allowed to merge (the workflow has no `gh pr merge`; a test greps for it).
-* Bypass: see 7.6 (OPEN DECISION 3).
-* Environment `source-proposals`: deployment branch `main` only; Settings, Actions, "Allow GitHub Actions to create and approve pull requests" on (needed so `GITHUB_TOKEN` can open PRs; approval of PRs by the token is never used).
+### 9.3 What breaks today if the Actions bypass is removed (verified by reading)
 
-With these, "a proposal PR cannot be merged without a human" holds in the following precise sense: merge needs the CI checks green and a code-owner approval of a person; no workflow in the repository merges or approves. It does not hold against the Actions-bypass path (7.6), which is why OPEN DECISION 3 matters.
+`ruleset-main.json:6-8` lists the GitHub Actions app (`actor_id 15368`) as a bypass actor, mode `always`. It exists for one reason, stated in `IMPACT.md:12`: three jobs push `logs/` straight to `main`.
+
+| Writer | Where | What it pushes |
+|---|---|---|
+| `daily.yml` job `review` (`contents: write`, `daily.yml:27-30`) | step "Record the result in the transparency log", `bash scripts/commit_logs.sh "daily review $RUN_ID"` | `logs/` |
+| `publish.yml` job `publish` (`contents: write`, `publish.yml:52`) | `publish.yml:165` | `logs/` |
+| `site.yml` job `record` (`contents: write`, `site.yml:284`) | `site.yml:330` | `logs/` |
+
+All three call `scripts/commit_logs.sh`, which does `git add logs` only (`commit_logs.sh:6`), commits as `macguard-log[bot]` and runs `git push` with 3 retries (`commit_logs.sh:9-12`). **Without the bypass, a ruleset requiring pull requests rejects that push**; the script ends with `Could not push the log after 3 attempts` and exit 1 (`commit_logs.sh:13`). Consequences: the daily job and `site.yml` finish red, `publish.yml` fails **after** the release is already public (the log commit is its last step), and the transparency log on `main` stops advancing while releases continue. Readers of the log on `main` would see a stale chain: `ops.js:97`, `verify_public_release.py:365,391` (`raw.../main/logs/checkpoints/...`), the site build from the checkout.
+
+So the bypass cannot simply be deleted. There are two ways to keep the log jobs working.
+
+### 9.4 Option Q (structural, recommended end state): logs leave `main`
+
+Move the append-only log to a dedicated branch `logs`; `main` then needs no bypass at all.
+
+* Branch `logs` (orphan, created once by the owner), written only by the Actions app. Ruleset `logs: only the log bot` below.
+* `scripts/commit_logs.sh`: commit in a worktree of `origin/logs` and `git push origin HEAD:refs/heads/logs`; each of the three workflows first runs `git fetch origin logs` and materialises `logs/` from it (the jobs checkout `main` for code, `daily.yml:36-38`).
+* Readers: `ops.js:97` and `verify_public_release.py:365,391` change the path `main/logs/...` to `logs/logs/...` (branch `logs`, directory `logs`) with a fallback to `main` for releases that predate the move; `site.yml` build and `tlog.py` read the materialised directory.
+* One reviewed PR removes `logs/` from `main` (or freezes it at the move point so old verifiers still work).
+* Cost: touches 3 workflows, 1 shell script, 2 readers, the verifier and its tests (`tests/test_verify_public_release.py`, `tests/test_tlog*.py`, `chain-test.yml`). Treat it as its own task with the full chain test (`chain-test.yml`) before cutover. **Not part of the V1.1 proposal feature**, but a precondition for the strongest guarantee.
+
+### 9.5 Option R (interim, smaller): keep the bypass, add compensating controls
+
+Keep the Actions bypass exactly as in `ruleset-main.json` and add controls that make an unauthorized addition **detected and unusable**, not impossible:
+
+1. **Provenance guard before use.** `scripts/verify_config_provenance.py`, run as the first step of `daily.yml` job `review` (before `prepare.py`, `daily.yml:56`). For `config/sources.json` and `config/policy.json` it finds the last commit that changed each file (`git log -1`), asks GitHub (`GET /commits/{sha}/pulls`, `GET /pulls/{n}/reviews`, read-only `GITHUB_TOKEN`) and **fails the run, fetching nothing,** unless that commit belongs to a merged PR with an `APPROVED` review by a login listed in `.github/CODEOWNERS`. A direct push by any bypass actor fails this check. Limit: it is a detective control; an actor able to bypass the ruleset could also edit the guard itself (the guard is under `/scripts/`, but a bypass actor skips review). It stops mistakes and a compromised *non-editing* job; it does not stop a malicious writer who edits both.
+2. **Write-scope test.** `tests/test_workflow_write_scopes.py`: only the three jobs of 9.3 may declare `contents: write`; no workflow contains `gh pr merge`, `--auto`, `--admin`, `git push --force`, `git push origin main` outside `commit_logs.sh`; `commit_logs.sh` stages only `logs` (pins `commit_logs.sh:6`).
+3. **Environment.** The proposal job runs in environment `source-proposals` limited to `main`.
+
+Option R reduces the risk to "an attacker needs to be a workflow author with merge power"; option Q removes the path.
+
+### 9.6 Exact ruleset delta (Proposal; files in `docs/audit/repo-hardening/`, nothing applied)
+
+**Current** `ruleset-main.json` (verified): bypass `Integration 15368 always`; `pull_request`: `required_approving_review_count 0`, `dismiss_stale_reviews_on_push true`, `require_code_owner_review false`, `require_last_push_approval false`, `required_review_thread_resolution true`; required checks `python-tests`, `quarantine-service`.
+
+Unified delta (applies to both options except where marked):
+
+```diff
+-  "name": "main: reviewed, checked, no history rewrite",
++  "name": "main: reviewed by a code owner, checked, no history rewrite",
+   "bypass_actors": [
+-    { "actor_id": 15368, "actor_type": "Integration", "bypass_mode": "always" }
++    { "actor_id": 5, "actor_type": "RepositoryRole", "bypass_mode": "pull_request" }       # Option Q: Actions app removed
++    # Option R: keep the line  { "actor_id": 15368, "actor_type": "Integration", "bypass_mode": "always" }  and ALSO add the line above
+   ],
+   "rules": [
+     { "type": "deletion" },
+     { "type": "non_fast_forward" },
+     { "type": "pull_request", "parameters": {
+-        "required_approving_review_count": 0,
++        "required_approving_review_count": 1,
+         "dismiss_stale_reviews_on_push": true,
+-        "require_code_owner_review": false,
+-        "require_last_push_approval": false,
++        "require_code_owner_review": true,
++        "require_last_push_approval": true,
+         "required_review_thread_resolution": true } },
+     { "type": "required_status_checks", "parameters": {
+         "strict_required_status_checks_policy": false,
+         "required_status_checks": [
+           { "context": "python-tests" },
+-          { "context": "quarantine-service" } ] } }
++          { "context": "quarantine-service" },
++          { "context": "source-proposal-gate" } ] } }
+```
+
+Resulting complete file for Option Q:
+
+```json
+{
+  "name": "main: reviewed by a code owner, checked, no history rewrite",
+  "target": "branch",
+  "enforcement": "active",
+  "conditions": { "ref_name": { "include": ["~DEFAULT_BRANCH"], "exclude": [] } },
+  "bypass_actors": [
+    { "actor_id": 5, "actor_type": "RepositoryRole", "bypass_mode": "pull_request" }
+  ],
+  "rules": [
+    { "type": "deletion" },
+    { "type": "non_fast_forward" },
+    { "type": "pull_request", "parameters": {
+        "required_approving_review_count": 1,
+        "dismiss_stale_reviews_on_push": true,
+        "require_code_owner_review": true,
+        "require_last_push_approval": true,
+        "required_review_thread_resolution": true } },
+    { "type": "required_status_checks", "parameters": {
+        "strict_required_status_checks_policy": false,
+        "required_status_checks": [
+          { "context": "python-tests" },
+          { "context": "quarantine-service" },
+          { "context": "source-proposal-gate" } ] } }
+  ]
+}
+```
+
+New file for Option Q only, `ruleset-logs-branch.json`:
+
+```json
+{
+  "name": "logs: only the log bot may write, no history rewrite",
+  "target": "branch",
+  "enforcement": "active",
+  "conditions": { "ref_name": { "include": ["refs/heads/logs"], "exclude": [] } },
+  "bypass_actors": [
+    { "actor_id": 15368, "actor_type": "Integration", "bypass_mode": "always" }
+  ],
+  "rules": [
+    { "type": "update" },
+    { "type": "deletion" },
+    { "type": "non_fast_forward" }
+  ]
+}
+```
+
+`ruleset-release-tags.json` is unchanged. `apply.sh` gets two extra steps (`POST rulesets` for `ruleset-logs-branch.json`; create `.github/CODEOWNERS` via a PR, not via the script) and `apply.sh verify` gets `gh api repos/$R/codeowners/errors` and `gh api repos/$R/rules/branches/main`.
+
+Points that I could not verify from this repository and that the procedure in 9.7 must settle:
+
+* The numeric `actor_id` of the `RepositoryRole` Admin (I believe `5` in GitHub's documentation); read it back with `GET /repos/{R}/rulesets/{id}` after a dry application on the sandbox.
+* Whether `require_code_owner_review: true` is enforced when the approving count is 0. The delta sets the count to 1 so the question does not arise; with one owner, a PR authored by the Actions bot can be approved by the owner (author and approver differ), but a PR **authored by the owner** cannot be approved by the owner; the `RepositoryRole` Admin bypass in `pull_request` mode is what lets the owner merge their own PRs. **Trade-off to decide:** the same bypass lets the owner merge a proposal PR without clicking "Approve". The owner clicking "Merge" is still a human act, but the code-owner approval is then not forced for the owner. Removing the admin bypass forces it for everything and deadlocks owner-authored PRs until a second account exists.
+* Whether "file path restriction" push rules could protect `config/**` from direct pushes. They belong to ruleset target `push`, which applies to **all branches**, so they would also block the `proposal/*` branch pushes of phase 2; they are therefore **not** proposed.
+* Whether the current plan/visibility of the repository supports every rule type; `apply.sh` fails loudly on an unsupported one (`apply.sh` stops at the first failure).
+
+### 9.7 Verification procedure (design; to run only on a sandbox repository, then once on the real one after the owner authorises)
+
+Sandbox: a private repository `MacGuard/macguard-ruleset-sandbox` with copies of `ci.yml`, a stub of the three log jobs calling the real `commit_logs.sh`, and `.github/CODEOWNERS`. A second GitHub account (or the owner's second identity) plays "non-owner".
+
+| ID | Step | Expected |
+|---|---|---|
+| H1 | `gh api repos/R/codeowners/errors` | `errors: []` |
+| H2 | `apply.sh plan`, then `apply` of the delta on the sandbox; `gh api repos/R/rules/branches/main` | the rules of 9.6 are listed as active; compare with the JSON |
+| H3 | A job with `contents: write` appends a change to `config/sources.json` and pushes to `main` | rejected (Option Q); in Option R accepted, and the next `verify_config_provenance.py` run **fails** |
+| H4 | The log job (`commit_logs.sh`) pushes a `logs/` change | Q: accepted on branch `logs`, no push to `main` attempted; R: accepted via bypass |
+| H5 | PR touching `config/sources.json` by a non-owner without owner approval | merge button blocked |
+| H6 | PR authored by the Actions identity touching `config/sources.json`, approved by the owner | mergeable once `python-tests`, `quarantine-service`, `source-proposal-gate` are green |
+| H7 | Same PR after a new push | approval dismissed (`dismiss_stale_reviews_on_push`, `require_last_push_approval`) |
+| H8 | PR touching `.github/workflows/*` and `scripts/*` | needs the owner (CODEOWNERS) |
+| H9 | Dependabot PR | needs the owner's approval (accepted side effect) |
+| H10 | Owner-authored PR | mergeable through the admin `pull_request` bypass; record that the approval was not forced |
+| H11 | `workflow_dispatch` of a modified copy of the proposal workflow from a feature branch | Worker returns 403 (`auth.js:126-128`); cannot reach `main` unless H3 allows it |
+| H12 | Real repository, after authorisation: dispatch `daily.yml` with `acceptance=true` (`daily.yml:17-20`) and confirm the log commit lands, then `site.yml` and a `publish.yml` dry path (`chain-test.yml`) | all three log writers succeed; if not, delete the ruleset (`gh api -X DELETE repos/R/rulesets/<id>`, `IMPACT.md` step 3) |
+
+Static tests in the repository (run in `python-tests`): `tests/test_repo_hardening.py` parses every `ruleset-*.json` and `CODEOWNERS` and asserts (a) in Option Q no `Integration` bypass on a branch rule that targets the default branch; (b) `source-proposal-gate` is in `required_status_checks` and is a job name in `ci.yml`; (c) every CODEOWNERS pattern matches an existing path; (d) the owner placeholder `<OWNER>` is absent from a copy intended for application; (e) `tests/test_workflow_write_scopes.py` of 9.5.
+
+### 9.8 What "cannot be merged without a human" means after this
+
+Merge into `main` needs: the three checks green, a code-owner approval (or, if the owner uses the admin bypass, the owner's own explicit merge), no workflow able to merge or approve (tested), and, in Option Q, no actor outside the owner able to write `main` directly. Under Option R the Actions bypass still lets a job with `contents: write` push `main`; only detection (9.5) applies, which is why Q is the recommended end state.
 
 ## 10. After the merge: activation and first sight of a new source
 
@@ -282,11 +448,94 @@ With these, "a proposal PR cannot be merged without a human" holds in the follow
 
 A source is active **only** when its entry is on `main`. The Worker marks a proposal `merged` only after reading `sources.json` from `main` itself and finding an entry equal to the frozen payload (7.4 step 9). Until then the daily run cannot see it (`prepare.py:7`). A proposal approved in the panel but never merged has no effect on anything.
 
-### 10.2 What the pipeline does on first sight (verified behaviour, then Proposal)
+### 10.2 First run in quarantine mode: the `new-source` hold (decided by the owner; design below is a Proposal for code)
 
-Verified today (section 1): with the licence entry present and the verdict `ok`, a new source's files are classified exactly like any other. A file is `VALIDATED` unless static findings, benign-corpus hit rate (`decide.py:27-34`), the dynamic gate (`dynamic_gate.py:47,83`: new or changed files are the suspects that get isolated) or the anomaly gate stop it. The static and dynamic gates are technical (cost, syntax, modules, blocked modules, canaries); **none of them asks whether a person has ever looked at rules from this source**. Quarantine-everything-new does **not** happen today. If the licence entry were missing, everything would be quarantined and non-waivable (rulecheck.py:147-148), but a merged proposal always includes the entry.
+**What the code does today (verified):** with the licence entry present and the verdict `ok`, a new source's files are classified like any other and become `VALIDATED` unless a static, benign-corpus, dynamic or anomaly gate stops them (`rulecheck.py:131-181`, `decide.py:27-35`, `dynamic_gate.py:47`, `:83`). Nothing asks whether a person has ever authorised rules from this source. Without a licence entry every file is quarantined and nothing can waive it (`rulecheck.py:147-148`, `decide.py:15`).
 
-Proposal (needs code and tests; OPEN DECISION 1): **`new-source` hold.** `rulecheck.classify` adds a finding `new-source` (severity `review`, waivable) to every file of a source that is not present in the previous release manifest (`previous['sources']`, already recorded per release by `prepare.py:56`). Effect: all files from the new source are `QUARANTINED` on the first run, appear in the panel with source id, and are released by the existing decisions flow (approve for revalidation, `confirm_count`, `MAX_BATCH` 500, `core.js:5`). Changes required in lock-step: `WAIVABLE` in `scripts/decide.py:15` and `admin/worker/src/core.js:27` (a test already keeps them identical), a pipeline test, and a UI label. Trade-off: a source with thousands of files is tedious to approve; a per-source "approve all pending of this source" bulk action (still bound to exact SHA-256 and `confirm_count`) would be a separate design.
+**Owner requirement:** a new source gets a FIRST RUN IN QUARANTINE MODE and contributes nothing to the publishable set until an ADMIN authorises it in the panel.
+
+#### Where the change goes (and why there)
+
+* **`scripts/decide.py`, not `rulecheck.py`.** The static classification step runs before the previous release is downloaded (`daily.yml:59` classify, then `daily.yml:65` "Latest release and reviewer decisions"; `rulecheck.py:210` is called without `previous`). `decide()` already receives the previous manifest and the decisions (`decide.py:21-23`) and already holds the analogous judgement finding `matches-benign-corpus` right at `decide.py:33-34`. The hold is added next to it.
+* **`daily.yml` needs no new step and no reordering.** `dynamic_gate.py` (`daily.yml:72`) runs after the previous release is downloaded (`daily.yml:65`) and calls `decide.decide` through `decide_now` (`dynamic_gate.py:78`), the single call site for all iterations.
+* **`scripts/prepare.py:56`**: the source record gains `"admission": source.get("admission")` so it travels in `dist/candidate.json` (`prepare.py:81`) and into the signed manifest `sources` (`release_meta.py:33`). It records the value only; it grants nothing.
+* **`config/sources.json`**: a new optional key `admission`, value `"probation"`. The proposal PR (7.4 step 4) always writes it for a new entry; `source-proposal-gate` (9.1 iv) fails a PR that adds a source without it. **The three current entries are not touched** (owner decision 7); an absent key means "established" only for a source that already has files in the previous release (rule below).
+
+#### Rule (pseudocode, Proposal)
+
+```python
+NEW_SOURCE = 'new-source'      # added to WAIVABLE in decide.py:15 and core.js:27
+
+def held_sources(classified, previous_files, sources):
+    """Source ids whose files may not enter the release without an ADMIN decision."""
+    ids = {c['source'] for c in classified}
+    held = set()
+    for sid in ids:
+        rec = (sources or {}).get(sid, {})
+        probation = rec.get('admission') == 'probation'
+        never_released = bool(previous_files) and not any(p.startswith(f'rules/{sid}/') for p in previous_files)
+        if probation or never_released:
+            held.add(sid)
+    return held
+```
+
+`previous_files` are the paths of the previous release manifest, already built at `decide.py:23`; they have the form `rules/<source id>/...` because `prepare.py:74` and `:80` create the inventory path from `OUT/'rules'/source['id']`. Two conditions on purpose:
+
+1. `admission == "probation"` is stateless, lives in Git, does not depend on the previous release and does not expire by accident. It also holds **files added later** by the same source while it is on probation, and it survives a partial approval (some files approved and released, the rest still pending) without the rest falling through.
+2. `never_released` is a fail-safe for a source someone adds to `sources.json` by hand without the key: no file of it in the previous release means held. It needs a non-empty previous release, because `daily.yml:65-69` runs with an empty `previous` when the release download fails, and holding every source (including the three current ones) on a transient failure would flood the panel; that case keeps today's behaviour (the anomaly gate is skipped on an empty previous too, `decide.py:76`). Limitation, stated: condition 2 alone does not survive a partial approval, which is why proposals always carry condition 1.
+
+In the loop of `decide.py:30-47`, right after the benign-corpus block and before the decision lookup at `decide.py:38`:
+
+```python
+if c['source'] in held and state in (VALIDATED, QUARANTINED):
+    reasons.append({'code': NEW_SOURCE, 'severity': 'review',
+                    'detail': 'first run of a new source: an ADMIN must authorise its rules'})
+    state = QUARANTINED
+```
+
+`decide()` gets a new keyword `sources=None` (id -> record from `dist/candidate.json`); `dynamic_gate.main` reads it and passes it through `decide_now`; `decide.py`'s own CLI gets `--sources`. A caller that passes nothing still gets condition 2.
+
+#### How an ADMIN clears it
+
+* The held files are submitted to the private service by the existing path (`decide.py` `submissions`, `quarantine_client.py` submit, `build_submissions`), reason code `new-source`, `source` = the new id, content stored as for any quarantined file. The public log and public stats receive **counts only** (`public_stats`, `decide.py` accounting), never names, paths, hashes or reasons.
+* The decision is the existing one: `approve` binds to the exact SHA-256 (`decisionsMap`, `store.js:162-168`), and the next run turns it into `waived-by-review` (`decide.py:42-45`) only if no other blocking reason exists. Bulk approval uses the existing filter by source (`index.js:98`), at most 500 per request with the exact `confirm_count` (`core.js:5`, `:136-140`).
+* **ADMIN only.** `validateDecisionRequest(body, role)` (`core.js:128-130`) allows REVIEWER and above for every action. Proposal: in `store.decide` (`store.js:105-148`), after loading the rows, if `action === 'approve'` and any row's `reasons` contain `new-source` and `actor.role !== 'ADMIN'`, return `403 {error: 'admin role required to authorise a new source'}` before any write (so the batch stays atomic). `reject`, `hold`, `review` remain REVIEWER. `new-source` is added to `WAIVABLE` in both files; the parity test already exists (`admin/worker/test/service.test.js:620-623`).
+* Identical bytes: a decision is keyed by content hash, so bytes that were already approved or released elsewhere count as authorised (`decisionsMap`, `store.js:162-168`). That is acceptable (nothing new is published) and is pinned by a test.
+* An approved file is **not** exempt from measurement: once `VALIDATED` it is part of `approved`, and it is a `new_or_changed` suspect for the dynamic gate (`dynamic_gate.py:83`, `:47`); `decide.py:72-74` still demands a dynamic result for exactly the final set.
+* **Graduation** (end of probation) is a reviewed PR that removes the `admission` key. Proposal: an ADMIN "graduate" action in the panel (allowed only when the source has no `PENDING`/`UNDER_REVIEW` candidates and at least N daily runs have passed) records an audit event and, in phase 2, makes the workflow open that PR. Until the PR merges, the source stays held. N is an OPEN DECISION.
+
+#### Interaction with the licence gate
+
+* A licence failure adds `license-changed` (severity `review`, **not waivable**, `rulecheck.py:147-148`, `core.js:28`); `new-source` is waivable. `decide.py:40-41` keeps the candidate quarantined if any non-waivable reason remains, so an ADMIN approval of `new-source` can never override a licence failure, and `core.js:28` marks such a candidate not approvable in the panel. The licence gate still runs first and independently: the policy entry with `sha256` proposed in 5.5 is what makes the licence check pass on the first run.
+* Order of evidence in the panel: licence verdict, then `new-source`. Neither masks the other.
+
+#### Interaction with the dependency closure
+
+* A held file is `QUARANTINED`, so it is not in `included`, and every file that depends on it is removed by the closure loop with `dependency-not-validated` (`decide.py:47-55`; static counterpart `rulecheck.py:176-180`). Inside the new source this is wanted: all of its files are held anyway, and the panel's inclusion logic (`core.js` `includedIds`, `outsideBlock`) already tells the ADMIN whether an approval will take effect (a file needing a file that is not approved yet has no effect).
+* Cross-source: dependency names are resolved over all candidate files, first definer wins (`rulecheck.py:136-139`) and sources are processed in `sources.json` order (`prepare.py:52`), so a source appended last cannot capture a name already defined by a current source. The residual case is a **current-source file that references a name defined only by the new source**: until now that file did not compile (`compile-dependency`, `rulecheck.py` compile step) and was not published; with the new source held it becomes `dependency-not-validated` instead. No published file can be removed by this, because a published file already compiled without the new source. A test pins it (N10). What happens when two sources define the same rule name when compiled together is **not verified here**; test N11 must establish it before the first real proposal.
+* The anomaly gate is not triggered by a held source: held files never enter `approved`, so `added` does not grow (`decide.py:62`, `:76-79`). The release that follows the ADMIN approval can trip it if the approved batch exceeds 40% of the previous release (`policy.json:77`), needing a person to run `daily.yml` with `allow_large_change` (`daily.yml:9-13`), which is the existing, intended safeguard.
+
+#### Negative tests (Proposal, `tests/test_decide.py`, `admin/worker/test/service.test.js`)
+
+| ID | Test | Expected |
+|---|---|---|
+| N1 | Source with `admission: probation`, all files otherwise valid, no decisions | every file `QUARANTINED` with `new-source`; `approved` empty for that source; the three current sources unchanged; accounting invariant holds |
+| N2 | Same, with decisions `{}` because the service is unreachable | still held (decision lookup absent, `decide.py` docstring: nothing depends on the store) |
+| N3 | REVIEWER sends `approve` for a `new-source` candidate | 403, no row changed, no audit row; ADMIN succeeds |
+| N4 | ADMIN approves; next run, same bytes | `waived-by-review`; file enters `approved`; dynamic gate lists it as `new_or_changed` |
+| N5 | ADMIN approves; upstream edits the file | new SHA-256, held again |
+| N6 | File with `license-changed` plus `new-source`, ADMIN approves | stays quarantined (non-waivable), panel says not approvable |
+| N7 | Source without the key, absent from a non-empty previous release | held by condition 2 |
+| N8 | Probation source, half of the files approved and released, upstream adds a file | the new file is held; the unapproved half stays held (condition 1) |
+| N9 | Empty previous (download failed), source without key | not held (documented), source with key held |
+| N10 | Current-source file referencing a name only the new source defines | not published, no published file removed, `previously_published_failing` empty |
+| N11 | New source defining a rule name already defined by a current source | behaviour recorded; must not remove or alter a published file |
+| N12 | Dynamic gate: approved new-source file that is a culprit | isolated and quarantined (`dynamic-failure`, block), approval does not override |
+| N13 | Anomaly gate: approval of a batch above 40% | `publishable=false` until `allow_large_change` |
+| N14 | Source removed then re-added | held again (no files in the previous release) |
+| N15 | `WAIVABLE` parity with `new-source` | the existing test passes; adding the code to one file only fails it |
+| N16 | Public outputs (`stats.json`, log, release notes, `public_stats`) after a held run | counts only; a scan finds no source file name, path, hash or reason |
+| N17 | Source `kind: engine` | contributes no files, never held (`prepare.py:62`) |
 
 ### 10.3 Pinned commits (Proposal, OPEN DECISION 7)
 
@@ -340,7 +589,7 @@ Levels: U = unit (node:test / unittest), I = integration on the D1 shim (`admin/
 | T-V4 | GitHub 403/429 | I | `SOURCE_UNAVAILABLE`, not `rejected`, not `verified` |
 | T-V5 | 11th verification in an hour | I | 429 |
 | **Roles and API (negative)** | | | |
-| T-A1 | VIEWER and REVIEWER call every write endpoint; unauthenticated; no CSRF; wrong Origin | I | 403/401, no row changed |
+| T-A1 | VIEWER calls every write endpoint; REVIEWER calls approve, reject, pr-link, refresh, withdraw, graduate and the `new-source` approval (403); REVIEWER's create/verify succeed and are audited with role REVIEWER; unauthenticated; no CSRF; wrong Origin | I | 403/401, no row changed |
 | T-A2 | OIDC token from `daily.yml`, from `publish.yml`, from a fork, from `refs/heads/feature`, expired, wrong audience calls pipeline endpoints | I | 401/403 |
 | T-A3 | `approve` with stale `expect_version`, stale verification (>24 h), missing ack, wrong `confirm_repo`, from `rejected`/`pr_open` | I | 409/400, state unchanged |
 | T-A4 | Same `request_id` twice; two admins approving concurrently | I | one applies, second idempotent/409; audit has one entry |
@@ -494,17 +743,41 @@ History of additions, removals and changes (requirement 10) is therefore held in
 10. Unproven items (platform egress to private ranges, CI attaching to dispatched runs, code-owner enforcement with 0 approvals) are explicit tests T-S6, T-P5 and the 9.3 experiment; none is claimed.
 11. Not run: nothing in this document has been executed against D1, Cloudflare or GitHub.
 
-## 16. OPEN DECISIONS for the owner
+## 16. Decisions
 
-1. **First sight of a new source.** (A) Keep today's behaviour (PR review plus existing gates only), (B) add the waivable `new-source` hold (sections 10.2), (C) cooling-off of N daily runs. Also whether widening `paths` is held. Recommendation: B.
-2. **PR mechanism.** Approve (c) pull model with (d) as phase 1, or choose (a) accepting that the Worker holds contents write and the invariant test is rewritten. If (c): enable the repository setting "Allow GitHub Actions to create and approve pull requests" and the `source-proposals` environment restricted to `main`.
-3. **Actions bypass on `main`.** Keep (status quo, logs push directly), or move log commits to a dedicated branch/ruleset so the Actions app loses bypass on `main` (needs a change to `commit_logs.sh`, `daily.yml`, `publish.yml`, `site.yml` and a re-test of the whole chain).
-4. **Licence policy.** Which SPDX ids are redistributable in a signed release (and how `needs_legal` cases are decided); who maintains `config/license-allowlist.json`.
-5. **Trust thresholds.** Repo age (90 days), owner age (180 days), staleness (24 months), maximum size (90,000 KB), `known-sources.json` contents, Levenshtein distance 2.
-6. **Separation of duties.** With one ADMIN the panel approval and the PR approval are the same person. Accept, or require a second human once a second ADMIN exists (proposer != approver).
-7. **Pinning.** Follow HEAD (status quo), per-source `pin` with bump PRs, or pin during a cooling-off period.
-8. **Role split.** REVIEWER read-only (proposed) versus allowing REVIEWER to propose (not approve).
-9. **Ruleset delta.** Approve CODEOWNERS paths (9.2), `require_code_owner_review`, `require_last_push_approval`, the new required check `source-proposal-gate`, and the approvals-count approach once the 0-approvals behaviour is tested. None applied until the owner authorises `apply.sh`.
-10. **Scope.** Confirm V1.1 covers GitHub-hosted rules sources only (no GitLab, no engines, no private repositories) and the document's list of refused repositories (forks, archived).
-11. **Schedule.** Hourly pull, or manual dispatch only.
-12. **Baseline import.** Import the three current sources as `merged` rows without evidence, or require a fresh verification of each before they can be removed or modified through the panel.
+### 16.1 Owner decisions received (2026-10-21) and how they are applied
+
+| # | Owner decision | Where it is applied |
+|---|---|---|
+| D1 | The panel lets people propose new sources | sections 4, 8 (REVIEWER and ADMIN may create and verify; VIEWER may not: my reading of "people", to confirm in 16.3) |
+| D2 | Only ADMIN can authorise proposals | section 8: approve, reject, pr-link, refresh, graduate are ADMIN; also `new-source` approvals (10.2) |
+| D3 | Activation needs a PR, licence validation, provenance, security tests and effective human approval | sections 5, 6, 9, 10.1: nothing is active before the entry is on `main`; merge needs checks + code-owner approval; first run is quarantined |
+| D4 | The Worker gets no general GitHub write permission | 7.3: pull model; phase 1 and phase 2 deliverables are concrete |
+| D5 | Review CODEOWNERS and the ruleset bypass | section 9: exact CODEOWNERS, exact ruleset JSON delta, what breaks, how log commits keep working (Q or R), verification procedure |
+| D6 | New source: first run in quarantine mode | 10.2: `new-source` finding, placed in `decide.py`, ADMIN-only clearing, licence and dependency interaction, negative tests |
+| D7 | Do not change current sources; do not activate any new one | nothing in `config/` is edited by this document; `sources.json` entries unchanged; the baseline import creates D1 rows only |
+
+### 16.2 The 12 earlier open decisions
+
+| # | Subject | Status |
+|---|---|---|
+| 1 | First sight of a new source | **RESOLVED** by D6: hold `new-source`, stateless via `admission: probation` plus fail-safe on never-released sources. Sub-decision 13 below |
+| 2 | PR mechanism | **RESOLVED** by D4: pull model (c), phase 1 = (d). Operational prerequisites still need the owner's action: repository setting "Allow GitHub Actions to create and approve pull requests", environment `source-proposals` restricted to `main` |
+| 3 | Actions bypass on `main` | **DESIGN DELIVERED, CHOICE OPEN**: Option Q (logs to a dedicated branch, bypass removed) vs Option R (keep bypass, detective controls). See 9.4, 9.5 and decision 14 |
+| 4 | Licence policy (allow-list, legal acceptance, who maintains `config/license-allowlist.json`) | **OPEN** |
+| 5 | Trust thresholds (repo age 90 d, owner age 180 d, staleness 24 months, size 90,000 KB, `known-sources.json`, distance 2) | **OPEN** (values in the document are defaults) |
+| 6 | Separation of duties with a single ADMIN | **PARTLY**: effective human approval is the code-owner review on the PR (D3); whether the admin `pull_request` bypass is kept so the owner can merge their own PRs is **OPEN** (9.6 trade-off) |
+| 7 | Pinning upstream commits | **OPEN**; `probation` covers the first period only |
+| 8 | Role split | **RESOLVED** by D1/D2: ADMIN authorises; REVIEWER proposes and verifies, read-only otherwise; VIEWER none. Confirm that REVIEWER (every GitHub writer) may propose |
+| 9 | Ruleset delta | **EXACT DELTA PRODUCED** (9.2, 9.6); **application OPEN**: needs the owner's authorisation and the sandbox procedure 9.7 |
+| 10 | Scope (GitHub only, rules only, no private repos, no forks/archived) | **OPEN, default adopted** |
+| 11 | Pull schedule | **OPEN**, default hourly plus manual dispatch |
+| 12 | Baseline import of the three current sources | **RESOLVED** by D7: import as `merged` rows with `proposer='baseline'`, no invented evidence, D1 only; modifying or removing them through the panel requires a fresh verification first |
+
+### 16.3 New and still-open decisions
+
+13. **Probation length and graduation.** Number of daily runs N and whether graduation is an ADMIN panel action that opens a PR (proposed) or only a manual PR; whether graduated sources keep any extra scrutiny.
+14. **Log branch (Option Q).** Authorise the separate task that moves `logs/` to branch `logs`, or stay on Option R for now. Until decided, the bypass stays and 9.8 applies with its stated limit.
+15. **Admin bypass for owner-authored PRs.** Keep `RepositoryRole` Admin `pull_request` bypass (owner can merge own PRs, approval not forced) or remove it (forced approval, owner-authored PRs need a second account).
+16. **Confirm the reading of D1**: REVIEWER may create and verify proposals (using their own OAuth token's rate limit), or proposals are ADMIN-only to create.
+17. **Application order.** Proposed: CODEOWNERS PR -> `source-proposal-gate` job -> ruleset delta on the sandbox (9.7) -> `new-source` hold implemented and tested (10.2) -> Phase 1 -> real ruleset -> Phase 2. Confirm.
