@@ -139,6 +139,9 @@ for (const name of WANT) {
         await row.locator('.rule-title').click(); await page.waitForSelector('.code');
         assert.equal(await page.getByRole('button', { name: 'Aprobar' }).isDisabled(), true); assert.ok((await page.locator('#not-approvable').innerText()).includes('ninguna aprobación humana'));
         assert.equal(await page.getByRole('button', { name: 'Rechazar' }).isEnabled(), true); assert.equal(await page.getByRole('button', { name: 'Mantener en cuarentena' }).isEnabled(), true);
+        const f = page.locator('#findings'); const ft = await f.innerText();
+        assert.ok(ft.includes('Por qué está en cuarentena') && ft.includes('Bloquea') && ft.includes('Fichero truncado') && ft.includes('Qué tendría que ocurrir'), 'the sheet explains what the control checks and what would have to happen');
+        assert.ok(!ft.includes('Se puede aprobar'), 'a blocking finding is not presented as acceptable');
         assert.deepEqual(await axeViolations(page), [], 'the not-approvable sheet meets WCAG 2.2 AA');
         assert.deepEqual(page.errors, []);
       } finally { await page.context().close(); s.stop(); }

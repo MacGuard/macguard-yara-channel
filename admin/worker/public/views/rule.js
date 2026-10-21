@@ -1,8 +1,24 @@
 // One rule: what it is, why it is here, what was measured, its code, who decided what, and the safe ways to decide.
-import { t } from '../i18n.js';
+import { t, has } from '../i18n.js';
 import { h, icon, stateBadge, reasonLabel, fmtDate, fmtDateTime, bytes, copyButton, shaFull, copyText, put } from '../ui.js';
 import { api, failure } from '../api.js';
 import { decide, retest } from './decide.js';
+
+/** For every finding: what the control checks, whether it blocks (no human approval skips it) or only needs a judgement, and what would have to happen. */
+function findingsCard(c) {
+  const codes = (c.reasons || []).filter((x) => x !== 'waived-by-review'); if (!codes.length || c.state === 'RELEASED') return null;
+  const blocking = new Set(c.blocking || []), key = (x) => String(x).replace(/[^a-z0-9]+/gi, '_');
+  const item = (x) => {
+    const k = key(x), known = has(`rx_${k}`), block = blocking.has(x);
+    return h('li', {}, h('div', { class: 'flex-8 center' }, h('span', { class: block ? 'chip chip-bad' : 'chip', text: block ? t('rx_block') : t('rx_review') }), h('strong', { text: reasonLabel(x) })),
+      h('p', { class: 'note mt-6', text: known ? t(`rx_${k}`) : t('rx_unknown') }),
+      known ? h('p', { class: 'note mt-6' }, h('b', { text: `${block ? t('rx_fix_block') : t('rx_fix_review')}: ` }), t(`rf_${k}`)) : null);
+  };
+  const blocked = codes.filter((x) => blocking.has(x)), others = codes.filter((x) => !blocking.has(x));
+  return h('section', { class: 'card', 'aria-labelledby': 'h-find', id: 'findings' }, h('h2', { id: 'h-find', text: t('rx_h') }),
+    blocked.length ? h('p', { class: 'note mb-10', text: t('rx_blocked_lead') }) : null, blocked.length ? h('ul', { class: 'deplist' }, ...blocked.map(item)) : null,
+    others.length ? h('p', { class: 'note mt-10 mb-10', text: t('rx_review_lead') }) : null, others.length ? h('ul', { class: 'deplist' }, ...others.map(item)) : null);
+}
 
 /** What this rule needs, what needs it, and whether approving it will take effect (computed by the server from the same rules decide.py applies). */
 function dependencyCard(c) {
@@ -62,6 +78,7 @@ export async function renderRule(ctx, id) {
       h('div', { class: 'stack' },
         h('section', { class: 'card', 'aria-labelledby': 'h-sum' }, h('h2', { id: 'h-sum', text: t('r_summary') }), h('div', {}, h('div', { class: 'field' }, h('span', { text: t('r_sha') }), h('div', { class: 'flex-8 center' }, shaFull(c.sha256), copyButton(c.sha256, `${t('copy')} SHA-256`)))), kv),
         h('section', { class: 'card', 'aria-labelledby': 'h-why' }, h('h2', { id: 'h-why', text: t('r_why') }), h('div', { class: 'reasons' }, ...c.reasons.map((x) => h('span', { class: 'chip', title: x, text: reasonLabel(x) }))), (c.depends_on || []).length ? h('p', { class: 'note mt-10', text: `${t('r_deps')}: ${c.depends_on.join(', ')}` }) : null),
+        findingsCard(c),
         dependencyCard(c),
         h('section', { class: 'card', 'aria-labelledby': 'h-res' }, h('h2', { id: 'h-res', text: t('r_resources') }), metersNode),
         h('section', { class: 'card', 'aria-labelledby': 'h-code' }, h('div', { class: 'flex-between' }, h('h2', { id: 'h-code', text: t('r_code') }), codeText !== null ? h('button', { type: 'button', class: 'btn btn-sm', onclick: () => copyText(codeText) }, icon('copy'), t('copy')) : null),
