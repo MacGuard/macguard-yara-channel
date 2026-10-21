@@ -3,6 +3,7 @@ import { t } from '../i18n.js';
 import { h, icon, put, fmtDateTime, copyButton } from '../ui.js';
 import { api } from '../api.js';
 import { loadOps, freshness, ago } from './ops.js';
+import { proposalsSection } from './proposals.js';
 
 export async function renderSources(ctx) {
   const { root } = ctx;
@@ -20,7 +21,8 @@ export async function renderSources(ctx) {
         h('dt', { text: t('sr_paths') }), h('dd', {}, s.paths.length ? h('span', { class: 'reasons' }, ...s.paths.map((p) => h('span', { class: 'chip mono', text: p }))) : t('sr_nopaths')),
         s.kind === 'rules' ? [h('dt', { text: t('sr_inq') }), h('dd', { text: String(inq[s.id] || 0) })] : null));
   };
-  put(root, head, freshness(o), o.sources.length ? h('ul', { class: 'people' }, o.sources.map(card)) : h('div', { class: 'card empty' }, icon('source'), h('h2', { text: t('nodata') }), h('p', { text: t('sr_none') })),
+  const proposals = await proposalsSection(ctx);   // null when the feature is off
+  put(root, head, freshness(o), proposals, o.sources.length ? h('ul', { class: 'people' }, o.sources.map(card)) : h('div', { class: 'card empty' }, icon('source'), h('h2', { text: t('nodata') }), h('p', { text: t('sr_none') })),
     h('section', { class: 'card', 'aria-labelledby': 'h-persrc' }, h('h2', { id: 'h-persrc', text: t('sr_perrun') }), od ? h('dl', { class: 'kv' }, h('dt', { text: t('kpi_observed') }), h('dd', { text: od.date }), h('dt', { text: t('rl_examined') }), h('dd', { text: String(od.examined) }), h('dt', { text: t('rl_accepted') }), h('dd', { text: String(od.accepted) }), h('dt', { text: t('rl_quarantined') }), h('dd', { text: String(od.quarantined ?? '—') }), h('dt', { text: t('rl_rejected') }), h('dd', { text: String(od.rejected) })) : h('p', { class: 'nodata', text: t('nodata') }),
       h('p', { class: 'alert alert-info' }, icon('info'), t('sr_split_note'))));
 }

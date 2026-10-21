@@ -1,0 +1,15 @@
+# .github/CODEOWNERS
+# Anything that decides what is fetched, how it is judged or what is published needs a review by the code owner (ruleset: require_code_owner_review).
+# An invalid owner makes GitHub ignore the line silently: after merging, check `gh api repos/MacGuard/macguard-yara-channel/codeowners/errors` (expect "errors": []).
+# Last matching pattern wins. /logs/ is deliberately not listed: the transparency log lives on its own branch (`logs`) and is written by the log bot, not reviewed.
+/.github/                       @MacGuard
+/config/                        @MacGuard
+/scripts/                       @MacGuard
+/tests/                         @MacGuard
+/admin/worker/src/              @MacGuard
+/admin/worker/schema.sql        @MacGuard
+/admin/worker/migrations/       @MacGuard
+/admin/worker/wrangler.toml     @MacGuard
+/docs-src/en/sources.md         @MacGuard
+/docs-src/es/sources.md         @MacGuard
+/docs/audit/repo-hardening/     @MacGuard

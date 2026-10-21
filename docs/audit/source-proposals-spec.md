@@ -781,3 +781,26 @@ History of additions, removals and changes (requirement 10) is therefore held in
 15. **Admin bypass for owner-authored PRs.** Keep `RepositoryRole` Admin `pull_request` bypass (owner can merge own PRs, approval not forced) or remove it (forced approval, owner-authored PRs need a second account).
 16. **Confirm the reading of D1**: REVIEWER may create and verify proposals (using their own OAuth token's rate limit), or proposals are ADMIN-only to create.
 17. **Application order.** Proposed: CODEOWNERS PR -> `source-proposal-gate` job -> ruleset delta on the sandbox (9.7) -> `new-source` hold implemented and tested (10.2) -> Phase 1 -> real ruleset -> Phase 2. Confirm.
+
+## 17. Implementation status (agent A4)
+
+Nothing below is deployed, applied or run against GitHub, Cloudflare or D1. Owner decisions B1-B7 (2026-10-21) are binding and refine sections 7-10 and 16.
+
+### Phase 1, branch `feat/sources-p1` (changes nothing the pipeline publishes; no workflow touched)
+
+| Item | Where | State |
+|---|---|---|
+| Migration 0005 + rollback (mirrored in `schema.sql`, delimited by `>>> 0005`) | `admin/worker/migrations/0005_*.sql` | tested up, rollback, up again on the node:sqlite shim; never run on D1 |
+| States proposed, verified, approved, rejected, pr_open, active, retired (`approved` = authorized by an ADMIN, added to the owner's list) | `src/proposals.js` | done; `pr_open` and `active` are entered by the Phase 2 pipeline endpoints |
+| Verification: only `api.github.com`, 5 GETs, `redirect:'manual'`, size/time caps, licence via API, lookalikes | `src/proposals.js` | done, injectable fetch; negative tests T-S1..T-S5, T-V1..T-V5 |
+| Roles: REVIEWER and ADMIN propose and verify; ADMIN authorizes, rejects, retires; all roles read | `handleApi` | done |
+| `GET /api/pipeline/source-proposals` (only `source-proposals.yml` on main; only approved) | `handlePipeline` | done; inert until the owner adds the workflow to `PIPELINE_WORKFLOWS` |
+| Feature flag `SOURCE_PROPOSALS_ENABLED=1` (absent means every endpoint answers 404) | `enabled()` | done |
+| Per-row guards: every transition is one batch, each write `WHERE changes() = 1`, guard counts this request's event | `transition`, `create` | tested with concurrent admins and a lost race |
+| UI: "Proponer fuente" and the list inside Sources (ES/EN, labels, `textContent`) | `public/views/proposals.js` | done; section absent when the flag is off; UI/Playwright suite NOT run by A4 |
+| New-source hold (B5) | `scripts/admission.py`, one hook in `decide.py`, `new-source` in both WAIVABLE lists, ADMIN-only approval in `store.decide` | done; inert unless the caller passes `sources=`; wiring in `dynamic_gate.py` is Phase 2 |
+| CODEOWNERS, `ruleset-main-v2.json`, `ruleset-logs-branch.json`, `OPERATIONS.md`, `ruleset_check.py`, `ruleset_probe.sh`, `probe/probe.yml` | `.github/`, `docs/audit/repo-hardening/`, `scripts/` | offline-tested; the real-repository proof is the owner's (OPERATIONS step 2) |
+
+Rollback: revert the merge; `0005_rollback.sql` after `wrangler rollback`; flag to `"0"`.
+
+Open items: (1) `config/sources.json` entries are untouched (B6). The hold's fail-safe (no file in the previous release) would hold an existing source that has never released a file; no explicit `admission` value was added to them; owner to confirm. (2) The licence allow-list is a constant in `proposals.js` (MIT, Apache-2.0, BSD-2/3, ISC, CC0); anything else needs an acknowledged `LIC_NEEDS_LEGAL` (decision 4). (3) `source-proposal-gate` is not yet a required check (Phase 2 adds the job). (4) Admin bypass for owner-authored PRs (decision 15) kept as in 9.6.

@@ -1,0 +1,65 @@
+name: ruleset-probe
+# TEMPLATE. It is NOT active in the real repository: scripts/ruleset_probe.sh copies it into a SANDBOX repository (never created or run by an agent)
+# and dispatches it there. It proves, with the same kind of token every workflow gets, that the rulesets stop an Actions job from changing the default
+# branch or merging a pull request without a review, while the log bot can still write the `logs` branch. Every line it prints is `PROBE <name> ...`.
+on:
+  workflow_dispatch:
+permissions: {}
+concurrency:
+  group: ruleset-probe
+  cancel-in-progress: false
+jobs:
+  probe:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      contents: write        # the most a log job has: it must STILL not be able to change the default branch
+      pull-requests: write   # the most the proposal workflow has: it must STILL not be able to merge without a review
+    env:
+      GH_TOKEN: ${{ github.token }}
+      REPO: ${{ github.repository }}
+      DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+      RUN_ID: ${{ github.run_id }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          fetch-depth: 0
+      - name: Try to get around the rules
+        run: |
+          set -uo pipefail
+          fail=0
+          git config user.name 'ruleset-probe[bot]'
+          git config user.email 'ruleset-probe@users.noreply.github.com'
+          expect_fail() { local name=$1; shift; if "$@" >"/tmp/probe-$name.log" 2>&1; then echo "PROBE $name expected=refused actual=ACCEPTED"; fail=1; else echo "PROBE $name expected=refused actual=refused"; fi; }
+          expect_ok() { local name=$1; shift; if "$@" >"/tmp/probe-$name.log" 2>&1; then echo "PROBE $name expected=accepted actual=accepted"; else echo "PROBE $name expected=accepted actual=REFUSED"; fail=1; sed 's/^/  /' "/tmp/probe-$name.log"; fi; }
+          mkdir -p config
+          echo "probe $RUN_ID" >> config/probe-source-change.txt
+          git add config/probe-source-change.txt
+          git commit -q -m "probe: direct change to config on the default branch"
+          # 1. a direct push of a configuration change to the default branch (what a compromised job with contents: write would do)
+          expect_fail main-direct-push git push origin "HEAD:refs/heads/$DEFAULT_BRANCH"
+          # 2. the same through the REST contents API, which is another way to write a branch
+          content=$(printf 'probe %s\n' "$RUN_ID" | base64 | tr -d '\n')
+          expect_fail main-contents-api gh api -X PUT "repos/$REPO/contents/config/probe-via-api.txt" -f message=probe -f content="$content" -f branch="$DEFAULT_BRANCH"
+          # 3. the log bot must still write the logs branch, and must not be able to rewrite or delete it
+          expect_ok logs-push bash -c "git fetch -q origin logs && git worktree add -q /tmp/logs-wt FETCH_HEAD && cd /tmp/logs-wt && mkdir -p logs && echo \"probe $RUN_ID\" >> logs/probe.txt && git add logs && git commit -q -m 'probe: log entry' && git push origin HEAD:refs/heads/logs"
+          expect_fail logs-force-push bash -c "cd /tmp/logs-wt && git push --force origin HEAD~1:refs/heads/logs"
+          expect_fail logs-delete git push origin ":refs/heads/logs"
+          # 4. a pull request for the same change: it may be opened, but this token must not be able to merge it
+          branch="probe/$RUN_ID"
+          git switch -q -c "$branch"
+          expect_ok pr-branch-push git push origin "HEAD:refs/heads/$branch"
+          pr=$(gh pr create --base "$DEFAULT_BRANCH" --head "$branch" --title "probe $RUN_ID" --body 'ruleset probe, safe to close' 2>/tmp/probe-pr-create.log | grep -o '[0-9]*$' || true)
+          if [ -z "$pr" ]; then echo "PROBE pr-create expected=either actual=refused (the setting 'Allow GitHub Actions to create pull requests' is off)"; else
+            echo "PROBE pr-create expected=either actual=opened #$pr"
+            expect_fail merge-without-review gh pr merge "$pr" --squash
+            expect_fail merge-admin-flag gh pr merge "$pr" --squash --admin
+            gh pr merge "$pr" --squash --auto >/tmp/probe-auto.log 2>&1 || true
+            gh pr review "$pr" --approve >/tmp/probe-approve.log 2>&1 || true
+            state=$(gh pr view "$pr" --json state --jq .state)
+            if [ "$state" = OPEN ]; then echo "PROBE pr-stays-unmerged expected=OPEN actual=$state"; else echo "PROBE pr-stays-unmerged expected=OPEN actual=$state"; fail=1; fi
+            gh pr close "$pr" --delete-branch >/dev/null 2>&1 || true
+          fi
+          git push origin ":refs/heads/$branch" >/dev/null 2>&1 || true
+          echo "PROBE summary failures=$fail"
+          exit "$fail"

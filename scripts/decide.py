@@ -11,9 +11,9 @@ Rules that cannot be bent
 """
 import argparse, json, pathlib, sys
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
-import accounting, catalog, tlog
+import accounting, admission, catalog, tlog
 VALIDATED, QUARANTINED, REJECTED, DEPRECATED = 'VALIDATED', 'QUARANTINED', 'REJECTED', 'DEPRECATED'
-WAIVABLE = {'costly-regex', 'filesize-loop', 'many-loops', 'unknown-module', 'include', 'license-unchecked', 'matches-benign-corpus', 'dependency-not-validated'}
+WAIVABLE = {'costly-regex', 'filesize-loop', 'many-loops', 'unknown-module', 'include', 'license-unchecked', 'matches-benign-corpus', 'dependency-not-validated', 'new-source'}
 APPROVING = {'APPROVED_PENDING_VALIDATION', 'RELEASED'}
 
 def set_root(files): return tlog.rules_root([{'path': f['path'], 'sha256': f['sha256']} for f in files])
@@ -22,7 +22,7 @@ def set_root(files): return tlog.rules_root([{'path': f['path'], 'sha256': f['sh
 FINDING_FIELDS = ('code', 'severity', 'detail', 'observed', 'threshold', 'unit')
 
 
-def decide(classified, previous=None, decisions=None, dynamic=None, benign_hits=None, dynamic_required=True, hit_rate_limit=0.05, corpus_size=0, previously_rejected=None, anomaly=None, allow_large_change=False):
+def decide(classified, previous=None, decisions=None, dynamic=None, benign_hits=None, dynamic_required=True, hit_rate_limit=0.05, corpus_size=0, previously_rejected=None, anomaly=None, allow_large_change=False, sources=None):
     previous = previous or {}; decisions = decisions or {}; previously_rejected = set(previously_rejected or [])
     prev_files = {f['path']: f['sha256'] for f in previous.get('files', [])}
     dyn_bad = set((dynamic or {}).get('culprits', []))
@@ -32,10 +32,13 @@ def decide(classified, previous=None, decisions=None, dynamic=None, benign_hits=
     if benign_hits and corpus_size >= 50:
         generic = {p for p, n in benign_hits.items() if n / corpus_size > hit_rate_limit}
     included = {}
+    held = admission.held_sources(classified, prev_files, sources)   # first run of a new source: only an ADMIN decision releases it (scripts/admission.py)
     for c in classified:
         reasons = [dict(r) for r in c['reasons']]; state = c['state']
         if c['path'] in generic and state == VALIDATED:
             reasons.append({'code': 'matches-benign-corpus', 'severity': 'review', 'detail': f'matches {benign_hits[c["path"]]} of {corpus_size} files of the clean corpus, more than the allowed share', 'observed': round(100 * benign_hits[c['path']] / corpus_size, 1), 'threshold': round(100 * hit_rate_limit, 1), 'unit': '% of the clean corpus'}); state = QUARANTINED
+        if c['source'] in held and state in (VALIDATED, QUARANTINED):
+            reasons.append({'code': 'new-source', 'severity': 'review', 'detail': 'first run of a new source: an ADMIN must authorise its rules'}); state = QUARANTINED
         if c['path'] in dyn_bad and state != REJECTED:
             reasons.append({'code': 'dynamic-failure', 'severity': 'block', 'detail': 'caused a crash, timeout or regression in the dynamic tests'}); state = QUARANTINED
         if c['sha256'] in previously_rejected and state != REJECTED:
@@ -101,12 +104,12 @@ def decide(classified, previous=None, decisions=None, dynamic=None, benign_hits=
 
 if __name__ == '__main__':
     ap = argparse.ArgumentParser(); ap.add_argument('--classification', default='dist/classification.json'); ap.add_argument('--previous'); ap.add_argument('--decisions'); ap.add_argument('--dynamic')
-    ap.add_argument('--rejected'); ap.add_argument('--out', default='dist/decision.json'); ap.add_argument('--approved-out', default='dist/approved.json'); ap.add_argument('--no-dynamic', action='store_true')
+    ap.add_argument('--rejected'); ap.add_argument('--out', default='dist/decision.json'); ap.add_argument('--approved-out', default='dist/approved.json'); ap.add_argument('--no-dynamic', action='store_true'); ap.add_argument('--sources', help='config/sources.json: turns on the new-source hold')
     a = ap.parse_args()
     cls = json.loads(pathlib.Path(a.classification).read_text())['files']
     load = lambda p: json.loads(pathlib.Path(p).read_text()) if p and pathlib.Path(p).exists() else None
     dyn = load(a.dynamic); hits = (dyn or {}).get('benign_hits_by_file'); corpus = ((dyn or {}).get('corpus') or {}).get('clean_files', 0)
-    res = decide(cls, load(a.previous), load(a.decisions), dyn, hits, not a.no_dynamic, corpus_size=corpus, previously_rejected=load(a.rejected))
+    res = decide(cls, load(a.previous), load(a.decisions), dyn, hits, not a.no_dynamic, corpus_size=corpus, previously_rejected=load(a.rejected), sources=admission.load_sources(a.sources) if a.sources else None)
     pathlib.Path(a.out).write_text(json.dumps(res, indent=1) + '\n')
     pathlib.Path(a.approved_out).write_text(json.dumps({'files': res['approved'], 'rules_root': res['rules_root']}, indent=1) + '\n')
     print(f"publishable={'true' if res['publishable'] else 'false'}"); print(json.dumps(res['public_stats']) + ' blockers=' + json.dumps(res['blockers']), file=sys.stderr)
