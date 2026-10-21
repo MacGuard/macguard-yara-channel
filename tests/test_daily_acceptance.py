@@ -12,6 +12,10 @@ from pathlib import Path
 WORKFLOWS = Path(__file__).resolve().parent.parent / ".github" / "workflows"
 DAILY = (WORKFLOWS / "daily.yml").read_text()
 # The condition before the acceptance input existed: scheduled and ordinary manual runs must keep behaving exactly like this.
+# The wording of candidate.changes in an ordinary run (scheduled or manual) must stay byte for byte what it always was.
+NORMAL_MSG = 'The approved set differs from the latest release. A new release will be requested.'
+ACCEPTANCE_MSG = 'The approved set differs from the latest release. This was an acceptance run: no release is requested.'
+ACCEPTANCE_ENV = "ACCEPTANCE: ${{ github.event_name == 'workflow_dispatch' && inputs.acceptance }}"
 BEFORE = "needs.review.outputs.publishable == 'true' && needs.review.outputs.changed == 'true' && needs.macos.result == 'success'"
 
 
@@ -148,16 +152,42 @@ class AcceptanceRunsNeverRequestARelease(unittest.TestCase):
         self.assertIn("type: boolean", block.group(1))
         self.assertIn("default: false", block.group(1))
         uses = [ln.strip() for ln in DAILY.splitlines() if "inputs.acceptance" in ln]
-        self.assertEqual(len(uses), 1, f"the acceptance input must only gate request-publish, found: {uses}")
-        self.assertTrue(uses[0].startswith("if:"))
-        self.assertIn(uses[0], job_block(DAILY, "request-publish"))
+        self.assertEqual(len(uses), 2, f"the acceptance input may only gate request-publish and word the transparency-log message, found: {uses}")
+        gate = [u for u in uses if u.startswith("if:")]
+        self.assertEqual(len(gate), 1)
+        self.assertIn(gate[0], job_block(DAILY, "request-publish"))
+        self.assertEqual([u for u in uses if not u.startswith("if:")], [ACCEPTANCE_ENV], "the only other reader is the env of the transparency-log step")
+        self.assertIn(ACCEPTANCE_ENV, job_block(DAILY, "review"))
         self.assertNotIn("inputs.acceptance", (WORKFLOWS / "publish.yml").read_text(), "acceptance must not change anything in publication")
 
     def test_acceptance_does_not_touch_the_rules_of_acceptance(self):
         # Nothing between prepare and the quarantine submission reads the input: classification, the dynamic gate, decisions and submit run as in a normal run.
+        # The one reader before the gate is the env of the log step, which only chooses the WORDING of candidate.changes (see the message tests below).
         before_gate = DAILY.split("request-publish:", 1)[0]
-        self.assertEqual(before_gate.count("inputs.acceptance"), 0)
+        self.assertEqual(before_gate.count("inputs.acceptance"), 1)
+        self.assertEqual(before_gate.count(ACCEPTANCE_ENV), 1)
+        self.assertEqual(before_gate.count("$ACCEPTANCE"), 1, "the variable is read once, to choose the message")
         self.assertEqual(DAILY.count("AUTO_PUBLISH"), 0, "daily.yml does not read or set AUTO_PUBLISH")
+
+
+    def test_the_changes_message_only_differs_in_acceptance_runs(self):
+        rec = DAILY.split("Record the result in the transparency log", 1)[1].split("- name: Upload the public candidate", 1)[0]
+        self.assertEqual(rec.count(NORMAL_MSG), 1, "the ordinary message stays, once, byte for byte")
+        self.assertEqual(rec.count(ACCEPTANCE_MSG), 1)
+        self.assertEqual(DAILY.count("A new release will be requested"), 1)
+        self.assertEqual(len(re.findall(r"--code candidate\.changes", DAILY)), 1, "same event code in both cases")
+        self.assertIn(f'CHANGES_MSG="{NORMAL_MSG}"', rec, "the ordinary message is the default")
+        self.assertIn(f'if [ "$ACCEPTANCE" = "true" ]; then CHANGES_MSG="{ACCEPTANCE_MSG}"; fi', rec, "the acceptance message is chosen only by the acceptance condition")
+        self.assertIn('--code candidate.changes --run-id "$RUN_ID" --message "$CHANGES_MSG"', rec)
+        self.assertEqual(rec.count("CHANGES_MSG="), 2, "no other assignment of the message")
+        self.assertEqual(rec.count("$ACCEPTANCE"), 1, "ACCEPTANCE is read nowhere else in the step")
+        self.assertNotIn("release will be requested", ACCEPTANCE_MSG.replace("no release is requested", ""), "an acceptance run does not announce a publication")
+
+    def test_the_acceptance_flag_of_the_log_step_is_true_only_for_a_manual_acceptance_run(self):
+        m = re.search(r"ACCEPTANCE: \$\{\{ (.+?) \}\}", DAILY)
+        self.assertTrue(m)
+        for event, acc, want in (("schedule", None, False), ("push", None, False), ("workflow_dispatch", False, False), ("workflow_dispatch", None, False), ("workflow_dispatch", True, True)):
+            self.assertEqual(evaluate(m.group(1), {"github.event_name": event, "inputs.acceptance": acc}), want, (event, acc))
 
 
 if __name__ == "__main__":
