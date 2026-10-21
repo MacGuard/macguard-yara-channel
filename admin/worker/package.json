@@ -4,6 +4,7 @@
   "type": "module",
   "scripts": {
     "test": "node --test test/*.test.js",
+    "deploy": "python3 ../../scripts/check_worker_config.py --config \"$WRANGLER_CONFIG\" && npx wrangler -c \"$WRANGLER_CONFIG\" deploy",
     "test:runtime": "node --test test-runtime/*.test.mjs",
     "test:ui": "node --no-warnings --test --test-concurrency=1 test/ui/ui.test.mjs"
   },
