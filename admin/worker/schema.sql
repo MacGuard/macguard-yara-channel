@@ -198,3 +198,21 @@ CREATE TRIGGER IF NOT EXISTS policy_lifts_two_step_born_open BEFORE INSERT ON po
 CREATE TRIGGER IF NOT EXISTS policy_lifts_direct_standard_only BEFORE INSERT ON policy_lifts WHEN NEW.kind = 'DIRECT' AND (SELECT criticality FROM policies WHERE id = NEW.policy_id) IS NOT 'STANDARD' BEGIN SELECT RAISE(ABORT, 'a critical policy cannot be lifted by one administrator'); END;
 CREATE TRIGGER IF NOT EXISTS policy_lifts_breakglass_needs_critical BEFORE INSERT ON policy_lifts WHEN NEW.kind = 'BREAKGLASS' AND (SELECT criticality FROM policies WHERE id = NEW.policy_id) IS NOT 'CRITICAL' BEGIN SELECT RAISE(ABORT, 'break-glass applies to critical policies only'); END;
 CREATE TRIGGER IF NOT EXISTS policy_lifts_breakglass_review_overdue BEFORE INSERT ON policy_lifts WHEN NEW.kind = 'BREAKGLASS' AND EXISTS (SELECT 1 FROM policy_lifts b WHERE b.kind = 'BREAKGLASS' AND b.state = 'APPLIED' AND b.reviewed_at IS NULL AND b.review_due_at < NEW.requested_at) BEGIN SELECT RAISE(ABORT, 'a break-glass review is overdue'); END;
+
+-- Mirrored from migrations/0004_audit_anchor.sql (a test keeps the two identical).
+-- BEGIN audit_anchor (0004)
+CREATE TABLE IF NOT EXISTS audit_anchor (
+  seq INTEGER PRIMARY KEY,          -- last audit seq of the sealed segment
+  hash TEXT NOT NULL,               -- head hash of that segment (the hash the next retained entry links to)
+  rows INTEGER NOT NULL CHECK (rows > 0),   -- entries in the segment
+  seal_sha256 TEXT NOT NULL,        -- SHA-256 of the seal document
+  created_at TEXT NOT NULL,
+  author TEXT NOT NULL
+);
+CREATE TRIGGER IF NOT EXISTS audit_anchor_no_update BEFORE UPDATE ON audit_anchor BEGIN SELECT RAISE(ABORT, 'audit anchors are append-only'); END;
+CREATE TRIGGER IF NOT EXISTS audit_anchor_no_delete BEFORE DELETE ON audit_anchor BEGIN SELECT RAISE(ABORT, 'audit anchors are append-only'); END;
+-- An anchor cannot disagree with an audit row that still exists at its position.
+CREATE TRIGGER IF NOT EXISTS audit_anchor_matches_audit BEFORE INSERT ON audit_anchor
+  WHEN EXISTS (SELECT 1 FROM audit WHERE seq = NEW.seq AND hash <> NEW.hash)
+  BEGIN SELECT RAISE(ABORT, 'anchor hash does not match the audit entry at that seq'); END;
+-- END audit_anchor (0004)
