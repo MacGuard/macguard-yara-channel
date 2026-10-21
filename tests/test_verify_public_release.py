@@ -11,6 +11,10 @@ sys.path.insert(0, str(ROOT / 'scripts'))
 import verify_public_release as V
 
 REAL = None
+# The fixture is one fixed release, not "the latest": the consistency tests below start from checkpoint 20 and this release's consistency.json starts there, so
+# they keep their meaning when later releases are published. The newest release has its own test (it extends the checkpoint of this one).
+PINNED = 'rules-20261018-39150886414'
+NEXT = 'rules-20261021-39541028283'
 
 def real_bytes(name):
     """Bytes of a file of the fixture folder chosen by exact name from its listing (a request path never builds a filesystem path), or None."""
@@ -18,8 +22,8 @@ def real_bytes(name):
 def setUpModule():
     global REAL
     REAL = pathlib.Path(tempfile.mkdtemp(prefix='real-release-'))
-    r = subprocess.run([sys.executable, str(SCRIPT), '--latest', '--output-dir', str(REAL), '--json'], capture_output=True, text=True)
-    assert r.returncode == 0, f'the real release must verify before it can be used as a fixture: {r.stdout[-400:]} {r.stderr[-300:]}'
+    r = subprocess.run([sys.executable, str(SCRIPT), '--tag', PINNED, '--output-dir', str(REAL), '--json'], capture_output=True, text=True)
+    assert r.returncode == 0, f'the pinned real release must verify before it can be used as a fixture: {r.stdout[-400:]} {r.stderr[-300:]}'
 def tearDownModule(): shutil.rmtree(REAL, ignore_errors=True)
 
 def run(*args, env=None):
@@ -54,6 +58,10 @@ class RealRelease(unittest.TestCase):
     def test_consistency_between_two_real_releases_verifies(self):
         cp = urllib.request.urlopen('https://raw.githubusercontent.com/MacGuard/macguard-yara-channel/main/logs/checkpoints/00000020.txt').read()
         f = pathlib.Path(tempfile.mkdtemp()) / 'prev.txt'; f.write_bytes(cp); code, rep, _, err = run('--directory', str(REAL), '--previous-checkpoint', str(f), '--json')
+        self.assertEqual(code, 0, err); self.assertEqual(next(c for c in rep['checks'] if c['id'] == 'consistency')['status'], 'pass')
+    def test_the_release_that_followed_extends_the_checkpoint_of_the_pinned_one(self):
+        cp = urllib.request.urlopen('https://raw.githubusercontent.com/MacGuard/macguard-yara-channel/main/logs/checkpoints/00000075.txt').read()
+        f = pathlib.Path(tempfile.mkdtemp()) / 'prev.txt'; f.write_bytes(cp); code, rep, _, err = run('--tag', NEXT, '--previous-checkpoint', str(f), '--json')
         self.assertEqual(code, 0, err); self.assertEqual(next(c for c in rep['checks'] if c['id'] == 'consistency')['status'], 'pass')
     def test_trust_state_is_written_only_after_a_full_pass_and_prevents_rollback(self):
         ts = pathlib.Path(tempfile.mkdtemp()) / 'trust.json'; code, rep, _, err = run('--directory', str(REAL), '--trust-state', str(ts), '--json'); self.assertEqual(code, 0, err)
