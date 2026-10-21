@@ -349,6 +349,26 @@ def resolve_and_download(a, net, work: pathlib.Path, rep):
         info['note'] = (info.get('note') + '; ' if info.get('note') else '') + f'GitHub API rate limit reached, so the release was resolved through github.com instead (no API sizes/digests; Content-Length is checked): {rl.message[:160]}'
         return info, d
 
+def checkpoint_bases(a, size):
+    """Where the signed checkpoint of a log size lives: the `logs` branch (the transparency log moved there, directory logs/), then `main`, which keeps the log frozen
+    at the move so every checkpoint taken before it (and every older verifier) is still served from the same bytes."""
+    raw = a.raw_url.rstrip('/')
+    return [f'{raw}/{a.repo}/logs/logs/checkpoints/{size:08d}', f'{raw}/{a.repo}/main/logs/checkpoints/{size:08d}']
+
+def fetch_checkpoint(net, a, size, d, only=None):
+    """Download checkpoint .txt and .sigstore.json from ONE location (never one file from each): first the logs branch, then main."""
+    names = {'checkpoint.txt': '.txt', 'checkpoint.sigstore.json': '.sigstore.json'}
+    if only: names = {only: names[only]}
+    last = None
+    for base in checkpoint_bases(a, size):
+        try:
+            for name, ext in names.items(): net.download(base + ext, d / name)
+            return
+        except Fail as f:
+            last = f
+            for name in names: (d / name).unlink(missing_ok=True)
+    raise last
+
 def resolve_via_web(a, net, d: pathlib.Path):
     web = a.web_url.rstrip('/')
     if a.latest:
@@ -362,8 +382,8 @@ def resolve_via_web(a, net, d: pathlib.Path):
         try: net.download(dl + name, d / name)
         except Fail as f:
             if name not in ('checkpoint.txt', 'checkpoint.sigstore.json') or not (d / 'manifest.json').exists(): raise Fail(f.code, f'{f.message} (mandatory artifact {name})')
-            size = load_json(d / 'manifest.json')['log']['size']; raw = a.raw_url.rstrip('/') + f'/{a.repo}/main/logs/checkpoints/{size:08d}'
-            net.download(raw + ('.txt' if name.endswith('.txt') else '.sigstore.json'), d / name); note = f'checkpoint taken from the repository (logs/checkpoints/{size:08d}.*): this release predates attaching it'
+            size = load_json(d / 'manifest.json')['log']['size']
+            fetch_checkpoint(net, a, size, d, only=name); note = f'checkpoint taken from the repository (logs/checkpoints/{size:08d}.*): this release predates attaching it'
     for name in OPTIONAL:
         try: net.download(dl + name, d / name)
         except Fail:
@@ -388,8 +408,7 @@ def resolve_via_api(a, net, d: pathlib.Path):
         # releases made before checkpoints were attached: the signed checkpoint of that log size lives in the repository
         net.download(assets['manifest.json']['browser_download_url'], d / 'manifest.json', assets['manifest.json'].get('size'))
         size = load_json(d / 'manifest.json')['log']['size']
-        raw = a.raw_url.rstrip('/') + f'/{a.repo}/main/logs/checkpoints/{size:08d}'
-        net.download(raw + '.txt', d / 'checkpoint.txt'); net.download(raw + '.sigstore.json', d / 'checkpoint.sigstore.json')
+        fetch_checkpoint(net, a, size, d)
         fallback_note = f'checkpoint taken from the repository (logs/checkpoints/{size:08d}.*): this release predates attaching it'
         missing = [n for n in missing if n not in ('checkpoint.txt', 'checkpoint.sigstore.json')]
     if missing: raise Fail(6, 'incomplete release: missing ' + ', '.join(missing))

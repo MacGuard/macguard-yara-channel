@@ -39,6 +39,8 @@ jobs:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           ref: ${{ github.ref_name }}
+      - name: Materialize the transparency log from the logs branch
+        run: bash scripts/logs_branch.sh materialize
       - name: Install the YARA engine and record its version
         run: |
           sudo apt-get update -qq && sudo apt-get install -y -qq yara

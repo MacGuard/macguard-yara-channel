@@ -83,8 +83,8 @@ export async function loadOverview(env, deps, token, nowMs, days = 30) {
   const api = env.GITHUB_API || 'https://api.github.com', repo = env.REPO, site = env.PUBLIC_SITE || 'https://rules.mac-guard.com', raw = env.GITHUB_RAW || 'https://raw.githubusercontent.com';
   const gh = { Accept: 'application/vnd.github+json', 'User-Agent': 'macguard-admin', ...(token ? { Authorization: `Bearer ${token}` } : {}) };
   let rate = null; const unavailable = [];
-  const getJson = async (name, url, headers) => {
-    try { const r = await deps.fetch(url, { headers }); if (r.headers && r.headers.get && r.headers.get('x-ratelimit-remaining') !== null) rate = { remaining: Number(r.headers.get('x-ratelimit-remaining')), limit: Number(r.headers.get('x-ratelimit-limit')) };
+  const getJson = async (name, url, headers, fallbackUrl) => {
+    try { let r = await deps.fetch(url, { headers }); if (!r.ok && r.status === 404 && fallbackUrl) r = await deps.fetch(fallbackUrl, { headers }); if (r.headers && r.headers.get && r.headers.get('x-ratelimit-remaining') !== null) rate = { remaining: Number(r.headers.get('x-ratelimit-remaining')), limit: Number(r.headers.get('x-ratelimit-limit')) };
       if (!r.ok) { unavailable.push({ source: name, reason: r.status === 403 || r.status === 429 ? 'rate_limited' : `http_${r.status}` }); return null; } return r; }
     catch { unavailable.push({ source: name, reason: 'unreachable' }); return null; }
   };
@@ -94,7 +94,7 @@ export async function loadOverview(env, deps, token, nowMs, days = 30) {
     getJson('publish_runs', `${api}/repos/${repo}/actions/workflows/publish.yml/runs?per_page=100&exclude_pull_requests=true&created=%3E%3D${since}`, gh),
     getJson('releases', `${api}/repos/${repo}/releases?per_page=100`, gh),
     getJson('stats', `${site}/stats.json`, { Accept: 'application/json' }),
-    getJson('log', `${raw}/${repo}/main/logs/log.jsonl`, { Accept: 'text/plain' }),
+    getJson('log', `${raw}/${repo}/logs/logs/log.jsonl`, { Accept: 'text/plain' }, `${raw}/${repo}/main/logs/log.jsonl`),   // the log lives on the `logs` branch; main keeps it frozen at the move
     getJson('sources', `${raw}/${repo}/main/config/sources.json`, { Accept: 'application/json' }),
   ]);
   const j = async (r, name) => { if (!r) return null; try { return await r.json(); } catch { unavailable.push({ source: name, reason: 'malformed' }); return null; } };
