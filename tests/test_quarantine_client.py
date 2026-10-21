@@ -22,6 +22,10 @@ class ClientTests(unittest.TestCase):
         os.environ.update(QUARANTINE_URL=url if url is not None else self.base, QUARANTINE_AUDIENCE=AUD, ACTIONS_ID_TOKEN_REQUEST_URL=f'{self.base}/__oidc?workflow={workflow}', ACTIONS_ID_TOKEN_REQUEST_TOKEN='test-request-token')
     def setUp(self): self.env(); self.d = pathlib.Path(tempfile.mkdtemp())
     def tearDown(self): shutil.rmtree(self.d, ignore_errors=True)
+    def publish(self, tag, submissions):
+        """What GitHub serves for a public release that lists these files (the service reads the release itself and no longer trusts the callback's hashes)."""
+        req = urllib.request.Request(f'{self.base}/__release?tag={tag}', data=json.dumps([{'path': x['path'], 'sha256': x['sha256'], 'bytes': x['bytes']} for x in submissions]).encode(), method='POST')
+        urllib.request.urlopen(req, timeout=10).read()
     def decision(self, rules):
         subs = []
         for name, text in rules.items():
@@ -49,8 +53,11 @@ class ClientTests(unittest.TestCase):
         cls = [{'path': 'rules/slow.yar', 'sha256': sha, 'bytes': 10, 'source': 'community', 'state': 'QUARANTINED', 'reasons': [{'code': 'costly-regex', 'severity': 'review', 'detail': ''}], 'depends_on': []}]
         out = decide.decide(cls, decisions=dm['decisions'], dynamic_required=False); self.assertEqual([a['path'] for a in out['approved']], ['rules/slow.yar'])
         # only the publish workflow may mark it released
-        st, denied = qc.call('POST', '/api/pipeline/released', {'tag': 'rules-x', 'hashes': [sha]}); self.assertEqual(st, 403)
-        self.env('publish.yml'); st, rel = qc.call('POST', '/api/pipeline/released', {'tag': 'rules-x', 'hashes': [sha]}); self.assertEqual((st, len(rel['changed'])), (200, 1))
+        tag = 'rules-20261021-800'; st, denied = qc.call('POST', '/api/pipeline/released', {'tag': tag, 'hashes': [sha]}); self.assertEqual(st, 403)
+        self.env('publish.yml'); st, rel = qc.call('POST', '/api/pipeline/released', {'tag': tag, 'hashes': [sha]}); self.assertEqual(st, 409, 'there is no public release yet: nothing is released on the word of the request'); self.assertIn('nothing was changed', rel['error'])
+        self.publish(tag, dec['submissions'][:1])   # the release is now public and lists the approved rule only
+        st, rel = qc.call('POST', '/api/pipeline/released', {'tag': tag, 'hashes': [sha, dec['submissions'][1]['sha256']]}); self.assertEqual((st, len(rel['changed'])), (200, 1))
+        st, again = qc.call('POST', '/api/pipeline/released', {'tag': tag, 'hashes': [sha]}); self.assertEqual((st, again['changed']), (200, []), 'repeating the callback changes nothing')
     def test_the_service_being_down_is_reported_and_never_blocks(self):
         self.env(url='http://127.0.0.1:9')
         st, data = qc.call('GET', '/api/pipeline/decisions'); self.assertEqual(st, 0); self.assertIn('unreachable', data['error'])

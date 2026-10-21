@@ -11,6 +11,7 @@ import { fileURLToPath } from 'node:url';
 import { Miniflare } from 'miniflare';
 import { actionsToken, cand, rid, rsaKey, sha, ORIGIN, REPO } from '../test/helpers.js';
 import { createSession } from '../src/auth.js';
+import { chainHash, rulesRoot, sha256Hex, verifyChain } from '../src/core.js';
 
 const root = fileURLToPath(new URL('..', import.meta.url));
 const MODULES = readdirSync(join(root, 'src')).filter((f) => f.endsWith('.js')).sort((a, b) => (a === 'index.js' ? -1 : b === 'index.js' ? 1 : a.localeCompare(b))).map((f) => ({ type: 'ESModule', path: f, contents: readFileSync(join(root, 'src', f), 'utf8') }));   // every source module, so a new import can never be missing from the runtime test; index.js first because workerd takes the first module as the entry point
@@ -18,6 +19,7 @@ const persist = mkdtempSync(join(tmpdir(), 'mg-d1-'));
 const key = await rsaKey(), otherKey = await rsaKey();
 const ENC_KEY = Buffer.alloc(32, 9).toString('base64');   // test-only key for sealing session tokens
 const accounts = {}; let opsCalls = 0;   // the faked GitHub: known accounts and a counter of pipeline-record reads
+const published = new Map();   // release tag -> what the fake GitHub serves for that public release
 const perms = {};   // access token -> GitHub repository permissions, answered by the fake GitHub
 let mf, db;
 
@@ -33,6 +35,9 @@ const fakeGithub = async (req) => {
   const day = new Date().toISOString().slice(0, 10), ok = (o) => Response.json(o, { headers: { 'x-ratelimit-remaining': '4999', 'x-ratelimit-limit': '5000' } });
   if (u.hostname === 'api.github.com' && /actions\/workflows\/daily\.yml\/runs/.test(u.pathname)) { opsCalls++; return ok({ workflow_runs: [{ id: 1, event: 'schedule', status: 'completed', conclusion: 'success', created_at: `${day}T03:20:00Z`, run_started_at: `${day}T03:20:00Z`, updated_at: `${day}T03:29:00Z`, html_url: 'https://github.com/x/y/actions/runs/1' }] }); }
   if (u.hostname === 'api.github.com' && /actions\/workflows\/publish\.yml\/runs/.test(u.pathname)) return ok({ workflow_runs: [] });
+  const relTag = u.hostname === 'api.github.com' && /\/releases\/tags\/([^/]+)$/.exec(u.pathname), dlTag = u.hostname === 'github.com' && /\/releases\/download\/([^/]+)\/manifest\.json$/.exec(u.pathname);
+  if (relTag) { const p = published.get(relTag[1]); return p ? Response.json(p.rel) : new Response('{}', { status: 404 }); }
+  if (dlTag) { const p = published.get(dlTag[1]); return p ? new Response(p.bytes) : new Response('not found', { status: 404 }); }
   if (u.hostname === 'api.github.com' && u.pathname.endsWith('/releases')) return ok([]);
   if (u.hostname === 'raw.githubusercontent.com' && u.pathname.endsWith('/log.jsonl')) return new Response('');
   if (u.hostname === 'raw.githubusercontent.com' && u.pathname.endsWith('/sources.json')) return Response.json({ sources: [{ id: 'nextron', repo: 'a/b', kind: 'rules', paths: [] }] });
@@ -225,4 +230,25 @@ test('members by immutable id through the real runtime: resolve, grant, audit wi
   assert.equal((await call('POST', '/api/members', { user: admin, body: { user_id: me.user_id, role: 'VIEWER', reason: 'trying to demote myself' } })).status, 400);
   const e = (await call('GET', '/api/audit?family=member', { user: admin })).data.entries[0]; assert.deepEqual([e.detail.from_role, e.detail.to_role, e.detail.reason, e.detail.user_id], [null, 'REVIEWER', 'joins the weekly review', look.data.account.id]);
   assert.equal((await call('GET', '/api/audit/verify', { user: admin })).data.ok, false, 'the earlier test dropped a trigger and tampered a row on purpose: the chain stays broken and says so');
+});
+
+test('the release callback on the real runtime: evidence from the public release, exact path and hash, concurrent callbacks release once, nothing without a verified manifest', async () => {
+  const items = Array.from({ length: 40 }, (_, i) => cand(`rel${i}`, `rules/rel/${i}.yar`)); const ids = (await submit(items)).data.results.map((r) => r.id); assert.equal(ids.length, 40);
+  const listed = items.slice(0, 25).map((c) => ({ path: c.path, sha256: c.sha256, bytes: c.bytes })); const tag = 'rules-20261021-700';
+  const publish = async (t, files, tamper = false) => { const bytes = new TextEncoder().encode(JSON.stringify({ schema: 1, files, rules_root: tamper ? '0'.repeat(64) : await rulesRoot(files) }));
+    published.set(t, { bytes, rel: { id: 700, tag_name: t, draft: false, published_at: '2026-10-21T03:40:00Z', assets: [{ name: 'manifest.json', browser_download_url: `https://github.com/${REPO}/releases/download/${t}/manifest.json`, digest: 'sha256:' + await sha256Hex(bytes) }] } }); };
+  const callback = async (t, attempt = '1') => call('POST', '/api/pipeline/released', { bearer: await pipeline('publish.yml', { run_id: '700', run_attempt: attempt }), body: { tag: t, hashes: items.map((c) => c.sha256), run_url: `${ORIGIN}/runs/700` } });
+  const released = async () => (await db.prepare("SELECT COUNT(*) n FROM candidates WHERE path LIKE 'rules/rel/%' AND state = 'RELEASED'").first()).n;
+  assert.equal((await callback('rules-20261021-699')).status, 409, 'no such public release'); assert.equal(await released(), 0);
+  await publish('rules-20261021-698', listed, true); assert.equal((await callback('rules-20261021-698')).status, 422, 'a forged rules_root is not evidence'); assert.equal(await released(), 0);
+  await publish(tag, listed); const [x, y] = await Promise.all([callback(tag), callback(tag, '2')]); assert.deepEqual([x.status, y.status], [200, 200]);
+  assert.equal(await released(), 25, 'exactly the 25 listed, once each'); assert.equal((await db.prepare("SELECT MAX(version) v FROM candidates WHERE path LIKE 'rules/rel/%'").first()).v, 2);
+  const audit = (await db.prepare("SELECT detail FROM audit WHERE action = 'pipeline.released' ORDER BY seq").all()).results.map((r) => JSON.parse(r.detail));
+  assert.equal(audit.reduce((n, d) => n + d.changed, 0), 25); assert.equal(audit.filter((d) => d.receipt === 'first').length, 1); assert.ok(audit.every((d) => d.tag === tag && d.token_run_id === '700' && d.manifest_files === 25));
+  assert.equal(audit.find((d) => d.receipt === 'first').transitions.length, 25); const rita = await login('rel-rita', { push: true });
+  const sheet = await get(rita, ids[0]); assert.equal(sheet.state, 'RELEASED'); assert.equal(sheet.release.tag, tag); assert.equal(sheet.release.basis, 'pipeline_checks_only', 'json_each finds the transition in the real D1');
+  assert.equal((await get(rita, ids[30])).state, 'PENDING'); assert.equal((await get(rita, ids[30])).release, null);
+  // the chain of the whole file is broken on purpose by an earlier test, so check this callback's own links: linear, and every hash is the one the entry hashes to
+  const rows = (await db.prepare('SELECT * FROM audit ORDER BY seq').all()).results, at = rows.findIndex((r) => r.action === 'pipeline.released'), mine = rows.slice(Math.max(at - 1, 0));
+  for (let i = 1; i < mine.length; i++) { assert.equal(mine[i].prev_hash, mine[i - 1].hash, `link ${i}`); assert.equal(mine[i].hash, await chainHash(mine[i].prev_hash, { at: mine[i].at, actor: mine[i].actor, role: mine[i].role, action: mine[i].action, target: mine[i].target, detail: mine[i].detail }), `hash ${i}`); }
 });

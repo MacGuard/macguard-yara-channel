@@ -25,6 +25,10 @@ if (process.argv.includes('--deps')) items.push(   // a shared dependency (appro
   cand('d2', 'rules/community/pack/uses_base_2.yar', { reasons: ['dependency-not-validated'], depends_on: ['rules/community/pack/shared_base.yar'] }),
   cand('b', 'rules/community/pack/needs_cuckoo.yar', { reasons: ['blocked-module'] }), cand('x', 'rules/community/pack/uses_cuckoo.yar', { reasons: ['dependency-not-validated'], depends_on: ['rules/community/pack/needs_cuckoo.yar'] }));
 if (!empty) await w.submit(items);
+if (process.argv.includes('--released') && !empty) {   // one pending rule that the pipeline then published: the release callback with the evidence GitHub serves
+  const first = items[0]; await w.release('rules-20261021-900', [first]);
+  await w.call('POST', '/api/pipeline/released', { bearer: await w.pipelineToken('publish.yml', { run_id: '900', run_attempt: '1' }), body: { tag: 'rules-20261021-900', hashes: [first.sha256], run_url: `${w.env.PUBLIC_URL}/runs/900` } });
+}
 const sessions = {
   viewer: await w.login('vera', { pull: true }, { id: 11 }), reviewer: await w.login('rita', { push: true }, { id: 12 }), admin: await w.login('ada', { admin: true }, { id: 13 }),
   nobody: await w.login('sam', { pull: true }, { id: 14 }),   // signed in with GitHub but holds no role
@@ -47,6 +51,10 @@ async function handler(req, res) {
     const u = new URL(req.url, 'http://x'); if (req.headers.authorization !== 'bearer test-request-token') { res.statusCode = 401; return res.end('{}'); }
     const t = await actionsToken(w.key, { aud: u.searchParams.get('audience'), job_workflow_ref: `${w.env.REPO}/.github/workflows/${u.searchParams.get('workflow') || 'daily.yml'}@refs/heads/main` });
     res.setHeader('Content-Type', 'application/json'); return res.end(JSON.stringify({ value: t }));
+  }
+  if (req.url.startsWith('/__release') && req.method === 'POST') {   // test-only: what GitHub serves for a public release (python client tests need the evidence the Worker now reads itself)
+    const u = new URL(req.url, 'http://x'); const files = JSON.parse(Buffer.concat(chunks).toString() || '[]'); await w.release(u.searchParams.get('tag'), files);
+    res.setHeader('Content-Type', 'application/json'); return res.end('{"ok":true}');
   }
   const { handle } = await import('../src/index.js');
   const r = await handle(new Request(`${scheme}://127.0.0.1:${port}${req.url}`, { method: req.method, headers: req.headers, body: chunks.length ? Buffer.concat(chunks) : undefined }), w.env, w.deps);

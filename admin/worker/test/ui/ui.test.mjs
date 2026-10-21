@@ -166,6 +166,20 @@ for (const name of WANT) {
         try { await goto(dark, s, '/#/quarantine'); await dark.waitForSelector('.rule'); await dark.locator('.rule-title', { hasText: 'uses_cuckoo.yar' }).click(); await dark.waitForSelector('#h-dep'); assert.deepEqual(await axeViolations(dark), [], 'and in the dark theme'); } finally { await dark.context().close(); }
       } finally { await page.context().close(); s.stop(); }
     });
+    test('a rule the pipeline published is shown as published, with the release, how it was released and the verified manifest; it takes no decisions and is not counted as pending', async () => {
+      const s = await startServer(['--released']); const page = await newPage(browser, s, 'reviewer', VIEWPORTS.desktop);
+      try {
+        await goto(page, s, '/#/quarantine'); await page.waitForSelector('.rule');
+        assert.equal(await page.locator('.pill:has-text("Pendientes") b').innerText(), '6', 'seven were received, one is already published');
+        await page.getByRole('button', { name: /Publicadas/ }).first().click(); await page.waitForFunction(() => document.querySelectorAll('.rule').length === 1);
+        await page.locator('.rule-title').first().click(); await page.waitForSelector('#h-dep');
+        const txt = (await page.locator('main').innerText()).replace(/\s+/g, ' ');
+        assert.ok(txt.includes('rules-20261021-900') && txt.includes('La pipeline la publicó tras superar los controles técnicos, sin decisión humana') && txt.includes('Manifiesto verificado') && txt.includes('Ejecución 900, intento 1'), txt.slice(0, 600));
+        assert.ok(txt.includes('ya está publicada en una release firmada'));
+        for (const n of ['Aprobar', 'Rechazar']) assert.equal(await page.getByRole('button', { name: n }).count(), 0, `${n} is not offered for a published rule`);
+        assert.deepEqual(await axeViolations(page), [], 'the published sheet meets WCAG 2.2 AA'); assert.deepEqual(page.errors, []);
+      } finally { await page.context().close(); s.stop(); }
+    });
     test('an administrator manages members: resolve the real account, grant, history, revoke; self and non-personal accounts are refused', async () => {
       const s = await startServer(); const page = await newPage(browser, s, 'admin', VIEWPORTS.desktop);
       try {
