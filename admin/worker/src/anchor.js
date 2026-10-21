@@ -19,7 +19,10 @@ export async function chainHead(db) {
   try { a = await db.prepare('SELECT hash FROM audit_anchor ORDER BY seq DESC LIMIT 1').first(); } catch (e) { if (!/no such table/i.test(String(e))) throw e; }   // 0004 not applied yet: nothing can have been pruned
   return a ? a.hash : GENESIS;
 }
-export async function listAnchors(db) { return (await db.prepare('SELECT seq, hash, rows, seal_sha256, created_at, author FROM audit_anchor ORDER BY seq ASC').all()).results; }
+export async function listAnchors(db) {
+  try { return (await db.prepare('SELECT seq, hash, rows, seal_sha256, created_at, author FROM audit_anchor ORDER BY seq ASC').all()).results; }
+  catch (e) { if (/no such table/i.test(String((e && e.message) || e))) return []; throw e; }   // 0004 not applied yet: there are no anchors, and /api/audit/verify must keep working
+}
 
 /** Bytes of a seal file are canonical(seal) + "\n"; the seal digest is the SHA-256 of exactly those bytes (same rule as scripts/archive/canon.py). */
 export async function sealSha256(seal) { return sha256hex(canonical(seal) + '\n'); }
