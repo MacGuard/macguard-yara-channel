@@ -2,12 +2,24 @@
 
 Generated from `logs/log.jsonl`; do not edit by hand. Times are UTC. Newest first.
 
-Entries: 175 (INFO 121, WARNING 31, ERROR 23)
+Entries: 187 (INFO 133, WARNING 31, ERROR 23)
 
-Latest signed checkpoint: 75 entries, Merkle root `1bab9bb9364b3a42f76835ae138bffad33eaa3694d0021afd208f5fd54e63d96`.
+Latest signed checkpoint: 180 entries, Merkle root `f0baf3dc99345ea1e5677bc880d4c74b57204a9b3a72d9f7433bf68e0a52005b`.
 
 | # | Date (UTC) | Level | Event | Message |
 |---|---|---|---|---|
+| 186 | 2026-10-21T04:40:28Z | INFO | `site.cloudflare_deployed` | Site deployed to Cloudflare Pages project macguard-rules and the public mirror was downloaded and verified. See https://github.com/MacGuard/macguard-yara-channel/actions/runs/39545170082 |
+| 185 | 2026-10-21T04:40:28Z | INFO | `site.live_verified` | The public GitHub Pages site was downloaded and verified: signatures, every rule hash, catalog, proof and links. See https://github.com/MacGuard/macguard-yara-channel/actions/runs/39545170082 |
+| 184 | 2026-10-21T04:40:28Z | INFO | `site.github_pages_deployed` | Site deployed to GitHub Pages. See https://github.com/MacGuard/macguard-yara-channel/actions/runs/39545170082 |
+| 183 | 2026-10-21T03:59:54Z | INFO | `site.cloudflare_deployed` | Site deployed to Cloudflare Pages project macguard-rules and the public mirror was downloaded and verified. See https://github.com/MacGuard/macguard-yara-channel/actions/runs/39541419967 |
+| 182 | 2026-10-21T03:59:54Z | INFO | `site.live_verified` | The public GitHub Pages site was downloaded and verified: signatures, every rule hash, catalog, proof and links. See https://github.com/MacGuard/macguard-yara-channel/actions/runs/39541419967 |
+| 181 | 2026-10-21T03:59:54Z | INFO | `site.github_pages_deployed` | Site deployed to GitHub Pages. See https://github.com/MacGuard/macguard-yara-channel/actions/runs/39541419967 |
+| 180 | 2026-10-21T03:57:43Z | INFO | `release.published` | Signed release rules-20261021-39541028283 published on GitHub. The site deployment was requested. |
+| 179 | 2026-10-21T03:57:26Z | INFO | `release.approved` | Candidate from review run 39540456728 was approved for signing in workflow run 39541028283. |
+| 178 | 2026-10-21T03:51:45Z | INFO | `candidate.changes` | The approved set differs from the latest release. A new release will be requested. |
+| 177 | 2026-10-21T03:51:45Z | INFO | `candidate.accepted` | 1178 rule files passed every mandatory check. Candidate rules root is b92e0216828b4ec7... |
+| 176 | 2026-10-21T03:51:45Z | INFO | `candidate.classified` | Examined 1184 rule files: 1178 accepted, 2 quarantined for review, 4 rejected, 0 deprecated; 0 files of the previous release are no longer upstream. |
+| 175 | 2026-10-21T03:51:45Z | INFO | `sources.fetched` | Fetched 3 upstream sources at pinned commits. |
 | 174 | 2026-10-20T22:06:13Z | INFO | `candidate.changes` | The approved set differs from the latest release. A new release will be requested. |
 | 173 | 2026-10-20T22:06:13Z | INFO | `candidate.accepted` | 1178 rule files passed every mandatory check. Candidate rules root is b92e0216828b4ec7... |
 | 172 | 2026-10-20T22:06:13Z | INFO | `candidate.classified` | Examined 1184 rule files: 1178 accepted, 2 quarantined for review, 4 rejected, 0 deprecated; 0 files of the previous release are no longer upstream. |
