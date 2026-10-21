@@ -270,3 +270,6 @@ table.cal { width: 100%; border-collapse: separate; border-spacing: 5px; table-l
 @media (max-width: 640px) { .strip { grid-template-columns: repeat(7, minmax(0, 1fr)); } .cal-cell { min-height: 48px; } table.cal { border-spacing: 3px; } .kpi-value { font-size: 1.45rem; } }
 .cal-mon { font-size: .62rem; text-transform: uppercase; letter-spacing: .06em; font-weight: 700; line-height: 1; }
 a > .ic, .runline .ic { display: inline-block; vertical-align: -.15em; margin-left: 4px; } .person-head a { overflow-wrap: anywhere; }
+
+.chip-ok { border-color: var(--ok); background: var(--ok-soft); color: var(--ok); font-weight: 600; }
+.chip-warn { border-color: var(--warn); background: var(--warn-soft); color: var(--warn); font-weight: 600; }

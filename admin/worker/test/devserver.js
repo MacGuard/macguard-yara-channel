@@ -4,6 +4,7 @@ import https from 'node:https';
 import { readFileSync, existsSync } from 'node:fs';
 import { extname, join, normalize } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { createHash } from 'node:crypto';
 import { world, cand, actionsToken } from './helpers.js';
 import * as store from '../src/store.js';
 import { installOps } from './ops_fixture.js';
@@ -17,6 +18,7 @@ const scheme = tls ? 'https' : 'http';
 w.env.PUBLIC_URL = `${scheme}://127.0.0.1:${port}`;
 w.deps.now = () => Math.floor(Date.now() / 1000);   // a real clock: long browser and pipeline runs must not outlive the fixed test clock
 const items = []; const empty = process.argv.includes('--empty');
+const many = process.argv.includes('--published') ? Array.from({ length: 120 }, (_, i) => ({ path: `rules/${i % 2 ? 'nextron' : 'community'}/pack_${String(i).padStart(3, '0')}.yar`, sha256: createHash('sha256').update(`published ${i}`).digest('hex'), bytes: 100 + i, source: i % 2 ? 'nextron' : 'community' })) : [];
 for (let i = 0; i < 6; i++) items.push(cand(String(i), `rules/community/pack/rule_${i}.yar`, { ...(i % 2 ? { findings_schema: 1, engine: 'YARA 4.5.0', findings: [{ code: 'costly-regex', severity: 'review', detail: 'regex /(a+)+b/ risk 7: nested quantifier', observed: 7, threshold: 6, unit: 'risk score' }] } : {}), reasons: i % 2 ? ['costly-regex'] : ['filesize-loop', 'unknown-module'], metrics: { cpu_s: 0.4 + i, rss_mb: 30 + i * 12, compile_s: 0.8, scan_p95_s: 0.03 } }));
 items.push(cand('9', 'rules/community/pack/evil.yar', { reasons: ['costly-regex'], content_b64: Buffer.from('<img src=x onerror="window.__xss=1"> rule X { condition: true }').toString('base64') }));
 if (process.argv.includes('--blocked')) items.push(cand('t', 'rules/community/pack/truncated.yar', { reasons: ['ends-mid-file'], findings_schema: 1, findings: [{ code: 'ends-mid-file', severity: 'truncated', detail: 'the file ends inside rule R' }] }));   // a technical finding: not approvable
@@ -24,9 +26,15 @@ if (process.argv.includes('--deps')) items.push(   // a shared dependency (appro
   cand('c', 'rules/community/pack/shared_base.yar', { reasons: ['matches-benign-corpus'] }), cand('d1', 'rules/community/pack/uses_base_1.yar', { reasons: ['dependency-not-validated'], depends_on: ['rules/community/pack/shared_base.yar'] }),
   cand('d2', 'rules/community/pack/uses_base_2.yar', { reasons: ['dependency-not-validated'], depends_on: ['rules/community/pack/shared_base.yar'] }),
   cand('b', 'rules/community/pack/needs_cuckoo.yar', { reasons: ['blocked-module'] }), cand('x', 'rules/community/pack/uses_cuckoo.yar', { reasons: ['dependency-not-validated'], depends_on: ['rules/community/pack/needs_cuckoo.yar'] }));
+if (process.argv.includes('--synthetic')) items.push(cand('z', 'synthetic-quarantine-test/s1.yar', { source: 'synthetic-test', reasons: ['synthetic-test'] }));
+if (many.length) items.push(cand('n', many[0].path, { source: 'community', reasons: ['costly-regex'] }));   // a newer version of a published file waits in quarantine
 if (!empty) await w.submit(items);
 if (process.argv.includes('--released') && !empty) {   // one pending rule that the pipeline then published: the release callback with the evidence GitHub serves
   const first = items[0]; await w.release('rules-20261021-900', [first]);
+  await w.call('POST', '/api/pipeline/released', { bearer: await w.pipelineToken('publish.yml', { run_id: '900', run_attempt: '1' }), body: { tag: 'rules-20261021-900', hashes: [first.sha256], run_url: `${w.env.PUBLIC_URL}/runs/900` } });
+}
+if (many.length && !empty) {   // the current signed release lists 120 files the panel never saw, plus one rule the pipeline published after it was quarantined
+  const first = items[0]; await w.release('rules-20261021-900', [{ path: first.path, sha256: first.sha256, bytes: first.bytes, source: first.source }, ...many]);
   await w.call('POST', '/api/pipeline/released', { bearer: await w.pipelineToken('publish.yml', { run_id: '900', run_attempt: '1' }), body: { tag: 'rules-20261021-900', hashes: [first.sha256], run_url: `${w.env.PUBLIC_URL}/runs/900` } });
 }
 const sessions = {

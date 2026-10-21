@@ -1,5 +1,5 @@
 // MacGuard quarantine service: private API + admin UI assets. The public site never talks to this worker.
-import { MAX_BATCH, RELEASE_TAG, atLeast, blobError, highestRole, roleFromRepoPermission, publicStats, validateDecisionRequest, validateSubmission, verifyChain } from './core.js';
+import { MAX_BATCH, RELEASE_TAG, reconcilePublished, PUBLISHED_STATUS, atLeast, blobError, highestRole, roleFromRepoPermission, publicStats, validateDecisionRequest, validateSubmission, verifyChain } from './core.js';
 import * as store from './store.js';
 import * as ops from './ops.js';
 import { fetchPublication } from './publication.js';
@@ -95,7 +95,20 @@ export async function handle(request, env, deps) {
       if (method === 'GET' && path === '/api/me') return json({ login: session.login, user_id: session.user_id, role, csrf: session.csrf, max_batch: MAX_BATCH });
       if (method === 'POST' && path === '/api/logout') { await destroySession(db, session.id); return json({ ok: true }, 200, { 'Set-Cookie': clearCookie() }); }
       if (method === 'GET' && path === '/api/candidates') {
-        return json(await store.listCandidates(db, { state: url.searchParams.get('state') || undefined, q: url.searchParams.get('q') || undefined, source: url.searchParams.get('source') || undefined, page: +url.searchParams.get('page') || 1, pageSize: +url.searchParams.get('pageSize') || 25 }));
+        return json(await store.listCandidates(db, { state: url.searchParams.get('state') || undefined, q: url.searchParams.get('q') || undefined, source: url.searchParams.get('source') || undefined, synthetic: url.searchParams.get('synthetic') === '1', page: +url.searchParams.get('page') || 1, pageSize: +url.searchParams.get('pageSize') || 25 }));
+      }
+      if (method === 'GET' && path === '/api/published') {   // the inventory of the current signed release, reconciled with D1 (a published file may have no record there)
+        const key = new Request(`${env.PUBLIC_URL}/__cache/published-v1`);
+        let inv = null; const hit = deps.cache ? await deps.cache.match(key) : null;
+        if (hit) { try { inv = await hit.json(); } catch { inv = null; } }
+        if (!inv) {
+          const pub = await fetchPublication(env, deps, null); if (!pub.ok) return err(pub.status, `the current release could not be read: ${pub.error}`);
+          inv = { tag: pub.tag, published_at: pub.release.published_at, evidence: pub.release.evidence, manifest_sha256: pub.manifest_sha256, rules_root: pub.rules_root, generated_at: new Date(now * 1000).toISOString(), files: [...pub.files] };
+          if (deps.cache) await deps.cache.put(key, new Response(JSON.stringify(inv), { headers: { 'Content-Type': 'application/json', 'Cache-Control': 'max-age=600' } }));
+        }
+        const p = url.searchParams, status = p.get('status') || '';
+        const view = reconcilePublished(new Map(inv.files), await store.reconcileRows(db), { q: p.get('q') || '', source: p.get('source') || '', status: PUBLISHED_STATUS.includes(status) ? status : '', page: +p.get('page') || 1, pageSize: +p.get('pageSize') || 50 });
+        return json({ release: { url: `https://github.com/${env.REPO}/releases/tag/${inv.tag}`, tag: inv.tag, published_at: inv.published_at, manifest_sha256: inv.manifest_sha256, rules_root: inv.rules_root, files: inv.files.length, read_at: inv.generated_at }, ...view });
       }
       const m = path.match(/^\/api\/candidates\/([0-9a-f-]{8,64})$/);
       if (method === 'GET' && m) {
@@ -112,7 +125,7 @@ export async function handle(request, env, deps) {
         if (deps.cache) await deps.cache.put(key, new Response(JSON.stringify(data), { headers: { 'Content-Type': 'application/json', 'Cache-Control': `max-age=${data.unavailable.length ? 60 : ops.CACHE_SECONDS}` } }));   // a partial answer is kept for a minute only
         return json({ ...data, cache: { hit: false, age_s: 0 } });
       }
-      if (method === 'GET' && path === '/api/stats') { const c = await store.counts(db); return json({ counts: c, sources: await store.sourceCounts(db), public: publicStats(c) }); }
+      if (method === 'GET' && path === '/api/stats') { const c = await store.counts(db); return json({ counts: c, sources: await store.sourceCounts(db), synthetic: await store.syntheticCount(db), public: publicStats(c) }); }
       if (method === 'POST' && path === '/api/decisions') {
         const read = await readJson(request, 200_000); if (read.tooLarge) return err(413, 'request body too large');
         const v = validateDecisionRequest(read.body, role); if (!v.ok) return err(v.status, v.error);

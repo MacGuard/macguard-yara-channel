@@ -110,11 +110,35 @@ export async function verifyManifest(bytes) {
   for (const f of m.files) {
     if (!f || typeof f.path !== 'string' || !/^[\x21-\x7e]+(?: [\x21-\x7e]+)*$/.test(f.path) || !/^[0-9a-f]{64}$/.test(f.sha256 || '')) return { ok: false, error: 'the manifest lists an entry that is not a printable path with a SHA-256' };
     if (files.has(f.path)) return { ok: false, error: 'the manifest lists a path twice' };
-    files.set(f.path, { sha256: f.sha256, bytes: Number.isInteger(f.bytes) ? f.bytes : null });
+    files.set(f.path, { sha256: f.sha256, bytes: Number.isInteger(f.bytes) ? f.bytes : null, source: typeof f.source === 'string' && /^[\w.-]{1,64}$/.test(f.source) ? f.source : null });
   }
   const root = await rulesRoot(m.files);
   if (m.rules_root !== root) return { ok: false, error: 'the manifest rules_root does not match its own file list' };
   return { ok: true, files, rules_root: root };
+}
+/** Candidates the chain test of the pipeline sends (no real rule behind them): kept apart from the real ones in every list and counter. */
+export const SYNTHETIC_SOURCE = 'synthetic-test';
+export const PUBLISHED_STATUS = ['published', 'newer_in_review'];
+/** The inventory of the current signed release, reconciled with what D1 knows. `files` is the verified manifest (path -> {sha256, bytes, source}); `rows` are the
+ *  non-archived real candidates. Nothing here assumes that a published file has a record in D1: `candidate_id` is null for what was published before the panel
+ *  existed (or by a release the panel never saw). A file is `newer_in_review` when another version of the same path is waiting in quarantine; the published
+ *  version stays published until a release without it is made. */
+export function reconcilePublished(files, rows, { q = '', source = '', status = '', page = 1, pageSize = 50 } = {}) {
+  const byPath = new Map();
+  for (const r of rows) { if (!byPath.has(r.path)) byPath.set(r.path, []); byPath.get(r.path).push(r); }
+  const all = [];
+  for (const [path, f] of files) {
+    const here = byPath.get(path) || [], same = here.find((r) => r.sha256 === f.sha256 && r.state === 'RELEASED') || null;
+    const newer = here.some((r) => r.sha256 !== f.sha256 && r.state !== 'RELEASED' && r.state !== 'REJECTED');
+    all.push({ path, source: f.source, sha256: f.sha256, bytes: f.bytes, status: newer ? 'newer_in_review' : 'published', candidate_id: same ? same.id : null, release_tag: same ? same.release_tag : null });
+  }
+  all.sort((a, b) => (a.path < b.path ? -1 : a.path > b.path ? 1 : 0));
+  const counts = { total: all.length, published: 0, newer_in_review: 0, without_record: 0 }, sources = {};
+  for (const x of all) { counts[x.status]++; if (!x.candidate_id) counts.without_record++; const k = x.source || '?'; sources[k] = (sources[k] || 0) + 1; }
+  const needle = String(q || '').toLowerCase();   // a plain substring: no SQL here, so `_` and `%` are ordinary characters
+  const kept = all.filter((x) => (!source || x.source === source) && (!status || x.status === status) && (!needle || x.path.toLowerCase().includes(needle) || x.sha256.startsWith(needle)));
+  const size = Math.min(Math.max(pageSize | 0, 1), 100), pg = Math.max(page | 0, 1);
+  return { total: kept.length, page: pg, page_size: size, items: kept.slice((pg - 1) * size, pg * size), counts, sources };
 }
 /** What happens to a candidate whose exact content the verified manifest lists. A rejected one is never moved: that would be a release in spite of a human rejection, so it is reported. */
 export function releaseTransition(fromState) {
