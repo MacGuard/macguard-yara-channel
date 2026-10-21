@@ -1,5 +1,5 @@
 // Data access for the quarantine service. `db` is a Cloudflare D1 binding (or the test shim with the same API).
-import { GENESIS, blockingReasons, chainHash, dependencyEffect, humanTransition, pipelineTransition, releaseTransition } from './core.js';
+import { GENESIS, SYNTHETIC_SOURCE, blockingReasons, chainHash, dependencyEffect, humanTransition, pipelineTransition, releaseTransition } from './core.js';
 
 const J = (v) => JSON.stringify(v ?? null);
 const parse = (s, d) => { try { return JSON.parse(s); } catch { return d; } };
@@ -59,9 +59,12 @@ export async function upsertCandidate(db, item, now, newId) {
   return { id, status: 'created', state: 'PENDING', previous: prev ? prev.id : null };
 }
 
-export async function listCandidates(db, { state, q, source, page = 1, pageSize = 25 } = {}) {
+/** `state` empty means the quarantine: everything that is not published. Published rules have their own inventory (reconcilePublished). Synthetic candidates of
+ *  the chain test are left out unless asked for. */
+export async function listCandidates(db, { state, q, source, page = 1, pageSize = 25, synthetic = false } = {}) {
   const where = ['archived_at IS NULL'], args = [];
-  if (state) { where.push('state = ?'); args.push(state); }
+  if (state) { where.push('state = ?'); args.push(state); } else where.push("state != 'RELEASED'");
+  if (!synthetic && source !== SYNTHETIC_SOURCE) { where.push('source != ?'); args.push(SYNTHETIC_SOURCE); }
   if (source) { where.push('source = ?'); args.push(source); }
   if (q) { where.push('(path LIKE ? OR sha256 LIKE ?)'); args.push(`%${q.replace(/[%_]/g, '')}%`, `${q.replace(/[%_]/g, '')}%`); }
   const clause = where.length ? 'WHERE ' + where.join(' AND ') : '';
@@ -91,11 +94,18 @@ export async function getCandidate(db, id) {
   c.history = (await db.prepare('SELECT id, sha256, state, detected_at, metrics, release_tag FROM candidates WHERE path = ? AND id != ? ORDER BY detected_at DESC LIMIT 20').bind(c.path, id).all()).results.map((h) => ({ ...h, metrics: parse(h.metrics, {}) }));
   return c;
 }
+/** The records D1 holds about real candidates, for the reconciliation with the signed inventory. */
+export async function reconcileRows(db) {
+  return (await db.prepare('SELECT id, path, sha256, state, release_tag FROM candidates WHERE archived_at IS NULL AND source != ?').bind(SYNTHETIC_SOURCE).all()).results;
+}
+export async function syntheticCount(db) {
+  return (await db.prepare("SELECT COUNT(*) AS n FROM candidates WHERE archived_at IS NULL AND source = ? AND state != 'RELEASED'").bind(SYNTHETIC_SOURCE).first()).n;
+}
 export async function sourceCounts(db) {
-  const out = {}; for (const r of (await db.prepare('SELECT source, COUNT(*) AS n FROM candidates WHERE archived_at IS NULL GROUP BY source').all()).results) out[r.source] = r.n; return out;
+  const out = {}; for (const r of (await db.prepare("SELECT source, COUNT(*) AS n FROM candidates WHERE archived_at IS NULL AND state != 'RELEASED' AND source != ? GROUP BY source").bind(SYNTHETIC_SOURCE).all()).results) out[r.source] = r.n; return out;
 }
 export async function counts(db) {
-  const out = {}; for (const r of (await db.prepare('SELECT state, COUNT(*) AS n FROM candidates WHERE archived_at IS NULL GROUP BY state').all()).results) out[r.state] = r.n;
+  const out = {}; for (const r of (await db.prepare('SELECT state, COUNT(*) AS n FROM candidates WHERE archived_at IS NULL AND source != ? GROUP BY state').bind(SYNTHETIC_SOURCE).all()).results) out[r.state] = r.n;
   // released AND approved by a person: what the public counter calls "released after review" (a rule the pipeline released without any human decision is not that)
   out.RELEASED_REVIEWED = (await db.prepare("SELECT COUNT(*) AS n FROM candidates c WHERE c.archived_at IS NULL AND c.state = 'RELEASED' AND EXISTS (SELECT 1 FROM decisions d WHERE d.candidate_id = c.id AND d.action = 'approve')").first()).n;
   return out;

@@ -4,35 +4,36 @@ import { h, icon, clear, stateBadge, reasonLabel, fmtDate, shortSha, copyButton,
 import { api, failure } from '../api.js';
 import { decide } from './decide.js';
 
-const STATES = ['PENDING', 'UNDER_REVIEW', 'APPROVED_PENDING_VALIDATION', 'REJECTED', 'RELEASED'];
+const STATES = ['PENDING', 'UNDER_REVIEW', 'APPROVED_PENDING_VALIDATION', 'REJECTED'];   // published rules are not in quarantine: they have their own inventory (#/published)
 const SIZE = 25;
 const selection = new Map();
 
 export async function renderQuarantine(ctx) {
   const { root, me, query, go } = ctx, canDecide = me.role !== 'VIEWER';
-  const f = { state: STATES.includes(query.get('state')) ? query.get('state') : '', q: query.get('q') || '', source: query.get('source') || '', page: Math.max(1, +query.get('page') || 1) };
-  const hash = (o) => { const p = new URLSearchParams(); for (const k of ['state', 'q', 'source']) if (o[k]) p.set(k, o[k]); if (o.page > 1) p.set('page', o.page); const s = p.toString(); return `#/quarantine${s ? `?${s}` : ''}`; };
+  const f = { state: STATES.includes(query.get('state')) ? query.get('state') : '', q: query.get('q') || '', source: query.get('source') || '', synthetic: query.get('synthetic') === '1' ? '1' : '', page: Math.max(1, +query.get('page') || 1) };
+  const hash = (o) => { const p = new URLSearchParams(); for (const k of ['state', 'q', 'source', 'synthetic']) if (o[k]) p.set(k, o[k]); if (o.page > 1) p.set('page', o.page); const s = p.toString(); return `#/quarantine${s ? `?${s}` : ''}`; };
   const apply = (patch) => { selection.clear(); go(hash({ ...f, page: 1, ...patch }), true); };
 
   const refresh = h('button', { type: 'button', class: 'btn btn-sm', onclick: () => ctx.rerender() }, icon('refresh'), t('refresh'));
-  const pills = h('div'), srcPills = h('div'), listBox = h('div', { 'aria-live': 'polite' }), bar = h('div');
+  const pills = h('div'), srcPills = h('div'), synBox = h('div'), listBox = h('div', { 'aria-live': 'polite' }), bar = h('div');
   const search = h('input', { class: 'input', id: 'q-search', type: 'search', autocomplete: 'off', value: f.q, placeholder: '' });
   let timer; search.addEventListener('input', () => { clearTimeout(timer); timer = setTimeout(() => apply({ q: search.value.trim() }), 300); });
 
   put(root, 
     h('div', { class: 'page-head' }, h('div', {}, h('h1', { id: 'page-title', tabindex: '-1', text: t('q_title') }), h('p', { text: t('q_lead') })), h('div', { class: 'actions' }, refresh)),
-    pills, h('div', { class: 'field' }, h('label', { for: 'q-search', text: t('q_search') }), search), srcPills,
+    pills, h('div', { class: 'field' }, h('label', { for: 'q-search', text: t('q_search') }), search), srcPills, synBox,
     listBox, bar);
 
   const stats = await api('GET', '/api/stats');
   if (stats.status === 200) {
     const c = stats.data.counts || {}, total = STATES.reduce((a, s) => a + (c[s] || 0), 0);
     put(pills, pillGroup(t('q_state'), [['', t('all'), total], ...STATES.map((s) => [s, t(`st_short_${s}`), c[s] || 0])], f.state, (v) => apply({ state: v })));
+    if (stats.data.synthetic) { const box = h('input', { type: 'checkbox', id: 'q-syn', checked: f.synthetic === '1' }); box.addEventListener('change', () => apply({ synthetic: box.checked ? '1' : '' })); put(synBox, h('div', { class: 'field' }, h('label', { class: 'flex-8 center', for: 'q-syn' }, box, h('span', { text: t('q_synthetic', { n: stats.data.synthetic }) })))); }
     const names = Object.keys(stats.data.sources || {}).sort();
     if (names.length > 1) put(srcPills, h('div', { class: 'field' }, h('span', { text: t('q_source') }), pillGroup(t('q_source'), [['', t('q_all_sources')], ...names.map((s) => [s, s, stats.data.sources[s]])], f.source, (v) => apply({ source: v }))));
   }
 
-  const q = new URLSearchParams({ page: f.page, pageSize: SIZE }); for (const k of ['state', 'q', 'source']) if (f[k]) q.set(k, f[k]);
+  const q = new URLSearchParams({ page: f.page, pageSize: SIZE }); for (const k of ['state', 'q', 'source', 'synthetic']) if (f[k]) q.set(k, f[k]);
   listBox.setAttribute('aria-busy', 'true'); put(listBox, ...[0, 1, 2].map(() => h('div', { class: 'skeleton sk-row' })));
   const r = await api('GET', `/api/candidates?${q}`);
   listBox.removeAttribute('aria-busy');

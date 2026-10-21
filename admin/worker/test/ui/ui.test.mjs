@@ -95,7 +95,7 @@ for (const name of WANT) {
 
     test('a viewer can read but nothing that decides or administers is offered, and the server refuses it anyway', async () => {
       const page = await newPage(browser, srv, 'viewer', VIEWPORTS.desktop); await goto(page, srv, '/#/quarantine'); await page.waitForSelector('.rule');
-      assert.deepEqual(await page.locator('.sidebar .nav a').allInnerTexts(), ['Panel', 'Cuarentena', 'Actividad', 'Fuentes']); assert.equal(await page.locator('.rule input[type=checkbox]').count(), 0); assert.equal(await page.locator('.bulkbar').count(), 0);
+      assert.deepEqual(await page.locator('.sidebar .nav a').allInnerTexts(), ['Panel', 'Cuarentena', 'Publicadas', 'Actividad', 'Fuentes']); assert.equal(await page.locator('.rule input[type=checkbox]').count(), 0); assert.equal(await page.locator('.bulkbar').count(), 0);
       await page.locator('.rule-title').first().click(); await page.waitForSelector('.sheet'); assert.ok((await page.locator('main').innerText()).includes('solo lectura')); assert.equal(await page.getByRole('button', { name: /Aprobar|Rechazar/ }).count(), 0);
       for (const hash of ['/#/audit', '/#/members']) { await goto(page, srv, hash); await page.waitForSelector('.kpis'); assert.equal(await page.locator('h1').innerText(), 'Panel', `${hash} falls back to the dashboard`); }
       const codes = await page.evaluate(async () => Promise.all(['/api/audit', '/api/members', '/api/audit/verify'].map((p) => fetch(p).then((r) => r.status)))); assert.deepEqual(codes, [403, 403, 403]);
@@ -105,7 +105,7 @@ for (const name of WANT) {
     test('a reviewer decides in a batch: exact count, mandatory reason, versions sent, nothing without a reason; approving only changes state', async () => {
       const s = await startServer(); const page = await newPage(browser, s, 'reviewer', VIEWPORTS.desktop);
       try {
-        await goto(page, s, '/#/quarantine'); await page.waitForSelector('.rule'); assert.deepEqual(await page.locator('.sidebar .nav a').allInnerTexts(), ['Panel', 'Cuarentena', 'Actividad', 'Fuentes', 'Auditoría']);
+        await goto(page, s, '/#/quarantine'); await page.waitForSelector('.rule'); assert.deepEqual(await page.locator('.sidebar .nav a').allInnerTexts(), ['Panel', 'Cuarentena', 'Publicadas', 'Actividad', 'Fuentes', 'Auditoría']);
         const posts = []; page.on('request', (r) => { if (r.method() === 'POST') posts.push(r); });
         await page.locator('.rule input[type=checkbox]').nth(0).check(); await page.locator('.rule input[type=checkbox]').nth(1).check(); await page.waitForSelector('.bulkbar');
         assert.ok((await page.locator('.bulkbar').innerText()).includes('2 seleccionadas'));
@@ -174,13 +174,51 @@ for (const name of WANT) {
       try {
         await goto(page, s, '/#/quarantine'); await page.waitForSelector('.rule');
         assert.equal(await page.locator('.pill:has-text("Pendientes") b').innerText(), '6', 'seven were received, one is already published');
-        await page.getByRole('button', { name: /Publicadas/ }).first().click(); await page.waitForFunction(() => document.querySelectorAll('.rule').length === 1);
+        assert.equal(await page.locator('.pills button:has-text("Publicadas")').count(), 0, 'a published rule is not a quarantine state');
+        assert.equal(await page.locator('.rule').count(), 6, 'the published rule is not in the quarantine list');
+        await page.locator('[data-nav=published]').click(); await page.waitForSelector('#h-rel'); assert.equal(await page.locator('.rule').count(), 1);
         await page.locator('.rule-title').first().click(); await page.waitForSelector('#h-dep');
         const txt = (await page.locator('main').innerText()).replace(/\s+/g, ' ');
         assert.ok(txt.includes('rules-20261021-900') && txt.includes('La pipeline la publicó tras superar los controles técnicos, sin decisión humana') && txt.includes('Manifiesto verificado') && txt.includes('Ejecución 900, intento 1'), txt.slice(0, 600));
         assert.ok(txt.includes('ya está publicada en una release firmada'));
         for (const n of ['Aprobar', 'Rechazar']) assert.equal(await page.getByRole('button', { name: n }).count(), 0, `${n} is not offered for a published rule`);
         assert.deepEqual(await axeViolations(page), [], 'the published sheet meets WCAG 2.2 AA'); assert.deepEqual(page.errors, []);
+      } finally { await page.context().close(); s.stop(); }
+    });
+    test('Published lists the whole signed release (also what the panel never recorded), paginated, filtered and searchable; quarantine and synthetic tests stay apart', async () => {
+      const s = await startServer(['--published', '--synthetic']); const page = await newPage(browser, s, 'reviewer', VIEWPORTS.desktop);
+      try {
+        await goto(page, s, '/#/quarantine'); await page.waitForSelector('.rule');
+        const q = (await page.locator('main').innerText()).replace(/\s+/g, ' ');
+        assert.equal(await page.locator('.rule', { hasText: 'synthetic-quarantine-test' }).count(), 0, 'synthetic tests are hidden by default');
+        assert.ok(q.includes('Mostrar pruebas sintéticas (1)'), q.slice(0, 300));
+        await page.getByLabel('Mostrar pruebas sintéticas (1)').check(); await page.waitForFunction(() => [...document.querySelectorAll('.rule')].some((e) => e.textContent.includes('synthetic-quarantine-test'))); await page.getByLabel('Mostrar pruebas sintéticas (1)').uncheck();
+        await page.locator('[data-nav=published]').click(); await page.waitForSelector('#h-rel');
+        const head = (await page.locator('#h-rel').locator('xpath=..').innerText()).replace(/\s+/g, ' ');
+        assert.ok(head.includes('rules-20261021-900') && head.includes('121') && head.includes('Raíz Merkle') && head.includes('Manifiesto'), head);
+        assert.ok(head.includes('120 de estos archivos se publicaron sin pasar por el panel'), 'the 120 files the panel never saw are said to have no record');
+        assert.equal(await page.locator('.rule').count(), 50, 'first page'); assert.equal(await page.locator('.pill:has-text("Todos") b').innerText(), '121');
+        assert.equal(await page.locator('.pill:has-text("Nueva versión en revisión") b').innerText(), '1');
+        await page.getByRole('button', { name: 'Siguiente' }).click(); await page.waitForFunction(() => document.querySelector('.pager').textContent.includes('51'));
+        await page.locator('.pill:has-text("nextron")').click(); await page.waitForFunction(() => document.querySelector('.pager').textContent.includes('de 61'), null, { timeout: 10000 });   // 60 listed by the signed release plus the one the pipeline published from quarantine
+        await page.locator('.pills button', { hasText: 'Todas las fuentes' }).click(); await page.waitForFunction(() => document.querySelector('.pager').textContent.includes('de 121'));
+        await page.fill('#p-search', 'pack_005'); await page.waitForFunction(() => document.querySelectorAll('.rule').length === 1); assert.ok((await page.locator('.rule').innerText()).includes('pack_005.yar'));
+        await page.fill('#p-search', ''); await page.waitForFunction(() => document.querySelectorAll('.rule').length === 50);
+        await page.locator('.pill:has-text("Nueva versión en revisión")').click(); await page.waitForFunction(() => document.querySelectorAll('.rule').length === 1);
+        assert.ok((await page.locator('.rule').innerText()).includes('hay una versión nueva en revisión'));
+        assert.deepEqual(await axeViolations(page), [], 'Published meets WCAG 2.2 AA'); assert.deepEqual(page.errors, []);
+        const dark = await newPage(browser, s, 'reviewer', VIEWPORTS.desktop, { colorScheme: 'dark' });
+        try { await goto(dark, s, '/#/published'); await dark.waitForSelector('.rule'); assert.deepEqual(await axeViolations(dark), [], 'Published meets WCAG 2.2 AA in the dark theme'); } finally { await dark.context().close(); }
+      } finally { await page.context().close(); s.stop(); }
+    });
+    test('Published holds on a phone and in English: no overflow, texts translated', async () => {
+      const s = await startServer(['--published']); const page = await newPage(browser, s, 'reviewer', mobile().viewport, mobile().device);
+      try {
+        await goto(page, s, '/#/published'); await page.evaluate(() => { localStorage.setItem('mg_lang', 'en'); }); await page.reload({ waitUntil: 'domcontentloaded' }); await page.waitForSelector('.rule');
+        const l = await layout(page); assert.ok(l.scrollW <= l.W, 'no horizontal page scroll'); assert.deepEqual(l.bad, []); assert.equal(l.shaTooTall, 0);
+        const txt = (await page.locator('main').innerText()).replace(/\s+/g, ' ');
+        assert.ok(txt.includes('Current release') && txt.includes('Newer version in review') && txt.includes('Showing 1–50 of 121'), txt.slice(0, 400));
+        assert.deepEqual(await axeViolations(page), [], 'Published meets WCAG 2.2 AA on a phone, in English'); assert.deepEqual(page.errors, []);
       } finally { await page.context().close(); s.stop(); }
     });
     test('an administrator manages members: resolve the real account, grant, history, revoke; self and non-personal accounts are refused', async () => {
