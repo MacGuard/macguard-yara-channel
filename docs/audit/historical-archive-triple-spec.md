@@ -270,3 +270,5 @@ Pruebas (rápidas, sin red): `cd admin/worker && node --test test/anchor.test.js
 Rollback: Worker (`wrangler rollback`) y después `migrations/0004_rollback.sql`, que borra solo `audit_anchor` y sus disparadores. **No ejecutarlo tras una poda** (las anclas serían lo único que permite verificar la cadena); en ese caso restaurar antes los segmentos. Mientras no haya poda, revertir es inocuo: el Worker anterior ignora la tabla.
 
 Pendiente para pasar a producción (todo requiere al propietario, sección 12): aplicar 0004, crear cuentas/buckets/claves, ensayo con bucket de prueba de los supuestos de plataforma (fase 2, `docs/OPERATIONS-archive-setup.md`), y primera poda.
+
+Endurecimiento de restauración (revisión de seguridad): los nombres lógicos de un índice son datos no confiables. `store.read_unit` los valida (lista permitida `[A-Za-z0-9][A-Za-z0-9._-]{0,127}`, sin separadores, sin punto inicial, sin colisión por mayúsculas) y `restore.write_files` vuelve a validar, exige que el destino cuelgue directamente del directorio de salida y crea con `O_EXCL|O_NOFOLLOW` (0600). Pruebas negativas en `tests/test_archive_store.py::HostileProvider`.

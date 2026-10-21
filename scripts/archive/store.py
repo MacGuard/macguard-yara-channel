@@ -14,10 +14,24 @@ from .segment import verify_segment
 INDEX_SCHEMA = 'macguard-archive-index/1'
 RECEIPT_SCHEMA = 'macguard-archive-receipt/1'
 KINDS = ('releases', 'audit', 'logs')
-NAME = re.compile(r'^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$')
+NAME = re.compile(r'[A-Za-z0-9][A-Za-z0-9._-]{0,127}')   # used with fullmatch: `$` would accept a trailing newline
 
 
 class ArchiveError(Exception): pass
+
+
+def check_logical_name(n) -> str:
+    """Logical file names come from provider-held indexes, i.e. untrusted data: strict allow-list, printable ASCII, no separators, no leading dot."""
+    if not isinstance(n, str) or not NAME.fullmatch(n) or n.isascii() is False: raise ArchiveError(f'unsafe file name in archive index: {n!r:.80}')
+    return n
+
+
+def check_unit_names(names) -> None:
+    seen = {}
+    for n in names:
+        check_logical_name(n)
+        if n.lower() in seen: raise ArchiveError(f'file names differ only by case: {seen[n.lower()]!r} and {n!r}')
+        seen[n.lower()] = n
 
 
 def object_key(sha: str) -> str:
@@ -26,7 +40,7 @@ def object_key(sha: str) -> str:
 
 
 def index_key(kind: str, name: str) -> str:
-    if kind not in KINDS or not NAME.match(name): raise ArchiveError(f'bad unit {kind!r}/{name!r}')
+    if kind not in KINDS or not NAME.fullmatch(name): raise ArchiveError(f'bad unit {kind!r}/{name!r}')
     return f'index/{kind}/{name}.json'
 
 
@@ -52,7 +66,7 @@ def archive_unit(provider, kind: str, name: str, files: dict, meta: dict = None)
     The index goes last, so an interrupted run leaves unreferenced objects, never an index that points at nothing."""
     if not files: raise ArchiveError('a unit needs at least one file')
     for fname in files:
-        if '/' in fname or not NAME.match(fname): raise ArchiveError(f'bad file name {fname!r}')
+        if '/' in fname or not NAME.fullmatch(fname): raise ArchiveError(f'bad file name {fname!r}')
     idx = make_index(kind, name, files, meta)
     for b in files.values(): put_blob(provider, b)
     status = put_verified(provider, index_key(kind, name), idx)
@@ -67,6 +81,7 @@ def read_unit(provider, kind: str, name: str) -> tuple:
     if idx.get('schema') != INDEX_SCHEMA or idx.get('kind') != kind or idx.get('name') != name: raise ArchiveError(f'{provider.name}: index for {kind}/{name} is not what it claims')
     if raw != (canonical(idx) + '\n').encode('utf-8'): raise ArchiveError(f'{provider.name}: index for {kind}/{name} is not canonical')
     files = {}
+    check_unit_names(idx['files'])
     for fname, ent in idx['files'].items():
         b = provider.get(object_key(ent['sha256']))
         if sha256_hex(b) != ent['sha256'] or len(b) != ent['bytes']: raise ArchiveError(f'{provider.name}: object for {kind}/{name}/{fname} is corrupted (digest or size differs)')

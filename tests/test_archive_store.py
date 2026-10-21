@@ -174,6 +174,53 @@ class Releases(Base):
         archive_release(self.provs[:2], self.bundle(), 't1'); r = restore.restore_release(self.provs[2], 't1', self.d / 'o', self.verifier(0)); self.assertFalse(r['ok']); self.assertIn('not there', r['error'])
 
 
+class HostileProvider(Base):
+    """A compromised provider returns an index whose logical names are hostile. Nothing may be written outside out_dir; the restore fails closed."""
+    def plant(self, names, tag='evil'):
+        p = self.provs[0]; files = {}
+        for n in names:
+            sha = canon.sha256_hex(b'payload'); p.put_if_absent(store.object_key(sha), b'payload'); files[n] = {'sha256': sha, 'bytes': 7}
+        doc = {'schema': store.INDEX_SCHEMA, 'kind': 'releases', 'name': tag, 'files': files, 'meta': {}}
+        p.put_if_absent(store.index_key('releases', tag), (canon.canonical(doc) + '\n').encode())
+        return p
+
+    def test_hostile_names_are_refused_and_nothing_escapes(self):
+        out = self.d / 'sandbox' / 'out'; (self.d / 'sandbox').mkdir()
+        bad = ['../escape', '/abs', 'a/b', '..', '.hidden', 'nul\x00byte', 'x' * 300, 'back\\slash', 'new\nline', 'ñandú', '']
+        for i, n in enumerate(bad):
+            tag = f'evil{i}'; p = self.plant([n], tag)
+            with self.assertRaisesRegex(ArchiveError, 'unsafe file name'): read_unit(p, 'releases', tag)
+            r = restore.restore_release(p, tag, self.d / 'sandbox' / f'out{i}', lambda *a: [sys.executable, '-c', 'pass'])
+            self.assertFalse(r['ok'], n); self.assertIn('unsafe file name', r['error'])
+        self.assertEqual(sorted(x.name for x in (self.d / 'sandbox').iterdir() if x.is_file()), [], 'nothing written beside the output directories')
+        self.assertFalse((self.d / 'escape').exists()); self.assertFalse(pathlib.Path('/abs').exists())
+        for x in (self.d / 'sandbox').iterdir(): self.assertEqual(list(x.iterdir()), [], 'and nothing inside them either')
+
+    def test_case_collision_is_refused(self):
+        p = self.plant(['Manifest.json', 'manifest.json'], 'case')
+        with self.assertRaisesRegex(ArchiveError, 'only by case'): read_unit(p, 'releases', 'case')
+
+    def test_write_site_alone_is_safe_without_trusting_read_unit(self):
+        d = self.d / 'w'; d.mkdir()
+        for n in ('../x', '/abs', 'a/b', '..', '.h', 'a\x00b', 'x' * 300):
+            with self.assertRaises(ArchiveError, msg=n): restore.write_files(d, {'ok.txt': b'1', n: b'2'})
+        self.assertEqual(list(d.iterdir()), [], 'validated up front: not even the good file was written')
+        with self.assertRaises(ArchiveError): restore.write_files(d, {'A.txt': b'1', 'a.txt': b'2'})
+
+    def test_preexisting_symlink_is_not_followed_or_overwritten(self):
+        d = self.d / 'w2'; d.mkdir(); victim = self.d / 'victim.txt'; victim.write_text('keep'); (d / 'manifest.json').symlink_to(victim)
+        with self.assertRaisesRegex(ArchiveError, 'cannot create'): restore.write_files(d, {'manifest.json': b'overwrite'})
+        self.assertEqual(victim.read_text(), 'keep')
+        existing = d / 'plain.txt'; existing.write_text('old')
+        with self.assertRaises(ArchiveError): restore.write_files(d, {'plain.txt': b'new'})
+        self.assertEqual(existing.read_text(), 'old')
+        archive_release(self.provs, Releases.bundle(self), 'good')
+        with self.assertRaisesRegex(ArchiveError, 'not an empty'): restore.restore_release(self.provs[1], 'good', d, lambda *a: ['true'])
+
+    def test_created_files_are_private(self):
+        d = self.d / 'w3'; d.mkdir(); restore.write_files(d, {'a.txt': b'1'}); self.assertEqual(stat.S_IMODE((d / 'a.txt').stat().st_mode), 0o600)
+
+
 class Manifest(Base):
     def setUp(self):
         super().setUp(); self.all_periods(); archive_release(self.provs, Releases.bundle(self), 'rel-1')

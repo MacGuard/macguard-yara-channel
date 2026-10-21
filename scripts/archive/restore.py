@@ -5,7 +5,7 @@ import json, os, pathlib, subprocess, sys
 from .canon import seal_sha256
 from .providers import MissingObject, ProviderError
 from .segment import SegmentError, verify_archive, verify_seal_chain
-from .store import ArchiveError, read_unit
+from .store import ArchiveError, check_unit_names, read_unit
 from .crypto import CryptoError
 
 HERE = pathlib.Path(__file__).resolve().parent
@@ -19,6 +19,18 @@ def fresh_dir(path) -> pathlib.Path:
     if p.exists() and (not p.is_dir() or any(p.iterdir())): raise ArchiveError(f'{p} exists and is not an empty directory')
     p.mkdir(parents=True, exist_ok=True)
     return p
+
+
+def write_files(d: pathlib.Path, files: dict) -> None:
+    """Create each file new (O_EXCL, never following a symlink), only directly inside `d`. Fails closed with ArchiveError before writing anything if a name is unsafe."""
+    check_unit_names(files)
+    root = d.resolve()
+    for n in files:
+        if (root / n).parent != root: raise ArchiveError(f'file name escapes the output directory: {n!r:.80}')
+    for n, b in files.items():
+        try: fd = os.open(root / n, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o600)
+        except OSError as e: raise ArchiveError(f'cannot create {n!r} in the output directory: {e.strerror}')
+        with os.fdopen(fd, 'wb') as f: f.write(b)
 
 
 def default_verifier(directory, tag, previous_checkpoint=None, extra=()):
@@ -35,7 +47,8 @@ def restore_release(provider, tag, out_dir, verifier=default_verifier, previous_
     except (MissingObject, ProviderError, ArchiveError, ValueError) as e:
         rep['error'] = str(e)[:300]; return rep
     d = fresh_dir(out_dir)
-    for n, b in files.items(): (d / n).write_bytes(b)
+    try: write_files(d, files)
+    except ArchiveError as e: rep['error'] = str(e)[:300]; return rep
     rep['files'] = len(files)
     try: r = subprocess.run(verifier(d, tag, previous_checkpoint), capture_output=True, timeout=timeout, text=True)
     except subprocess.TimeoutExpired: rep['error'] = 'verifier timed out'; return rep
