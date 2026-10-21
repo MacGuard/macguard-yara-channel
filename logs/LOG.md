@@ -2,12 +2,14 @@
 
 Generated from `logs/log.jsonl`; do not edit by hand. Times are UTC. Newest first.
 
-Entries: 179 (INFO 125, WARNING 31, ERROR 23)
+Entries: 181 (INFO 127, WARNING 31, ERROR 23)
 
-Latest signed checkpoint: 75 entries, Merkle root `1bab9bb9364b3a42f76835ae138bffad33eaa3694d0021afd208f5fd54e63d96`.
+Latest signed checkpoint: 180 entries, Merkle root `f0baf3dc99345ea1e5677bc880d4c74b57204a9b3a72d9f7433bf68e0a52005b`.
 
 | # | Date (UTC) | Level | Event | Message |
 |---|---|---|---|---|
+| 180 | 2026-10-21T03:57:43Z | INFO | `release.published` | Signed release rules-20261021-39541028283 published on GitHub. The site deployment was requested. |
+| 179 | 2026-10-21T03:57:26Z | INFO | `release.approved` | Candidate from review run 39540456728 was approved for signing in workflow run 39541028283. |
 | 178 | 2026-10-21T03:51:45Z | INFO | `candidate.changes` | The approved set differs from the latest release. A new release will be requested. |
 | 177 | 2026-10-21T03:51:45Z | INFO | `candidate.accepted` | 1178 rule files passed every mandatory check. Candidate rules root is b92e0216828b4ec7... |
 | 176 | 2026-10-21T03:51:45Z | INFO | `candidate.classified` | Examined 1184 rule files: 1178 accepted, 2 quarantined for review, 4 rejected, 0 deprecated; 0 files of the previous release are no longer upstream. |
