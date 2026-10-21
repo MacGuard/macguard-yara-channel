@@ -3,6 +3,7 @@ import { MAX_BATCH, RELEASE_TAG, reconcilePublished, PUBLISHED_STATUS, atLeast, 
 import * as store from './store.js';
 import { verifyAuditChain } from './anchor.js';
 import * as ops from './ops.js';
+import * as proposals from './proposals.js';
 import { fetchPublication } from './publication.js';
 import * as policies from './policies.js';   // policy: persistent administrative withdrawals (migration 0003)
 import { REAUTH, STATE_COOKIE, openToken, resolveGithubAccount, clearCookie, clearStateCookie, createSession, destroySession, effectiveRole, finishLogin, getSession, parseCookies, sessionCookie, startLogin, stateCookie, timingSafeEqual, verifyActionsToken } from './auth.js';
@@ -32,6 +33,7 @@ export async function handle(request, env, deps) {
       // what the signed token says about this execution (not what the request body claims): which run and which attempt of it
       const attempt = (tok, receipt) => ({ token_run_id: String(tok.claims.run_id ?? ''), run_attempt: Number(tok.claims.run_attempt) || null, receipt });
       if (method === 'GET' && path === '/api/pipeline/decisions') return json({ schema: 1, decisions: await store.decisionsMap(db), retest: await store.retestList(db) });
+      if (method === 'GET' && path === '/api/pipeline/source-proposals') { const r = await proposals.handlePipeline({ env, db, workflow: v.workflow }); return json(r.body, r.status); }   // source proposals: only what an ADMIN authorized
       if (method === 'GET' && path === '/api/pipeline/policy-snapshot') return json(await policies.snapshot(db, new Date(now * 1000).toISOString()));   // policy: daily.yml and publish.yml only (the allow-list of verifyActionsToken)
       if (method !== 'POST') return err(405, 'method not allowed');
       const read = await readJson(request, 64_000_000); if (read.tooLarge) return err(413, 'request body too large'); const body = read.body; if (!body) return err(400, 'JSON body required');
@@ -190,6 +192,10 @@ export async function handle(request, env, deps) {
           const r = await store.changeMember(db, { account: acc.account, role: b.role, reason: b.reason.trim(), actor: { login: session.login, id: session.user_id, role }, durableAdmin: permNow === 'admin' }, iso);
           const { status, ...rest } = r; return json(rest, status);
         }
+      }
+      if (path === '/api/source-proposals' || path.startsWith('/api/source-proposals/')) {   // source proposals (src/proposals.js)
+        const r = await proposals.handleApi({ method, path, url, role, actor, env, deps, db, iso, readJson: (max) => readJson(request, max), getToken: () => openToken(env, session.id, session.token), audit: (a) => store.appendAudit(db, a, iso) });
+        if (r) return json(r.body, r.status, r.reauth ? { 'Set-Cookie': clearCookie() } : {});
       }
       return err(404, 'unknown endpoint');
     }

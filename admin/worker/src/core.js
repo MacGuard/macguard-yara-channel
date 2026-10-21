@@ -24,7 +24,7 @@ const HUMAN = {
 /** Findings a person's judgement may waive. Everything else (truncation, corruption, compile errors, a dynamic failure, a changed licence, a blocked module,
  *  a missing engine, a hash rejected before) is a technical control that no approval can skip, so such a candidate is not approvable. Mirrors WAIVABLE in
  *  scripts/decide.py, which enforces it again when the pipeline applies decisions; a test keeps the two lists identical. */
-export const WAIVABLE = new Set(['costly-regex', 'filesize-loop', 'many-loops', 'unknown-module', 'include', 'license-unchecked', 'matches-benign-corpus', 'dependency-not-validated']);
+export const WAIVABLE = new Set(['costly-regex', 'filesize-loop', 'many-loops', 'unknown-module', 'include', 'license-unchecked', 'matches-benign-corpus', 'dependency-not-validated', 'new-source']);
 export const blockingReasons = (reasons) => (Array.isArray(reasons) ? reasons : []).filter((code) => !WAIVABLE.has(code));
 /** Dependencies between candidates. A rule file may need other rule files (`depends_on`, paths). decide.py puts a file in the release only if it has no
  *  technical finding, is approved when it has judgement findings, and everything it needs is in the release too; the panel computes the same thing so that a

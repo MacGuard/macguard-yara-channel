@@ -137,6 +137,7 @@ export async function decide(db, req, actor, now) {
     if (done.length === ids.length && done.every((d) => wanted.has(d.candidate_id) && d.action === action)) return { status: 200, replay: true, applied: [], message: 'this request was already applied' };
     return { status: 409, error: 'request id reused for a different selection or action' };
   }
+  if (action === 'approve' && actor.role !== 'ADMIN' && rows.some((r) => parse(r.reasons, []).includes('new-source'))) return { status: 403, error: 'admin role required to authorise a new source' };   // the new-source hold (scripts/admission.py) is cleared by an ADMIN only; nothing was written
   const conflicts = [];
   for (const r of rows) {
     const t = humanTransition(action, r.state);
