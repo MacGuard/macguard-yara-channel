@@ -1,0 +1,14 @@
+{
+  "comment": "Shared by admin/worker/test/policies.test.js (policies.js) and tests/test_policy_p2.py (scripts/policy_snapshot.py): the persistent identity of a rule file is (source, normalized path). key null = no identity (a path traversal).",
+  "vectors": [
+    {"source": "nextron", "path": "rules/x/a.yar", "key": "path:nextron:rules/x/a.yar"},
+    {"source": "Nextron", "path": "Rules/./X/A.yar", "key": "path:nextron:rules/x/a.yar"},
+    {"source": "nextron", "path": "rules\\x//a.yar", "key": "path:nextron:rules/x/a.yar"},
+    {"source": "community", "path": "./rules/community/b-1_2.yar", "key": "path:community:rules/community/b-1_2.yar"},
+    {"source": "nextron", "path": "rules/../a.yar", "key": null},
+    {"source": "nextron", "path": "../a.yar", "key": null},
+    {"source": "nextron", "path": "", "key": null},
+    {"source": "nextron", "path": "///", "key": null},
+    {"source": "nextron", "path": "rules/x/é.yar", "key": "path:nextron:rules/x/é.yar"}
+  ]
+}

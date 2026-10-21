@@ -1,4 +1,5 @@
 // Data access for the quarantine service. `db` is a Cloudflare D1 binding (or the test shim with the same API).
+import { overlayBlocked } from './policies.js';
 import { chainHead } from './anchor.js';   // archive P1: the chain continues from an anchor, never silently from GENESIS
 import { GENESIS, SYNTHETIC_SOURCE, blockingReasons, sanitizeFindings, chainHash, dependencyEffect, humanTransition, pipelineTransition, releaseTransition } from './core.js';
 
@@ -85,7 +86,8 @@ export async function listCandidates(db, { state, q, source, page = 1, pageSize 
 }
 /** Every visible candidate in the shape dependencyEffect reads. */
 async function dependencyRows(db) {
-  return (await db.prepare('SELECT id, path, state, reasons, depends_on, detected_at FROM candidates WHERE archived_at IS NULL').all()).results.map((r) => ({ ...r, reasons: parse(r.reasons, []), depends_on: parse(r.depends_on, []) }));
+  // policy: a row covered by an ACTIVE administrative prohibition is shown as blocked (decide.py leaves it out and its dependents with it)
+  return overlayBlocked(db, (await db.prepare('SELECT id, path, state, reasons, depends_on, detected_at, source, sha256 FROM candidates WHERE archived_at IS NULL').all()).results.map((r) => ({ ...r, reasons: parse(r.reasons, []), depends_on: parse(r.depends_on, []) })));
 }
 /** Why a candidate is RELEASED, read back from the append-only audit entry that moved it (null for anything released before entries carried this evidence). */
 async function releaseEvidence(db, id) {
