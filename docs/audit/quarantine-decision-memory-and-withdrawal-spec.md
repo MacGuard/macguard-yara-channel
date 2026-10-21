@@ -725,3 +725,57 @@ old **6 superseded** by the repository-log pin of the snapshot (15.2), which pro
 15. **Encrypted daily export (17.2.3):** accept artifacts as the off-site copy, with an `age` key held by the owner, or another destination.
 16. **MAX_AGE** (48 h proposed) and whether `snapshot` mode may allow additions at all (proposed: yes, since unknown approvals are simply unused).
 17. **Docstrings:** confirm that the principle "publication never depends on the service" is withdrawn in `decide.py`, `quarantine_client.py` and the evidence spec, per D8.
+
+---
+
+## 20. Implementation status
+
+### 20.1 Phase 1 (branch `feat/policy-p1`): Worker + D1 only, implemented, NOTHING deployed, NO SQL run against any real database
+
+Changes what the Worker can record; does **not** change what the pipeline publishes (no file under `scripts/` or `.github/` is touched, `markReleased` is unchanged).
+
+| Spec item | State | Where |
+|---|---|---|
+| Migration 0003 + rollback | done, proven only on the `node:sqlite` shim | `admin/worker/migrations/0003_policies.sql`, `0003_rollback.sql`, same statements appended to `schema.sql` |
+| Identity = source + normalized path, SHA-256 kept | done | `normalizePath`, `scopeKey`, `policyMatches` in `src/policies.js`; DB CHECK on `scope_key` |
+| ADMIN-only withdrawal request, reason, collateral confirmation, evidence read by the Worker | done | `POST /api/policies/withdrawals`, `GET /api/policies/preview` |
+| CONFIRMED only by a later verified public release | done | `reconcilePolicies`, called from `POST /api/pipeline/released` after `markReleased` (failure there never fails the callback), and `POST /api/policies/reconcile` (ADMIN) |
+| Second, independent authorization to lift a CRITICAL block | done (see 20.3) | `POST /api/policies/{id}/lifts` (`kind: DUAL`), `POST /api/policies/lifts/{id}/authorize` |
+| Emergency (break-glass) path without a silent bypass | done (see 20.3) | `kind: BREAKGLASS`, `.../execute`, `.../cancel`, `.../review` |
+| Policy snapshot for the pipeline | done (endpoint only, nobody calls it yet) | `GET /api/pipeline/policy-snapshot`: active policies, lifted ids, rejected hashes (archived included), `policy_set_sha256`, `rejected_sha256`, audit head |
+| Approval under an ACTIVE policy refused | done | `blockedByPolicy`, 409 `blocked_by_policy` in `POST /api/decisions` |
+| UI | withdrawal form + pending/confirmed/lifted on the sheet and in Published; **lifting has no UI yet** (API only) | `public/views/policy.js`, i18n keys `pol_*` |
+| `reopen` of a REJECTED candidate (3.1, 6.3), `derivePolicies`, `policy-consistency`, `released_after_review` exclusion | **not done** (not in the phase brief) | |
+
+Differences from the text above, decided while implementing:
+
+* `policies.criticality` (`STANDARD`|`CRITICAL`, explicit, immutable) was added; `policy_lifts` is a new table (one row per lift attempt); `policy_events` no longer has `UNIQUE(policy_id, policy_version)` because lift steps do not change the policy version.
+* The `released` hook writes **nothing** (no audit entry) when no policy is in force, so a database with no policy behaves exactly as before.
+* `GET /api/pipeline/decisions` is unchanged in this phase; the pipeline reads the new snapshot endpoint instead.
+* The route table is under `/api/policies` (list, `{id}`, `preview`, `withdrawals`, `reconcile`, `{id}/lifts`, `lifts/{id}/(authorize|execute|cancel|review)`); there is no separate `lift` URL.
+
+### 20.2 Phase 1 rollback
+
+1. `wrangler rollback` of the Worker. The old Worker ignores the three tables. Nothing else to do.
+2. `migrations/0003_rollback.sql` only after step 1 and with `SELECT id FROM policies WHERE status = 'ACTIVE'` empty (otherwise export `SELECT * FROM policies, policy_lifts, policy_events` first and decide). It drops only objects created by 0003; the audit chain keeps a copy of every event in `audit.detail`.
+3. Proven on the shim (M-04): after the rollback the three tables, their indexes and triggers are gone, every row of every existing table is byte-identical and the schema equals the one before 0003.
+4. Before applying 0003 to the real D1: record the Time Travel bookmark (8.2). Apply order: migration, then Worker.
+
+### 20.3 Lifting a CRITICAL block (owner decision 5)
+
+Server-enforced; every rule below is repeated by a DB CHECK or trigger, so a Worker bug cannot skip it.
+
+* **DIRECT** (one ADMIN): STANDARD policies only. A CRITICAL policy answers 409 `critical_needs_second_authorization`.
+* **DUAL**: ADMIN A requests (reason). ADMIN B authorizes (reason) within **72 h**; B must differ from A by **login and by GitHub account id** (403 `second_authorizer_must_differ`; CHECK in `policy_lifts`). Asking lifts nothing. Either side, or any other ADMIN, can cancel while it is open. It expires by itself (the DB refuses to apply it at or after `expires_at`; the record `LIFT_EXPIRED` is written at the next lift operation, release callback or reconcile).
+* **BREAKGLASS** (CRITICAL policies only; for when two administrators are not available):
+  1. Request: `reason` of at least 20 visible characters plus `no_second_admin: true`. Audit action `breakglass.requested` with a warning text.
+  2. **Mandatory delay of 6 h** (`not_before`, CHECK). During it any other ADMIN can **veto** (`cancel`). Nothing is lifted.
+  3. Only the **requester** can apply it, after the delay and within **24 h**; later it is `EXPIRED` and unusable. Audit `breakglass.executed`, `second_authorization: false`.
+  4. Effect equal to any lift: policy `LIFTED`, candidate `RELEASED -> PENDING`; it still has to pass every technical gate in a later run (no gate is skipped, no file is added).
+  5. **Post-hoc review** by an ADMIN **other than the one who used it** within **7 days** (`review`: `APPROPRIATE`|`INAPPROPRIATE` + note). While a review is overdue, a new emergency lift is refused (service 409 `review_overdue` and a DB trigger), the overdue count is in the policy list and in the snapshot (`breakglass_reviews_overdue`). `INAPPROPRIATE` is recorded, not auto-reverted: it needs a new withdrawal request.
+  Consequence to accept: a sole administrator who used the emergency path cannot use it again until someone else reviews it.
+
+### 20.4 Tests (admin/worker, `node --test test/policies.test.js`)
+
+Identity, request/refusals (every role, CSRF, downgraded admin, stale version, not in release, GitHub down, forged manifest), replay, concurrent requests, collateral, confirmation (newer/older/still-listed/content vs path/unverifiable releases), lift vs confirm race, request vs publish-callback race, reconcile, DIRECT/DUAL/BREAKGLASS state machines incl. veto, expiry, overdue review and direct-SQL attempts against the triggers, no inheritance of approvals by a different SHA-256, snapshot, migration proofs M-01..M-06 (static check, production-shaped data unchanged, schema.sql == migrated, rollback, every CHECK/trigger, wrangler-style splitter).
+Not run by this agent (heavy, run by the integrator): workerd runtime suite, UI/Playwright suite. The new UI (`views/policy.js`) is covered only by the i18n completeness test and a syntax check.
