@@ -1,6 +1,7 @@
 // MacGuard quarantine service: private API + admin UI assets. The public site never talks to this worker.
 import { MAX_BATCH, RELEASE_TAG, reconcilePublished, PUBLISHED_STATUS, atLeast, blobError, highestRole, roleFromRepoPermission, publicStats, validateDecisionRequest, validateSubmission, verifyChain } from './core.js';
 import * as store from './store.js';
+import { verifyAuditChain } from './anchor.js';
 import * as ops from './ops.js';
 import { fetchPublication } from './publication.js';
 import { REAUTH, STATE_COOKIE, openToken, resolveGithubAccount, clearCookie, clearStateCookie, createSession, destroySession, effectiveRole, finishLogin, getSession, parseCookies, sessionCookie, startLogin, stateCookie, timingSafeEqual, verifyActionsToken } from './auth.js';
@@ -135,7 +136,7 @@ export async function handle(request, env, deps) {
       const rt = path.match(/^\/api\/candidates\/([0-9a-f-]{8,64})\/retest$/);
       if (method === 'POST' && rt) { if (!atLeast(role, 'REVIEWER')) return err(403, 'reviewer role required'); return (await store.requestRetest(db, rt[1], actor, iso)) ? json({ ok: true, note: 'the next pipeline run will test it again' }) : err(404, 'not found'); }
       if (method === 'GET' && path === '/api/audit') { if (!atLeast(role, 'REVIEWER')) return err(403, 'reviewer role required'); const fam = url.searchParams.get('family') || ''; return json(await store.auditQuery(db, { limit: Math.min(+url.searchParams.get('limit') || 50, 200), before: +url.searchParams.get('before') || undefined, family: /^[a-z]{1,20}$/.test(fam) ? fam : undefined, actor: (url.searchParams.get('actor') || '').slice(0, 80) || undefined })); }
-      if (method === 'GET' && path === '/api/audit/verify') { if (!atLeast(role, 'ADMIN')) return err(403, 'admin role required'); const rows = await store.auditRows(db, 100001); if (rows.length > 100000) return json({ ok: false, error: 'the audit log is longer than one verification pass covers; it was NOT verified' }); return json(await verifyChain(rows)); }
+      if (method === 'GET' && path === '/api/audit/verify') { if (!atLeast(role, 'ADMIN')) return err(403, 'admin role required'); return json(await verifyAuditChain(db, { after: Math.max(0, +url.searchParams.get('after') || 0), head: url.searchParams.get('head') || null })); }   // archive P1: paginated, anchor-aware
       if (path === '/api/members' || path.startsWith('/api/members/')) {
         if (!atLeast(role, 'ADMIN')) return err(403, 'admin role required');   // enforced here, whatever the UI shows
         const adminToken = () => openToken(env, session.id, session.token);
