@@ -4,6 +4,7 @@ import { h, icon, avatar, roleBadge, put } from './ui.js';
 import { api, setCsrf } from './api.js';
 import { renderLogin } from './views/login.js';
 import { renderQuarantine } from './views/quarantine.js';
+import { renderPublished } from './views/published.js';
 import { renderDashboard } from './views/dashboard.js';
 import { renderActivity } from './views/activity.js';
 import { renderSources } from './views/sources.js';
@@ -14,7 +15,7 @@ import { tools } from './views/tools.js';
 
 const root = document.getElementById('root');
 const RANK = { VIEWER: 1, REVIEWER: 2, ADMIN: 3 };
-const NAV = [{ id: 'dashboard', icon: 'grid', label: 'nav_dashboard', min: 1 }, { id: 'quarantine', icon: 'quarantine', label: 'nav_quarantine', min: 1 }, { id: 'activity', icon: 'calendar', label: 'nav_activity', min: 1 }, { id: 'sources', icon: 'source', label: 'nav_sources', min: 1 }, { id: 'audit', icon: 'audit', label: 'nav_audit', min: 2 }, { id: 'members', icon: 'users', label: 'nav_members', min: 3 }];
+const NAV = [{ id: 'dashboard', icon: 'grid', label: 'nav_dashboard', min: 1 }, { id: 'quarantine', icon: 'quarantine', label: 'nav_quarantine', min: 1 }, { id: 'published', icon: 'check', label: 'nav_published', min: 1 }, { id: 'activity', icon: 'calendar', label: 'nav_activity', min: 1 }, { id: 'sources', icon: 'source', label: 'nav_sources', min: 1 }, { id: 'audit', icon: 'audit', label: 'nav_audit', min: 2 }, { id: 'members', icon: 'users', label: 'nav_members', min: 3 }];
 let me = null, content = null, links = [];
 const wasIn = { get: () => { try { return localStorage.getItem('mg_was_in') === '1'; } catch { return false; } }, set: (v) => { try { if (v) localStorage.setItem('mg_was_in', '1'); else localStorage.removeItem('mg_was_in'); } catch { /* ignore */ } } };
 
@@ -55,6 +56,7 @@ async function route() {
     else if (seg === 'audit' && RANK[me.role] >= 2) await renderAudit(ctx);
     else if (seg === 'members' && RANK[me.role] >= 3) await renderMembers(ctx);
     else if (seg === 'quarantine') await renderQuarantine(ctx);
+    else if (seg === 'published') await renderPublished(ctx);
     else if (seg === 'activity') await renderActivity(ctx);
     else if (seg === 'sources') await renderSources(ctx);
     else if (seg === 'dashboard' || !seg) await renderDashboard(ctx);
