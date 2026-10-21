@@ -3,6 +3,7 @@ import { MAX_BATCH, RELEASE_TAG, reconcilePublished, PUBLISHED_STATUS, atLeast, 
 import * as store from './store.js';
 import * as ops from './ops.js';
 import { fetchPublication } from './publication.js';
+import * as policies from './policies.js';   // policy: persistent administrative withdrawals (migration 0003)
 import { REAUTH, STATE_COOKIE, openToken, resolveGithubAccount, clearCookie, clearStateCookie, createSession, destroySession, effectiveRole, finishLogin, getSession, parseCookies, sessionCookie, startLogin, stateCookie, timingSafeEqual, verifyActionsToken } from './auth.js';
 
 export const HEADERS = {
@@ -30,6 +31,7 @@ export async function handle(request, env, deps) {
       // what the signed token says about this execution (not what the request body claims): which run and which attempt of it
       const attempt = (tok, receipt) => ({ token_run_id: String(tok.claims.run_id ?? ''), run_attempt: Number(tok.claims.run_attempt) || null, receipt });
       if (method === 'GET' && path === '/api/pipeline/decisions') return json({ schema: 1, decisions: await store.decisionsMap(db), retest: await store.retestList(db) });
+      if (method === 'GET' && path === '/api/pipeline/policy-snapshot') return json(await policies.snapshot(db, new Date(now * 1000).toISOString()));   // policy: daily.yml and publish.yml only (the allow-list of verifyActionsToken)
       if (method !== 'POST') return err(405, 'method not allowed');
       const read = await readJson(request, 64_000_000); if (read.tooLarge) return err(413, 'request body too large'); const body = read.body; if (!body) return err(400, 'JSON body required');
       if (path === '/api/pipeline/submit') {
@@ -50,7 +52,10 @@ export async function handle(request, env, deps) {
           const tag = String(body.tag || ''); if (!RELEASE_TAG.test(tag)) return err(400, 'a release tag like rules-YYYYMMDD-N is required');
           const pub = await fetchPublication(env, deps, tag); if (!pub.ok) return err(pub.status, `${pub.error}; nothing was changed`);
           const listed = new Set([...pub.files.values()].map((f) => f.sha256));
-          return json(await store.markReleased(db, pub, { trigger: 'publish', claimed: body.hashes.length, claimed_not_in_manifest: body.hashes.filter((h) => !listed.has(h)).length, run_url: body.run_url, token_run_id: String(v.claims.run_id ?? ''), run_attempt: Number(v.claims.run_attempt) || null }, actor, new Date(now * 1000).toISOString()));
+          const released = await store.markReleased(db, pub, { trigger: 'publish', claimed: body.hashes.length, claimed_not_in_manifest: body.hashes.filter((h) => !listed.has(h)).length, run_url: body.run_url, token_run_id: String(v.claims.run_id ?? ''), run_attempt: Number(v.claims.run_attempt) || null }, actor, new Date(now * 1000).toISOString());
+          // policy: confirm withdrawals on this same verified evidence. Never changes what markReleased did; a failure here leaves the withdrawal pending (ADMIN reconcile redoes it).
+          let confirmation = null; try { confirmation = await policies.reconcilePolicies(db, pub, { trigger: 'publish', run_url: body.run_url, token_run_id: String(v.claims.run_id ?? ''), run_attempt: Number(v.claims.run_attempt) || null }, actor, new Date(now * 1000).toISOString()); } catch { confirmation = { error: 'the policy confirmation could not be recorded; withdrawals stay pending' }; }
+          return json(confirmation && (confirmation.recorded || confirmation.error) ? { ...released, policies: confirmation } : released);
         }
         return json(await store.pipelineEvent(db, ev, body.hashes, { tag: body.tag, reason: body.reason, run_url: body.run_url, run_id: body.run_id, token: attempt(v, null) }, actor, new Date(now * 1000).toISOString()));
       }
@@ -108,12 +113,34 @@ export async function handle(request, env, deps) {
         }
         const p = url.searchParams, status = p.get('status') || '';
         const view = reconcilePublished(new Map(inv.files), await store.reconcileRows(db), { q: p.get('q') || '', source: p.get('source') || '', status: PUBLISHED_STATUS.includes(status) ? status : '', page: +p.get('page') || 1, pageSize: +p.get('pageSize') || 50 });
+        view.items = await policies.annotateItems(db, view.items);   // policy: withdrawal pending / confirmed / lifted next to each file
         return json({ release: { url: `https://github.com/${env.REPO}/releases/tag/${inv.tag}`, tag: inv.tag, published_at: inv.published_at, manifest_sha256: inv.manifest_sha256, rules_root: inv.rules_root, files: inv.files.length, read_at: inv.generated_at }, ...view });
+      }
+      // ---- policy: persistent administrative withdrawals (every write is ADMIN only, checked by the validators before anything is read) ----
+      if (path === '/api/policies' || path.startsWith('/api/policies/')) {
+        const send = (r) => { const { status, ...rest } = r; return json(rest, status); };
+        const readBody = async () => { const rd = await readJson(request, 20_000); return rd.tooLarge ? null : rd.body; };
+        if (method === 'GET' && path === '/api/policies') return json(await policies.listPolicies(db, { status: url.searchParams.get('status') || '' }, iso));
+        if (method === 'GET' && path === '/api/policies/preview') { if (!atLeast(role, 'ADMIN')) return err(403, 'admin role required'); return send(await policies.previewWithdrawal(db, env, deps, { candidate_id: url.searchParams.get('candidate_id') || '', scope: url.searchParams.get('scope') || '' })); }
+        if (method === 'POST' && path === '/api/policies/withdrawals') { const x = policies.validateWithdrawalRequest(await readBody(), role); if (!x.ok) return err(x.status, x.error); return send(await policies.requestWithdrawal(db, env, deps, x.value, actor, iso)); }
+        if (method === 'POST' && path === '/api/policies/reconcile') { if (!atLeast(role, 'ADMIN')) return err(403, 'admin role required'); return send(await policies.reconcileNow(db, env, deps, actor, iso)); }
+        const pm = path.match(/^\/api\/policies\/([0-9a-f-]{8,64})$/);
+        if (method === 'GET' && pm) { const r = await policies.getPolicy(db, pm[1], iso); return r ? json(r) : err(404, 'not found'); }
+        const pl = path.match(/^\/api\/policies\/([0-9a-f-]{8,64})\/lifts$/);
+        if (method === 'POST' && pl) { const x = policies.validateLiftRequest(await readBody(), role); if (!x.ok) return err(x.status, x.error); return send(await policies.requestLift(db, pl[1], x.value, actor, iso)); }
+        const lm = path.match(/^\/api\/policies\/lifts\/([A-Za-z0-9-]{8,64})\/(authorize|execute|cancel|review)$/);
+        if (method === 'POST' && lm) {
+          const op = lm[2], x = policies.validateLiftStep(await readBody(), role, { reason: op !== 'execute', outcome: op === 'review' }); if (!x.ok) return err(x.status, x.error);
+          const fn = { authorize: policies.authorizeLift, execute: policies.executeBreakglass, cancel: policies.cancelLift, review: policies.reviewBreakglass }[op];
+          return send(await fn(db, lm[1], x.value, actor, iso));
+        }
+        return err(404, 'unknown endpoint');
       }
       const m = path.match(/^\/api\/candidates\/([0-9a-f-]{8,64})$/);
       if (method === 'GET' && m) {
         const c = await store.getCandidate(db, m[1]); if (!c) return err(404, 'not found');
         if (!(await store.viewedRecently(db, session.login, c.id, iso))) await store.appendAudit(db, { actor: session.login, role, action: 'access.view', target: c.id, detail: { path: c.path, sha256: c.sha256 } }, iso);   // who looked at which rule (once per 10 minutes)
+        c.publication = await policies.candidateView(db, c, iso);   // policy: derived publication state, the policy and its lifts
         return json(c);
       }
       if (method === 'GET' && path === '/api/ops/overview') {   // public pipeline records, cached at the edge; any signed-in role may read them
@@ -129,6 +156,7 @@ export async function handle(request, env, deps) {
       if (method === 'POST' && path === '/api/decisions') {
         const read = await readJson(request, 200_000); if (read.tooLarge) return err(413, 'request body too large');
         const v = validateDecisionRequest(read.body, role); if (!v.ok) return err(v.status, v.error);
+        if (v.value.action === 'approve') { const blocked = await policies.blockedByPolicy(db, v.value.ids); if (blocked.length) return err(409, 'nothing was changed', { conflicts: blocked }); }   // policy: an approval under an administrative prohibition can never take effect
         const r = await store.decide(db, v.value, actor, iso);
         const { status, ...rest } = r; return json(rest, status);
       }

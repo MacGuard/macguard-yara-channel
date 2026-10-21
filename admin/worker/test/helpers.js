@@ -76,11 +76,11 @@ export async function world() {
     },
     /** What GitHub shows about a public release: its API record and its manifest.json. `entries` are the (path, sha256, bytes) the release lists.
      *  Options break one thing at a time: draft, hidden (404), api down, tampered rules_root, wrong asset digest, manifest download failing, extra raw fields. */
-    async release(tag, entries, { draft = false, hidden = false, apiStatus = 200, tamperRoot = false, wrongDigest = false, manifestStatus = 200, noDigest = false, noManifestAsset = false, rawManifest = null, downloadUrl = null, lag = 0 } = {}) {
+    async release(tag, entries, { draft = false, hidden = false, apiStatus = 200, tamperRoot = false, wrongDigest = false, manifestStatus = 200, noDigest = false, noManifestAsset = false, rawManifest = null, downloadUrl = null, lag = 0, publishedAt = '2026-10-21T03:40:00Z' } = {}) {
       const files = entries.map((e) => ({ path: e.path, sha256: e.sha256, bytes: e.bytes ?? null, ...(e.source ? { source: e.source } : {}) }));
       const manifestBytes = new TextEncoder().encode(rawManifest ?? JSON.stringify({ schema: 1, files, rules_root: tamperRoot ? '0'.repeat(64) : await rulesRoot(files) }));
       const dl = downloadUrl ?? `https://github.com/${REPO}/releases/download/${tag}/manifest.json`, digest = wrongDigest ? 'sha256:' + 'f'.repeat(64) : 'sha256:' + await sha256Hex(manifestBytes);
-      const rel = { id: 4242, tag_name: tag, draft, published_at: draft ? null : '2026-10-21T03:40:00Z', assets: noManifestAsset ? [] : [{ name: 'manifest.json', browser_download_url: dl, ...(noDigest ? {} : { digest }) }] };
+      const rel = { id: 4242, tag_name: tag, draft, published_at: draft ? null : publishedAt, assets: noManifestAsset ? [] : [{ name: 'manifest.json', browser_download_url: dl, ...(noDigest ? {} : { digest }) }] };
       const log = { api: 0, download: 0 };
       route(new RegExp(`/repos/${REPO}/releases/(tags/${tag}|latest)$`), () => { log.api++; return hidden || log.api <= lag ? new Response('{}', { status: 404 }) : apiStatus !== 200 ? new Response('x', { status: apiStatus }) : new Response(JSON.stringify(rel)); });
       route(/\/releases\/download\/.*\/manifest\.json$/, () => { log.download++; return log.download <= lag ? new Response('x', { status: 404 }) : manifestStatus !== 200 ? new Response('x', { status: manifestStatus }) : new Response(manifestBytes); });
