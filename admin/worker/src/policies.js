@@ -14,6 +14,10 @@ export const SCOPES = ['path', 'content'];
 
 const J = (v) => JSON.stringify(v ?? null);
 const parse = (s, d) => { try { return JSON.parse(s); } catch { return d; } };
+/** The three READ hooks that existing routes call (rule sheet, Published, approval) run before migration 0003 has been applied when the Worker is deployed first:
+ *  a database without the policy tables has no policies, so they answer as if there were none. Anything else is still an error. */
+const noTable = (e) => /no such table/i.test(String((e && e.message) || e));
+async function rowsOrNone(query) { try { return (await query()).results; } catch (e) { if (noTable(e)) return []; throw e; } }
 const addS = (iso, s) => new Date(Date.parse(iso) + s * 1000).toISOString();
 const asciiLower = (s) => String(s).replace(/[A-Z]/g, (c) => c.toLowerCase());
 const GUARD = "SELECT CASE WHEN changes() = 1 THEN 1 ELSE json('not-json') END";   // aborts the whole batch when the statement before it changed a row count other than one
@@ -346,7 +350,7 @@ export async function getPolicy(db, id, now) {
 /** What the rule sheet shows: pending / confirmed / lifted, derived from the policy rows (never a free-hand flag). */
 export async function candidateView(db, c, now) {
   const keys = [scopeKey('content', c), scopeKey('path', c)].filter(Boolean);
-  const rows = (await db.prepare(`SELECT * FROM policies WHERE candidate_id = ? OR scope_key IN (${keys.map(() => '?').join(',') || "''"}) ORDER BY created_at DESC, id LIMIT 20`).bind(c.id, ...keys).all()).results;
+  const rows = await rowsOrNone(() => db.prepare(`SELECT * FROM policies WHERE candidate_id = ? OR scope_key IN (${keys.map(() => '?').join(',') || "''"}) ORDER BY created_at DESC, id LIMIT 20`).bind(c.id, ...keys).all());
   const live = rows.find((p) => p.status === 'ACTIVE') || null, last = live || rows[0] || null;
   const publication = live ? (live.withdrawal === 'CONFIRMED' ? 'withdrawn' : 'withdrawal_pending') : last ? 'lifted' : c.state === 'RELEASED' ? 'published' : null;
   const lifts = last ? (await db.prepare('SELECT * FROM policy_lifts WHERE policy_id = ? ORDER BY requested_at DESC LIMIT 10').bind(last.id).all()).results.map((l) => withLiftState(l, now)) : [];
@@ -354,7 +358,7 @@ export async function candidateView(db, c, now) {
 }
 /** Marks, for the Published inventory, the files that carry a policy. */
 export async function annotateItems(db, items) {
-  const rows = (await db.prepare('SELECT id, scope, scope_key, sha256, status, withdrawal, criticality FROM policies ORDER BY created_at DESC, id LIMIT 500').all()).results;
+  const rows = await rowsOrNone(() => db.prepare('SELECT id, scope, scope_key, sha256, status, withdrawal, criticality FROM policies ORDER BY created_at DESC, id LIMIT 500').all());
   if (!rows.length) return items;
   return items.map((it) => {
     const keys = new Set([`content:${it.sha256}`, scopeKey('path', { source: it.source || '', path: it.path })]);
@@ -365,7 +369,7 @@ export async function annotateItems(db, items) {
 }
 /** Approving a candidate that an ACTIVE policy covers would be meaningless (decide.py blocks it): refuse it up front. */
 export async function blockedByPolicy(db, ids) {
-  const active = (await db.prepare("SELECT id, scope, scope_key, sha256 FROM policies WHERE status = 'ACTIVE'").all()).results; if (!active.length) return [];
+  const active = await rowsOrNone(() => db.prepare("SELECT id, scope, scope_key, sha256 FROM policies WHERE status = 'ACTIVE'").all()); if (!active.length) return [];
   const out = [];
   for (let i = 0; i < ids.length; i += 50) {
     const part = ids.slice(i, i + 50);
