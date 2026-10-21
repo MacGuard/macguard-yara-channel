@@ -30,7 +30,7 @@ class AuditArchive(Base):
         rep = self.archive(); self.assertTrue(rep['complete']); self.assertEqual([c['provider'] for c in rep['copies']], list(NAMES))
         self.assertEqual(len({c['ciphertext_sha256'] for c in rep['copies']}), 1)
         ct_objs = [p.get(k) for p in self.provs for k in p.list('objects/') if p.get(k).startswith(b'FAKE-AGE')]
-        self.assertEqual(len(ct_objs), 3); self.assertTrue(all(b'ada' not in c for c in ct_objs), 'private audit detail is encrypted before it leaves the process')
+        self.assertEqual(len(ct_objs), 3); self.assertTrue(all(b'test.event' not in c and b'actor' not in c for c in ct_objs), 'private audit detail is encrypted before it leaves the process')
         for p in self.provs: self.assertTrue(all(oct(stat.S_IMODE((p.root / k).stat().st_mode)) == '0o444' for k in p.list()), 'objects are read-only on disk')
 
     def test_rerun_is_idempotent_and_changes_nothing(self):
