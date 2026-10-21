@@ -49,7 +49,8 @@ def build_submissions(decision, dist, dynamic=None):
     for s in decision.get('submissions', []):
         root = pathlib.Path(dist).resolve(); p = (root / s['path']).resolve()
         if root != p and root not in p.parents: raise ValueError(f"submission path escapes the candidate folder: {s['path']!r}")
-        item = {'sha256': s['sha256'], 'path': s['path'], 'source': s['source'], 'bytes': s['bytes'], 'reasons': s['reasons'], 'depends_on': s.get('depends_on', []), 'metrics': per_file.get(s['path'], {})}
+        item = {'sha256': s['sha256'], 'path': s['path'], 'source': s['source'], 'bytes': s['bytes'], 'reasons': s['reasons'], 'depends_on': s.get('depends_on', []), 'metrics': per_file.get(s['path'], {}), 'findings_schema': 1, 'findings': s.get('findings', [])}
+        if (dynamic or {}).get('engine'): item['engine'] = str((dynamic or {})['engine'])[:80]
         if p.exists() and p.stat().st_size <= 1_000_000: item['content_b64'] = base64.b64encode(p.read_bytes()).decode()
         out.append(item)
     return out

@@ -1,5 +1,5 @@
 // Data access for the quarantine service. `db` is a Cloudflare D1 binding (or the test shim with the same API).
-import { GENESIS, SYNTHETIC_SOURCE, blockingReasons, chainHash, dependencyEffect, humanTransition, pipelineTransition, releaseTransition } from './core.js';
+import { GENESIS, SYNTHETIC_SOURCE, blockingReasons, sanitizeFindings, chainHash, dependencyEffect, humanTransition, pipelineTransition, releaseTransition } from './core.js';
 
 const J = (v) => JSON.stringify(v ?? null);
 const parse = (s, d) => { try { return JSON.parse(s); } catch { return d; } };
@@ -40,18 +40,28 @@ export async function auditQuery(db, { limit = 50, before, family, actor } = {})
 }
 export async function auditHead(db) { return (await db.prepare('SELECT COUNT(*) AS n, MAX(seq) AS seq FROM audit').first()); }
 
-export async function upsertCandidate(db, item, now, newId) {
+/** The metrics stored with a candidate: what the pipeline measured plus, from contract findings_schema 1, the detail of each finding. `run` is the execution the verified
+ *  token names; a client field can never stand in for it, and keys of the findings family that arrive inside `metrics` are discarded. */
+function storedMetrics(item, run) {
+  const m = { ...(item.metrics || {}) }; for (const k of ['findings', 'findings_schema', 'findings_dropped', 'findings_unsupported', 'findings_run', 'engine']) delete m[k];
+  const ev = sanitizeFindings(item); if (!ev) return m;
+  m.findings_schema = 1; m.findings = ev.findings; m.findings_dropped = ev.findings_dropped; if (ev.findings_unsupported) m.findings_unsupported = true;
+  if (ev.engine) m.engine = ev.engine; if (run) m.findings_run = { run_id: run.id, run_attempt: run.attempt };
+  return m;
+}
+export async function upsertCandidate(db, item, now, newId, run = null) {
+  const metrics = J(storedMetrics(item, run));
   const known = await db.prepare('SELECT * FROM candidates WHERE sha256 = ? AND path = ?').bind(item.sha256, item.path).first();
   if (known) {
     // The same bytes keep their state. Rejected content is never re-opened by the pipeline.
-    if (known.state !== 'REJECTED' && known.state !== 'RELEASED') await db.prepare('UPDATE candidates SET reasons=?, metrics=?, updated_at=? WHERE id=?').bind(J(item.reasons), J(item.metrics || {}), now, known.id).run();
+    if (known.state !== 'REJECTED' && known.state !== 'RELEASED') await db.prepare('UPDATE candidates SET reasons=?, metrics=?, updated_at=? WHERE id=?').bind(J(item.reasons), metrics, now, known.id).run();
     return { id: known.id, status: known.state === 'REJECTED' ? 'known-rejected' : 'known', state: known.state };
   }
   const prev = await db.prepare('SELECT id, state, sha256 FROM candidates WHERE path = ? ORDER BY detected_at DESC LIMIT 1').bind(item.path).first();
   const id = newId();
   const related = prev ? [{ id: prev.id, sha256: prev.sha256, state: prev.state, relation: 'earlier version of the same file' }] : [];
   await db.prepare('INSERT INTO candidates (id, sha256, path, name, source, upstream_commit, bytes, detected_at, state, reasons, metrics, depends_on, related, version, previous_id, updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)')
-    .bind(id, item.sha256, item.path, item.path.split('/').pop(), item.source, item.commit || null, item.bytes || 0, now, 'PENDING', J(item.reasons), J(item.metrics || {}), J(item.depends_on || []), J(related), 1, prev ? prev.id : null, now).run();
+    .bind(id, item.sha256, item.path, item.path.split('/').pop(), item.source, item.commit || null, item.bytes || 0, now, 'PENDING', J(item.reasons), metrics, J(item.depends_on || []), J(related), 1, prev ? prev.id : null, now).run();
   if (item.content_b64) {
     const text = new TextDecoder('utf-8', { fatal: false }).decode(Uint8Array.from(atob(item.content_b64), (c) => c.charCodeAt(0)));
     await db.prepare('INSERT OR IGNORE INTO blobs (sha256, content) VALUES (?,?)').bind(item.sha256, text).run();

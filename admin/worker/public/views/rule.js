@@ -5,19 +5,32 @@ import { api, failure } from '../api.js';
 import { decide, retest } from './decide.js';
 
 /** For every finding: what the control checks, whether it blocks (no human approval skips it) or only needs a judgement, and what would have to happen. */
+const SEV_KEY = { review: 'fe_sev_review', block: 'fe_sev_block', reject: 'fe_sev_reject', corrupt: 'fe_sev_corrupt', truncated: 'fe_sev_truncated' };
+const val = (v, unit) => `${v}${unit ? ` ${unit}` : ''}`;
+/** What the pipeline measured for one finding of this exact content (contract findings_schema 1): the check, its severity, the observed value, the threshold applied, the detail. */
+function evidenceOf(e, blockingNow) {
+  const rows = [h('dt', { text: t('fe_check') }), h('dd', { class: 'mono', text: e.code }), h('dt', { text: t('fe_severity') }), h('dd', { text: `${has(SEV_KEY[e.severity]) ? t(SEV_KEY[e.severity]) : e.severity} · ${blockingNow ? t('rx_block') : t('rx_review')}` })];
+  if (e.observed !== undefined) rows.push(h('dt', { text: t('fe_observed') }), h('dd', { text: val(e.observed, e.unit) }));
+  if (e.threshold !== undefined) rows.push(h('dt', { text: t('fe_threshold') }), h('dd', { text: val(e.threshold, e.unit) }));
+  if (e.detail) rows.push(h('dt', { text: t('fe_detail') }), h('dd', { class: 'mono', text: e.detail }));
+  return h('dl', { class: 'kv mt-6' }, ...rows);
+}
 function findingsCard(c) {
   const codes = (c.reasons || []).filter((x) => x !== 'waived-by-review'); if (!codes.length || c.state === 'RELEASED') return null;
   const blocking = new Set(c.blocking || []), key = (x) => String(x).replace(/[^a-z0-9]+/gi, '_');
+  const m = c.metrics || {}, measured = m.findings_schema === 1 && Array.isArray(m.findings) ? m.findings : [];
   const item = (x) => {
     const k = key(x), known = has(`rx_${k}`), block = blocking.has(x);
     return h('li', {}, h('div', { class: 'flex-8 center' }, h('span', { class: block ? 'chip chip-bad' : 'chip', text: block ? t('rx_block') : t('rx_review') }), h('strong', { text: reasonLabel(x) })),
       h('p', { class: 'note mt-6', text: known ? t(`rx_${k}`) : t('rx_unknown') }),
-      known ? h('p', { class: 'note mt-6' }, h('b', { text: `${block ? t('rx_fix_block') : t('rx_fix_review')}: ` }), t(`rf_${k}`)) : null);
+      known ? h('p', { class: 'note mt-6' }, h('b', { text: `${block ? t('rx_fix_block') : t('rx_fix_review')}: ` }), t(`rf_${k}`)) : null,
+      ...(measured.filter((e) => e.code === x).map((e) => evidenceOf(e, block))));
   };
   const blocked = codes.filter((x) => blocking.has(x)), others = codes.filter((x) => !blocking.has(x));
   return h('section', { class: 'card', 'aria-labelledby': 'h-find', id: 'findings' }, h('h2', { id: 'h-find', text: t('rx_h') }),
     blocked.length ? h('p', { class: 'note mb-10', text: t('rx_blocked_lead') }) : null, blocked.length ? h('ul', { class: 'deplist' }, ...blocked.map(item)) : null,
-    others.length ? h('p', { class: 'note mt-10 mb-10', text: t('rx_review_lead') }) : null, others.length ? h('ul', { class: 'deplist' }, ...others.map(item)) : null);
+    others.length ? h('p', { class: 'note mt-10 mb-10', text: t('rx_review_lead') }) : null, others.length ? h('ul', { class: 'deplist' }, ...others.map(item)) : null,
+    h('p', { class: 'note mt-14', id: 'findings-source', text: measured.length || m.findings_schema === 1 ? t('fe_report', { sha: c.sha256.slice(0, 12), run: m.findings_run ? m.findings_run.run_id : '—', attempt: m.findings_run && m.findings_run.run_attempt ? t('fe_attempt', { n: m.findings_run.run_attempt }) : '', engine: m.engine ? t('fe_engine', { engine: m.engine }) : '', dropped: m.findings_dropped ? t('fe_dropped', { n: m.findings_dropped }) : '' }) : t('fe_old') }));
 }
 
 /** What this rule needs, what needs it, and whether approving it will take effect (computed by the server from the same rules decide.py applies). */

@@ -185,6 +185,24 @@ for (const name of WANT) {
         assert.deepEqual(await axeViolations(page), [], 'the published sheet meets WCAG 2.2 AA'); assert.deepEqual(page.errors, []);
       } finally { await page.context().close(); s.stop(); }
     });
+    test('the sheet shows what each check measured (observed value, threshold, severity, detail, run) and says so when the candidate predates the report', async () => {
+      const s = await startServer(['--blocked']); const page = await newPage(browser, s, 'reviewer', VIEWPORTS.desktop);
+      try {
+        await goto(page, s, '/#/quarantine'); await page.waitForSelector('.rule');
+        await page.locator('.rule-title', { hasText: 'rule_1.yar' }).click(); await page.waitForSelector('#findings');
+        let t = (await page.locator('#findings').innerText()).replace(/\s+/g, ' ');
+        assert.ok(t.includes('Valor observado') && t.includes('7 risk score') && t.includes('Umbral aplicado') && t.includes('6 risk score') && t.includes('nested quantifier') && t.includes('De criterio · Se puede aprobar'), t);
+        assert.ok(t.includes('Informe del SHA-256') && t.includes('medido por la ejecución') && t.includes('motor YARA 4.5.0'), t);
+        assert.deepEqual(await axeViolations(page), [], 'the measured evidence meets WCAG 2.2 AA');
+        await goto(page, s, '/#/quarantine'); await page.waitForSelector('.rule'); await page.locator('.rule-title', { hasText: 'rule_0.yar' }).click(); await page.waitForSelector('#findings');
+        t = (await page.locator('#findings').innerText()).replace(/\s+/g, ' ');
+        assert.ok(t.includes('se recibió antes de que el pipeline enviara el detalle') && !t.includes('Valor observado'), 'no value is shown that was not measured');
+        await goto(page, s, '/#/quarantine'); await page.waitForSelector('.rule'); await page.locator('.rule-title', { hasText: 'truncated.yar' }).click(); await page.waitForSelector('#findings');
+        t = (await page.locator('#findings').innerText()).replace(/\s+/g, ' ');
+        assert.ok(t.includes('the file ends inside rule R') && t.includes('Fichero truncado · Bloquea') && !t.includes('Valor observado'), t);
+        assert.deepEqual(page.errors, []);
+      } finally { await page.context().close(); s.stop(); }
+    });
     test('Published lists the whole signed release (also what the panel never recorded), paginated, filtered and searchable; quarantine and synthetic tests stay apart', async () => {
       const s = await startServer(['--published', '--synthetic']); const page = await newPage(browser, s, 'reviewer', VIEWPORTS.desktop);
       try {

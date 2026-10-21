@@ -19,7 +19,9 @@ KEYWORDS = set('all and any ascii at base64 base64wide condition contains endswi
 
 def sha256(b: bytes) -> str: return hashlib.sha256(b).hexdigest()
 
-def finding(code, severity, detail): return {'code': code, 'severity': severity, 'detail': detail}
+def finding(code, severity, detail, **measured):
+    """`measured` (observed, threshold, unit) is set only where the check really measures something; a finding that is a yes/no test carries just its detail."""
+    return {'code': code, 'severity': severity, 'detail': detail, **measured}
 
 # ---- lexical pass --------------------------------------------------------------------------
 def strip(text: str):
@@ -92,19 +94,19 @@ def analyse_text(text: str, policy: dict) -> dict:
     imports = sorted(set(re.findall(r'^\s*import\s+"(\w+)"', text, re.M)))
     includes = sorted(set(re.findall(r'^\s*include\s+"([^"]+)"', text, re.M)))
     for mod in imports:
-        if mod in policy['blocked_modules']: f.append(finding('blocked-module', 'review', f'module "{mod}" needs external libraries and is not allowed'))
-        elif mod not in policy['allowed_modules']: f.append(finding('unknown-module', 'review', f'module "{mod}" is not on the allowed list'))
+        if mod in policy['blocked_modules']: f.append(finding('blocked-module', 'review', f'module "{mod}" needs external libraries and is not allowed', observed=mod, unit='module'))
+        elif mod not in policy['allowed_modules']: f.append(finding('unknown-module', 'review', f'module "{mod}" is not on the allowed list', observed=mod, unit='module'))
     for inc in includes: f.append(finding('include', 'review', f'include "{inc}" pulls in another file'))
     worst = 0
     for rx in regexes:
         s, why = regex_risk(rx, policy); worst = max(worst, s)
-        if s >= policy['regex']['max_risk_score']: f.append(finding('costly-regex', 'review', f'regex /{rx[:80]}/ risk {s}: {", ".join(why)}'))
+        if s >= policy['regex']['max_risk_score']: f.append(finding('costly-regex', 'review', f'regex /{rx[:80]}/ risk {s}: {", ".join(why)}', observed=s, threshold=policy['regex']['max_risk_score'], unit='risk score'))
     loops = 0
     for name, mods, start, end, body in blocks:
         cond = body.split('condition', 1)[1] if 'condition' in body else ''
         loops = max(loops, len(re.findall(r'\bfor\b', cond)))
         if policy['condition']['forbid_filesize_loops'] and re.search(r'\bin\s*\(\s*[\w\d]+\s*\.\.\s*(?:filesize|#\w+|\w+\s*-\s*\d+)\s*\)', cond) and 'filesize' in cond: f.append(finding('filesize-loop', 'review', f'rule {name} iterates over the whole file in its condition'))
-        if len(re.findall(r'\bfor\b', cond)) > policy['condition']['max_for_loops']: f.append(finding('many-loops', 'review', f'rule {name} has {len(re.findall(r"\bfor\b", cond))} loops'))
+        if len(re.findall(r'\bfor\b', cond)) > policy['condition']['max_for_loops']: f.append(finding('many-loops', 'review', f'rule {name} has {len(re.findall(r"\bfor\b", cond))} loops', observed=len(re.findall(r'\bfor\b', cond)), threshold=policy['condition']['max_for_loops'], unit='for loops'))
     names = [b[0] for b in blocks]
     deprecated = bool(re.search(r'\b(?:deprecated|status)\s*=\s*(?:true|"deprecated")', text, re.I))
     if len(blocks) > policy['limits']['max_rules_per_file']: f.append(finding('too-many-rules', 'reject', f'{len(blocks)} rules in one file'))
