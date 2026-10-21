@@ -218,8 +218,8 @@ export async function sha256hex(text) {
 }
 export const GENESIS = '0'.repeat(64);
 export async function chainHash(prevHash, entry) { return sha256hex(prevHash + canonical(entry)); }
-export async function verifyChain(rows) {
-  let prev = GENESIS;
+export async function verifyChain(rows, startHash = GENESIS) {   // startHash: an archived anchor's head hash when earlier rows were pruned
+  let prev = startHash;
   for (const r of rows) {
     if (r.prev_hash !== prev) return { ok: false, at: r.seq, error: 'chain link broken (entry removed or reordered)' };
     const expect = await chainHash(prev, { at: r.at, actor: r.actor, role: r.role, action: r.action, target: r.target, detail: r.detail });

@@ -239,6 +239,26 @@ for (const name of WANT) {
         assert.deepEqual(await axeViolations(page), [], 'Published meets WCAG 2.2 AA on a phone, in English'); assert.deepEqual(page.errors, []);
       } finally { await page.context().close(); s.stop(); }
     });
+    test('withdrawal of a published rule: only an administrator is offered it, the reason is mandatory, the sheet and Published then say it is pending', async () => {
+      const s = await startServer(['--released']); const rev = await newPage(browser, s, 'reviewer', VIEWPORTS.desktop); const page = await newPage(browser, s, 'admin', VIEWPORTS.desktop);
+      try {
+        await goto(rev, s, '/#/published'); await rev.waitForSelector('.rule'); await rev.locator('.rule-title').first().click(); await rev.waitForSelector('#h-dep');
+        assert.equal(await rev.getByRole('button', { name: 'Solicitar retirada' }).count(), 0, 'a reviewer is not offered the withdrawal');
+        await goto(page, s, '/#/published'); await page.waitForSelector('.rule'); await page.locator('.rule-title').first().click(); await page.waitForSelector('#h-pol');
+        assert.deepEqual(await axeViolations(page), [], 'the sheet with the withdrawal card meets WCAG 2.2 AA');
+        await page.getByRole('button', { name: 'Solicitar retirada' }).click(); const dlg = page.locator('dialog[open]'); await dlg.waitFor();
+        assert.deepEqual(await axeViolations(page), [], 'the withdrawal dialog meets WCAG 2.2 AA');
+        await dlg.getByRole('button', { name: 'Solicitar retirada' }).click(); await page.waitForSelector('dialog[open] [role=alert]:not([hidden])');
+        assert.ok((await dlg.innerText()).includes('al menos 5'), 'a withdrawal without a reason is refused'); assert.equal(await page.locator('#h-pol + p.alert').count(), 0);
+        await dlg.locator('textarea').fill('La regla genera falsos positivos en software legítimo'); await dlg.getByRole('button', { name: 'Solicitar retirada' }).click();
+        await page.waitForSelector('#h-pol ~ p.alert'); const card = (await page.locator('section:has(#h-pol)').innerText()).replace(/\s+/g, ' ');
+        assert.ok(card.includes('Retirada pendiente') && card.includes('todavía contiene esta regla') && card.includes('ada'), card);
+        assert.equal(await page.getByRole('button', { name: 'Solicitar retirada' }).count(), 0, 'a second request is not offered while one is pending');
+        await goto(page, s, '/#/published'); await page.waitForSelector('.rule'); const row = (await page.locator('.rule').first().innerText()).replace(/\s+/g, ' ');
+        assert.ok(/Retirada pendiente/i.test(row), row);
+        assert.deepEqual(await axeViolations(page), [], 'Published with a pending withdrawal meets WCAG 2.2 AA'); assert.deepEqual(page.errors, []); assert.deepEqual(rev.errors, []);
+      } finally { await rev.context().close(); await page.context().close(); s.stop(); }
+    });
     test('an administrator manages members: resolve the real account, grant, history, revoke; self and non-personal accounts are refused', async () => {
       const s = await startServer(); const page = await newPage(browser, s, 'admin', VIEWPORTS.desktop);
       try {

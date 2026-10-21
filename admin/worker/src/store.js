@@ -1,4 +1,5 @@
 // Data access for the quarantine service. `db` is a Cloudflare D1 binding (or the test shim with the same API).
+import { chainHead } from './anchor.js';   // archive P1: the chain continues from an anchor, never silently from GENESIS
 import { GENESIS, SYNTHETIC_SOURCE, blockingReasons, sanitizeFindings, chainHash, dependencyEffect, humanTransition, pipelineTransition, releaseTransition } from './core.js';
 
 const J = (v) => JSON.stringify(v ?? null);
@@ -7,8 +8,7 @@ const row = (r) => { if (!r) return r; const reasons = parse(r.reasons, []), blo
 
 export async function appendAudit(db, { actor, role, action, target, detail }, now) {
   for (let attempt = 0; attempt < 6; attempt++) {
-    const last = await db.prepare('SELECT hash FROM audit ORDER BY seq DESC LIMIT 1').first();
-    const prev = last ? last.hash : GENESIS;
+    const prev = await chainHead(db);
     const entry = { at: now, actor, role, action, target, detail: J(detail) };
     const hash = await chainHash(prev, entry);
     try {
@@ -163,8 +163,7 @@ export async function decide(db, req, actor, now) {
   // The guard counts the decision rows THIS request wrote: a concurrent writer that reached the same state first leaves ours at zero,
   // so no audit entry can claim a decision that did not take effect.
   stmts.push(db.prepare(`SELECT CASE WHEN (SELECT COUNT(*) FROM decisions WHERE request_id = ?) = ${applied.length} THEN 1 ELSE json('not-json') END`).bind(request_id));
-  const last = await db.prepare('SELECT hash FROM audit ORDER BY seq DESC LIMIT 1').first();
-  const prev = last ? last.hash : GENESIS;
+  const prev = await chainHead(db);
   const entry = { at: now, actor: actor.login, role: actor.role, action: `decision.${action}`, target: ids.length === 1 ? ids[0] : `batch:${ids.length}`,
     detail: J({ request_id, reason, applied: applied.map((a) => ({ id: a.id, sha256: a.sha256, to: a.to })) }) };
   stmts.push(db.prepare('INSERT INTO audit (at, actor, role, action, target, detail, prev_hash, hash) VALUES (?,?,?,?,?,?,?,?)').bind(entry.at, entry.actor, entry.role, entry.action, entry.target, entry.detail, prev, await chainHash(prev, entry)));
@@ -232,7 +231,7 @@ export async function markReleased(db, pub, ctx, actor, now, { always = true } =
       changed: todo.length, remaining: transitions.length - todo.length, already_released: already, conflicts, claimed: ctx.claimed ?? null, claimed_not_in_manifest: ctx.claimed_not_in_manifest ?? null,
       run_url: ctx.run_url || null, token_run_id: ctx.token_run_id ?? null, run_attempt: ctx.run_attempt ?? null,
       transitions: todo.map((t) => ({ id: t.id, path: t.path, sha256: t.sha256, from: t.from, to: t.to, basis: t.basis, reason })) }) };
-    const last = await db.prepare('SELECT hash FROM audit ORDER BY seq DESC LIMIT 1').first(), prev = last ? last.hash : GENESIS;
+    const prev = await chainHead(db);
     stmts.push(db.prepare('INSERT INTO audit (at, actor, role, action, target, detail, prev_hash, hash) VALUES (?,?,?,?,?,?,?,?)').bind(entry.at, entry.actor, entry.role, entry.action, entry.target, entry.detail, prev, await chainHash(prev, entry)));
     try { await db.batch(stmts); } catch (e) { if (attempt === 2) throw e; continue; }   // a person decided meanwhile or another writer took the audit link: read again
     return { changed: todo.map((t) => ({ id: t.id, sha256: t.sha256, to: t.to })), skipped: conflicts, conflicts, recorded: true };
@@ -270,7 +269,7 @@ export async function changeMember(db, { account, role, reason, actor, durableAd
   if (role === null) stmts.push(db.prepare(`DELETE FROM members WHERE ${key[0]}`).bind(key[1]));
   else if (found.row) stmts.push(db.prepare(`UPDATE members SET login = ?, role = ?, user_id = ?, updated_at = ? WHERE ${key[0]}`).bind(account.login.toLowerCase(), role, account.id, now, key[1]));
   else stmts.push(db.prepare('INSERT INTO members (login, role, granted_by, at, user_id, updated_at) VALUES (?,?,?,?,?,?)').bind(account.login.toLowerCase(), role, actor.login, now, account.id, now));
-  const last = await db.prepare('SELECT hash FROM audit ORDER BY seq DESC LIMIT 1').first(); const prev = last ? last.hash : GENESIS;
+  const prev = await chainHead(db);
   const entry = { at: now, actor: actor.login, role: actor.role, action: 'member.set', target: `user:${account.id}`,
     detail: J({ user_id: account.id, login: account.login, from_role: from, to_role: role, reason, actor_id: actor.id, bound_legacy: found.kind === 'legacy' }) };
   stmts.push(db.prepare('INSERT INTO audit (at, actor, role, action, target, detail, prev_hash, hash) VALUES (?,?,?,?,?,?,?,?)').bind(entry.at, entry.actor, entry.role, entry.action, entry.target, entry.detail, prev, await chainHash(prev, entry)));

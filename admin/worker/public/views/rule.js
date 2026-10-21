@@ -3,6 +3,7 @@ import { t, has } from '../i18n.js';
 import { h, icon, stateBadge, reasonLabel, fmtDate, fmtDateTime, bytes, copyButton, shaFull, copyText, put } from '../ui.js';
 import { api, failure } from '../api.js';
 import { decide, retest } from './decide.js';
+import { policyCard } from './policy.js';
 
 /** For every finding: what the control checks, whether it blocks (no human approval skips it) or only needs a judgement, and what would have to happen. */
 const SEV_KEY = { review: 'fe_sev_review', block: 'fe_sev_block', reject: 'fe_sev_reject', corrupt: 'fe_sev_corrupt', truncated: 'fe_sev_truncated' };
@@ -96,7 +97,7 @@ export async function renderRule(ctx, id) {
         h('section', { class: 'card', 'aria-labelledby': 'h-res' }, h('h2', { id: 'h-res', text: t('r_resources') }), metersNode),
         h('section', { class: 'card', 'aria-labelledby': 'h-code' }, h('div', { class: 'flex-between' }, h('h2', { id: 'h-code', text: t('r_code') }), codeText !== null ? h('button', { type: 'button', class: 'btn btn-sm', onclick: () => copyText(codeText) }, icon('copy'), t('copy')) : null),
           h('p', { class: 'note mt-6 mb-10', text: t('r_code_note') }), codeText !== null ? h('pre', { class: 'code', tabindex: '0', 'aria-label': t('r_code'), text: codeText }) : h('p', { class: 'muted', text: t('r_code_none') }))),
-      h('div', { class: 'stack sticky' }, actions,
+      h('div', { class: 'stack sticky' }, actions, policyCard(c, me, reload),
         h('section', { class: 'card', 'aria-labelledby': 'h-dec' }, h('h2', { id: 'h-dec', text: t('r_decisions') }), decisions),
         (c.history || []).length ? h('section', { class: 'card', 'aria-labelledby': 'h-rel' }, h('h2', { id: 'h-rel', text: t('r_related') }), h('ul', { class: 'history' }, ...c.history.map((x) => h('li', {}, h('a', { href: `#/rules/${x.id}`, class: 'mono', text: x.sha256.slice(0, 12) }), ' ', stateBadge(x.state), ' ', h('span', { class: 'faint', text: fmtDate(x.detected_at) }))))) : null)));
   document.title = `${c.name} · MacGuard Quarantine`;
