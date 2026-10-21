@@ -1,6 +1,6 @@
 # Quarantine: decision memory, persistent policy and withdrawal of a published rule (design specification)
 
-Status: **DESIGN ONLY, nothing is implemented, no SQL has been run, nothing was deployed.** Every item marked *(proposal)* is new behaviour that does not exist in the
+Status: finalized with the owner's decisions of section 19 (wired rejections, fail-safe publication, urgent withdrawal and recovery are sections 14-18). **DESIGN ONLY, nothing is implemented, no SQL has been run, nothing was deployed.** Every item marked *(proposal)* is new behaviour that does not exist in the
 code today. Everything else cites the code it was read from (`file:line`, at the commit this file is committed on). Placeholders (`<rule>`, `<sha>`, `<tag>`,
 `<policy>`, `<admin>`) stand for real values on purpose: this document never names a real quarantined rule, path, hash or reason.
 
@@ -166,20 +166,17 @@ moved to `QUARANTINED` with the waivable `dependency-not-validated`, repeatedly 
   so `dependencyEffect` reports `ineffective` / `blocked_by` for approvals that need a withdrawn rule (existing 409 `dependency_blocked`, `store.js:127-130`). `tests/test_dependency_parity.py`
   is extended so the Python and JS closures agree on policy-blocked inputs.
 
-### 5.4 Unavailable or unsupported policy service *(proposal, see Open Decision 2)*
+### 5.4 Unavailable or unsupported policy service (fail safe; owner decision 8)
 
-Today "nothing here depends on the private quarantine store being reachable" (`decide.py:10`, `quarantine_client.py:4-5`). With prohibitions that principle has a hole (G3): if the
-service is down, a withdrawn or rejected rule that is technically clean would be published again. Proposed default: when `policies_available` is false (service unreachable, HTTP not 200, or
-`policy_schema != 1`), `decide()` runs in **degraded mode**: `publishable=false` if the change against the previous release contains any `added` or `modified` file; removals only are
-still allowed (a withdrawn rule already in the previous release simply stays listed, which is "pending"). Blocker text: `administrative policy unavailable: only removals can be published`.
-Alternative: fail closed (nothing publishable). Both change the "optional service" principle and need the owner's decision.
+Replaced by section 15: `decide()` receives `policy_mode` (`normal`, `snapshot`, `unknown`). In `unknown` mode the set is not publishable if it contains any `added` or `modified` file; removals-only is allowed
+(blocker added next to the other blockers at `decide.py:72-80`). Default `policy_mode='normal'` keeps every existing call unchanged.
 
 ### 5.5 What a withdrawal can never do (requirement 11)
 
 A policy only moves a file from `approved` to `excluded`. No policy, approval, reopen or lift adds a file to `approved` or alters a check. A lifted file re-enters through the same loop,
 needs `state == VALIDATED` after all static and dynamic gates, and the release still needs `publishable`, `set_root` equal to the dynamic evidence and the engine canaries. A human can
 therefore delay or remove a rule, never publish one that fails. If a removal-only set is not publishable (dynamic failure, anomaly guard `max_removed_fraction` when many rules go at once,
-`decide.py:76-80`) the withdrawal stays *pending*: there is no emergency path around the gates (Open Decision 7).
+`decide.py:76-80`) the withdrawal stays *pending*: there is no emergency path around the gates (section 16).
 
 ### 5.6 Plumbing *(proposal)*
 
@@ -200,7 +197,7 @@ All `/api/*` routes below inherit session, role refresh on unsafe methods, same-
 
 Request: `{ candidate_id, scope: "path"|"content", reason, request_id, expect_version, confirm_collateral }`.
 Validation mirrors `validateDecisionRequest`: ADMIN (403 otherwise), reason 5-2000 visible chars, `request_id` 16-80 url-safe, integer `expect_version`, `scope` explicit (no silent default
-in the API; the UI preselects `path`, Open Decision 1), `confirm_collateral` integer equal to the computed collateral count.
+in the API; the UI preselects `path`, Open Decision 1, 19.2), `confirm_collateral` integer equal to the computed collateral count.
 
 Server steps (all before any write): replay by `policies.request_id` (same candidate -> 200 `replay:true`; other -> 409) -> candidate exists, not archived, `state = RELEASED`, `version == expect_version`
 -> **the Worker reads the latest public release itself** (`fetchPublication(env, deps, null)`) and requires its verified manifest to list the candidate's exact `(path, sha256)`
@@ -233,7 +230,7 @@ as the callback (`markReleased`, `reconcilePolicies`) with `trigger:"reconcile"`
   conflict `published_despite_policy` (not moved), as it does for `REJECTED` (`core.js:122`, `store.js:201`). Only `publish.yml` may call it (`index.js:48`, unchanged).
 * `GET /api/candidates/{id}` (`store.js:83-93`): adds `policy` (current row + `policy_events`), `publication` (derived value, 3.3) and keeps `related`/`history` as the **precedent** block, labelled
   "precedent, not an approval" in the UI (i18n es/en keys required by `i18n.test.js`).
-* `GET /api/stats` / `/public/stats`: `released_after_review` (`store.js:100`, `core.js:190`) excludes candidates with a `CONFIRMED` policy so the public counter does not claim a withdrawn rule is released (Open Decision 5).
+* `GET /api/stats` / `/public/stats`: `released_after_review` (`store.js:100`, `core.js:190`) excludes candidates with a `CONFIRMED` policy so the public counter does not claim a withdrawn rule is released (Open Decision 5, 19.2).
 
 ---
 
@@ -350,7 +347,7 @@ Proof that no data change is needed, in three independent layers:
 
 Operationally the 10 candidates keep their states and versions; `RELEASED` ones become *withdrawable* by an ADMIN (a new action, no data), and a `REJECTED` one becomes *reopenable* by an ADMIN. Nothing else changes until someone acts.
 Deployment order: migration -> Worker (reads `policies`) -> `quarantine_client.py`/`decide.py`/`dynamic_gate.py` + `daily.yml`/`publish.yml`. The previous Worker works against the migrated schema (it ignores both tables). A new client against an
-old Worker sees no `policy_schema` and goes to degraded mode (5.4), never to "no policies".
+old Worker sees no `policy_schema` and goes to `unknown` mode (15.1), never to "no policies".
 
 ### 8.2 Rollback SQL (text only) and Time Travel
 
@@ -455,7 +452,7 @@ Levels: **U** unit (`admin/worker/test`, pure `core.js`), **S** service on the D
 | S-12 | S | lift P1 and P2 | `LIFTED`, candidate `PENDING`, `decisions` row, event, audit |
 | S-13 | S | `reopen` with another `REJECTED` row of the same sha | candidate `PENDING`, response lists `still_rejected_same_content` |
 | S-14 | S | empty `policies` | `GET /api/pipeline/decisions` equals the pre-change output; `/public/stats` identical |
-| S-15 | S | `released_after_review` with a `CONFIRMED` policy | excluded (if Open Decision 5 is accepted) |
+| S-15 | S | `released_after_review` with a `CONFIRMED` policy | excluded (if Open Decision 5 of 19.2 is accepted) |
 | N-01 | S | REVIEWER, VIEWER, no-role, anonymous call withdraw / lift / reopen / reconcile | 403 / 403 / 403 / 401, nothing changes |
 | N-02 | S | CSRF missing/wrong, cross-origin | 403 (existing middleware) |
 | N-03 | S | `daily.yml` token on `/api/pipeline/released` | 403 (existing) |
@@ -482,20 +479,20 @@ Levels: **U** unit (`admin/worker/test`, pure `core.js`), **S** service on the D
 | PY-03 | PY | approved decision + policy | still excluded (no waiver) |
 | PY-04 | PY | `content` scope, same sha at another path | excluded; different sha at the same path **not** excluded (content scope) |
 | PY-05 | PY | `path` scope, new sha at the path | excluded and visible in `submissions` |
-| PY-06 | PY | rejected-by-reviewer file that became clean, service unavailable | not publishable in degraded mode (G3) |
+| PY-06 | PY | rejected-by-reviewer file that became clean, service unavailable | not publishable in `unknown` mode (G3, NF-02) |
 | PY-07 | PY | decisions contain approval of old sha only | new sha gets no `waived-by-review` |
 | PY-08 | PY | policy removed (lifted) | file re-enters only if all technical gates pass; with a failing gate it does not |
 | PY-09 | PY | dependent chain `C -> B -> A`, policy on `A` | `B` and `C` excluded with `dependency-not-validated`; return together when lifted; JS/Python closure parity |
 | PY-10 | PY | removal-only set with failing dynamic verdict / anomaly | `publishable=false`, withdrawal not forced |
 | PY-11 | PY | property test: for random policies, `approved(policies) is a subset of approved(none)` | holds (a policy never adds a file) |
-| PY-12 | PY | `quarantine_client` writes `policies.json`; missing `policy_schema` -> degraded; `policy-check` exit codes | as described |
+| PY-12 | PY | `quarantine_client` writes `policies.json`; missing `policy_schema` -> `unknown` mode; `policy-check` exit codes | as described |
 | WF-01 | PY | `tests/test_workflow_prereqs.py`-style static checks: `daily.yml` passes `--policies`; `publish.yml` runs `policy-check` before `seal.py` | present |
 
 ---
 
 ## 12. Rollback plan (levels, cheapest first)
 
-1. **Worker only:** `wrangler rollback` to the previous version. New tables stay, ignored. Pipeline files are tolerant (missing fields -> degraded mode, section 5.4). No data loss.
+1. **Worker only:** `wrangler rollback` to the previous version. New tables stay, ignored. Pipeline files are tolerant (missing fields -> `unknown` mode, section 15.1). No data loss.
 2. **Pipeline files only:** revert `decide.py`/`dynamic_gate.py`/`quarantine_client.py`/workflow changes. With ACTIVE policies this *re-allows* the prohibited rules at the next release: before doing it, list ACTIVE policies and either lift them (audited) or keep the old Worker answering `policies` to a pinned client. Do not do this silently.
 3. **Schema:** `0003_rollback.sql` (8.2) only after levels 1-2 and with zero ACTIVE policies (or an exported copy).
 4. **Time Travel restore:** catastrophic corruption only; costs the audit rows after the bookmark (8.2).
@@ -507,30 +504,224 @@ Levels: **U** unit (`admin/worker/test`, pure `core.js`), **S** service on the D
 
 | Risk | Mitigation / note |
 |---|---|
-| Degraded mode (5.4) turns an outage of the private service into delayed additions | owner decision (OD-2); removals still flow; alarms are not enabled without a tested channel (project rule) |
+| Fail-safe mode (15) turns an outage of the private service into delayed additions | decided (D8); removals still flow; no alert is enabled without a tested channel (project rule) |
 | A withdrawn rule cannot be pulled quickly when the removal-only set fails a gate or the anomaly guard | by design (no bypass); `allow_large_change` is the existing human input of `daily.yml` and is not a test bypass |
-| CONFIRMED proves absence, not causation | recorded as such; OD-6 |
-| `path` scope blocks upstream updates until an ADMIN lifts | visible in the panel as `PENDING` with a non-approvable reason; OD-1 |
+| CONFIRMED proves absence, not causation | recorded as such; the snapshot pin (15.2) shows which policy view the build used |
+| `path` scope blocks upstream updates until an ADMIN lifts | visible in the panel as `PENDING` with a non-approvable reason; Open Decision 1 (19.2) |
 | batch size | `reject`/`approve` batches are unchanged; withdraw and lift are single-candidate; `reopen` uses the existing batch shape; RT test with 500 ids for `reopen` |
 | `reconcile` fetches GitHub on demand | ADMIN only, existing 10 s timeouts and retries (`publication.js:7-18`); add a minimum interval |
 | Worker does not verify Sigstore | same limitation and same mitigation as RELEASED (workflows verify before and after publication) |
 | Two truths for one block: `decisions` (rejections) and `policies` (withdrawals) | intentional: rejections stay as they are (smaller change); the decide.py input is the union; the sheet shows both |
-| Public counters (`released_after_review`) drifting from reality after withdrawals | OD-5 |
+| Public counters (`released_after_review`) drifting from reality after withdrawals | Open Decision 5 (19.2) |
 | Documentation of the states (`docs-src/diagrams/quarantine-states.json`) not updated here | touching `docs-src/` redeploys the public site; separate deliberate change |
 
 ---
 
-## 14. Open decisions for the owner
+## 14. Persistent rejections wired into the pipeline (owner decision 7)
 
-1. **Default scope of a withdrawal:** `path` (the rule file identity `source+path`: a later upstream version stays blocked, visible, until an ADMIN lifts) or `content` (exactly that SHA-256; a new version re-enters the normal review). Recommended: `path`, with `content` selectable.
-2. **Unavailable policy service:** degraded mode (only removals publishable) or fail closed (nothing publishable) or keep today's behaviour (not recommended: reintroduces G3). Also whether `publish.yml` `policy-check` may fail the job when the service is unreachable.
-3. **Two-person rule:** should a withdrawal or a lift require a second ADMIN to ratify (policy `PROPOSED` -> `ACTIVE`)? The brief says "ADMIN only"; this design implements one ADMIN.
-4. **Legacy rejections:** keep them as they are (decision map, no row in `policies`) plus the archive fix (6.3), or backfill them as `policies` rows by a separate, explicit, audited ADMIN operation (not part of the migration).
-5. **Public counters:** exclude `CONFIRMED` withdrawals from `released_after_review`? Add a public "withdrawn" count (counts only) or keep withdrawals invisible publicly?
-6. **Stronger confirmation:** put the applied `policy_set_sha256` (no names) into the release evidence (e.g. `release.json`/`manifest.json`), so a release proves it was built with the policy. It changes release artifacts (`seal.py`, `release_meta.py`), so it is outside this design unless approved.
-7. **Emergency withdrawal:** accept that there is none beyond the normal gates (recommended, requirement 11), or define a faster *human-triggered* run (manual `daily.yml` dispatch, which already exists) as the documented procedure.
-8. **Lift semantics:** a lift always returns the candidate to `PENDING` (a former waiver approval is not remembered, so a rule with judgement findings needs a new approval). Confirm, or require the lift to carry the approval forward (not recommended: contradicts requirement 3's spirit).
-9. **Standalone prohibition:** allow an ADMIN to block a path/hash that was never published (not just reject a candidate)? Not included.
-10. **Expiry/review:** policies are valid until lifted; add an optional `expires_at` or a periodic review reminder? Not included (and no alert without a tested notification channel).
-11. **Collateral:** should a withdrawal with dependents be refused unless the admin lists them (current design: preview + `confirm_collateral`), or should dependents be withdrawn explicitly as their own policies?
-12. **`reconcile` rate limit** and who may call it (ADMIN only here).
+**Verified today:** `dynamic_gate.py` accepts `--rejected` and passes it as `previously_rejected` to `decide.decide` (`dynamic_gate.py:130,138,78`), and `decide.py:37-38` turns a file whose hash is in that set into `REJECTED`
+(tested at `tests/test_decide.py:27-32`). But `daily.yml:74-77` never passes `--rejected`, nothing writes such a file, and in `dynamic_gate.py:131` the loader is
+`load = lambda p: ... if p and pathlib.Path(p).exists() else None`: **a missing file is silently ignored**. So the wiring is dead code today; a human rejection is honoured only through the decision map
+(`decisions[sha].state == 'REJECTED'`, `decide.py:39-41`), which is empty whenever the service is unreachable (`quarantine_client.py:80-84`).
+
+**Exact changes *(proposal)*:**
+
+| File | Change |
+|---|---|
+| `admin/worker/src/store.js` | new `rejectedHashes(db)`: `SELECT DISTINCT sha256 FROM candidates WHERE state = 'REJECTED'` **without** the `archived_at` filter of `store.js:166` |
+| `admin/worker/src/index.js:32` | `GET /api/pipeline/decisions` also returns `rejected: [<sha>...]` and the policy view (15.2). `decisions` and `retest` unchanged |
+| `scripts/quarantine_client.py` (`decisions`, lines 80-84) | after the verification of section 15 writes `dist/rejected.json` (a JSON list, **always written**, `[]` when nothing is known), `dist/policies.json` (`{mode, policies, ...}`) and keeps `dist/decisions.json` |
+| `scripts/dynamic_gate.py` (lines 129-138) | new `--policies`; for `--rejected` and `--policies` the loader **fails the run** (`sys.exit`) when the argument is given and the file is missing or not valid JSON; passes `previously_rejected`, `policies`, `policy_mode` to `decide_now` (lines 77-78) |
+| `.github/workflows/daily.yml:74-77` | gate step gets `--rejected dist/rejected.json --policies dist/policies.json` |
+| `scripts/decide.py` | `policies` and `policy_mode` parameters (5.1, 15.1); the `previously_rejected` logic (line 37) is **unchanged** |
+| `.github/workflows/publish.yml` | before `seal.py` (line 106): `policy-check` (5.6), which fails when any file of `dist/candidate.json` has a hash in the rejected set or matches an ACTIVE policy |
+
+**Tests that a rejected hash cannot be published (none of these exists today):**
+
+* PY-13 `decide`: a clean VALIDATED file whose hash is in `previously_rejected`, **with** an approval for the same hash in `decisions` and a passing dynamic result -> not in `approved`, state `REJECTED`. Changed bytes (new hash) are still allowed (existing test, kept).
+* PY-14 `dynamic_gate.run(..., previously_rejected={H})` on the fixture set: `final['approved']` lacks H. The CLI with `--rejected <missing file>` exits non-zero (new behaviour).
+* PY-15 end to end with the local fake Worker already used by `tests/test_quarantine_client.py`: the fake serves `rejected:[H]`; run `quarantine_client.py decisions`, then the gate on the fixture, then `policy-check` on a candidate that contains H: the gate excludes it; `policy-check` exits 1.
+* WF-01/WF-02 static workflow tests (pattern of `tests/test_workflow_prereqs.py`): `daily.yml` passes `--rejected` and `--policies` to the gate and the client step precedes it; `publish.yml` runs `policy-check` before `seal.py`.
+* S-04 (an archived rejected row stays in `rejectedHashes`) and S-05 (hash rejected at path A, approved at path B, is rejected).
+
+---
+
+## 15. Fail-safe publication (owner decision 8; replaces the old "publication never depends on the service")
+
+This **reverses** the principle written at `decide.py:10` and `quarantine_client.py:4-5`. Both docstrings, and the message at `quarantine_client.py:83`, are rewritten with the change.
+
+### 15.1 Definition
+
+*Fail safe* means: **whatever fails (service down, slow, 5xx, wrong schema, truncated, regressed, emptied, tampered), no build can add or modify a file unless the pipeline holds a verified view
+of every prohibition; and no failure can remove a prohibition the pipeline has already verified.** A removal can never violate a prohibition, so removals are always allowed.
+
+The pipeline computes a **policy mode** (written in `dist/policies.json`, read by `decide()` through `policy_mode`):
+
+| Mode | When | What `decide()` does |
+|---|---|---|
+| `normal` | live view accepted by 15.3 | applies the live view united with the verified snapshot (ratchet, 15.3) |
+| `snapshot` | live view unavailable or rejected, a verified fresh snapshot exists | applies the snapshot only; additions allowed; no new approvals are known (safe default of `decide.py:39`) |
+| `unknown` | neither (no snapshot, stale, tampered, pin mismatch, regressed live view) | `publishable = false` if the change against the previous release has any `added` or `modified` file (blocker `policy view unavailable: only removals can be published`); removals-only allowed. With no previous release everything is "added", so the first release needs a verified view |
+
+`publish.yml` is stricter: `policy-check` needs a **live** accepted view, or a removals-only change; otherwise the publish job fails before signing (a human-gated job can wait; nothing is lost).
+
+### 15.2 Snapshot *(proposal)*
+
+Content (canonical JSON, sorted keys, as `core.js:165-168` / `tlog.py:116`): `schema`, `generated_at`, `service_audit_head {seq, hash}`, `decisions_max_id`, `policy_set_sha256`,
+`rejected[]` (hashes), `policies[]` (every policy, ACTIVE **and** LIFTED, with `id`, `version`, `scope`, `source`, `path`, `sha256`, `status`, `withdrawal`). No reasons, no actors.
+The Worker adds these fields to `GET /api/pipeline/decisions` (`index.js:32`).
+
+Lifecycle, in the daily run after `decide` succeeded in mode `normal` (a snapshot is **never** refreshed from another snapshot, so staleness cannot be laundered):
+
+1. write `policy-snapshot.json`; `cosign sign-blob --bundle` keyless with the workflow identity (cosign is already installed in `daily.yml:49` and used the same way in `publish.yml:102,109`);
+2. `actions/cache` save under `policy-snapshot-v1-${run_id}` (the cache action is already used, `daily.yml:150,195`). The cache is only **transport**; eviction is possible (to be confirmed against GitHub's current cache rules), which is the "no snapshot" case and is safe;
+3. **hash pin in the repository log:** `tlog.py event --code policy.snapshot --detail snapshot_sha256=<hex> --detail audit_seq=<n>` (`tlog.py:257,342-366` accept any code and key=value details; only a hash and counts), committed by `commit_logs.sh` to `main` like every other log entry.
+
+Verification before use (in `quarantine_client.py decisions`, on the runner):
+
+1. `cosign verify-blob --bundle` with certificate identity regexp `^https://github.com/<repo>/.github/workflows/(daily|publish)\.yml@refs/heads/main$` and issuer `https://token.actions.githubusercontent.com` (same shape as `site.yml:56`);
+2. `sha256(snapshot)` equals the **newest** `policy.snapshot` event of `logs/` checked out from `main` (defeats replay of an older, validly signed snapshot);
+3. age <= **MAX_AGE = 48 h**, measured from the signature's transparency-log time inside the bundle, not from a field the file controls (the daily cron is `17 3 * * *`, `daily.yml:5`; 48 h tolerates one missed day);
+4. any failure means "no snapshot".
+
+### 15.3 Accepting a live view (the ratchet)
+
+The live response is accepted only if: HTTP 200, valid JSON, `policy_schema == 1`, required fields present, `policy_set_sha256` equals the digest recomputed locally from `policies`, and, **if a verified snapshot S exists**:
+`audit_head.seq >= S.audit_head.seq`, `decisions_max_id >= S.decisions_max_id`, and every ACTIVE policy and every rejected hash of S is still present in the live view (same policy id with `version >= S.version`, status `ACTIVE` or a lift
+accepted by 15.4; the hash still in `rejected`, or a recorded `reopen` of it). Anything else is **`regressed`**: the mode becomes `unknown` with blocker
+`policy store regressed against the last verified snapshot: a person must reconcile (17.4)`, **and S's blocks are still applied**. Effective blocks are always `live ∪ S`, minus validly lifted ones.
+
+### 15.4 Why an attacker who controls the Worker or D1 cannot bypass it
+
+| Attacker move | Result |
+|---|---|
+| serve empty/truncated/odd JSON, 5xx, hang | treated as unavailable (`quarantine_client.py:32-44` already returns status 0 on failure; the call timeout is 60 s, line 40); `snapshot` or `unknown` mode |
+| serve an emptied policy set or rejected list | ratchet: S's blocks are missing -> `regressed`, and the union keeps them. With no S -> `unknown`: nothing can be added |
+| serve an older state (D1 restored or replayed) | `audit_head.seq` / `decisions_max_id` / version regression -> `regressed` |
+| forge a snapshot or tamper with the cache | needs a Sigstore certificate for a `daily` or `publish` run on `refs/heads/main`; plus the pin in the repository log |
+| replay an old valid snapshot | pin mismatch (not the newest `policy.snapshot`) and age limit |
+| mark a block `LIFTED` | **Level A (baseline of this design): accepted.** The Worker is the authority for lifts, so a compromised Worker can forge a lift. Bounded: the file must still pass every technical gate (`decide.py:43`, dynamic gate, canaries), and the Worker can already forge approvals of waivable findings today (`decide.py:42-45`). **Level B (hardening, Open Decision 13):** the pipeline honours a lift only if the log holds `policy.lift.authorized` (policy id and version) written by a `policy-lift.yml` run approved through an `environment` with required reviewers (a GitHub-authenticated human, outside the Worker); otherwise the block stays and the run reports `lift_unauthorized` |
+| deny the service (DoS) | fail safe: nothing is added or modified; removals still flow |
+
+Residual risk, stated plainly: whoever can change workflows on `main` or compromise the Actions identity is outside this model. The Worker is trusted to **add** blocks; it is not trusted to **remove** them silently.
+
+---
+
+## 16. Urgent withdrawal (owner decision 9)
+
+**Design:** reuse the existing manual trigger of `daily.yml` (`workflow_dispatch`, `daily.yml:6-15`) instead of a new publishing workflow. It already runs the *same* chain: classification -> dynamic gate -> `macos` check -> `request-publish` -> `publish.yml`
+(environment, signing, release, callback) (`daily.yml:218-231`, `publish.yml`). A new workflow would duplicate the gates; reusing this one guarantees they cannot diverge. No new OIDC identity is needed (`auth.js:126-129`, `PIPELINE_WORKFLOWS`).
+
+* **Trigger:** `workflow_dispatch` of `daily.yml` with a new input `urgent_policy_id` (opaque id of an ACTIVE, `REQUESTED` policy; never a rule name). Mutually exclusive with `acceptance` (the first step fails if both are set, because `acceptance` suppresses `request-publish`, `daily.yml:220`).
+* **Authentication, two independent checks before anything runs:** (1) a first step reads `gh api repos/$GITHUB_REPOSITORY/collaborators/$GITHUB_TRIGGERING_ACTOR/permission` and fails unless the permission is `admin` (GitHub-authenticated; plain write access is enough to dispatch today's manual run but not an urgent one); (2) the Worker, called with the run's OIDC token, confirms the policy exists, is `ACTIVE`/`REQUESTED` and was authored by an ADMIN (`author_role = 'ADMIN'` is a DB CHECK) through a new read-only `GET /api/pipeline/policy/{id}`, and records `pipeline.urgent_run` in the audit (actor, run id, attempt, policy id).
+* **What it adds beyond a manual run:** an assertion after the gate (the policy's scope is absent from `approved`, otherwise the run fails with a clear blocker), and a prompt build instead of waiting for the `17 3 * * *` cron.
+* **No second concurrent publish:** (1) `daily.yml` and `publish.yml` share `concurrency: group: macguard-log, cancel-in-progress: false` (`daily.yml:17-19`, `publish.yml:9-11`), so reviews and publications are serialized; GitHub keeps at most one *pending* run per group and a newer pending run replaces an older pending one (to confirm against current GitHub behaviour; the replaced run would be the cron, which runs again the next day); (2) *(proposal)* a stale-base check in the `precheck` job of `publish.yml`: the artifact's `changes.json` records `previous_rules_root` (`changes.py:19`, written by `daily.yml:87`); if it is not the `rules_root` of the **current** latest release, the job fails with "candidate built on a superseded release; run the review again". Two candidates built on the same base therefore cannot both publish; (3) the Worker callback is idempotent (section 9).
+* **What it can never do:** skip or weaken any gate (`publishable` is still required, `daily.yml:220`); publish when the dynamic gate, canaries, anomaly guard or the `macos` job fail (the withdrawal then stays *pending*, section 10); add, modify or approve a rule; lift anything; edit or delete a historical release (`publish.yml:141`); skip the `stable-signing` environment approval (urgent does not set `AUTO_PUBLISH`; Open Decision 14); run for a non-admin, for an unknown or non-ACTIVE policy, or together with `acceptance`.
+* **Confirmation** is unchanged: the callback of the resulting release confirms the withdrawal on its verified manifest (section 7). Urgent changes only *when* the next build happens.
+
+---
+
+## 17. Recovery from loss of D1 or the Worker (owner decision 10)
+
+### 17.1 What is lost in each failure
+
+| Failure | Effect | Safe behaviour |
+|---|---|---|
+| Worker code or deploy lost | no panel, no API | pipeline runs in `snapshot`/`unknown` mode (15.1); redeploy from git (`wrangler deploy --keep-vars`); the OAuth and `TOKEN_ENC_KEY` secrets only affect sessions, never policy |
+| D1 unavailable | same | same |
+| D1 lost or restored to an older point | blocks may be missing | the ratchet reports `regressed` (15.3); the verified snapshot's blocks still apply; **lift nothing until 17.4 is done** |
+
+### 17.2 Backups and cadence
+
+1. **Per run, free:** the signed snapshot (15.2) is a policy-complete backup of rejected hashes and policies, pinned in the repository log. It is the first thing to use.
+2. **D1 Time Travel:** continuous point-in-time recovery for the retention of the plan (retention to be confirmed in Cloudflare's documentation; not fetched here). Record the bookmark in the deploy log before every migration (8.2) and every Worker release.
+3. **Logical export, daily and encrypted *(proposal, Open Decision 15)*:** a scheduled workflow exports `policies`, `policy_events`, `decisions` and `audit` (no sessions, no tokens), encrypts with `age` to a recipient public key held in a repository variable (the private key stays with the owner, offline) and uploads it as an artifact with the longest retention. The ciphertext is safe in the artifacts of a public repository. An export may lock the database while it runs, so it is scheduled outside the daily window (to be measured in staging).
+4. **The audit chain** is the intrinsic record: every policy event copies its full facts into `audit.detail` (9.1) and rejections copy `sha256` (`store.js:147-148`), so the policy table and the rejected set are **re-derivable** from a verified chain.
+
+### 17.3 Re-derivation of policy from the audit
+
+A pure function `derivePolicies(auditRows)` (new, in `core.js`, unit-tested) replays `policy.withdrawal_requested`, `policy.reconciled`, `policy.lifted`, `decision.reject` and `decision.reopen` in `seq` order after `verifyChain` (`core.js:176`) succeeded, and returns the expected `policies` rows and rejected hashes with versions.
+It is used (a) by the restore drill, (b) by an offline, human-run repair that prints reviewed SQL (never an endpoint), (c) by a read-only consistency check `GET /api/audit/policy-consistency` (ADMIN).
+
+### 17.4 When audit and policy table disagree
+
+Rule: **when in doubt, blocked.** The effective block set is the union of the table, the audit-derived set and the verified snapshot.
+
+| Case | Action |
+|---|---|
+| table has a policy the audit lacks | keep it ACTIVE (policies are never deleted, trigger `policies_no_delete`); open an incident; investigate before any change |
+| audit has a policy the table lacks (restored to an older point) | re-create it from the audit with the repair script; the audit-derived block applies meanwhile |
+| versions differ | the higher audit-derived version wins for history; any ACTIVE side stays ACTIVE until a person resolves it |
+| `LIFTED` in the table but not in the audit | not a lift: treated as ACTIVE (a lift without its audit entry and event is untrustworthy) |
+| the audit chain fails `verifyChain` | stop; restore in staging from Time Travel to the last verified bookmark first; the snapshot pin in the log shows which `audit_seq` and hash were true on which day |
+
+Every reconciliation is itself recorded with a new audit entry (`policy.reconciliation`), never by editing rows.
+
+### 17.5 Restore drill (quarterly, and after any change to the policy schema)
+
+On **staging** only (`admin/worker/STAGING.md`): (1) export production read-only; (2) import into a fresh staging D1; (3) `verifyChain`; (4) `derivePolicies` equals the table; (5) the snapshot pin of the day matches `audit_head`; (6) run the tests of section 18 against the restored copy; (7) restore staging to an earlier bookmark and confirm `regressed` is raised and the blocks hold; (8) record duration and findings with `lessons-review`. Nothing in the drill touches production.
+
+---
+
+## 18. Negative and fail-safe tests (all proposed; each must fail before the change and pass after)
+
+| ID | Level | Scenario | Expected |
+|---|---|---|---|
+| NF-01 | PY+RT | rule forbidden, then the service down (connection refused, 503, timeout), fresh valid snapshot | rule excluded in `snapshot` mode; other additions allowed |
+| NF-02 | PY | same, **no snapshot** | `unknown`: any `added`/`modified` -> not publishable; removals-only publishable |
+| NF-03 | PY | snapshot older than 48 h by bundle time | treated as no snapshot |
+| NF-04 | PY | snapshot tampered (one byte; bad bundle; signed by another workflow, branch or repository) | rejected; `unknown` |
+| NF-05 | PY | older but validly signed snapshot (pin mismatch) | rejected |
+| NF-06 | PY+RT | D1 restored to an older point lacking a block (lower `audit_head.seq`, missing policy, lower version) | `regressed`; the block still applies; not publishable until reconciled |
+| NF-07 | PY | Worker returns empty `policies` and `rejected` with a higher audit head | ratchet keeps S's blocks; with no S -> `unknown` |
+| NF-08 | PY | Worker returns 200 with wrong `policy_schema`, wrong `policy_set_sha256`, truncated JSON | unavailable |
+| NF-09 | PY | Worker marks a block `LIFTED` with no authorization (Level B on) | block kept, `lift_unauthorized` reported |
+| NF-10 | PY | `--rejected` given but file missing or invalid | `dynamic_gate.py` exits non-zero (today it continues silently, `dynamic_gate.py:131`) |
+| NF-11 | PY | rejected hash + approval decision + clean + dynamic ok | excluded (PY-13) |
+| NF-12 | RT+WF | withdrawal requested after the daily snapshot, before signing | `policy-check` fails the publish job |
+| NF-13 | RT | withdrawal requested during the publish, after `policy-check` | release lists it; policy stays pending; the next release confirms; never a false CONFIRMED |
+| NF-14 | WF | two urgent dispatches, or urgent plus cron | serialized by the group; the second candidate fails the stale-base check |
+| NF-15 | WF | urgent by a write-only actor; with `acceptance=true`; unknown, LIFTED or CONFIRMED policy id | refused before any gate runs |
+| NF-16 | WF | urgent while the removal-only set fails the dynamic gate | no release; policy stays pending |
+| NF-17 | PY | publish `policy-check` with the service down and a change that has additions | job fails before signing; removals-only passes |
+| NF-18 | S | D1 audit and `policies` disagree (the cases of 17.4) | `policy-consistency` reports each case; blocks hold |
+| NF-19 | S | `derivePolicies` on a chain with a broken link | refuses |
+| NF-20 | RT | callback retried, duplicated, out of order, concurrent with a lift | no double confirmation, no forked chain, no false CONFIRMED (C-03, C-05, I-02) |
+
+---
+
+## 19. Owner decisions applied, and what is still open
+
+### 19.1 Decided by the owner (binding)
+
+| # | Decision | Where it lands |
+|---|---|---|
+| D1 | an ADMIN withdrawal persists across runs | `policies` (section 8), `decide.py` input (5.1), snapshot (15.2) |
+| D2 | a withdrawn rule cannot reappear automatically while the block is in force | `blocked-by-policy` (5.2), `policy-check` (5.6), fail safe (15) |
+| D3 | reason, user, date, source, path, SHA and audit are recorded | `policies` columns, `policy_events`, audit entries (9.1) |
+| D4 | effective for the NEXT build, CONFIRMED in the next signed release | sections 7 and 10 |
+| D5 | historical releases are never modified | W-14, section 12 |
+| D6 | an approval is never inherited by a different SHA | F2/F3, S-01, PY-07 |
+| D7 | persistent rejections really wired to the pipeline | section 14 |
+| D8 | publication fails safe when the service fails | section 15 (replaces the old principle) |
+| D9 | validated urgent withdrawal through the same gates | section 16 |
+| D10 | recovery policy for D1/Worker loss | section 17; tests in 18 |
+
+Effect on the 12 earlier open decisions: old **2 resolved** by D8; old **7 resolved** by D9 (no gate bypass; the urgent path is the manual `daily.yml` chain); old **4 resolved** by D7 (the pipeline reads the rejected list directly, including archived rows, so legacy rejections need no backfill into `policies`);
+old **6 superseded** by the repository-log pin of the snapshot (15.2), which proves which policy view a build used, without changing release artifacts.
+
+### 19.2 Still open (numbering kept from the earlier list; 13-17 are new)
+
+1. **Default scope of a withdrawal:** `path` (recommended: a later upstream version stays blocked and visible until lifted) or `content`.
+3. **Two-person rule** for a withdrawal or a lift. The design implements one ADMIN, as the brief states.
+5. **Public counters:** exclude `CONFIRMED` withdrawals from `released_after_review`? Publish a counts-only "withdrawn" figure?
+8. **Lift semantics:** a lift returns the candidate to `PENDING`, so a former waiver approval is not remembered (recommended).
+9. **Standalone prohibition** of a never-published path or hash (not just rejecting a candidate): not included.
+10. **Expiry or periodic review** of policies: not included (no alert without a tested notification channel).
+11. **Collateral:** preview plus `confirm_collateral` (current) versus requiring each dependent to be withdrawn explicitly.
+12. **`reconcile`:** rate limit; ADMIN only.
+13. **Lift authorization Level B** (`policy-lift.yml`, environment with required reviewers, `policy.lift.authorized` in the log): needed to resist a compromised Worker forging lifts; costs a second step for every lift and publishes, with an opaque id, that a lift happened.
+14. **Urgent runs:** must they always require the manual-approval `stable-signing` environment even when `AUTO_PUBLISH=true`?
+15. **Encrypted daily export (17.2.3):** accept artifacts as the off-site copy, with an `age` key held by the owner, or another destination.
+16. **MAX_AGE** (48 h proposed) and whether `snapshot` mode may allow additions at all (proposed: yes, since unknown approvals are simply unused).
+17. **Docstrings:** confirm that the principle "publication never depends on the service" is withdrawn in `decide.py`, `quarantine_client.py` and the evidence spec, per D8.
