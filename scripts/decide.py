@@ -18,6 +18,10 @@ APPROVING = {'APPROVED_PENDING_VALIDATION', 'RELEASED'}
 
 def set_root(files): return tlog.rules_root([{'path': f['path'], 'sha256': f['sha256']} for f in files])
 
+# what a finding may carry to the private quarantine service (the Worker validates and bounds it again); nothing else of a finding leaves the job
+FINDING_FIELDS = ('code', 'severity', 'detail', 'observed', 'threshold', 'unit')
+
+
 def decide(classified, previous=None, decisions=None, dynamic=None, benign_hits=None, dynamic_required=True, hit_rate_limit=0.05, corpus_size=0, previously_rejected=None, anomaly=None, allow_large_change=False):
     previous = previous or {}; decisions = decisions or {}; previously_rejected = set(previously_rejected or [])
     prev_files = {f['path']: f['sha256'] for f in previous.get('files', [])}
@@ -31,7 +35,7 @@ def decide(classified, previous=None, decisions=None, dynamic=None, benign_hits=
     for c in classified:
         reasons = [dict(r) for r in c['reasons']]; state = c['state']
         if c['path'] in generic and state == VALIDATED:
-            reasons.append({'code': 'matches-benign-corpus', 'severity': 'review', 'detail': 'matches more than the allowed share of the clean corpus'}); state = QUARANTINED
+            reasons.append({'code': 'matches-benign-corpus', 'severity': 'review', 'detail': f'matches {benign_hits[c["path"]]} of {corpus_size} files of the clean corpus, more than the allowed share', 'observed': round(100 * benign_hits[c['path']] / corpus_size, 1), 'threshold': round(100 * hit_rate_limit, 1), 'unit': '% of the clean corpus'}); state = QUARANTINED
         if c['path'] in dyn_bad and state != REJECTED:
             reasons.append({'code': 'dynamic-failure', 'severity': 'block', 'detail': 'caused a crash, timeout or regression in the dynamic tests'}); state = QUARANTINED
         if c['sha256'] in previously_rejected and state != REJECTED:
@@ -63,7 +67,7 @@ def decide(classified, previous=None, decisions=None, dynamic=None, benign_hits=
             res['retired'].append({'path': p, 'sha256': h, 'reason': 'no longer present upstream'})
     for e in res['excluded']:
         if e['state'] == QUARANTINED:
-            res['submissions'].append({'path': e['path'], 'sha256': e['sha256'], 'bytes': e['bytes'], 'source': e['source'], 'reasons': [r['code'] for r in e['reasons'] if r['severity'] != 'info'], 'depends_on': e.get('depends_on', [])})
+            res['submissions'].append({'path': e['path'], 'sha256': e['sha256'], 'bytes': e['bytes'], 'source': e['source'], 'reasons': [r['code'] for r in e['reasons'] if r['severity'] != 'info'], 'findings': [{k: r[k] for k in FINDING_FIELDS if k in r} for r in e['reasons'] if r['severity'] != 'info'], 'depends_on': e.get('depends_on', [])})
         if e['state'] == REJECTED and 'rejected-by-reviewer' not in [r['code'] for r in e['reasons']]: res['new_rejected_hashes'].append(e['sha256'])
     res['approved'] = [c for c in res['approved'] if c['state'] != DEPRECATED]
     final_root = set_root(res['approved'])

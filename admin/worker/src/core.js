@@ -153,6 +153,27 @@ export function validateSubmission(item) {
   if (item.metrics !== undefined && (typeof item.metrics !== 'object' || item.metrics === null || JSON.stringify(item.metrics).length > 4000)) return 'metrics must be a small object';
   return null;
 }
+/** The detail of each finding the pipeline measured (contract findings_schema 1). Everything here is bounded and typed again on arrival: an entry that does not fit is
+ *  dropped and counted, never repaired or guessed, so a malformed or oversized report cannot reject a submission nor store anything the pipeline did not send. */
+export const FINDING_SEVERITIES = ['review', 'block', 'reject', 'corrupt', 'truncated'];
+const clean = (v, n) => { const t = String(v).replace(/[\u0000-\u001f\u007f]/g, ' '); return t.length > n ? `${t.slice(0, n - 1)}…` : t; };
+export function sanitizeFindings(item) {
+  if (!item || item.findings === undefined) return null;
+  const out = { findings_schema: 1, findings: [], findings_dropped: 0 };
+  if (item.findings_schema !== 1 || !Array.isArray(item.findings)) { out.findings_dropped = Array.isArray(item.findings) ? item.findings.length : 1; out.findings_unsupported = true; return out; }
+  const value = (v) => (typeof v === 'number' && Number.isFinite(v) ? v : typeof v === 'string' && v.length > 0 && v.length <= 80 ? clean(v, 80) : undefined);
+  for (const f of item.findings.slice(0, 30)) {
+    if (!f || typeof f !== 'object' || typeof f.code !== 'string' || !/^[a-z0-9-]{1,40}$/.test(f.code) || !FINDING_SEVERITIES.includes(f.severity)) { out.findings_dropped++; continue; }
+    const e = { code: f.code, severity: f.severity };
+    if (typeof f.detail === 'string' && f.detail) e.detail = clean(f.detail, 400);
+    for (const k of ['observed', 'threshold']) { const v = value(f[k]); if (v !== undefined) e[k] = v; }
+    if (typeof f.unit === 'string' && f.unit && f.unit.length <= 40) e.unit = clean(f.unit, 40);
+    out.findings.push(e);
+  }
+  out.findings_dropped += Math.max(0, item.findings.length - 30);
+  if (typeof item.engine === 'string' && item.engine) out.engine = clean(item.engine, 80);
+  return out;
+}
 /** The reviewer must see exactly the bytes the hash names: the content is decoded and hashed here, before anything is stored. */
 export async function blobError(item) {
   if (item.content_b64 === undefined) return null;
