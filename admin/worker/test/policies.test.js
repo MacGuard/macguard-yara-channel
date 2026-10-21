@@ -44,6 +44,11 @@ test('identity is source + normalized path: separators, dots and case never make
   assert.equal(policyMatches({ scope: 'content', sha256: 'a'.repeat(64) }, { source: 'z', path: 'q', sha256: 'a'.repeat(64) }), true); assert.equal(policyMatches({ scope: 'content', sha256: 'a'.repeat(64) }, { source: 'nextron', path: 'rules/x/a.yar', sha256: 'b'.repeat(64) }), false);
 });
 
+test('the identity functions equal the Python ones (scripts/policy_snapshot.py) on the shared vectors', () => {
+  const vectors = JSON.parse(readFileSync(new URL('../../../tests/fixtures/policy_identity_vectors.json', import.meta.url), 'utf8')).vectors;
+  for (const v of vectors) assert.equal(scopeKey('path', { source: v.source, path: v.path }), v.key, JSON.stringify(v));
+});
+
 // ---- request a withdrawal ---------------------------------------------------------------------------------------------------
 test('an ADMIN requests a withdrawal: the policy, its history and the audit are written together, the release is untouched and the sheet says "pending"', async () => {
   const { w, ids } = await fx(); const before = await state(w, ids[0]);
@@ -275,6 +280,23 @@ test('the policy endpoints never touch anything outside their tables and the row
   const fetched = []; const f = w.deps.fetch; w.deps.fetch = async (u, init = {}) => { fetched.push([init.method || 'GET', String(u)]); return f(u, init); };
   const c = (await sheet(w, ids[1])); await w.call('GET', `/api/policies/preview?candidate_id=${ids[1]}&scope=path`, { user: w.ada }); await w.call('POST', '/api/policies/reconcile', { user: w.ada, body: {} }); assert.ok(c.id);
   assert.ok(fetched.length > 0 && fetched.every(([m]) => m === 'GET'), 'the Worker only ever reads GitHub');
+});
+
+// ---- phase 2: urgent run, panel overlay ------------------------------------------------------------------------------------------
+test('POST /api/pipeline/urgent-run: daily.yml only, a policy still requested and authored by an ADMIN, audited with the verified run; nothing about the policy changes', async () => {
+  const { w, ids, cs } = await fx(); const p = (await wd(w, w.ada, ids[0])).data.policy; const urgent = async (workflow, body, claims = {}) => w.call('POST', '/api/pipeline/urgent-run', { bearer: await w.pipelineToken(workflow, { run_id: '8881', run_attempt: '2', ...claims }), body });
+  assert.equal((await urgent('publish.yml', { policy_id: p.id })).status, 403); assert.equal((await w.call('POST', '/api/pipeline/urgent-run', { user: w.ada, body: { policy_id: p.id } })).status, 401);
+  assert.equal((await urgent('daily.yml', { policy_id: 'nope' })).status, 400); assert.equal((await urgent('daily.yml', { policy_id: '00000000-0000-4000-8000-0000000fffff' })).status, 404);
+  const before = JSON.stringify(q(w, 'SELECT * FROM policies')); const ok = await urgent('daily.yml', { policy_id: p.id, run_url: `${ORIGIN}/runs/8881` }); assert.equal(ok.status, 200); assert.deepEqual([ok.data.policy.scope_key, ok.data.policy.criticality], ['path:nextron:rules/x/a.yar', 'CRITICAL']);
+  const [e] = await audit(w, 'pipeline.urgent_run'); assert.deepEqual([e.actor, e.role, e.policy_id, e.token_run_id, e.run_attempt], ['pipeline:daily.yml', 'PIPELINE', p.id, '8881', 2]); assert.equal(JSON.stringify(q(w, 'SELECT * FROM policies')), before);
+  await w.release(T2, [cs[1], cs[2]], { publishedAt: AT2 }); await callback(w, T2, [cs[1].sha256]); const conf = await urgent('daily.yml', { policy_id: p.id }); assert.equal(conf.status, 409); assert.equal(conf.data.code, 'not_urgent_eligible', 'already CONFIRMED');
+  const p2 = (await wd(w, w.ada, ids[1], { criticality: 'STANDARD' })).data.policy; await lift(w, w.ada, p2.id, { kind: 'DIRECT' }); assert.equal((await urgent('daily.yml', { policy_id: p2.id })).status, 409, 'LIFTED'); await chainOk(w);
+});
+test('the panel treats a rule under an ACTIVE policy as blocked: approving something that needs it is refused (decide.py would leave it out)', async () => {
+  const { w, ids } = await fx(); const dep = (await w.submit([cand('d', 'rules/x/d.yar', { depends_on: ['rules/x/a.yar'] })])).data.results[0].id; await w.db.prepare('UPDATE candidates SET depends_on = ? WHERE id = ?').bind(JSON.stringify(['rules/x/a.yar']), dep).run();
+  const free = await sheet(w, dep); assert.notEqual(free.dependencies.effect, 'ineffective'); await wd(w, w.ada, ids[0]);
+  const blocked = await sheet(w, dep); assert.equal(blocked.dependencies.effect, 'ineffective'); assert.equal(blocked.dependencies.blocked_by, 'rules/x/a.yar');
+  const ap = await w.call('POST', '/api/decisions', { user: w.rita, body: { action: 'approve', ids: [dep], reason: 'looks fine to me', request_id: rid(), expect: { [dep]: blocked.version } } }); assert.equal(ap.status, 409);
 });
 
 // ---- migration 0003 ---------------------------------------------------------------------------------------------------------------

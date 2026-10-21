@@ -7,11 +7,12 @@ Rules that cannot be bent
   * content rejected before stays rejected while the bytes are the same; changed bytes are a new candidate (linked by path);
   * a previously published file that now fails is not published again without a documented resolution;
   * the dynamic result must belong to exactly the final set, otherwise nothing is publishable;
-  * nothing here depends on the private quarantine store being reachable: without decisions the safe default applies.
+  * an administrative prohibition (policy) is never waived by an approval, and a failing or unreachable policy service can only delay additions:
+    without a verified view of every prohibition nothing may be added or modified (only removals are published), see `policy_mode`.
 """
 import argparse, json, pathlib, sys
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
-import accounting, catalog, tlog
+import accounting, catalog, tlog, policy_snapshot
 VALIDATED, QUARANTINED, REJECTED, DEPRECATED = 'VALIDATED', 'QUARANTINED', 'REJECTED', 'DEPRECATED'
 WAIVABLE = {'costly-regex', 'filesize-loop', 'many-loops', 'unknown-module', 'include', 'license-unchecked', 'matches-benign-corpus', 'dependency-not-validated'}
 APPROVING = {'APPROVED_PENDING_VALIDATION', 'RELEASED'}
@@ -22,11 +23,12 @@ def set_root(files): return tlog.rules_root([{'path': f['path'], 'sha256': f['sh
 FINDING_FIELDS = ('code', 'severity', 'detail', 'observed', 'threshold', 'unit')
 
 
-def decide(classified, previous=None, decisions=None, dynamic=None, benign_hits=None, dynamic_required=True, hit_rate_limit=0.05, corpus_size=0, previously_rejected=None, anomaly=None, allow_large_change=False):
+def decide(classified, previous=None, decisions=None, dynamic=None, benign_hits=None, dynamic_required=True, hit_rate_limit=0.05, corpus_size=0, previously_rejected=None, anomaly=None, allow_large_change=False, policies=None, policy_mode='normal', policy_set_sha256=None):
     previous = previous or {}; decisions = decisions or {}; previously_rejected = set(previously_rejected or [])
     prev_files = {f['path']: f['sha256'] for f in previous.get('files', [])}
     dyn_bad = set((dynamic or {}).get('culprits', []))
     res = {'approved': [], 'excluded': [], 'submissions': [], 'new_rejected_hashes': [], 'retired': [], 'previously_published_failing': [], 'reasons': []}
+    policy_hits = {}   # path -> the administrative prohibition that removed it
     by_path = {c['path']: c for c in classified}
     generic = set()   # a rule file that matches many clean files is too generic to trust
     if benign_hits and corpus_size >= 50:
@@ -40,6 +42,9 @@ def decide(classified, previous=None, decisions=None, dynamic=None, benign_hits=
             reasons.append({'code': 'dynamic-failure', 'severity': 'block', 'detail': 'caused a crash, timeout or regression in the dynamic tests'}); state = QUARANTINED
         if c['sha256'] in previously_rejected and state != REJECTED:
             reasons.append({'code': 'previously-rejected', 'severity': 'reject', 'detail': 'identical content was rejected before'}); state = REJECTED
+        hit = policy_snapshot.policy_for(c, policies)   # None when there are no policies: behaviour is then identical to before
+        if hit and state in (VALIDATED, QUARANTINED):   # a REJECTED or DEPRECATED file is not resurrected into the review queue
+            reasons.append({'code': 'blocked-by-policy', 'severity': 'block', 'detail': f"administrative prohibition {hit['id']} v{hit['version']}"}); state = QUARANTINED; policy_hits[c['path']] = hit
         d = decisions.get(c['sha256'])
         if d and d.get('state') == 'REJECTED':
             reasons.append({'code': 'rejected-by-reviewer', 'severity': 'reject', 'detail': d.get('reason', '')}); state = REJECTED
@@ -60,11 +65,15 @@ def decide(classified, previous=None, decisions=None, dynamic=None, benign_hits=
                 res['excluded'].append(included.pop(p)); changed = True
     res['approved'] = [included[p] for p in sorted(included)]
     excluded_by_path = {e['path']: e for e in res['excluded']}
+    withdrawn = []
     for p, h in prev_files.items():
-        if p in excluded_by_path:
+        if p in excluded_by_path and p in policy_hits and any(r['code'] == 'blocked-by-policy' for r in excluded_by_path[p]['reasons']):
+            withdrawn.append({'path': p, 'was': h, 'policy_id': policy_hits[p]['id']})   # a withdrawal is not a failure: it stays out of previously_published_failing
+        elif p in excluded_by_path:
             res['previously_published_failing'].append({'path': p, 'was': h, 'now': by_path[p]['sha256'], 'state': excluded_by_path[p]['state']})
         elif p not in by_path:
             res['retired'].append({'path': p, 'sha256': h, 'reason': 'no longer present upstream'})
+    if withdrawn: res['withdrawn'] = withdrawn   # private: which published files an administrative prohibition removed
     for e in res['excluded']:
         if e['state'] == QUARANTINED:
             res['submissions'].append({'path': e['path'], 'sha256': e['sha256'], 'bytes': e['bytes'], 'source': e['source'], 'reasons': [r['code'] for r in e['reasons'] if r['severity'] != 'info'], 'findings': [{k: r[k] for k in FINDING_FIELDS if k in r} for r in e['reasons'] if r['severity'] != 'info'], 'depends_on': e.get('depends_on', [])})
@@ -82,12 +91,16 @@ def decide(classified, previous=None, decisions=None, dynamic=None, benign_hits=
         if removed_f > anomaly['max_removed_fraction'] or changed_f > anomaly['max_changed_fraction']:
             why.append(f"unusually large change ({removed_f:.0%} of the previous release removed, {changed_f:.0%} touched): a person must look before it is published")
         res['change_fractions'] = {'removed': round(removed_f, 4), 'changed': round(changed_f, 4)}
+    if policy_mode not in ('normal', 'snapshot'):   # 'unknown': no verified view of the prohibitions, so nothing may be added or modified; a removal can never violate one
+        if changes['added'] or changes['modified']: why.append('policy view unavailable: only removals can be published')
     if dynamic_required:
         if not dynamic: why.append('dynamic validation did not run')
         elif dynamic.get('set_root') != final_root: why.append('the dynamic result belongs to a different set than the one to publish')
         elif dynamic.get('verdict') not in ('ok', 'no-baseline'): why.append(f"dynamic validation verdict is {dynamic.get('verdict')}")
         elif dynamic.get('canaries_detected', 0) < dynamic.get('canaries_expected', 1): why.append('the engine did not detect the canary files: detection is not demonstrably working')
     res['publishable'] = not why; res['blockers'] = why
+    if policies is not None or policy_mode != 'normal':   # recorded only when the policy machinery was in play; otherwise the output is exactly what it was
+        res['policy'] = {'mode': policy_mode, 'set_sha256': policy_set_sha256, 'applied': sorted(({'id': h['id'], 'version': h['version'], 'path': p, 'sha256': by_path[p]['sha256']} for p, h in policy_hits.items()), key=lambda x: (x['id'], x['path']))}
     counts = {s: 0 for s in (VALIDATED, QUARANTINED, REJECTED, DEPRECATED)}
     for e in res['excluded']: counts[e['state']] += 1
     ledger = accounting.build_ledger(res['approved'], res['excluded'])
@@ -101,12 +114,13 @@ def decide(classified, previous=None, decisions=None, dynamic=None, benign_hits=
 
 if __name__ == '__main__':
     ap = argparse.ArgumentParser(); ap.add_argument('--classification', default='dist/classification.json'); ap.add_argument('--previous'); ap.add_argument('--decisions'); ap.add_argument('--dynamic')
-    ap.add_argument('--rejected'); ap.add_argument('--out', default='dist/decision.json'); ap.add_argument('--approved-out', default='dist/approved.json'); ap.add_argument('--no-dynamic', action='store_true')
+    ap.add_argument('--rejected'); ap.add_argument('--policies'); ap.add_argument('--out', default='dist/decision.json'); ap.add_argument('--approved-out', default='dist/approved.json'); ap.add_argument('--no-dynamic', action='store_true')
     a = ap.parse_args()
+    pol = policy_snapshot.load_required(a.policies, 'policies'); rej = policy_snapshot.load_required(a.rejected, 'rejected')   # given but missing or invalid: the run fails, it never goes on without them
     cls = json.loads(pathlib.Path(a.classification).read_text())['files']
     load = lambda p: json.loads(pathlib.Path(p).read_text()) if p and pathlib.Path(p).exists() else None
     dyn = load(a.dynamic); hits = (dyn or {}).get('benign_hits_by_file'); corpus = ((dyn or {}).get('corpus') or {}).get('clean_files', 0)
-    res = decide(cls, load(a.previous), load(a.decisions), dyn, hits, not a.no_dynamic, corpus_size=corpus, previously_rejected=load(a.rejected))
+    res = decide(cls, load(a.previous), load(a.decisions), dyn, hits, not a.no_dynamic, corpus_size=corpus, previously_rejected=rej, **policy_snapshot.decide_args(pol))
     pathlib.Path(a.out).write_text(json.dumps(res, indent=1) + '\n')
     pathlib.Path(a.approved_out).write_text(json.dumps({'files': res['approved'], 'rules_root': res['rules_root']}, indent=1) + '\n')
     print(f"publishable={'true' if res['publishable'] else 'false'}"); print(json.dumps(res['public_stats']) + ' blockers=' + json.dumps(res['blockers']), file=sys.stderr)

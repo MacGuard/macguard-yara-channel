@@ -376,6 +376,24 @@ export async function blockedByPolicy(db, ids) {
   return out;
 }
 
+/** Rows of the panel's dependency view, with those an ACTIVE policy covers marked `blocked-by-policy` (a code no approval can waive), exactly what decide.py does. */
+export async function overlayBlocked(db, rows) {
+  const active = (await db.prepare("SELECT id, scope, scope_key, sha256 FROM policies WHERE status = 'ACTIVE'").all()).results; if (!active.length) return rows;
+  return rows.map((r) => (active.some((p) => policyMatches(p, r)) ? { ...r, reasons: [...r.reasons, 'blocked-by-policy'] } : r));
+}
+
+// ---- urgent withdrawal (daily.yml workflow_dispatch with urgent_policy_id) -----------------------------------------
+/** Read-only check plus audit entry for an urgent run: the policy must exist, be ACTIVE with its withdrawal still REQUESTED, and have been authored by an ADMIN (a DB CHECK).
+ *  The workflow has already refused a non-admin actor; this is the second, independent check. Nothing about the policy changes. */
+export async function recordUrgentRun(db, policyId, ctx, actor, now) {
+  if (typeof policyId !== 'string' || !/^[0-9a-f-]{8,64}$/.test(policyId)) return { status: 400, error: 'policy_id required' };
+  const p = await db.prepare('SELECT id, version, scope, scope_key, source, path, sha256, status, withdrawal, criticality, author_role FROM policies WHERE id = ?').bind(policyId).first();
+  if (!p) return { status: 404, error: 'unknown policy' };
+  if (p.status !== 'ACTIVE' || p.withdrawal !== 'REQUESTED' || p.author_role !== 'ADMIN') return { status: 409, error: `an urgent run needs an ACTIVE policy whose withdrawal is still requested (this one is ${p.status}/${p.withdrawal})`, code: 'not_urgent_eligible' };
+  await db.batch([await auditStmt(db, { actor, role: 'PIPELINE', action: 'pipeline.urgent_run', target: p.id, detail: { policy_id: p.id, policy_version: p.version, scope: p.scope, token_run_id: ctx.token_run_id ?? null, run_attempt: ctx.run_attempt ?? null, run_url: ctx.run_url || null } }, now)]);
+  return { status: 200, policy: { id: p.id, version: p.version, scope: p.scope, scope_key: p.scope_key, source: p.source, path: p.path, sha256: p.sha256, criticality: p.criticality } };
+}
+
 // ---- the pipeline's view ---------------------------------------------------------------------------------
 /** Hashes of every rejected candidate, archived or not: a rejection must not vanish because a row was archived. */
 export async function rejectedHashes(db) { return (await db.prepare("SELECT DISTINCT sha256 FROM candidates WHERE state = 'REJECTED' ORDER BY sha256").all()).results.map((r) => r.sha256); }

@@ -34,6 +34,10 @@ export async function handle(request, env, deps) {
       if (method === 'GET' && path === '/api/pipeline/policy-snapshot') return json(await policies.snapshot(db, new Date(now * 1000).toISOString()));   // policy: daily.yml and publish.yml only (the allow-list of verifyActionsToken)
       if (method !== 'POST') return err(405, 'method not allowed');
       const read = await readJson(request, 64_000_000); if (read.tooLarge) return err(413, 'request body too large'); const body = read.body; if (!body) return err(400, 'JSON body required');
+      if (path === '/api/pipeline/urgent-run') {   // policy: an urgent withdrawal run of daily.yml (read-only check + audit entry)
+        if (v.workflow !== 'daily.yml') return err(403, 'only the daily review runs an urgent withdrawal');
+        const r = await policies.recordUrgentRun(db, body.policy_id, { ...attempt(v, null), run_url: body.run_url }, actor, new Date(now * 1000).toISOString()); const { status, ...rest } = r; return json(rest, status);
+      }
       if (path === '/api/pipeline/submit') {
         if (v.workflow !== 'daily.yml') return err(403, 'only the daily review submits candidates');
         if (!Array.isArray(body.candidates) || body.candidates.length > 2000) return err(400, 'candidates (max 2000) required');
