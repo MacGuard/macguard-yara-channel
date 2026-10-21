@@ -272,3 +272,12 @@ Rollback: Worker (`wrangler rollback`) y después `migrations/0004_rollback.sql`
 Pendiente para pasar a producción (todo requiere al propietario, sección 12): aplicar 0004, crear cuentas/buckets/claves, ensayo con bucket de prueba de los supuestos de plataforma (fase 2, `docs/OPERATIONS-archive-setup.md`), y primera poda.
 
 Endurecimiento de restauración (revisión de seguridad): los nombres lógicos de un índice son datos no confiables. `store.read_unit` los valida (lista permitida `[A-Za-z0-9][A-Za-z0-9._-]{0,127}`, sin separadores, sin punto inicial, sin colisión por mayúsculas) y `restore.write_files` vuelve a validar, exige que el destino cuelgue directamente del directorio de salida y crea con `O_EXCL|O_NOFOLLOW` (0600). Pruebas negativas en `tests/test_archive_store.py::HostileProvider`.
+
+### Fase 2 (rama `feat/archive-p2`, apilada sobre p1): implementada y probada en local; INERTE
+
+- `.github/workflows/archive.yml`: `workflow_dispatch` (con `prepared_url` + `prepared_sha256`) y cron mensual que solo avisa; `permissions: {}` por defecto, grupo de concurrencia `macguard-archive`, `timeout-minutes` en cada trabajo, acciones fijadas por SHA, secretos solo como variables de entorno de paso. Sin `ARCHIVE_ENABLED=true` termina limpio con un aviso; con configuración parcial cada trabajo se omite con aviso y nunca se declara «archivado 3/3». `actionlint` limpio.
+- Cambio respecto al diseño 5: **las credenciales de D1 no viven en el workflow** (lo exige `tests/test_workflow_prereqs.py`). El propietario lee la auditoría en su máquina (`archivectl.py prepare-month`, `pack-prepared`); el workflow recibe un paquete solo con cifrado y sellos y comprueba el SHA-256 tecleado. Para ello `test_workflow_prereqs.py` admite en `archive.yml` únicamente los secretos `ARCHIVE_ACCESS_KEY_ID` y `ARCHIVE_SECRET_ACCESS_KEY` (propuesta de política: requiere aprobación humana).
+- Firma Sigstore del manifiesto de manifiestos: trabajo `sign`, descrita en `docs/OPERATIONS-archive-setup.md` §4; no ejecutada.
+- `docs/OPERATIONS-archive-setup.md`: pasos del propietario por proveedor, nombres exactos de entornos/secretos/variables, ceremonia de custodia, runbook de restauración, tabla de retención 20 años / datos personales, y lista de suposiciones de plataforma que exigen un bucket de prueba.
+- Pruebas: `tests/test_archive_monthly.py` (pasos de prepare/publish/verify, empaquetado hostil, encadenado del manifiesto).
+- Sin hacer: no hay vía administrativa que escriba anclas en producción ni aplique `0004` (fase 3); no hay poda.

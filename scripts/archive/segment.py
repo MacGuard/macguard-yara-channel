@@ -32,7 +32,7 @@ def period_of(row) -> str:
     return at[:7]
 
 
-def build_segments(rows, start_hash: str = GENESIS, prev_seal: dict = None) -> list:
+def build_segments(rows, start_hash: str = GENESIS, prev_seal: dict = None, prev_seal_sha256: str = None) -> list:
     """Group `rows` (the continuation of a chain whose head is `start_hash`) into monthly segments. Refuses a broken, reordered or duplicated chain
     and months that go backwards. Returns [{'period', 'segment': bytes, 'seal': dict}]. The caller decides which months are complete (never the current one)."""
     if not rows: return []
@@ -44,7 +44,7 @@ def build_segments(rows, start_hash: str = GENESIS, prev_seal: dict = None) -> l
         if order and p < order[-1]: raise SegmentError(f'seq {r["seq"]}: month {p} after {order[-1]} (timestamps out of order)')
         if not order or p != order[-1]: order.append(p)
         groups.setdefault(p, []).append(r)
-    out, prev_head, prev_sha = [], start_hash, (seal_sha256(prev_seal) if prev_seal else None)
+    out, prev_head, prev_sha = [], start_hash, (seal_sha256(prev_seal) if prev_seal else prev_seal_sha256)
     for p in order:
         rs = groups[p]
         seg = ''.join(row_line(r) for r in rs).encode('utf-8')

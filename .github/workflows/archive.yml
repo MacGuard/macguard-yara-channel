@@ -1,0 +1,259 @@
+name: Monthly archive (audit history, three providers)
+# Archiving is started by the owner (workflow_dispatch with a prepared bundle); the monthly schedule only reminds and never archives by itself.
+# INERT until the owner sets the repository variable ARCHIVE_ENABLED=true AND creates the environments and secrets listed in docs/OPERATIONS-archive-setup.md.
+# Fail-closed: without them every job ends cleanly with a message, nothing is written anywhere, and nothing is reported as archived.
+# Secrets are only ever step-level environment variables (never on a command line, never echoed); provider write keys cannot delete (see the setup doc).
+on:
+  workflow_dispatch:
+    inputs:
+      prepared_url:
+        description: 'https URL of the prepared bundle (ciphertext + seals) made with archivectl.py pack-prepared'
+        required: false
+      prepared_sha256:
+        description: 'SHA-256 of that bundle, as printed by pack-prepared'
+        required: false
+  schedule:
+    - cron: '23 5 2 * *'     # the 2nd of each month, UTC: the previous month is complete
+permissions: {}
+concurrency:
+  group: macguard-archive
+  cancel-in-progress: false
+jobs:
+  gate:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 3
+    permissions: {}
+    outputs:
+      enabled: ${{ steps.g.outputs.enabled }}
+      date: ${{ steps.g.outputs.date }}
+    steps:
+      - id: g
+        env:
+          ENABLED: ${{ vars.ARCHIVE_ENABLED }}
+        run: |
+          echo "date=$(date -u +%Y-%m-%d)" >> "$GITHUB_OUTPUT"
+          if [ "$ENABLED" = "true" ]; then echo "enabled=true" >> "$GITHUB_OUTPUT"
+          else echo "enabled=false" >> "$GITHUB_OUTPUT"; echo "::notice::Archive is not enabled (repository variable ARCHIVE_ENABLED is not 'true'). Nothing was read, written or archived."; fi
+
+  # The audit is read from D1 by the OWNER on their own machine (`archivectl.py prepare-month`, then `pack-prepared`): D1 credentials never live in a workflow
+  # (tests/test_workflow_prereqs.py). The bundle holds ciphertext and seals only. This job fetches it and refuses anything whose SHA-256 differs from the one the owner typed.
+  prepare:
+    needs: gate
+    if: needs.gate.outputs.enabled == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    outputs:
+      ready: ${{ steps.cfg.outputs.ready }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - id: cfg
+        env:
+          BUNDLE_URL: ${{ inputs.prepared_url }}
+          BUNDLE_SHA256: ${{ inputs.prepared_sha256 }}
+        run: |
+          case "$BUNDLE_URL" in https://*) url_ok=1 ;; *) url_ok=0 ;; esac
+          if [ "$url_ok" = 1 ] && printf '%s' "$BUNDLE_SHA256" | grep -Eq '^[0-9a-f]{64}$'; then echo "ready=true" >> "$GITHUB_OUTPUT"
+          else echo "ready=false" >> "$GITHUB_OUTPUT"; echo "::notice::No prepared bundle was supplied (inputs prepared_url https and prepared_sha256). Nothing was archived; a scheduled run never archives by itself."; fi
+      - name: Fetch the bundle and check its digest before touching it
+        if: steps.cfg.outputs.ready == 'true'
+        env:
+          BUNDLE_URL: ${{ inputs.prepared_url }}
+          BUNDLE_SHA256: ${{ inputs.prepared_sha256 }}
+        run: |
+          curl --fail --silent --show-error --location --proto '=https' --max-time 120 --max-filesize 104857600 --output bundle.tar.gz "$BUNDLE_URL"
+          echo "$BUNDLE_SHA256  bundle.tar.gz" | sha256sum --check --strict
+          mkdir prepared
+          python3 scripts/archivectl.py unpack-prepared --file bundle.tar.gz --dir prepared
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        if: steps.cfg.outputs.ready == 'true'
+        with:
+          name: archive-prepared
+          path: prepared/
+          retention-days: 3          # ciphertext and seals only
+          if-no-files-found: error
+
+  publish:
+    needs: [gate, prepare]
+    if: needs.prepare.outputs.ready == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        provider: [r2, b2, scaleway]
+    environment: archive-${{ matrix.provider }}-write
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - id: cfg
+        env:
+          KEY: ${{ secrets.ARCHIVE_ACCESS_KEY_ID }}
+          SECRET: ${{ secrets.ARCHIVE_SECRET_ACCESS_KEY }}
+          BUCKET: ${{ vars.ARCHIVE_BUCKET }}
+          ENDPOINT: ${{ vars.ARCHIVE_ENDPOINT }}
+        run: |
+          if [ -n "$KEY" ] && [ -n "$SECRET" ] && [ -n "$BUCKET" ] && [ -n "$ENDPOINT" ]; then echo "ready=true" >> "$GITHUB_OUTPUT"
+          else echo "ready=false" >> "$GITHUB_OUTPUT"; echo "::notice::Environment archive-${{ matrix.provider }}-write is not configured; this provider was skipped and the run will NOT be reported as archived."; fi
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        if: steps.cfg.outputs.ready == 'true'
+        with:
+          name: archive-prepared
+          path: prepared/
+      - name: Install rclone
+        if: steps.cfg.outputs.ready == 'true'
+        run: sudo apt-get install -y --no-install-recommends rclone
+      - name: Write prepared months (write-once, read back)
+        if: steps.cfg.outputs.ready == 'true'
+        env:
+          RCLONE_CONFIG_ARCHIVE_TYPE: s3
+          RCLONE_CONFIG_ARCHIVE_PROVIDER: ${{ vars.ARCHIVE_S3_PROVIDER }}
+          RCLONE_CONFIG_ARCHIVE_ENDPOINT: ${{ vars.ARCHIVE_ENDPOINT }}
+          RCLONE_CONFIG_ARCHIVE_REGION: ${{ vars.ARCHIVE_REGION }}
+          RCLONE_CONFIG_ARCHIVE_ACCESS_KEY_ID: ${{ secrets.ARCHIVE_ACCESS_KEY_ID }}
+          RCLONE_CONFIG_ARCHIVE_SECRET_ACCESS_KEY: ${{ secrets.ARCHIVE_SECRET_ACCESS_KEY }}
+          RCLONE_CONFIG_ARCHIVE_NO_CHECK_BUCKET: 'true'
+          ARCHIVE_BUCKET: ${{ vars.ARCHIVE_BUCKET }}
+        run: python3 scripts/archivectl.py publish-prepared --from-env "${{ matrix.provider }}" --dir prepared
+
+  verify:
+    needs: [gate, prepare, publish]
+    if: ${{ !cancelled() && needs.prepare.outputs.ready == 'true' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        provider: [r2, b2, scaleway]
+    environment: archive-${{ matrix.provider }}-read
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - id: cfg
+        env:
+          KEY: ${{ secrets.ARCHIVE_ACCESS_KEY_ID }}
+          SECRET: ${{ secrets.ARCHIVE_SECRET_ACCESS_KEY }}
+          BUCKET: ${{ vars.ARCHIVE_BUCKET }}
+          ENDPOINT: ${{ vars.ARCHIVE_ENDPOINT }}
+        run: |
+          if [ -n "$KEY" ] && [ -n "$SECRET" ] && [ -n "$BUCKET" ] && [ -n "$ENDPOINT" ]; then echo "ready=true" >> "$GITHUB_OUTPUT"
+          else echo "ready=false" >> "$GITHUB_OUTPUT"; echo "::notice::Environment archive-${{ matrix.provider }}-read is not configured; this provider was NOT verified."; fi
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        if: steps.cfg.outputs.ready == 'true'
+        with:
+          name: archive-prepared
+          path: prepared/
+      - name: Install rclone
+        if: steps.cfg.outputs.ready == 'true'
+        run: sudo apt-get install -y --no-install-recommends rclone
+      - name: Read back, verify seals and continuity, build this provider's manifest
+        if: steps.cfg.outputs.ready == 'true'
+        env:
+          RCLONE_CONFIG_ARCHIVE_TYPE: s3
+          RCLONE_CONFIG_ARCHIVE_PROVIDER: ${{ vars.ARCHIVE_S3_PROVIDER }}
+          RCLONE_CONFIG_ARCHIVE_ENDPOINT: ${{ vars.ARCHIVE_ENDPOINT }}
+          RCLONE_CONFIG_ARCHIVE_REGION: ${{ vars.ARCHIVE_REGION }}
+          RCLONE_CONFIG_ARCHIVE_ACCESS_KEY_ID: ${{ secrets.ARCHIVE_ACCESS_KEY_ID }}
+          RCLONE_CONFIG_ARCHIVE_SECRET_ACCESS_KEY: ${{ secrets.ARCHIVE_SECRET_ACCESS_KEY }}
+          RCLONE_CONFIG_ARCHIVE_NO_CHECK_BUCKET: 'true'
+          ARCHIVE_BUCKET: ${{ vars.ARCHIVE_BUCKET }}
+          DATE: ${{ needs.gate.outputs.date }}
+        run: |
+          mkdir -p out
+          python3 scripts/archivectl.py verify-prepared --from-env "${{ matrix.provider }}" --dir prepared | tee "out/report-${{ matrix.provider }}.json"
+          python3 scripts/archivectl.py manifest --from-env "${{ matrix.provider }}" --date "$DATE" --prev-latest --out "out/manifest-${{ matrix.provider }}.json"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        if: steps.cfg.outputs.ready == 'true'
+        with:
+          name: verified-${{ matrix.provider }}
+          path: out/
+          retention-days: 3
+          if-no-files-found: error
+
+  sign:
+    needs: [gate, verify]
+    if: ${{ !cancelled() && needs.verify.result == 'success' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      id-token: write          # Sigstore keyless signing, the same mechanism as publish.yml
+    outputs:
+      signed: ${{ steps.s.outputs.signed }}
+    steps:
+      - uses: sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6 # v4.1.2
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        continue-on-error: true
+        with:
+          pattern: verified-*
+          path: verified/
+      - id: s
+        env:
+          DATE: ${{ needs.gate.outputs.date }}
+        run: |
+          set -eu
+          for p in r2 b2 scaleway; do
+            if [ ! -f "verified/verified-$p/manifest-$p.json" ]; then echo "signed=false" >> "$GITHUB_OUTPUT"; echo "::notice::Provider $p was not verified in this run. Nothing was signed and the archive is NOT confirmed 3/3."; exit 0; fi
+            python3 -c "import json,sys; r=json.load(open(sys.argv[1])); sys.exit(0 if r.get('ok') else 1)" "verified/verified-$p/report-$p.json" || { echo "::error::Verification failed for $p"; exit 1; }
+          done
+          cmp verified/verified-r2/manifest-r2.json verified/verified-b2/manifest-b2.json
+          cmp verified/verified-r2/manifest-r2.json verified/verified-scaleway/manifest-scaleway.json
+          python3 -c "
+          import json,sys
+          c=[json.load(open(f'verified/verified-{p}/report-{p}.json'))['ciphertext_sha256'] for p in ('r2','b2','scaleway')]
+          sys.exit(0 if c[0]==c[1]==c[2] else 1)" || { echo "::error::The three providers hold different ciphertext for some period; reconcile by hand (see the operations doc)."; exit 1; }
+          mkdir signed
+          cp verified/verified-r2/manifest-r2.json "signed/archive-manifest-$DATE.json"
+          cosign sign-blob --yes --bundle "signed/archive-manifest-$DATE.sigstore.json" "signed/archive-manifest-$DATE.json"
+          echo "signed=true" >> "$GITHUB_OUTPUT"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        if: steps.s.outputs.signed == 'true'
+        with:
+          name: signed-manifest
+          path: signed/
+          retention-days: 3
+          if-no-files-found: error
+
+  store-manifest:
+    needs: [gate, sign]
+    if: ${{ !cancelled() && needs.sign.outputs.signed == 'true' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        provider: [r2, b2, scaleway]
+    environment: archive-${{ matrix.provider }}-write
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: signed-manifest
+          path: signed/
+      - name: Install rclone
+        run: sudo apt-get install -y --no-install-recommends rclone
+      - name: Store the signed manifest (write-once, read back)
+        env:
+          RCLONE_CONFIG_ARCHIVE_TYPE: s3
+          RCLONE_CONFIG_ARCHIVE_PROVIDER: ${{ vars.ARCHIVE_S3_PROVIDER }}
+          RCLONE_CONFIG_ARCHIVE_ENDPOINT: ${{ vars.ARCHIVE_ENDPOINT }}
+          RCLONE_CONFIG_ARCHIVE_REGION: ${{ vars.ARCHIVE_REGION }}
+          RCLONE_CONFIG_ARCHIVE_ACCESS_KEY_ID: ${{ secrets.ARCHIVE_ACCESS_KEY_ID }}
+          RCLONE_CONFIG_ARCHIVE_SECRET_ACCESS_KEY: ${{ secrets.ARCHIVE_SECRET_ACCESS_KEY }}
+          RCLONE_CONFIG_ARCHIVE_NO_CHECK_BUCKET: 'true'
+          ARCHIVE_BUCKET: ${{ vars.ARCHIVE_BUCKET }}
+          DATE: ${{ needs.gate.outputs.date }}
+        run: python3 scripts/archivectl.py put-manifest --from-env "${{ matrix.provider }}" --date "$DATE" --file "signed/archive-manifest-$DATE.json" --bundle "signed/archive-manifest-$DATE.sigstore.json"
