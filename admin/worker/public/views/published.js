@@ -2,6 +2,7 @@
 import { t } from '../i18n.js';
 import { h, icon, put, pillGroup, shortSha, copyButton, fmtDateTime, bytes } from '../ui.js';
 import { api, failure } from '../api.js';
+import { polChip } from './policy.js';
 
 const SIZE = 50, STATUS = ['published', 'newer_in_review'];
 
@@ -43,7 +44,7 @@ export async function renderPublished(ctx) {
     const name = x.path.split('/').pop();
     const title = x.candidate_id ? h('a', { class: 'rule-title', href: `#/rules/${x.candidate_id}`, text: name }) : h('span', { class: 'rule-title', text: name });
     return h('li', { class: 'rule' }, h('div', { class: 'rule-main' }, title, h('div', { class: 'rule-path', text: x.path }),
-      h('div', { class: 'reasons' }, h('span', { class: x.status === 'published' ? 'chip chip-ok' : 'chip chip-warn', text: t(`pub_s_${x.status}`) }), h('span', { class: 'chip', text: x.candidate_id ? t('pub_recorded') : t('pub_norecord') })),
+      h('div', { class: 'reasons' }, h('span', { class: x.status === 'published' ? 'chip chip-ok' : 'chip chip-warn', text: t(`pub_s_${x.status}`) }), h('span', { class: 'chip', text: x.candidate_id ? t('pub_recorded') : t('pub_norecord') }), x.policy ? polChip(x.policy.publication) : null),
       x.status === 'newer_in_review' ? h('p', { class: 'note', text: t('pub_in_quarantine') }) : null,
       h('div', { class: 'rule-meta' }, h('span', { text: x.source || '—' }), h('span', { text: x.release_tag || rel.tag }), x.bytes !== null ? h('span', { text: bytes(x.bytes) }) : null,
         h('span', { class: 'sha', title: x.sha256 }, shortSha(x.sha256), copyButton(x.sha256, `${t('copy')} SHA-256`)))));
