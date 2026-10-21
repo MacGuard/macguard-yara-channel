@@ -19,6 +19,7 @@
         "strict_required_status_checks_policy": false,
         "required_status_checks": [
           { "context": "python-tests" },
-          { "context": "quarantine-service" } ] } }
+          { "context": "quarantine-service" },
+          { "context": "source-proposal-gate" } ] } }
   ]
 }

@@ -56,6 +56,7 @@ export async function handle(request, env, deps) {
         }
         return json(await store.pipelineEvent(db, ev, body.hashes, { tag: body.tag, reason: body.reason, run_url: body.run_url, run_id: body.run_id, token: attempt(v, null) }, actor, new Date(now * 1000).toISOString()));
       }
+      if (path.startsWith('/api/pipeline/source-proposals/')) { const r = await proposals.handlePipelinePost({ path, body, env, deps, db, iso: new Date(now * 1000).toISOString(), workflow: v.workflow, claims: v.claims }); return json(r.body, r.status); }   // source proposals: pull request recorded / merge confirmed
       return err(404, 'unknown pipeline endpoint');
     }
 

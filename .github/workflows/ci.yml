@@ -46,3 +46,22 @@ jobs:
         run: npm test
       - name: Service on workerd with a real D1 (GitHub faked)
         run: npm run test:runtime
+  source-proposal-gate:
+    # Green at once for a pull request that touches neither config/sources.json nor config/policy.json. Otherwise: one source per pull request, a new rules source
+    # carries `admission: probation` and a licence entry with the SHA-256 of the licence text, and a `proposal/*` branch changes nothing but its five template files.
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Check the pull request
+        env:
+          BASE_REF: ${{ github.base_ref }}
+          HEAD_REF: ${{ github.head_ref }}
+        run: |
+          if [ -z "$BASE_REF" ]; then echo 'not a pull request: nothing to check'; exit 0; fi
+          python3 scripts/source_proposal.py gate --base "origin/$BASE_REF" --head-ref "$HEAD_REF"

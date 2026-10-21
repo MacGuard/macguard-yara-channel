@@ -1,0 +1,70 @@
+name: Source proposals
+# Opens a pull request for each source an ADMIN authorized in the private panel. The Worker holds no GitHub write credential: THIS workflow pulls the authorized
+# proposals (GitHub OIDC, no stored secret), re-validates every field in code that lives in this repository, and opens the pull request with the per-run token.
+# It cannot merge, approve, tag, publish or touch anything but a `proposal/*` branch: merging needs the checks and a code-owner review (docs/audit/source-proposals-spec.md).
+# Pull requests opened with the per-run token do not start `pull_request` workflows by GitHub design: a person closes and reopens the pull request to start the checks.
+on:
+  schedule:
+    - cron: '23 * * * *'
+  workflow_dispatch:
+permissions: {}
+concurrency:
+  group: source-proposals
+  cancel-in-progress: false
+jobs:
+  open-prs:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    environment: source-proposals   # restricted to main in the repository settings
+    permissions:
+      contents: write         # pushes refs/heads/proposal/* only (explicit refspec below)
+      pull-requests: write    # opens the pull request; never merges or approves
+      id-token: write         # OIDC token for the private quarantine service
+    env:
+      QUARANTINE_URL: ${{ vars.QUARANTINE_URL }}
+      GH_TOKEN: ${{ github.token }}
+      GITHUB_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: main
+          fetch-depth: 0
+      - name: Read the authorized proposals
+        id: read
+        run: |
+          set -euo pipefail
+          python3 scripts/source_proposal.py list --out "$RUNNER_TEMP/proposals.json" > "$RUNNER_TEMP/ids.txt"
+          echo "proposals: $(wc -l < "$RUNNER_TEMP/ids.txt" | tr -d ' ')"
+      - name: Open one pull request per proposal
+        run: |
+          set -uo pipefail
+          git config user.name 'macguard-proposals[bot]'
+          git config user.email 'macguard-proposals@users.noreply.github.com'
+          status=0
+          while read -r id; do
+            [ -n "$id" ] || continue
+            echo "== $id"
+            git switch -q --detach origin/main && git clean -fdxq
+            out="$RUNNER_TEMP/out-$id"
+            if ! python3 scripts/source_proposal.py prepare --file "$RUNNER_TEMP/proposals.json" --id "$id" --out "$out"; then status=1; continue; fi
+            branch="$(cat "$out/branch")"; note="$(cat "$out/note")"
+            if ! git ls-remote --exit-code --heads origin "$branch" >/dev/null 2>&1; then
+              git switch -q -c "$branch"
+              git add -- config/sources.json config/policy.json docs-src/en/sources.md docs-src/es/sources.md "$note"
+              git commit -q -m "$(cat "$out/title")"
+              git push origin "HEAD:refs/heads/$branch" || { status=1; continue; }
+            fi
+            number="$(gh pr list --head "$branch" --state open --json number --jq '.[0].number // empty')"
+            if [ -z "$number" ]; then
+              gh pr create --base main --head "$branch" --title "$(cat "$out/title")" --body-file "$out/body.md" || { status=1; continue; }
+              number="$(gh pr list --head "$branch" --state open --json number --jq '.[0].number // empty')"
+            fi
+            [ -n "$number" ] || { status=1; continue; }
+            python3 scripts/source_proposal.py report --file "$RUNNER_TEMP/proposals.json" --id "$id" --pr "$number" --head-sha "$(git rev-parse "origin/$branch" 2>/dev/null || git rev-parse HEAD)" || status=1
+          done < "$RUNNER_TEMP/ids.txt"
+          exit "$status"
+      - name: Tell the service about merged and closed pull requests
+        run: |
+          set -euo pipefail
+          gh pr list --state all --limit 100 --search 'head:proposal/' --json number,state,mergedAt,headRefName > "$RUNNER_TEMP/prs.json"
+          python3 scripts/source_proposal.py sync --prs "$RUNNER_TEMP/prs.json"

@@ -110,6 +110,11 @@ class Parity(unittest.TestCase):
         js = set(re.findall(r"'([a-z-]+)'", re.search(r"WAIVABLE = new Set\(\[([^\]]*)\]", core).group(1)))
         self.assertIn('new-source', js); self.assertEqual(js, decide.WAIVABLE)
 
+    def test_the_daily_gate_turns_the_hold_on_from_config_sources_json(self):
+        text = (ROOT / 'scripts/dynamic_gate.py').read_text()
+        self.assertIn("anomaly=policy.get('anomaly'), allow_large_change=allow_large_change, sources=sources)", text)
+        self.assertIn("ap.add_argument('--sources', default='config/sources.json'", text); self.assertIn('sources=admission.load_sources(a.sources)', text)
+
     def test_the_hold_cli_option_reads_the_real_sources_file(self):
         self.assertEqual(sorted(admission.load_sources(ROOT / 'config' / 'sources.json')), ['community', 'nextron', 'yara-x'])
 

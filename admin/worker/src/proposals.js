@@ -321,3 +321,35 @@ export async function handlePipeline(c) {
   if (c.workflow !== 'source-proposals.yml') return { status: 403, body: { error: 'only the source-proposals workflow reads proposals' } };
   return { status: 200, body: { schema: 1, proposals: await approvedForPipeline(c.db) } };
 }
+
+/** POST /api/pipeline/source-proposals/{id}/pr and /api/pipeline/source-proposals/sync (OIDC, workflow source-proposals.yml on main).
+ *  The Worker never takes the word of the workflow about a merge: it reads config/sources.json of main itself and requires the entry to equal the frozen payload. */
+export async function handlePipelinePost(c) {
+  if (!enabled(c.env)) return none;
+  if (c.workflow !== 'source-proposals.yml') return { status: 403, body: { error: 'only the source-proposals workflow reports on proposals' } };
+  const b = c.body || {}, actor = { login: `pipeline:${c.workflow}`, id: null, role: 'PIPELINE' }, run = { token_run_id: String(c.claims.run_id ?? ''), run_attempt: Number(c.claims.run_attempt) || null };
+  const pr = c.path.match(/^\/api\/pipeline\/source-proposals\/([0-9a-f-]{8,64})\/pr$/);
+  if (pr) {
+    const cur = await getRaw(c.db, pr[1]); if (!cur) return { status: 404, body: { error: 'not found' } };
+    const branch = `proposal/${cur.source_id}-${String(cur.payload_sha256 || '').slice(0, 8)}`;
+    if (!Number.isInteger(b.pr_number) || b.pr_number < 1 || b.pr_number > 10_000_000) return { status: 400, body: { error: 'pr_number required' } };
+    if (b.branch !== branch || b.pr_url !== `https://github.com/${c.env.REPO}/pull/${b.pr_number}` || !/^[0-9a-f]{40}$/.test(String(b.head_sha || ''))) return { status: 400, body: { error: 'branch, pr_url or head_sha do not match this proposal' } };
+    if (b.payload_sha256 !== cur.payload_sha256) return { status: 409, body: { error: 'the proposal changed since the payload was read' } };
+    if (cur.state === 'pr_open' && cur.pr_number !== b.pr_number) return { status: 409, body: { error: 'another pull request is already recorded for this proposal' } };
+    return reply(await transition(c.db, cur.id, { from: ['approved'], to: 'pr_open', event: 'pr.opened', action: 'source.pr_opened', request_id: `pr_${cur.id}_${b.pr_number}`, sets: { pr_number: b.pr_number, pr_url: b.pr_url, pr_branch: branch },
+      detail: { pr_number: b.pr_number, pr_url: b.pr_url, branch, head_sha: b.head_sha, payload_sha256: cur.payload_sha256, ...run } }, actor, c.iso));
+  }
+  if (c.path === '/api/pipeline/source-proposals/sync') {
+    if (typeof b.branch !== 'string' || !/^proposal\/[a-z0-9-]{2,32}-[0-9a-f]{8}$/.test(b.branch) || !['merged', 'closed_unmerged'].includes(b.outcome)) return { status: 400, body: { error: 'branch and outcome (merged | closed_unmerged) required' } };
+    const cur = await c.db.prepare("SELECT * FROM source_proposals WHERE pr_branch = ? AND state = 'pr_open'").bind(b.branch).first(); if (!cur) return { status: 404, body: { error: 'no open pull request is recorded for that branch' } };
+    if (b.outcome === 'closed_unmerged') return reply(await transition(c.db, cur.id, { from: ['pr_open'], to: 'approved', event: 'pr.closed', action: 'source.pr_closed', request_id: `close_${cur.id}_${cur.pr_number}`, sets: { pr_number: null, pr_url: null, pr_branch: null }, detail: { pr_number: cur.pr_number, outcome: 'closed_unmerged', ...run } }, actor, c.iso));
+    const raw = c.env.GITHUB_RAW || 'https://raw.githubusercontent.com'; let list;
+    try { const res = await c.deps.fetch(`${raw}/${c.env.REPO}/main/config/sources.json`, { headers: { Accept: 'application/json', 'User-Agent': 'macguard-admin' }, signal: stop() }); if (!res.ok) return { status: 502, body: { error: 'config/sources.json of main could not be read; nothing was changed' } }; list = (await res.json()).sources; } catch { return { status: 502, body: { error: 'config/sources.json of main could not be read; nothing was changed' } }; }
+    const want = parse(cur.payload, {}), entry = Array.isArray(list) ? list.find((s) => s && s.id === want.id) : null;
+    const same = entry && typeof entry.repo === 'string' && entry.repo.toLowerCase() === want.repo.toLowerCase() && entry.kind === 'rules' && J(entry.paths) === J(want.paths) && entry.admission === want.admission;
+    if (!same) return { status: 409, body: { error: 'main does not contain this proposal exactly as authorized; nothing was changed' } };
+    const entryDigest = await sha256Hex(new TextEncoder().encode(JSON.stringify(canonicalPayload(entry))));
+    return reply(await transition(c.db, cur.id, { from: ['pr_open'], to: 'active', event: 'activated', action: 'source.activated', request_id: `act_${cur.id}`, detail: { pr_number: cur.pr_number, main_entry_sha256: entryDigest, equal: true, ...run } }, actor, c.iso));
+  }
+  return none;
+}
