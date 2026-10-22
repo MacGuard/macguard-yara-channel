@@ -10,7 +10,11 @@ Sigstore signs files and leaves a public record of each signature that anyone ca
 
 It is like a wax seal that exists for only a moment. Whoever asks for it proves who they are with an ID (the workflow's identity token), receives a seal that is valid for a few minutes (the short-lived certificate), then destroys it. Anyone can check a public ledger (the transparency log) to see that the seal was used and who asked for it. The seal says which office closed the envelope and that it was not opened afterwards; it does not say who wrote the letter or whether what it says is true.
 
-{{diagram:sigstore-sequence}}
+{{diagram:sigstore-sequence-1-identity}}
+
+{{diagram:sigstore-sequence-2-record}}
+
+{{diagram:sigstore-sequence-3-verify}}
 
 ## Step by step
 

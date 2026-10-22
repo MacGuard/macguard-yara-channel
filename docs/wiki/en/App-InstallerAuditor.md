@@ -24,7 +24,9 @@ It is like a customs inspector who checks the parcel's seal, where it comes from
 4. Each finding gets a state: `passed`, `warning`, `failed` or `unknown`. Exit codes: 0 (no confirmed failure, not a guarantee), 2 (a check failed), 3 (arguments), 4 (evidence or capability unavailable).
 5. Separately, `update-rules` downloads and installs channel rules (see below).
 
-{{diagram:client-update}}
+{{diagram:client-update-1-fetch}}
+
+{{diagram:client-update-2-verify-install}}
 
 ## Under the hood
 

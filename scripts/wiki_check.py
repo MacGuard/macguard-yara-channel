@@ -10,7 +10,7 @@
      A wiki-owned diagram may have <name>.es.mmd (Spanish labels, same structure): both variants must compile (--render), have the same identifiers, arrows, classes and classDef lines
      (only the quoted labels may differ) and the .es.mmd needs its English twin. Every wiki-owned variant: each classDef sets fill, stroke and color (dark mode never uses theme colours),
      every node has a class, no label line over 30 characters (use <br/>), and a diagram with 2+ classDef has a legend (es, en) in its .json. --render also measures the SVG width and fails
-     when text would be under 9px at a 390px viewport. Diagrams reused from docs-src are compiled and measured but not owned: they are compiled, measured and listed as known mobile-size limitations, not failed.
+     when the smallest text would be under 10px at a 390px viewport (measured in the browser, scripts/wiki_measure.py, the same way wiki_screens.py measures). A diagram reused from docs-src that a page uses is measured with the same rule (no exceptions list): when it is too wide for a phone, the pages use wiki-owned split variants instead (docs-src stays untouched; its unused diagrams are not checked).
      Every diagram a page uses must have a Spanish variant docs/wiki/diagrams/<name>.es.mmd, also the ones reused from docs-src: it is then compared with the docs-src English source (same
      nodes, edges, classDef and structure; sequence participant names, messages and state-transition texts are labels) and the 'labels are in English' note is dropped.
   5. no secret-like string, no absolute local path, no absolute claims ("100% safe", "unbreakable"...) in any source
@@ -195,31 +195,29 @@ def private_report(wiki=WIKI):
     return out
 
 
-VIEWPORT, FONT_PX, MIN_PX = 390, 16, 9   # phone width; Mermaid's default label size; smallest effective text accepted
+from wiki_measure import VIEWPORT, MIN_PX, JS as MEASURE_JS, init_js   # phone width, smallest effective text accepted, and the measurement shared with wiki_screens.py
 
 
-def render_diagrams(chrome, limit=120):
+def render_diagrams(chrome, limit=120, theme='default'):
     """Compile every diagram used by the wiki with the vendored Mermaid in one headless Chrome."""
     import docs_check
     names = set()
     for p in jload(WIKI / 'pages.json')['pages']:
         for lang in wiki_build.LANGS:
             names |= set(re.findall(r'\{\{diagram:([^}]+)\}\}', (WIKI / lang / f'{p["id"]}.md').read_text()))
-    srcs = {}; owned = set()
+    srcs = {}
     for n in sorted(names):
         for base in (WIKI / 'diagrams', ROOT / 'docs-src' / 'diagrams'):
             if (base / f'{n}.mmd').exists():
                 srcs[n] = (base / f'{n}.mmd').read_text()
-                if base == WIKI / 'diagrams': owned.add(n)
                 es = WIKI / 'diagrams' / f'{n}.es.mmd'
                 if es.exists():   # both language variants must compile
                     srcs[f'{n}.es'] = es.read_text()
-                    if base == WIKI / 'diagrams': owned.add(f'{n}.es')
                 break
-    page = ('<!doctype html><meta charset=utf-8><pre id=result>RUNNING</pre><script src="mermaid.js"></script><script>'
-            'var S=%s, out=[]; mermaid.initialize({startOnLoad:false,securityLevel:"strict"});'
-            '(async function(){for(var k in S){try{await mermaid.parse(S[k]);var r=await mermaid.render("d_"+k.replace(/[^a-z0-9]/gi,"_"),S[k]);var vb=/viewBox="[-\\d.]+ [-\\d.]+ ([\\d.]+) ([\\d.]+)"/.exec(r.svg);out.push({n:k,ok:true,w:vb?+vb[1]:0,h:vb?+vb[2]:0})}catch(e){out.push({n:k,ok:false,e:String(e&&e.message||e).slice(0,200)})}}'
-            'document.getElementById("result").textContent="DONE "+JSON.stringify(out)})();</script>') % json.dumps(srcs)
+    page = ('<!doctype html><meta charset=utf-8><style>#c{width:%dpx}#c svg{max-width:100%%;height:auto}</style><div id=c></div><pre id=result>RUNNING</pre><script src="mermaid.js"></script><script>' + MEASURE_JS +
+            'var S=%s, out=[], C=document.getElementById("c"); ' + init_js(theme) +
+            '(async function(){for(var k in S){try{await mermaid.parse(S[k]);var r=await mermaid.render("d_"+k.replace(/[^a-z0-9]/gi,"_"),S[k],C);C.innerHTML=r.svg;var m=wikiMeasure(C);C.innerHTML="";out.push({n:k,ok:true,w:m.vw,h:m.vh,eff:m.eff,font:m.font})}catch(e){C.innerHTML="";out.push({n:k,ok:false,e:String(e&&e.message||e).slice(0,200)})}}'
+            'document.getElementById("result").textContent="DONE "+JSON.stringify(out)})();</script>') % (VIEWPORT, json.dumps(srcs))
     with tempfile.TemporaryDirectory(prefix='wiki-render-') as d:
         d = pathlib.Path(d); (d / 'index.html').write_text(page); (d / 'mermaid.js').write_bytes((ROOT / 'web' / 'vendor' / 'mermaid-12.2.0.min.js').read_bytes())
         out, timed_out = docs_check.run_chrome([chrome, '--headless=new', '--disable-gpu', '--no-sandbox', '--allow-file-access-from-files', '--virtual-time-budget=60000', '--dump-dom', (d / 'index.html').as_uri()], limit)
@@ -228,22 +226,15 @@ def render_diagrams(chrome, limit=120):
     import html
     res = json.loads(html.unescape(m.group(1)))
     err = [f'diagram {r["n"]} does not compile: {r["e"]}' for r in res if not r['ok']]
-    # phone legibility: the SVG is scaled to the viewport width, so text of FONT_PX shrinks by VIEWPORT/viewBox width when the diagram is wider
-    known = []
-    for r in sorted((r for r in res if r['ok']), key=lambda r: -r['w']):
-        eff = FONT_PX * min(1, VIEWPORT / r['w']) if r['w'] else 0
-        flag = '' if eff >= MIN_PX else (' TOO SMALL' if r['n'] in owned else ' (docs-src, listed below)')
-        print(f'  width {r["w"]:6.0f}px  height {r["h"]:5.0f}px  text at {VIEWPORT}px = {eff:4.1f}px  {r["n"]}{flag}')
-        if eff < MIN_PX and r['n'] in owned: err.append(f'diagram {r["n"]}: rendered width {r["w"]:.0f}px gives text of {eff:.1f}px at {VIEWPORT}px (min {MIN_PX}px): narrower layout needed')
-        elif eff < MIN_PX: known.append(f'{r["n"]} ({r["w"]:.0f}px wide, text {eff:.1f}px at {VIEWPORT}px)')
-    if known:   # sequence and wide diagrams of docs-src hit Mermaid's minimum node width: reported, never failed
-        print(f'  known mobile-size limitations (docs-src diagrams, not failed): {len(known)}')
-        for k in known: print(f'    - {k}')
+    # phone legibility: measured in the browser in a block VIEWPORT px wide (wiki_measure.py, the same measurement wiki_screens.py uses): computed font size x rendered scale of the smallest text
+    for r in sorted((r for r in res if r['ok']), key=lambda r: r['eff']):
+        print(f'  width {r["w"]:6.0f}px  height {r["h"]:5.0f}px  smallest text at {VIEWPORT}px = {r["eff"]:4.1f}px (font {r["font"]:.0f}px)  {r["n"]}{"" if r["eff"] >= MIN_PX else " TOO SMALL"}')
+        if r['eff'] < MIN_PX: err.append(f'diagram {r["n"]}: smallest text is {r["eff"]:.1f}px at {VIEWPORT}px (min {MIN_PX}px; diagram {r["w"]:.0f}px wide): split it into several wiki-owned diagrams and keep edge labels out of them')
     return err, len(res)
 
 
 def main(argv=None):
-    ap = argparse.ArgumentParser(description=(__doc__ or '').split('\n')[0]); ap.add_argument('--render', action='store_true', help='also compile diagrams in headless Chrome'); ap.add_argument('--chrome', default=os.environ.get('CHROME', '')); ap.add_argument('--private-report', action='store_true', help='list the lines that name internal paths, branches or private repositories (owner review before publication)')
+    ap = argparse.ArgumentParser(description=(__doc__ or '').split('\n')[0]); ap.add_argument('--render', action='store_true', help='also compile diagrams in headless Chrome'); ap.add_argument('--chrome', default=os.environ.get('CHROME', '')); ap.add_argument('--no-theme', action='store_true', help='with --render: measure Mermaid without a configured theme (14 px labels, the worst case)'); ap.add_argument('--private-report', action='store_true', help='list the lines that name internal paths, branches or private repositories (owner review before publication)')
     a = ap.parse_args(argv)
     if a.private_report:
         r = private_report(); print(chr(10).join(r)); print(f"wiki_check: {len(r)} line(s) need owner review before publication"); return 0
@@ -253,7 +244,7 @@ def main(argv=None):
         chrome = a.chrome or next((c for c in ('/Applications/Google Chrome.app/Contents/MacOS/Google Chrome', shutil.which('google-chrome') or '', shutil.which('chromium') or '') if c and os.path.exists(c)), '')
         if not chrome: err.append('--render needs Chrome/Chromium (set CHROME)')
         else:
-            e, n = render_diagrams(chrome); err += e; print(f'wiki_check: {n} diagrams compiled with the vendored Mermaid')
+            e, n = render_diagrams(chrome, theme=None if a.no_theme else 'default'); err += e; print(f'wiki_check: {n} diagrams compiled with the vendored Mermaid')
     for e in err[:100]: print('FAIL', e)
     print(f'wiki_check: {"OK" if not err else str(len(err)) + " problem(s)"}')
     return 1 if err else 0

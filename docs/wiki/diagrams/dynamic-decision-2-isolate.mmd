@@ -1,0 +1,14 @@
+%%{init: {"flowchart": {"wrappingWidth": 300}}}%%
+flowchart TB
+  v0["not ok"]:::chk
+  i["isolate culprits<br/>delta debugging"]:::bad
+  q["culprits to<br/>quarantine"]:::bad
+  r["rebuild and<br/>measure again<br/>max 3 rounds"]:::chk
+  bk["back to the<br/>ok? question"]:::act
+  v0 --> i
+  i --> q
+  q --> r
+  r --> bk
+  classDef chk fill:#ffe9b8,stroke:#b8860b,color:#2b1d00
+  classDef bad fill:#ffd4cc,stroke:#c0392b,color:#33100b
+  classDef act fill:#cfe3ff,stroke:#2f6df0,color:#0b1b33

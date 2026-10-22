@@ -35,7 +35,11 @@ Es como la lista de comprobación de un guardia de aduanas: «si en la maleta ha
 
 ## El viaje de una regla
 
-{{diagram:architecture}}
+{{diagram:architecture-1-gate}}
+
+{{diagram:architecture-2-approved}}
+
+{{diagram:architecture-3-quarantine}}
 
 ## Paso a paso
 

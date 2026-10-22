@@ -1,0 +1,14 @@
+{
+ "title": {
+  "en": "Checkpoints over time, part 1 of 2: growth",
+  "es": "Evolución de los checkpoints, parte 1 de 2: crecimiento"
+ },
+ "alt": {
+  "en": "Each signed checkpoint commits to a log size and a root. The checkpoint of size 20 (00000020.txt) is followed by the one of size 75 (00000075.txt), linked by consistency.json, a consistency proof from 20 to 75, and then by the next checkpoint of size N with another consistency proof (the white boxes). A consistency proof shows that the earlier tree is a prefix of the later one, so entries were only appended.",
+  "es": "Cada checkpoint firmado compromete un tamaño y una raíz del registro. Al checkpoint de tamaño 20 (00000020.txt) le sigue el de tamaño 75 (00000075.txt), unidos por consistency.json, una prueba de consistencia de 20 a 75, y después el siguiente checkpoint de tamaño N con otra prueba de consistencia (las cajas blancas). Una prueba de consistencia demuestra que el árbol anterior es prefijo del posterior, es decir, solo se añadieron entradas."
+ },
+ "legend": {
+  "en": "green: signed checkpoint; white: the proof that links two checkpoints.",
+  "es": "verde: checkpoint firmado; blanco: la prueba que une dos checkpoints."
+ }
+}

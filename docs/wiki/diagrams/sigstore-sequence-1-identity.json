@@ -1,0 +1,14 @@
+{
+ "title": {
+  "en": "Keyless signing, part 1 of 3: identity and certificate",
+  "es": "Firma sin clave, parte 1 de 3: identidad y certificado"
+ },
+ "alt": {
+  "en": "Inside publish.yml, the workflow asks GitHub OIDC for an ID token (id-token write permission) and receives a JWT that names the workflow, the repository and the ref. cosign then runs sign-blob on manifest.json and creates an ephemeral key pair. It sends the JWT and the public key to Fulcio, which returns a short lived certificate bound to that identity. Part 2 continues with Rekor.",
+  "es": "Dentro de publish.yml, el workflow pide a GitHub OIDC un token de identidad (permiso id-token write) y recibe un JWT que nombra el workflow, el repositorio y la ref. Después cosign ejecuta sign-blob sobre manifest.json y crea un par de claves efímero. Envía el JWT y la clave pública a Fulcio, que devuelve un certificado de vida corta ligado a esa identidad. La parte 2 continúa con Rekor."
+ },
+ "legend": {
+  "en": "blue: step run by publish.yml, cosign or the client; purple: reply from an external service (GitHub OIDC, Fulcio, Rekor); amber: verification.",
+  "es": "azul: paso que ejecuta publish.yml, cosign o el cliente; morado: respuesta de un servicio externo (GitHub OIDC, Fulcio, Rekor); ámbar: verificación."
+ }
+}

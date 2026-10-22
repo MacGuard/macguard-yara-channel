@@ -14,7 +14,11 @@ It is the parts box of one construction set: if every house is built from the sa
 
 ## Diagram
 
-{{diagram:ecosystem-map}}
+{{diagram:ecosystem-map-1-supply}}
+
+{{diagram:ecosystem-map-2-planned}}
+
+{{diagram:ecosystem-map-3-others}}
 
 On the map it sits among the "shared building blocks": a supporting piece that applications could use, with no security logic of its own.
 

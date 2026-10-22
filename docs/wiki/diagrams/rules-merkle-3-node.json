@@ -1,0 +1,10 @@
+{
+ "title": {
+  "en": "Merkle tree of the rule files, part 3 of 4: the four-leaf node",
+  "es": "Árbol Merkle de los ficheros de reglas, parte 3 de 4: el nodo de cuatro hojas"
+ },
+ "alt": {
+  "en": "With five leaves the tree splits at the largest power of two below five: four leaves on the left and one on the right. The two nodes of parts 1 and 2 are combined into the node N03 = H(01 || N01 || N23), which holds the four leaves of the left side.",
+  "es": "Con cinco hojas el árbol se parte en la mayor potencia de dos menor que cinco: cuatro hojas a la izquierda y una a la derecha. Los dos nodos de las partes 1 y 2 se combinan en el nodo N03 = H(01 || N01 || N23), que reúne las cuatro hojas del lado izquierdo."
+ }
+}

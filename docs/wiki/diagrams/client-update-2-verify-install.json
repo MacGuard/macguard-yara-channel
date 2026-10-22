@@ -1,0 +1,14 @@
+{
+ "title": {
+  "en": "Normal update, part 2 of 2: verify and install",
+  "es": "Actualización normal, parte 2 de 2: verificar e instalar"
+ },
+ "alt": {
+  "en": "ChannelVerifier and cosign check the manifest signature, the hash of every file and rules_root, then the checkpoint signature, the inclusion proof, the consistency with the trusted checkpoint and the rollback check. Once all checks have passed, MacGuard saves the new trusted checkpoint, renames live to previous and staging to live, and tells the user that the rules are installed.",
+  "es": "ChannelVerifier y cosign comprueban la firma del manifiesto, el hash de cada archivo y rules_root, y después la firma del checkpoint, la prueba de inclusión, la consistencia con el checkpoint de confianza y el control de retroceso. Superadas todas las comprobaciones, MacGuard guarda el nuevo checkpoint de confianza, renombra live a previous y staging a live, y avisa a la persona de que las reglas están instaladas."
+ },
+ "legend": {
+  "en": "blue: local step in MacGuard; amber: verification; green: result.",
+  "es": "azul: paso local en MacGuard; ámbar: verificación; verde: resultado."
+ }
+}

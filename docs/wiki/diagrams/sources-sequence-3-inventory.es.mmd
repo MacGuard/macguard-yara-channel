@@ -1,0 +1,10 @@
+%%{init: {"flowchart": {"wrappingWidth": 300}}}%%
+flowchart TB
+  f1["9 Extracción segura;<br/>conserva .yar y .yara en<br/>rutas permitidas"]:::act
+  f2["10 Rechaza más de 1 MB o<br/>bytes NUL; SHA-256 de cada<br/>archivo"]:::chk
+  f3["11 Escribe<br/>dist/candidate.json: fuentes<br/>con commit y comprobación de<br/>licencia; archivos con path,<br/>sha256, bytes"]:::ok
+  f1 --> f2
+  f2 --> f3
+  classDef act fill:#cfe3ff,stroke:#2f6df0,color:#0b1b33
+  classDef chk fill:#ffe9b8,stroke:#b8860b,color:#2b1d00
+  classDef ok fill:#cdeedd,stroke:#1b6e3c,color:#08210f

@@ -24,7 +24,11 @@ A bookshop sells a book with the distributor's stamp and a numbered seal. The au
 
 ## Step by step
 
-{{diagram:release-sequence}}
+{{diagram:release-sequence-1-build}}
+
+{{diagram:release-sequence-2-site}}
+
+{{diagram:release-sequence-3-verify-live}}
 
 The daily review requests this workflow only when the set is publishable, it changed and the macOS measurement job succeeded. {{ev:EV-YC-89}}
 
@@ -40,7 +44,11 @@ The daily review requests this workflow only when the set is publishable, it cha
 
 **What is signed, and with what.** `cosign sign-blob --yes --bundle` signs two files: `manifest.json` and `checkpoint.txt`. No stored key: GitHub issues an OIDC token naming the workflow, Fulcio issues a short-lived certificate bound to that identity, and the signature is recorded in Rekor, Sigstore's public log. Expected identity: `https://github.com/MacGuard/macguard-yara-channel/.github/workflows/publish.yml@refs/heads/main`; issuer `https://token.actions.githubusercontent.com`. The package is not signed separately: the signed manifest covers it because it lists the SHA-256 of every file. {{ev:EV-YC-46}}
 
-{{diagram:sigstore-sequence}}
+{{diagram:sigstore-sequence-1-identity}}
+
+{{diagram:sigstore-sequence-2-record}}
+
+{{diagram:sigstore-sequence-3-verify}}
 
 **Do attestations exist?** An *attestation* in the GitHub/SLSA sense is a signed statement about **how** an artifact was built (in-toto). This repository **does not produce them**: `.github/workflows/` has no attestation step, and the site documentation states it as a limit. What exists instead: (1) Sigstore signatures of two blobs; (2) the `evidence` field inside the signed manifest (`candidate_run_id`, `candidate_workflow_sha`, `publish_run_url` and the dynamic measurement), which `seal.py` describes as the workflow's own statement, "not an independent attestation". Adding SLSA attestations would be a design change and a possible future step. {{ev:EV-YC-47}}
 

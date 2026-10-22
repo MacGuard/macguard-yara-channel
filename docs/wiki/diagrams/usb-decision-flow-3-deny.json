@@ -1,0 +1,14 @@
+{
+ "title": {
+  "en": "How MacUSBGuard decides, part 3 of 3: what a denial means today",
+  "es": "Cómo decide MacUSBGuard, parte 3 de 3: qué significa hoy una denegación"
+ },
+ "alt": {
+  "en": "A denial would be answered with an Endpoint Security AUTH reply, which compiles but whose live use is unverified, and it is reported as observe only while enforcement is unproven.",
+  "es": "La denegación se contestaría con una respuesta AUTH de Endpoint Security, que compila pero cuyo uso real no está verificado, y se informa como solo observación mientras el bloqueo real no esté probado."
+ },
+ "legend": {
+  "en": "red: deny; orange: what is unverified or observe only.",
+  "es": "rojo: denegar; naranja: lo no verificado o solo observación."
+ }
+}

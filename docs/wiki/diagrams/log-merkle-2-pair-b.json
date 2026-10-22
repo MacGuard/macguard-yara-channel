@@ -1,0 +1,14 @@
+{
+ "title": {
+  "en": "Merkle tree of the log, part 2 of 4: entries 2 and 3",
+  "es": "Árbol Merkle del registro, parte 2 de 4: entradas 2 y 3"
+ },
+ "alt": {
+  "en": "Node B is H(01 || L2 || L3), built from entries 2 and 3 in the same way as node A.",
+  "es": "El nodo B es H(01 || L2 || L3), construido con las entradas 2 y 3 del mismo modo que el nodo A."
+ },
+ "legend": {
+  "en": "blue: log entry (leaf); amber: intermediate hash.",
+  "es": "azul: entrada del registro (hoja); ámbar: hash intermedio."
+ }
+}

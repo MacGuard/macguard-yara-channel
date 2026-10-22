@@ -12,9 +12,15 @@ Es como revisar un examen antes de entregarlo: primero que esté completo y legi
 
 ## Las decisiones
 
-{{diagram:static-decision}}
+{{diagram:static-decision-1-hard}}
 
-{{diagram:dynamic-decision}}
+{{diagram:static-decision-2-judgement}}
+
+{{diagram:dynamic-decision-1-compare}}
+
+{{diagram:dynamic-decision-2-isolate}}
+
+{{diagram:dynamic-decision-3-publish}}
 
 ## Paso a paso
 

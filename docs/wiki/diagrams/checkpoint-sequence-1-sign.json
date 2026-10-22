@@ -1,0 +1,14 @@
+{
+ "title": {
+  "en": "Publishing and signing the checkpoint, part 1 of 2: the checkpoint",
+  "es": "Publicación y firma del checkpoint, parte 1 de 2: el checkpoint"
+ },
+ "alt": {
+  "en": "publish.yml gives tlog.py the event release.approved and asks for a checkpoint with origin, size and root. cosign signs the checkpoint with sign-blob and checkpoint.sigstore.json returns to publish.yml. tlog.py verify then re-verifies every checkpoint, the consistency and the signatures.",
+  "es": "publish.yml entrega a tlog.py el evento release.approved y pide un checkpoint con origen, tamaño y raíz. cosign firma el checkpoint con sign-blob y checkpoint.sigstore.json vuelve a publish.yml. Después tlog.py verify reverifica todos los checkpoints, la consistencia y las firmas."
+ },
+ "legend": {
+  "en": "blue: step of publish.yml, tlog.py or seal.py; purple: signing with cosign; amber: verification; green: file returned to publish.yml.",
+  "es": "azul: paso de publish.yml, tlog.py o seal.py; morado: firma con cosign; ámbar: verificación; verde: archivo que vuelve a publish.yml."
+ }
+}

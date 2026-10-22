@@ -1,0 +1,15 @@
+%%{init: {"flowchart": {"wrappingWidth": 300}}}%%
+flowchart TB
+  ap["APPROVED_<br/>PENDING_<br/>VALIDATION"]:::chk
+  rel["publish.yml after the<br/>checks pass again:<br/>RELEASED"]:::ok
+  p2["revalidation failed<br/>later: PENDING"]:::act
+  rj["REJECTED"]:::bad
+  fin["end: final state"]:::neu
+  ap --> rel
+  rel --> p2
+  rj --> fin
+  classDef chk fill:#ffe9b8,stroke:#b8860b,color:#2b1d00
+  classDef ok fill:#cdeedd,stroke:#1b6e3c,color:#08210f
+  classDef act fill:#cfe3ff,stroke:#2f6df0,color:#0b1b33
+  classDef bad fill:#ffd4cc,stroke:#c0392b,color:#33100b
+  classDef neu fill:#eeeeee,stroke:#555555,color:#222222

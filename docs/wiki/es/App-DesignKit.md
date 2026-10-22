@@ -14,7 +14,11 @@ Es la caja de piezas de un mismo juego de construcción: si todas las casas se m
 
 ## Diagrama
 
-{{diagram:ecosystem-map}}
+{{diagram:ecosystem-map-1-supply}}
+
+{{diagram:ecosystem-map-2-planned}}
+
+{{diagram:ecosystem-map-3-others}}
 
 En el mapa está entre los "bloques de construcción compartidos": una pieza de apoyo que las aplicaciones podrían usar, sin lógica de seguridad propia.
 

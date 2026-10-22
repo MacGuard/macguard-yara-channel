@@ -1,0 +1,16 @@
+%%{init: {"flowchart": {"wrappingWidth": 300}}}%%
+flowchart BT
+  A["nodo A"]:::val
+  B["nodo B"]:::val
+  AB["nodo AB"]:::val
+  C["nodo C"]:::val
+  ROOT["raíz del registro"]:::gate
+  CP["checkpoint<br/>origen, tamaño, raíz"]:::sec
+  A --> AB
+  B --> AB
+  AB --> ROOT
+  C --> ROOT
+  ROOT --> CP
+  classDef val fill:#ffe9b8,stroke:#b8860b,color:#2b1d00
+  classDef gate fill:#ffffff,stroke:#111111,stroke-width:3px,color:#111111
+  classDef sec fill:#cdeedd,stroke:#1b6e3c,color:#08210f

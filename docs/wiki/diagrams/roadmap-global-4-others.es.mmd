@@ -1,0 +1,9 @@
+%%{init: {"flowchart": {"wrappingWidth": 300}}}%%
+flowchart TB
+  C1["MacCoreGuard<br/>prototipo"]:::doing
+  D1["DesignKit 0.3.1<br/>desarrollo"]:::doing
+  P1["MacProcessGuard<br/>concepto"]:::todo
+  A1["Installer Auditor<br/>desarrollo"]:::doing
+  C1 ~~~ D1 ~~~ P1 ~~~ A1
+  classDef doing fill:#ffe9b8,stroke:#b8860b,color:#2b1d00
+  classDef todo fill:#eeeeee,stroke:#555555,color:#222222

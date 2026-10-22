@@ -1,0 +1,14 @@
+{
+ "title": {
+  "en": "Keyless signing, part 3 of 3: verification by the client",
+  "es": "Firma sin clave, parte 3 de 3: verificación en el cliente"
+ },
+ "alt": {
+  "en": "The client downloads manifest.json and the bundle from GitHub Releases and verifies them: the chain up to the Sigstore trust root, the signature, the Rekor evidence, the identity (the workflow) and the issuer.",
+  "es": "El cliente descarga manifest.json y el bundle de GitHub Releases y los verifica: la cadena hasta la raíz de confianza de Sigstore, la firma, la evidencia de Rekor, la identidad (el workflow) y el emisor."
+ },
+ "legend": {
+  "en": "blue: step run by publish.yml, cosign or the client; purple: reply from an external service (GitHub OIDC, Fulcio, Rekor); amber: verification.",
+  "es": "azul: paso que ejecuta publish.yml, cosign o el cliente; morado: respuesta de un servicio externo (GitHub OIDC, Fulcio, Rekor); ámbar: verificación."
+ }
+}

@@ -10,7 +10,11 @@ Sigstore firma archivos y deja un registro público de cada firma, que cualquier
 
 Es como un sello de lacre que solo existe un instante. Quien lo pide demuestra con un documento de identidad quién es (el token de identidad del flujo), recibe un sello válido unos minutos (el certificado de corta duración) y luego lo destruye. Cualquiera puede comprobar en un libro público (el registro de transparencia) que ese sello se usó y quién lo pidió. El sello dice qué oficina cerró el sobre y que no se abrió después; no dice quién escribió la carta ni si lo que cuenta es cierto.
 
-{{diagram:sigstore-sequence}}
+{{diagram:sigstore-sequence-1-identity}}
+
+{{diagram:sigstore-sequence-2-record}}
+
+{{diagram:sigstore-sequence-3-verify}}
 
 ## Paso a paso
 

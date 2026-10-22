@@ -1,0 +1,14 @@
+{
+ "title": {
+  "en": "The fates of a rule in quarantine, part 1 of 3: clear outcomes",
+  "es": "Los destinos de una regla en la cuarentena, parte 1 de 3: resultados claros"
+ },
+ "alt": {
+  "en": "An examined rule file goes through the static and dynamic checks. With no finding it is accepted (VALIDATED) and published. With hard criteria it is rejected (REJECTED). With a technical finding it is blocked in quarantine (QUARANTINED) and cannot be approved. The fourth fate, a judgement finding only, is in part 2.",
+  "es": "Un archivo de reglas examinado pasa por las comprobaciones estáticas y dinámicas. Sin hallazgos queda aceptado (VALIDATED) y se publica. Con criterios duros queda rechazado (REJECTED). Con un hallazgo técnico queda bloqueado en cuarentena (QUARANTINED) y no se puede aprobar. El cuarto destino, solo un hallazgo de criterio, está en la parte 2."
+ },
+ "legend": {
+  "en": "blue: starting point; white with a thick border: checks; green: accepted or published; red: rejected or blocked; amber: pending review. The state name is also written in each box.",
+  "es": "azul: punto de partida; blanco con borde grueso: comprobaciones; verde: aceptado o publicado; rojo: rechazado o bloqueado; ámbar: pendiente de revisión. El estado figura también en cada caja."
+ }
+}

@@ -1,0 +1,14 @@
+{
+ "title": {
+  "en": "Publication sequence, part 1 of 3: build and release",
+  "es": "Secuencia de publicación, parte 1 de 3: construcción y release"
+ },
+ "alt": {
+  "en": "publish.yml re-verifies the final set, seals it, signs it and builds the tar.gz and the metadata. verify_release.py then runs on the exact files to publish. publish.yml creates a draft release in GitHub Releases with every asset, checks the asset count and only then publishes it, and finally requests the site deployment from site.yml.",
+  "es": "publish.yml reverifica el conjunto final, lo sella, lo firma y crea el tar.gz y los metadatos. Después verify_release.py se ejecuta sobre los archivos exactos que se van a publicar. publish.yml crea una release en borrador en GitHub Releases con todos los activos, comprueba el número de activos y solo entonces la publica; por último solicita a site.yml el despliegue del sitio."
+ },
+ "legend": {
+  "en": "blue: step; amber: verification; green: result.",
+  "es": "azul: paso; ámbar: verificación; verde: resultado."
+ }
+}

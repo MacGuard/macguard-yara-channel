@@ -1,0 +1,14 @@
+{
+ "title": {
+  "en": "How MacUSBGuard decides, part 1 of 3: is the Mac locked?",
+  "es": "Cómo decide MacUSBGuard, parte 1 de 3: ¿está el Mac bloqueado?"
+ },
+ "alt": {
+  "en": "A USB device is plugged in, inventoried (IOKit) and fingerprinted. If the Mac is unlocked, normal behaviour. If it is locked, a two-stage resolver (device, then interface) decides, in part 2.",
+  "es": "Se conecta un dispositivo USB, se inventaría (IOKit) y se calcula su huella. Si el Mac no está bloqueado, comportamiento normal. Si está bloqueado, decide un resolutor en dos etapas (dispositivo, luego interfaz), en la parte 2."
+ },
+ "legend": {
+  "en": "blue: the start; grey: process steps; amber: questions; green: allow or normal behaviour; red: deny; orange: what is unverified or observe only.",
+  "es": "azul: el inicio; gris: pasos de proceso; ámbar: preguntas; verde: permitir o comportamiento normal; rojo: denegar; naranja: lo no verificado o solo observación."
+ }
+}

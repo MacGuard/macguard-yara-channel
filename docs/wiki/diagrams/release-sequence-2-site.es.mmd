@@ -1,0 +1,11 @@
+%%{init: {"flowchart": {"wrappingWidth": 300}}}%%
+flowchart TB
+  s1["6 site.yml descarga la<br/>release y el historial de<br/>GitHub Releases"]:::act
+  s2["7 verify_release.py;<br/>construir catálogo y<br/>estadísticas; registrar la<br/>verificación"]:::chk
+  s3["8 Despliega en GitHub Pages"]:::act
+  s4["9 Despliega la réplica en<br/>Cloudflare Pages (primero la<br/>comprobación previa)"]:::act
+  s1 --> s2
+  s2 --> s3
+  s3 --> s4
+  classDef act fill:#cfe3ff,stroke:#2f6df0,color:#0b1b33
+  classDef chk fill:#ffe9b8,stroke:#b8860b,color:#2b1d00

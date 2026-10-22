@@ -12,7 +12,13 @@ Es como el panel de obras de un edificio: dice qué planta está terminada, cuá
 
 ## Vista global
 
-{{diagram:roadmap-global}}
+{{diagram:roadmap-global-1-yara-channel}}
+
+{{diagram:roadmap-global-2-firewall}}
+
+{{diagram:roadmap-global-3-usb}}
+
+{{diagram:roadmap-global-4-others}}
 
 ## Por aplicación
 

@@ -12,7 +12,9 @@ El canal publica reglas firmadas en GitHub. Si GitHub perdiera el historial, ¿s
 
 Es como guardar el acta de una asamblea en tres notarías de países distintos. Si una se incendia, quedan dos. Si alguien altera una copia, las otras dos delatan la diferencia. No impide que el acta original contuviera un error: solo conserva lo que se escribió.
 
-{{diagram:archive-triple-storage}}
+{{diagram:archive-triple-storage-1-write}}
+
+{{diagram:archive-triple-storage-2-verify}}
 
 ## Qué se guardaría
 

@@ -4,11 +4,12 @@ flowchart TB
   TUI["TUI (terminal)"]:::fe --> CORE
   CORE["Núcleo: AuditEngine"]:::core
   CORE --> SIG["Comprobaciones<br/>de firma, huella<br/>y paquete"]:::core
-  CORE --> YE["YARAEngine<br/>auxiliares yara<br/>y yarac 4.5.8"]:::core
+  CORE --> YE["YARAEngine<br/>auxiliares yara<br/>y yarac<br/>4.5.8"]:::core
   CORE --> RI["RuleInstaller<br/>solo reglas<br/>del canal"]:::core
   RI --> CH["YARA Channel<br/>Pages y luego<br/>espejo"]:::ext
-  CORE --> OUT["Hallazgos:<br/>pasa, aviso,<br/>falla, desconocido"]:::out
-  SIG ~~~ OUT
+  CORE --> OUT["Hallazgos:<br/>pasa, aviso,<br/>falla,<br/>desconocido"]:::out
+  GUI ~~~ CLI ~~~ TUI
+  SIG ~~~ YE ~~~ RI ~~~ OUT
   classDef fe fill:#e8e8e8,stroke:#555555,color:#111111
   classDef core fill:#fff3cd,stroke:#8a6d00,color:#3d2f00
   classDef ext fill:#d4edda,stroke:#1b5e20,color:#102a12

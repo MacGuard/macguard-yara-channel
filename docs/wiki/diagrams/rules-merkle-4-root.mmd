@@ -1,0 +1,13 @@
+%%{init: {"flowchart": {"wrappingWidth": 300}}}%%
+flowchart BT
+  N03["node<br/>H(01 || N01 || N23)"]:::val
+  L4["leaf 4"]:::sec
+  R["rules_root<br/>H(01 || N03 || leaf4)"]:::gate
+  M["manifest.json<br/>signed with Sigstore"]:::pub
+  N03 --> R
+  L4 --> R
+  R --> M
+  classDef val fill:#ffe9b8,stroke:#b8860b,color:#2b1d00
+  classDef sec fill:#cdeedd,stroke:#1b6e3c,color:#08210f
+  classDef gate fill:#ffffff,stroke:#111111,stroke-width:3px,color:#111111
+  classDef pub fill:#e4d7ff,stroke:#6a3fd1,color:#1b0b3b

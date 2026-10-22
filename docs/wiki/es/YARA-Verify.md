@@ -76,7 +76,9 @@ Si fallan varias, el informe las lista todas y el código es el primero según l
 
 Las órdenes de arriba son las del repositorio. Ejecutadas el 2026-10-22: `--latest` (PASS, salida 0), la verificación manual con `cosign verify-blob` (`Verified OK`) y `shasum`, el segundo paso con `--trust-state` y un intento con identidad falsa (FAIL, salida 2). Pruebas del verificador: `python3 -m unittest tests.test_verify_public_release` (pasaron). Sin token de GitHub la API anónima permite 60 peticiones por hora por IP; el verificador lo avisa y usa la redirección de `github.com`. Más: [verification.md](https://github.com/MacGuard/macguard-yara-channel/blob/main/docs-src/en/verification.md), [client-failures.md](https://github.com/MacGuard/macguard-yara-channel/blob/main/docs-src/en/client-failures.md).
 
-{{diagram:client-update}}
+{{diagram:client-update-1-fetch}}
+
+{{diagram:client-update-2-verify-install}}
 
 ## Límites
 

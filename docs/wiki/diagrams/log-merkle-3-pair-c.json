@@ -1,0 +1,14 @@
+{
+ "title": {
+  "en": "Merkle tree of the log, part 3 of 4: entries 4 and 5",
+  "es": "Árbol Merkle del registro, parte 3 de 4: entradas 4 y 5"
+ },
+ "alt": {
+  "en": "Entry 4, the release entry, and entry 5 are combined into node C = H(01 || L4 || L5).",
+  "es": "La entrada 4, la entrada del release, y la entrada 5 se combinan en el nodo C = H(01 || L4 || L5)."
+ },
+ "legend": {
+  "en": "blue: log entry (leaf); purple: the release entry; amber: intermediate hash.",
+  "es": "azul: entrada del registro (hoja); morado: la entrada del release; ámbar: hash intermedio."
+ }
+}

@@ -1,0 +1,9 @@
+%%{init: {"flowchart": {"wrappingWidth": 300}}}%%
+flowchart TB
+  H["decisión de denegar"]:::bad
+  I["Respuesta AUTH de<br/>Endpoint Security:<br/>compila, uso real<br/>sin verificar"]:::wrn
+  J["se informa como<br/>SOLO OBSERVACIÓN<br/>si el bloqueo real<br/>no está probado"]:::wrn
+  H --> I
+  H --> J
+  classDef bad fill:#ffd4cc,stroke:#c0392b,color:#33100b
+  classDef wrn fill:#ffe0b2,stroke:#9a4b00,color:#4a2400

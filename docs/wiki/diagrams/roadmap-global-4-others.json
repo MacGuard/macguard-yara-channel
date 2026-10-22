@@ -1,0 +1,14 @@
+{
+ "title": {
+  "en": "Global roadmap by phases, part 4 of 4: other parts (no dates)",
+  "es": "Roadmap global por fases, parte 4 de 4: otras piezas (sin fechas)"
+ },
+ "alt": {
+  "en": "Other parts, without dates and with no order between them: MacCoreGuard prototype, DesignKit 0.3.1 and Installer Auditor in development, MacProcessGuard concept.",
+  "es": "Otras piezas, sin fechas y sin orden entre ellas: MacCoreGuard prototipo, DesignKit 0.3.1 e Installer Auditor en desarrollo, MacProcessGuard concepto."
+ },
+ "legend": {
+  "en": "amber: in progress; grey: not started (the status is also written in each box).",
+  "es": "ámbar: en curso; gris: sin empezar (el estado figura también en cada caja)."
+ }
+}

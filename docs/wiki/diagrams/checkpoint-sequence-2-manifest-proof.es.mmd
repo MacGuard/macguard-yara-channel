@@ -1,0 +1,14 @@
+%%{init: {"flowchart": {"wrappingWidth": 300}}}%%
+flowchart TB
+  m1["6 seal.py escribe<br/>manifest.json (rules_root y<br/>cabeza del registro)"]:::act
+  m2["7 cosign sign-blob de<br/>manifest.json"]:::ext
+  m3["8 manifest.sigstore.json<br/>vuelve a publish.yml"]:::ok
+  m4["9 tlog.py release-proof:<br/>prueba de inclusión de la<br/>entrada candidate.accepted"]:::act
+  m5["10 inclusion-proof.json<br/>vuelve a publish.yml"]:::ok
+  m1 --> m2
+  m2 --> m3
+  m3 --> m4
+  m4 --> m5
+  classDef act fill:#cfe3ff,stroke:#2f6df0,color:#0b1b33
+  classDef ext fill:#e4d7ff,stroke:#6a3fd1,color:#1b0b3b
+  classDef ok fill:#cdeedd,stroke:#1b6e3c,color:#08210f

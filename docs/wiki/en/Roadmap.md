@@ -12,7 +12,13 @@ It is like a building-site board: it shows which floor is finished, which is sta
 
 ## Global view
 
-{{diagram:roadmap-global}}
+{{diagram:roadmap-global-1-yara-channel}}
+
+{{diagram:roadmap-global-2-firewall}}
+
+{{diagram:roadmap-global-3-usb}}
+
+{{diagram:roadmap-global-4-others}}
 
 ## By application
 

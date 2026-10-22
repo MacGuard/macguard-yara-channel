@@ -1,0 +1,14 @@
+{
+ "title": {
+  "en": "Merkle tree of the log, part 1 of 4: entries 0 and 1",
+  "es": "Árbol Merkle del registro, parte 1 de 4: entradas 0 y 1"
+ },
+ "alt": {
+  "en": "Every line of log.jsonl is an entry and each entry is a leaf: the leaf hash is SHA-256 of 0x00 followed by the exact bytes of the line. Leaves are combined in pairs with node hashes: node A is H(01 || L0 || L1), built from entries 0 and 1. The tree is drawn from the leaves at the bottom up.",
+  "es": "Cada línea de log.jsonl es una entrada y cada entrada es una hoja: el hash de hoja es el SHA-256 de 0x00 seguido de los bytes exactos de la línea. Las hojas se combinan por pares con hashes de nodo: el nodo A es H(01 || L0 || L1), construido con las entradas 0 y 1. El árbol se dibuja desde las hojas, abajo, hacia arriba."
+ },
+ "legend": {
+  "en": "blue: log entry (leaf); amber: intermediate hash.",
+  "es": "azul: entrada del registro (hoja); ámbar: hash intermedio."
+ }
+}

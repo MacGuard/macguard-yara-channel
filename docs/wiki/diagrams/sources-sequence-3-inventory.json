@@ -1,0 +1,14 @@
+{
+ "title": {
+  "en": "Collection sequence, part 3 of 3: filtering and inventory",
+  "es": "Secuencia de recolección, parte 3 de 3: filtrado e inventario"
+ },
+ "alt": {
+  "en": "prepare.py extracts the tarball safely and keeps only the .yar and .yara files under allowed paths. It rejects files over 1 MB or with NUL bytes and computes the SHA-256 of each file. It writes the inventory dist/candidate.json: the sources with their commit and licence check, and the files with path, sha256 and bytes.",
+  "es": "prepare.py extrae el tarball de forma segura y conserva solo los archivos .yar y .yara en rutas permitidas. Rechaza los archivos de más de 1 MB o con bytes NUL y calcula el SHA-256 de cada archivo. Escribe el inventario dist/candidate.json: las fuentes con su commit y la comprobación de licencia, y los archivos con path, sha256 y bytes."
+ },
+ "legend": {
+  "en": "blue: step of prepare.py; amber: filter; green: result.",
+  "es": "azul: paso de prepare.py; ámbar: filtro; verde: resultado."
+ }
+}

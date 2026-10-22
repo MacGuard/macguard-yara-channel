@@ -1,0 +1,16 @@
+%%{init: {"flowchart": {"wrappingWidth": 300}}}%%
+flowchart TB
+  w1["6 ChannelVerifier and<br/>cosign: manifest signature,<br/>file hashes, rules_root"]:::chk
+  w2["7 Checkpoint signature,<br/>inclusion, consistency,<br/>rollback check"]:::chk
+  w3["8 All checks passed"]:::ok
+  w4["9 MacGuard saves the trusted<br/>checkpoint"]:::act
+  w5["10 Renames live to previous,<br/>then staging to live"]:::act
+  w6["11 Rules installed (the user<br/>is told)"]:::ok
+  w1 --> w2
+  w2 --> w3
+  w3 --> w4
+  w4 --> w5
+  w5 --> w6
+  classDef chk fill:#ffe9b8,stroke:#b8860b,color:#2b1d00
+  classDef ok fill:#cdeedd,stroke:#1b6e3c,color:#08210f
+  classDef act fill:#cfe3ff,stroke:#2f6df0,color:#0b1b33

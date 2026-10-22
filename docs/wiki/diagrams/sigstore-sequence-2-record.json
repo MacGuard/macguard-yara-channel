@@ -1,0 +1,14 @@
+{
+ "title": {
+  "en": "Keyless signing, part 2 of 3: record and bundle",
+  "es": "Firma sin clave, parte 2 de 3: registro y bundle"
+ },
+ "alt": {
+  "en": "After the certificate (part 1), cosign sends the signature and the certificate to Rekor, the transparency log, which returns a signed entry timestamp. cosign hands the bundle manifest.sigstore.json back to publish.yml, and publish.yml attaches manifest.json and the bundle to the GitHub release.",
+  "es": "Tras el certificado (parte 1), cosign envía la firma y el certificado a Rekor, el registro de transparencia, que devuelve una marca de tiempo firmada de la entrada. cosign devuelve el bundle manifest.sigstore.json a publish.yml, y publish.yml adjunta manifest.json y el bundle a la release de GitHub."
+ },
+ "legend": {
+  "en": "blue: step run by publish.yml, cosign or the client; purple: reply from an external service (GitHub OIDC, Fulcio, Rekor); amber: verification.",
+  "es": "azul: paso que ejecuta publish.yml, cosign o el cliente; morado: respuesta de un servicio externo (GitHub OIDC, Fulcio, Rekor); ámbar: verificación."
+ }
+}

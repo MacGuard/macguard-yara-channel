@@ -10,7 +10,11 @@ YARA is a language for writing "pattern descriptions" of files, plus a program t
 
 A rule is like a "wanted" poster: "a file containing this phrase and of this size". The engine walks through files and flags the ones matching the poster. A match does not prove danger; it only means the file resembles the poster.
 
-{{diagram:sources-sequence}}
+{{diagram:sources-sequence-1-commit}}
+
+{{diagram:sources-sequence-2-download}}
+
+{{diagram:sources-sequence-3-inventory}}
 
 ## YARA versus YARA-X
 

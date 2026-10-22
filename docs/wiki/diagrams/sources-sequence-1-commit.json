@@ -1,0 +1,14 @@
+{
+ "title": {
+  "en": "Collection sequence, part 1 of 3: commit and licence",
+  "es": "Secuencia de recolección, parte 1 de 3: commit y licencia"
+ },
+ "alt": {
+  "en": "GitHub Actions (daily.yml) runs prepare.py with the job token. prepare.py asks the GitHub API for commits/HEAD of the source and gets the commit sha, which stays pinned for this run. It then asks for the licence and receives the SPDX id and the LICENSE text.",
+  "es": "GitHub Actions (daily.yml) ejecuta prepare.py con el token del trabajo. prepare.py pide a la API de GitHub commits/HEAD de la fuente y obtiene el sha del commit, que queda fijado para esta ejecución. Después pide la licencia y recibe el id SPDX y el texto de LICENSE."
+ },
+ "legend": {
+  "en": "blue: step of prepare.py; purple: reply from the GitHub API.",
+  "es": "azul: paso de prepare.py; morado: respuesta de la API de GitHub."
+ }
+}

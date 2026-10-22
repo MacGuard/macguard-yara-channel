@@ -10,7 +10,11 @@ Cada archivo de reglas YARA que llega de las fuentes se examina. Los que pasan t
 
 Piensa en el control de calidad de una panadería. El pan bueno sale a la tienda. El pan quemado o roto se tira (no se puede "aprobar" un pan quemado). El pan con un defecto dudoso, por ejemplo menos dorado de lo normal, lo mira una persona: si dice "vale", se vuelve a pesar y medir antes de venderlo. Y todo lo que decide la persona se apunta en un cuaderno donde cada hoja menciona la anterior. La analogía solo ilustra el flujo; no implica que se detecte todo.
 
-{{diagram:quarantine-lanes}}
+{{diagram:quarantine-lanes-1-outcomes}}
+
+{{diagram:quarantine-lanes-2-pending}}
+
+{{diagram:quarantine-lanes-3-recheck}}
 
 ## Paso a paso
 
@@ -20,7 +24,13 @@ Piensa en el control de calidad de una panadería. El pan bueno sale a la tienda
 4. Un revisor aprueba, rechaza o retiene. Aprobar no publica nada: el siguiente ciclo valida el archivo de nuevo.
 5. `publish.yml` verifica el conjunto final otra vez y, tras publicar, comunica al panel qué se liberó (`RELEASED`).
 
-{{diagram:quarantine-states}}
+{{diagram:quarantine-states-1-pending}}
+
+{{diagram:quarantine-states-2-under-review}}
+
+{{diagram:quarantine-states-3-approved}}
+
+{{diagram:quarantine-states-4-released}}
 
 | Estado del candidato | Significado |
 |---|---|

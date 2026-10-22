@@ -1,0 +1,14 @@
+%%{init: {"flowchart": {"wrappingWidth": 300}}}%%
+flowchart TB
+  RB["client sees size smaller<br/>than the one it trusts"]:::qua
+  FK["client sees another root<br/>at the same size"]:::qua
+  RR["rollback refused"]:::rel
+  FR["fork refused"]:::rel
+  C75["checkpoint<br/>size 75<br/>00000075.txt"]:::sec
+  RB -.-> RR
+  FK -.-> FR
+  RR -.-> C75
+  FR -.-> C75
+  classDef qua fill:#ffd4cc,stroke:#c0392b,color:#33100b
+  classDef rel fill:#ffffff,stroke:#777777,color:#222222
+  classDef sec fill:#cdeedd,stroke:#1b6e3c,color:#08210f

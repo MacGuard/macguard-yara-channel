@@ -10,7 +10,13 @@ Un árbol de Merkle resume una lista larga de cosas en un único número (la **r
 
 Imagina un libro de registro donde cada página lleva un resumen de las anteriores y la última página lleva el resumen de todo. Si alguien arranca o cambia una página antigua, el resumen final ya no cuadra. No dice si lo escrito en las páginas era cierto.
 
-{{diagram:rules-merkle}}
+{{diagram:rules-merkle-1-leaves}}
+
+{{diagram:rules-merkle-2-leaves}}
+
+{{diagram:rules-merkle-3-node}}
+
+{{diagram:rules-merkle-4-root}}
 
 ## Cómo funciona por dentro
 
@@ -21,7 +27,13 @@ Imagina un libro de registro donde cada página lleva un resumen de las anterior
 - **Coste:** una prueba tiene del orden de log₂(*n*) hashes; el RFC da como máximo ⌈log₂(*n*)⌉ + 1 nodos para consistencia {{ev:EV-YC-76}}.
 - **No previene:** que se añadan entradas falsas legítimamente firmadas; solo hace detectable la reescritura.
 
-{{diagram:log-merkle}}
+{{diagram:log-merkle-1-pair-a}}
+
+{{diagram:log-merkle-2-pair-b}}
+
+{{diagram:log-merkle-3-pair-c}}
+
+{{diagram:log-merkle-4-root}}
 
 ## Quién más lo usa
 

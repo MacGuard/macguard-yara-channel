@@ -12,9 +12,15 @@ It is like proofreading an exam before handing it out: first that it is complete
 
 ## The decisions
 
-{{diagram:static-decision}}
+{{diagram:static-decision-1-hard}}
 
-{{diagram:dynamic-decision}}
+{{diagram:static-decision-2-judgement}}
+
+{{diagram:dynamic-decision-1-compare}}
+
+{{diagram:dynamic-decision-2-isolate}}
+
+{{diagram:dynamic-decision-3-publish}}
 
 ## Step by step
 

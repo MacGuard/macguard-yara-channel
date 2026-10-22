@@ -1,0 +1,14 @@
+{
+ "title": {
+  "en": "Quarantine states, part 1 of 4: a file enters as PENDING",
+  "es": "Estados de la cuarentena, parte 1 de 4: un archivo entra como PENDING"
+ },
+ "alt": {
+  "en": "The pipeline submits a quarantined file and it enters as PENDING. From PENDING a reviewer can hold it (UNDER_REVIEW), approve it (APPROVED_PENDING_VALIDATION) or delete it (REJECTED).",
+  "es": "El pipeline envía un archivo en cuarentena y entra como PENDING. Desde PENDING una persona puede retenerlo (UNDER_REVIEW), aprobarlo (APPROVED_PENDING_VALIDATION) o borrarlo (REJECTED)."
+ },
+ "legend": {
+  "en": "colour per state: blue PENDING, purple UNDER_REVIEW, amber APPROVED_PENDING_VALIDATION, green RELEASED, red REJECTED; grey, entry or end. The action that leads to each state is written in its box.",
+  "es": "color por estado: azul PENDING, morado UNDER_REVIEW, ámbar APPROVED_PENDING_VALIDATION, verde RELEASED, rojo REJECTED; gris, entrada o fin. La acción que lleva a cada estado figura en su caja."
+ }
+}

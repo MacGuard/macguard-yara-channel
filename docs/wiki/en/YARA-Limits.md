@@ -10,7 +10,11 @@ A YARA rule is a pattern detector. No detector is right every time: sometimes it
 
 An airport metal detector beeps for a set of keys (false positive) and may stay silent for a non-metal object (false negative). Tuning the sensitivity shifts the balance, it does not remove it. And an "inspected" stamp does not say the detector is perfect.
 
-{{diagram:dynamic-decision}}
+{{diagram:dynamic-decision-1-compare}}
+
+{{diagram:dynamic-decision-2-isolate}}
+
+{{diagram:dynamic-decision-3-publish}}
 
 ## False positives and false negatives
 

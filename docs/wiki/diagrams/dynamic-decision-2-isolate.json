@@ -1,0 +1,14 @@
+{
+ "title": {
+  "en": "Dynamic gate decisions, part 2 of 3: isolating culprits",
+  "es": "Decisiones de la puerta dinámica, parte 2 de 3: aislar culpables"
+ },
+ "alt": {
+  "en": "A regression, crash, timeout, or a set that does not compile as a whole triggers culprit isolation by delta debugging. The culprits go to quarantine, the set is rebuilt and measured again, at most three rounds, and the result returns to the \"ok?\" question of part 1.",
+  "es": "Una regresión, un crash, un timeout o un conjunto que no compila entero activa el aislamiento de culpables por delta debugging. Los culpables van a cuarentena, el conjunto se reconstruye y se mide de nuevo, como máximo tres rondas, y el resultado vuelve a la pregunta \"¿correcto?\" de la parte 1."
+ },
+ "legend": {
+  "en": "blue: start or return; amber: step or question; red: isolation or refusal; green: publishable; white with a thick border: final question.",
+  "es": "azul: inicio o retorno; ámbar: paso o pregunta; rojo: aislamiento o rechazo; verde: publicable; blanco con borde grueso: pregunta final."
+ }
+}

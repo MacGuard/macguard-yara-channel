@@ -1,0 +1,14 @@
+{
+ "title": {
+  "en": "Merkle tree of the rule files, part 1 of 4: leaves 0 and 1",
+  "es": "Árbol Merkle de los ficheros de reglas, parte 1 de 4: hojas 0 y 1"
+ },
+ "alt": {
+  "en": "Rule files are sorted by path. Each file is a leaf: SHA-256 of the byte 0x00 followed by the path, a zero byte and the file SHA-256 in hex (leaf 0 is H(00 || path0 0 sha0)). Leaves 0 and 1 are combined into a node H(01 || leaf0 || leaf1): internal nodes are SHA-256 of 0x01, left and right. The tree is drawn from the leaves at the bottom up.",
+  "es": "Los ficheros de reglas se ordenan por ruta. Cada fichero es una hoja: el SHA-256 del byte 0x00 seguido de la ruta, un byte cero y el SHA-256 del fichero en hexadecimal (la hoja 0 es H(00 || path0 0 sha0)). Las hojas 0 y 1 se combinan en un nodo H(01 || leaf0 || leaf1): los nodos internos son el SHA-256 de 0x01, izquierda y derecha. El árbol se dibuja desde las hojas, abajo, hacia arriba."
+ },
+ "legend": {
+  "en": "green: leaf (one rule file); amber: internal node.",
+  "es": "verde: hoja (un fichero de reglas); ámbar: nodo interno."
+ }
+}

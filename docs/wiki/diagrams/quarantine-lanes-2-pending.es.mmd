@@ -1,0 +1,12 @@
+%%{init: {"flowchart": {"wrappingWidth": 300}}}%%
+flowchart TB
+  s["comprobaciones<br/>estáticas y dinámicas"]:::gate
+  p["solo hallazgo de criterio:<br/>pendiente de revisión,<br/>QUARANTINED,<br/>aprobable"]:::chk
+  pa["una persona aprueba:<br/>se repiten las<br/>comprobaciones"]:::gate
+  pr["una persona rechaza:<br/>rechazado,<br/>REJECTED"]:::bad
+  s --> p
+  p --> pa
+  p --> pr
+  classDef gate fill:#ffffff,stroke:#111111,stroke-width:3px,color:#111111
+  classDef chk fill:#ffe9b8,stroke:#b8860b,color:#2b1d00
+  classDef bad fill:#ffd4cc,stroke:#c0392b,color:#33100b

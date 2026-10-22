@@ -16,7 +16,11 @@ Es como el portero de un edificio con una lista de inquilinos: de noche (Mac blo
 
 ## Diagrama
 
-{{diagram:usb-decision-flow}}
+{{diagram:usb-decision-flow-1-locked}}
+
+{{diagram:usb-decision-flow-2-resolver}}
+
+{{diagram:usb-decision-flow-3-deny}}
 
 ## Paso a paso
 

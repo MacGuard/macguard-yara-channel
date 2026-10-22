@@ -1,0 +1,14 @@
+{
+ "title": {
+  "en": "Map of the MacGuard ecosystem, part 1 of 3: the trusted supply",
+  "es": "Mapa del ecosistema MacGuard, parte 1 de 3: el suministro de confianza"
+ },
+ "alt": {
+  "en": "YARA Channel (published), the trusted supply, supplies signed rules to Installer Auditor (development), which runs on the Mac. The solid arrow is the only supply relationship of the map.",
+  "es": "YARA Channel (publicado), el suministro de confianza, suministra reglas firmadas a Installer Auditor (desarrollo), que se ejecuta en el Mac. La flecha continua es la única relación de suministro del mapa."
+ },
+ "legend": {
+  "en": "colour repeats the state written in each box (green published, blue validation, amber development, orange prototype, grey concept); white box: the relationship; solid arrow: supply; dashed arrow: planned or mock-only.",
+  "es": "el color repite el estado escrito en cada caja (verde publicado, azul validación, ámbar desarrollo, naranja prototipo, gris concepto); caja blanca: la relación; flecha continua: suministro; flecha discontinua: planificado o solo con un doble de prueba."
+ }
+}

@@ -24,7 +24,9 @@ Es como el inspector de una aduana que comprueba el sello del paquete, de dónde
 4. Cada hallazgo recibe un estado: `passed`, `warning`, `failed` o `unknown`. Códigos de salida: 0 (sin fallo confirmado, no es garantía), 2 (una comprobación falló), 3 (argumentos), 4 (falta evidencia o capacidad).
 5. Aparte, `update-rules` descarga e instala reglas del canal (ver abajo).
 
-{{diagram:client-update}}
+{{diagram:client-update-1-fetch}}
+
+{{diagram:client-update-2-verify-install}}
 
 ## Cómo funciona por dentro
 

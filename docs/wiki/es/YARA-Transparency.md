@@ -19,7 +19,13 @@ Palabras clave, una vez:
 - **Prueba de inclusión**: los hashes hermanos que unen una entrada con la raíz.
 - **Prueba de consistencia**: demuestra que el registro de tamaño *n* es un prefijo del de tamaño *m > n*.
 
-{{diagram:log-merkle}}
+{{diagram:log-merkle-1-pair-a}}
+
+{{diagram:log-merkle-2-pair-b}}
+
+{{diagram:log-merkle-3-pair-c}}
+
+{{diagram:log-merkle-4-root}}
 
 ## Paso a paso
 
@@ -29,9 +35,13 @@ Palabras clave, una vez:
 4. La release lleva `inclusion-proof.json` (la entrada de esta release está en el punto de control) y, si hay release previa, `consistency.json`.
 5. El manifiesto firmado copia `log.size` y `log.root`, que deben coincidir con `checkpoint.txt`.
 
-{{diagram:checkpoint-sequence}}
+{{diagram:checkpoint-sequence-1-sign}}
 
-{{diagram:checkpoint-evolution}}
+{{diagram:checkpoint-sequence-2-manifest-proof}}
+
+{{diagram:checkpoint-evolution-1-growth}}
+
+{{diagram:checkpoint-evolution-2-refusals}}
 
 ## Cómo funciona por dentro
 

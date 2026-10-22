@@ -1,0 +1,14 @@
+{
+ "title": {
+  "en": "Static classification, part 2 of 2: judgement findings and deprecation",
+  "es": "Clasificación estática, parte 2 de 2: hallazgos de criterio y obsolescencia"
+ },
+ "alt": {
+  "en": "A blocked or unknown module, a costly regular expression, a loop over the whole file, a changed licence or a dependency that is not validated send the file to QUARANTINED. A file that is deprecated by its own metadata is marked DEPRECATED. Everything else is VALIDATED.",
+  "es": "Un módulo bloqueado o desconocido, una expresión regular costosa, un bucle sobre todo el fichero, una licencia cambiada o una dependencia no validada envían el fichero a QUARANTINED. Un fichero marcado como obsoleto en sus metadatos queda como DEPRECATED. El resto queda VALIDATED."
+ },
+ "legend": {
+  "en": "blue: start or continuation; amber: question; red: refused outcome; green: VALIDATED.",
+  "es": "azul: inicio o continuación; ámbar: pregunta; rojo: resultado rechazado; verde: VALIDATED."
+ }
+}

@@ -1,0 +1,12 @@
+%%{init: {"flowchart": {"wrappingWidth": 300}}}%%
+flowchart TB
+  s["static and dynamic<br/>checks"]:::gate
+  p["judgement finding only:<br/>pending review,<br/>QUARANTINED,<br/>approvable"]:::chk
+  pa["a person approves:<br/>the checks run again"]:::gate
+  pr["a person rejects:<br/>rejected,<br/>REJECTED"]:::bad
+  s --> p
+  p --> pa
+  p --> pr
+  classDef gate fill:#ffffff,stroke:#111111,stroke-width:3px,color:#111111
+  classDef chk fill:#ffe9b8,stroke:#b8860b,color:#2b1d00
+  classDef bad fill:#ffd4cc,stroke:#c0392b,color:#33100b

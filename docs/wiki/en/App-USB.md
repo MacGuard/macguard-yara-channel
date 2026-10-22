@@ -16,7 +16,11 @@ It is like a building doorman with a tenant list: at night (Mac locked) he is me
 
 ## Diagram
 
-{{diagram:usb-decision-flow}}
+{{diagram:usb-decision-flow-1-locked}}
+
+{{diagram:usb-decision-flow-2-resolver}}
+
+{{diagram:usb-decision-flow-3-deny}}
 
 ## Step by step
 

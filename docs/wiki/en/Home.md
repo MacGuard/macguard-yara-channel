@@ -12,7 +12,11 @@ Think of a house: a lock, an alarm and someone watching the door. None is enough
 
 ## The map at a glance
 
-{{diagram:ecosystem-map}}
+{{diagram:ecosystem-map-1-supply}}
+
+{{diagram:ecosystem-map-2-planned}}
+
+{{diagram:ecosystem-map-3-others}}
 
 - **YARA Channel**: Collects, validates and publishes signed, verifiable YARA rules. *State: Published* {{ev:EV-YC-02}}
 - **Installer Auditor**: Checks installers with those rules before you open them. *State: In development* {{ev:EV-YC-09}}

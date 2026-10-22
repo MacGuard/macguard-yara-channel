@@ -10,7 +10,11 @@ YARA es un lenguaje para escribir «descripciones de patrones» de archivos y un
 
 Una regla es como una ficha de «se busca»: «un archivo que contiene esta frase y tiene este tamaño». El motor recorre archivos y avisa de los que encajan con la ficha. Encajar no prueba que sea peligroso; solo que se parece a la ficha.
 
-{{diagram:sources-sequence}}
+{{diagram:sources-sequence-1-commit}}
+
+{{diagram:sources-sequence-2-download}}
+
+{{diagram:sources-sequence-3-inventory}}
 
 ## YARA frente a YARA-X
 

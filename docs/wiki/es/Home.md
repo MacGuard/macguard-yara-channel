@@ -12,7 +12,11 @@ Piensa en la seguridad de una casa: una cerradura, una alarma y alguien que vigi
 
 ## El mapa de un vistazo
 
-{{diagram:ecosystem-map}}
+{{diagram:ecosystem-map-1-supply}}
+
+{{diagram:ecosystem-map-2-planned}}
+
+{{diagram:ecosystem-map-3-others}}
 
 - **YARA Channel**: Reúne, valida y publica reglas YARA firmadas y verificables. *Estado: Publicado* {{ev:EV-YC-02}}
 - **Installer Auditor**: Revisa instaladores con esas reglas antes de abrirlos. *Estado: En desarrollo* {{ev:EV-YC-09}}

@@ -1,0 +1,17 @@
+%%{init: {"flowchart": {"wrappingWidth": 300}}}%%
+flowchart TB
+  s0["pipeline submits<br/>a quarantined file"]:::neu
+  p["PENDING"]:::act
+  u["reviewer holds it:<br/>UNDER_REVIEW"]:::ext
+  a["approve:<br/>APPROVED_<br/>PENDING_<br/>VALIDATION"]:::chk
+  r["delete:<br/>REJECTED"]:::bad
+  s0 --> p
+  p --> u
+  p --> a
+  p --> r
+  u ~~~ a ~~~ r
+  classDef neu fill:#eeeeee,stroke:#555555,color:#222222
+  classDef act fill:#cfe3ff,stroke:#2f6df0,color:#0b1b33
+  classDef ext fill:#e4d7ff,stroke:#6a3fd1,color:#1b0b3b
+  classDef chk fill:#ffe9b8,stroke:#b8860b,color:#2b1d00
+  classDef bad fill:#ffd4cc,stroke:#c0392b,color:#33100b

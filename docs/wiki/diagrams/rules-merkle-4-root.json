@@ -1,0 +1,14 @@
+{
+ "title": {
+  "en": "Merkle tree of the rule files, part 4 of 4: rules_root and manifest",
+  "es": "Árbol Merkle de los ficheros de reglas, parte 4 de 4: rules_root y manifiesto"
+ },
+ "alt": {
+  "en": "The node N03 (leaves 0 to 3) and leaf 4 are combined into the top hash rules_root = H(01 || N03 || leaf4). rules_root is stored in manifest.json, which is signed with Sigstore.",
+  "es": "El nodo N03 (hojas 0 a 3) y la hoja 4 se combinan en el hash superior rules_root = H(01 || N03 || leaf4). rules_root se guarda en manifest.json, que se firma con Sigstore."
+ },
+ "legend": {
+  "en": "green: leaf (one rule file); amber: internal node; white with a thick border: rules_root; purple: signed manifest.",
+  "es": "verde: hoja (un fichero de reglas); ámbar: nodo interno; blanco con borde grueso: rules_root; morado: manifiesto firmado."
+ }
+}

@@ -12,7 +12,11 @@ Es como comprar fruta a dos mercados distintos y anotar en el albarán de qué p
 
 ## El camino de la descarga
 
-{{diagram:sources-sequence}}
+{{diagram:sources-sequence-1-commit}}
+
+{{diagram:sources-sequence-2-download}}
+
+{{diagram:sources-sequence-3-inventory}}
 
 ## Paso a paso
 

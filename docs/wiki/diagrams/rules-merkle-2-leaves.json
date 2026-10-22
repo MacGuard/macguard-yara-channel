@@ -1,0 +1,14 @@
+{
+ "title": {
+  "en": "Merkle tree of the rule files, part 2 of 4: leaves 2 and 3",
+  "es": "Árbol Merkle de los ficheros de reglas, parte 2 de 4: hojas 2 y 3"
+ },
+ "alt": {
+  "en": "Leaves 2 and 3, built like leaves 0 and 1, are combined into the node H(01 || leaf2 || leaf3).",
+  "es": "Las hojas 2 y 3, construidas como las hojas 0 y 1, se combinan en el nodo H(01 || leaf2 || leaf3)."
+ },
+ "legend": {
+  "en": "green: leaf (one rule file); amber: internal node.",
+  "es": "verde: hoja (un fichero de reglas); ámbar: nodo interno."
+ }
+}

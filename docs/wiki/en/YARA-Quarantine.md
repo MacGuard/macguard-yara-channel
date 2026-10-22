@@ -10,7 +10,11 @@ Every YARA rule file that arrives from the sources is examined. Files that pass 
 
 Think of quality control in a bakery. Good bread goes to the shop. Burnt or broken bread is thrown away (you cannot "approve" burnt bread). Bread with a doubtful flaw, say less golden than usual, is looked at by a person: if they say "fine", it is weighed and measured again before it is sold. Whatever the person decides goes into a notebook where each page mentions the previous one. The analogy only illustrates the flow; it does not imply that everything is detected.
 
-{{diagram:quarantine-lanes}}
+{{diagram:quarantine-lanes-1-outcomes}}
+
+{{diagram:quarantine-lanes-2-pending}}
+
+{{diagram:quarantine-lanes-3-recheck}}
 
 ## Step by step
 
@@ -20,7 +24,13 @@ Think of quality control in a bakery. Good bread goes to the shop. Burnt or brok
 4. A reviewer approves, rejects or holds. Approving publishes nothing: the next cycle validates the file again.
 5. `publish.yml` re-verifies the final set and, after publishing, tells the panel what was released (`RELEASED`).
 
-{{diagram:quarantine-states}}
+{{diagram:quarantine-states-1-pending}}
+
+{{diagram:quarantine-states-2-under-review}}
+
+{{diagram:quarantine-states-3-approved}}
+
+{{diagram:quarantine-states-4-released}}
 
 | Candidate state | Meaning |
 |---|---|

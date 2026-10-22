@@ -1,0 +1,9 @@
+%%{init: {"flowchart": {"wrappingWidth": 300}}}%%
+flowchart TB
+  H["deny decision"]:::bad
+  I["Endpoint Security<br/>AUTH reply compiles,<br/>live use unverified"]:::wrn
+  J["reported as<br/>OBSERVE ONLY when<br/>enforcement is<br/>unproven"]:::wrn
+  H --> I
+  H --> J
+  classDef bad fill:#ffd4cc,stroke:#c0392b,color:#33100b
+  classDef wrn fill:#ffe0b2,stroke:#9a4b00,color:#4a2400

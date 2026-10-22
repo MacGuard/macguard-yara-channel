@@ -24,7 +24,11 @@ Una librería vende un libro con el sello del distribuidor y un precinto numerad
 
 ## Paso a paso
 
-{{diagram:release-sequence}}
+{{diagram:release-sequence-1-build}}
+
+{{diagram:release-sequence-2-site}}
+
+{{diagram:release-sequence-3-verify-live}}
 
 La revisión diaria pide este flujo de trabajo solo cuando el conjunto es publicable, ha cambiado y el trabajo de medición en macOS termina bien. {{ev:EV-YC-89}}
 
@@ -40,7 +44,11 @@ La revisión diaria pide este flujo de trabajo solo cuando el conjunto es public
 
 **Qué se firma y con qué.** `cosign sign-blob --yes --bundle` firma dos archivos: `manifest.json` y `checkpoint.txt`. Sin clave guardada: GitHub entrega un token OIDC que nombra al flujo de trabajo, Fulcio emite un certificado de vida corta ligado a esa identidad y la firma se registra en Rekor, el registro público de Sigstore. Identidad esperada: `https://github.com/MacGuard/macguard-yara-channel/.github/workflows/publish.yml@refs/heads/main`; emisor `https://token.actions.githubusercontent.com`. El paquete no se firma por separado: lo cubre el manifiesto firmado, porque lista el SHA-256 de cada archivo. {{ev:EV-YC-46}}
 
-{{diagram:sigstore-sequence}}
+{{diagram:sigstore-sequence-1-identity}}
+
+{{diagram:sigstore-sequence-2-record}}
+
+{{diagram:sigstore-sequence-3-verify}}
 
 **¿Existen atestaciones?** Un *attestation* en el sentido de GitHub/SLSA es una declaración firmada sobre **cómo** se construyó un artefacto (in-toto). Este repositorio **no las produce**: no hay en `.github/workflows/` ningún paso de atestación, y la documentación del sitio lo declara como límite. Lo que existe en su lugar: (1) firmas Sigstore de dos blobs; (2) el campo `evidence` dentro del manifiesto firmado (`candidate_run_id`, `candidate_workflow_sha`, `publish_run_url` y la medición dinámica), que `seal.py` describe como declaración del propio flujo de trabajo, "no una atestación independiente". Añadir atestaciones SLSA sería un cambio de diseño y un posible paso futuro. {{ev:EV-YC-47}}
 

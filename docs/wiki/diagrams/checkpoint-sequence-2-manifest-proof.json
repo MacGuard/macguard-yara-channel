@@ -1,0 +1,14 @@
+{
+ "title": {
+  "en": "Publishing and signing the checkpoint, part 2 of 2: manifest and proof",
+  "es": "Publicación y firma del checkpoint, parte 2 de 2: manifiesto y prueba"
+ },
+ "alt": {
+  "en": "seal.py writes manifest.json with rules_root and the log head. cosign signs it with sign-blob and manifest.sigstore.json returns to publish.yml. tlog.py release-proof then produces the inclusion proof for the candidate.accepted entry and inclusion-proof.json returns to publish.yml.",
+  "es": "seal.py escribe manifest.json con rules_root y la cabeza del registro. cosign lo firma con sign-blob y manifest.sigstore.json vuelve a publish.yml. Después tlog.py release-proof produce la prueba de inclusión de la entrada candidate.accepted e inclusion-proof.json vuelve a publish.yml."
+ },
+ "legend": {
+  "en": "blue: step of publish.yml, tlog.py or seal.py; purple: signing with cosign; amber: verification; green: file returned to publish.yml.",
+  "es": "azul: paso de publish.yml, tlog.py o seal.py; morado: firma con cosign; ámbar: verificación; verde: archivo que vuelve a publish.yml."
+ }
+}

@@ -12,7 +12,9 @@
 
 It is a safe with a slot: you can put documents in, but for a set period nobody can take them out or change them. If the master-key holder decides to open it (governance mode), they can. With the strict mode (compliance) not even they can.
 
-{{diagram:archive-triple-storage}}
+{{diagram:archive-triple-storage-1-write}}
+
+{{diagram:archive-triple-storage-2-verify}}
 
 ## Under the hood
 

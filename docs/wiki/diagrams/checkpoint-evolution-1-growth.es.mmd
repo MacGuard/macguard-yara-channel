@@ -1,0 +1,13 @@
+%%{init: {"flowchart": {"wrappingWidth": 300}}}%%
+flowchart TB
+  C20["checkpoint<br/>tamaño 20<br/>00000020.txt"]:::sec
+  P1["consistency.json<br/>prueba 20 a 75"]:::rel
+  C75["checkpoint<br/>tamaño 75<br/>00000075.txt"]:::sec
+  P2["prueba de consistencia"]:::rel
+  CN["siguiente checkpoint<br/>tamaño N"]:::sec
+  C20 --> P1
+  P1 --> C75
+  C75 --> P2
+  P2 --> CN
+  classDef sec fill:#cdeedd,stroke:#1b6e3c,color:#08210f
+  classDef rel fill:#ffffff,stroke:#777777,color:#222222

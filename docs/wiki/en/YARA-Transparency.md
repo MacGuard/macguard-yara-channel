@@ -19,7 +19,13 @@ Key words, once:
 - **Inclusion proof**: the sibling hashes that join one entry to the root.
 - **Consistency proof**: shows that the log of size *n* is a prefix of the log of size *m > n*.
 
-{{diagram:log-merkle}}
+{{diagram:log-merkle-1-pair-a}}
+
+{{diagram:log-merkle-2-pair-b}}
+
+{{diagram:log-merkle-3-pair-c}}
+
+{{diagram:log-merkle-4-root}}
 
 ## Step by step
 
@@ -29,9 +35,13 @@ Key words, once:
 4. The release carries `inclusion-proof.json` (this release's entry is in the checkpoint) and, if a previous release exists, `consistency.json`.
 5. The signed manifest copies `log.size` and `log.root`, which must match `checkpoint.txt`.
 
-{{diagram:checkpoint-sequence}}
+{{diagram:checkpoint-sequence-1-sign}}
 
-{{diagram:checkpoint-evolution}}
+{{diagram:checkpoint-sequence-2-manifest-proof}}
+
+{{diagram:checkpoint-evolution-1-growth}}
+
+{{diagram:checkpoint-evolution-2-refusals}}
 
 ## Under the hood
 

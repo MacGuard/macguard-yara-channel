@@ -12,7 +12,11 @@ It is like buying fruit from two different markets and writing on the delivery n
 
 ## The download path
 
-{{diagram:sources-sequence}}
+{{diagram:sources-sequence-1-commit}}
+
+{{diagram:sources-sequence-2-download}}
+
+{{diagram:sources-sequence-3-inventory}}
 
 ## Step by step
 

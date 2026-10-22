@@ -1,0 +1,18 @@
+%%{init: {"flowchart": {"wrappingWidth": 300}}}%%
+flowchart TB
+  d["decide.py<br/>PUERTA: aprobado"]:::gate
+  h["SHA-256 por archivo<br/>make_public_candidate.py"]:::ok
+  m["rules_root +<br/>manifest.json<br/>seal.py"]:::ok
+  s["Sigstore sin clave<br/>cosign en publish.yml"]:::ok
+  rl["Release de GitHub<br/>borrador, luego pública"]:::ext
+  w["GitHub Pages +<br/>réplica Cloudflare<br/>site.yml"]:::ext
+  a["MacGuard GUI TUI CLI<br/>RuleInstaller"]:::ext
+  d --> h
+  h --> m
+  m --> s
+  s --> rl
+  rl --> w
+  w --> a
+  classDef gate fill:#ffffff,stroke:#111111,stroke-width:3px,color:#111111
+  classDef ok fill:#cdeedd,stroke:#1b6e3c,color:#08210f
+  classDef ext fill:#e4d7ff,stroke:#6a3fd1,color:#1b0b3b

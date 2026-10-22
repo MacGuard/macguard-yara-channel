@@ -35,7 +35,11 @@ It is like a customs officer's checklist: "if the suitcase has A and B, look clo
 
 ## The journey of a rule
 
-{{diagram:architecture}}
+{{diagram:architecture-1-gate}}
+
+{{diagram:architecture-2-approved}}
+
+{{diagram:architecture-3-quarantine}}
 
 ## Step by step
 

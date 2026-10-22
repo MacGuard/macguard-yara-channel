@@ -1,0 +1,10 @@
+%%{init: {"flowchart": {"wrappingWidth": 300}}}%%
+flowchart TB
+  v1["10 site.yml asks<br/>verify_live.py to verify the<br/>public URL"]:::act
+  v2["11 verify_live.py checks<br/>GitHub Pages: package, every<br/>rule file, catalog, links"]:::chk
+  v3["12 PASS or FAIL returns to<br/>site.yml and is logged in<br/>the transparency log"]:::ok
+  v1 --> v2
+  v2 --> v3
+  classDef act fill:#cfe3ff,stroke:#2f6df0,color:#0b1b33
+  classDef chk fill:#ffe9b8,stroke:#b8860b,color:#2b1d00
+  classDef ok fill:#cdeedd,stroke:#1b6e3c,color:#08210f

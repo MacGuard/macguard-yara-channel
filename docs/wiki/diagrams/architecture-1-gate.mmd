@@ -1,0 +1,19 @@
+%%{init: {"flowchart": {"wrappingWidth": 300}}}%%
+flowchart TB
+  n["Nextron Systems<br/>Neo23x0/<br/>signature-base"]:::act
+  c["Community rules<br/>Yara-Rules/rules"]:::act
+  v["VirusTotal<br/>YARA-X recorded<br/>as engine,<br/>no rules"]:::act
+  p["prepare.py<br/>pin commit,<br/>extract, normalize"]:::act
+  r["rulecheck.py<br/>static classification"]:::chk
+  g["dynamic_gate.py<br/>+ bench.py<br/>YARA engine<br/>measurements"]:::chk
+  d["decide.py<br/>PUBLISH GATE"]:::gate
+  n --> p
+  c --> p
+  v -.-> p
+  p --> r
+  r --> g
+  g --> d
+  n ~~~ c ~~~ v
+  classDef act fill:#cfe3ff,stroke:#2f6df0,color:#0b1b33
+  classDef chk fill:#ffe9b8,stroke:#b8860b,color:#2b1d00
+  classDef gate fill:#ffffff,stroke:#111111,stroke-width:3px,color:#111111

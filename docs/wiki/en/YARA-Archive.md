@@ -12,7 +12,9 @@ The channel publishes signed rules on GitHub. If GitHub lost the history, could 
 
 It is like keeping the minutes of a meeting at three notary offices in different countries. If one burns down, two remain. If someone alters one copy, the other two reveal the difference. It does not stop the original minutes from containing a mistake: it only preserves what was written.
 
-{{diagram:archive-triple-storage}}
+{{diagram:archive-triple-storage-1-write}}
+
+{{diagram:archive-triple-storage-2-verify}}
 
 ## What would be kept
 

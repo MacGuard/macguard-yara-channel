@@ -1,0 +1,9 @@
+%%{init: {"flowchart": {"wrappingWidth": 300}}}%%
+flowchart BT
+  L0["leaf 0<br/>H(00 || path0 0 sha0)"]:::sec
+  L1["leaf 1"]:::sec
+  N01["node<br/>H(01 || leaf0 || leaf1)"]:::val
+  L0 --> N01
+  L1 --> N01
+  classDef sec fill:#cdeedd,stroke:#1b6e3c,color:#08210f
+  classDef val fill:#ffe9b8,stroke:#b8860b,color:#2b1d00

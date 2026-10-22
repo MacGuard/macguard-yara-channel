@@ -1,0 +1,14 @@
+{
+ "title": {
+  "en": "Quarantine states, part 4 of 4: RELEASED and the final state",
+  "es": "Estados de la cuarentena, parte 4 de 4: RELEASED y el estado final"
+ },
+ "alt": {
+  "en": "Only publish.yml moves an approved rule from APPROVED_PENDING_VALIDATION to RELEASED, after the technical checks pass again. If a revalidation fails later, a RELEASED rule goes back to PENDING. REJECTED is the final state: it is final for that content.",
+  "es": "Solo publish.yml pasa una regla aprobada de APPROVED_PENDING_VALIDATION a RELEASED, cuando los controles técnicos se superan de nuevo. Si una revalidación falla más tarde, una regla RELEASED vuelve a PENDING. REJECTED es el estado final: es definitivo para ese contenido."
+ },
+ "legend": {
+  "en": "colour per state: blue PENDING, purple UNDER_REVIEW, amber APPROVED_PENDING_VALIDATION, green RELEASED, red REJECTED; grey, entry or end. The action that leads to each state is written in its box.",
+  "es": "color por estado: azul PENDING, morado UNDER_REVIEW, ámbar APPROVED_PENDING_VALIDATION, verde RELEASED, rojo REJECTED; gris, entrada o fin. La acción que lleva a cada estado figura en su caja."
+ }
+}

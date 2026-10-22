@@ -12,7 +12,9 @@
 
 Es una caja fuerte con ranura: puedes meter documentos, pero durante un plazo nadie puede sacarlos ni cambiarlos. Si el dueño de la llave maestra decide abrirla (modo gobernanza), puede. Con el modo estricto (compliance) ni siquiera él.
 
-{{diagram:archive-triple-storage}}
+{{diagram:archive-triple-storage-1-write}}
+
+{{diagram:archive-triple-storage-2-verify}}
 
 ## Cómo funciona por dentro
 

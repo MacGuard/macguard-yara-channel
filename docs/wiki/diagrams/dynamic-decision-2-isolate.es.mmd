@@ -1,0 +1,14 @@
+%%{init: {"flowchart": {"wrappingWidth": 300}}}%%
+flowchart TB
+  v0["no correcto"]:::chk
+  i["aislar culpables<br/>delta debugging"]:::bad
+  q["culpables a<br/>cuarentena"]:::bad
+  r["reconstruir y medir<br/>de nuevo<br/>máx. 3 rondas"]:::chk
+  bk["vuelta a la<br/>pregunta ¿correcto?"]:::act
+  v0 --> i
+  i --> q
+  q --> r
+  r --> bk
+  classDef chk fill:#ffe9b8,stroke:#b8860b,color:#2b1d00
+  classDef bad fill:#ffd4cc,stroke:#c0392b,color:#33100b
+  classDef act fill:#cfe3ff,stroke:#2f6df0,color:#0b1b33

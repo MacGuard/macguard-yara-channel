@@ -1,0 +1,14 @@
+{
+ "title": {
+  "en": "Global roadmap by phases, part 1 of 4: YARA Channel (no dates)",
+  "es": "Roadmap global por fases, parte 1 de 4: YARA Channel (sin fechas)"
+ },
+ "alt": {
+  "en": "YARA Channel, top to bottom, without dates: V1 signed channel (done), V1.1 phase 1 (merged), V1.1 phase 2 (awaiting a specific acceptance), 3x archive (not operational).",
+  "es": "YARA Channel, de arriba abajo y sin fechas: V1 canal firmado (hecho), V1.1 fase 1 (fusionada), V1.1 fase 2 (a la espera de una aceptación específica), archivo 3x (no operativo)."
+ },
+ "legend": {
+  "en": "green: done; amber: in progress; blue: waiting for a decision; red: blocked; grey: not started (the status is also written in each box).",
+  "es": "verde: hecho; ámbar: en curso; azul: a la espera de una decisión; rojo: bloqueado; gris: sin empezar (el estado figura también en cada caja)."
+ }
+}

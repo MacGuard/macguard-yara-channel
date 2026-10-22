@@ -1,0 +1,8 @@
+%%{init: {"flowchart": {"wrappingWidth": 300}}}%%
+flowchart BT
+  N01["node<br/>H(01 || leaf0 || leaf1)"]:::val
+  N23["node<br/>H(01 || leaf2 || leaf3)"]:::val
+  N03["node<br/>H(01 || N01 || N23)"]:::val
+  N01 --> N03
+  N23 --> N03
+  classDef val fill:#ffe9b8,stroke:#b8860b,color:#2b1d00

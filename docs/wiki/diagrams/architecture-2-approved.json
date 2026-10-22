@@ -1,0 +1,14 @@
+{
+ "title": {
+  "en": "End-to-end architecture, part 2 of 3: approved files",
+  "es": "Arquitectura de extremo a extremo, parte 2 de 3: ficheros aprobados"
+ },
+ "alt": {
+  "en": "Files approved by decide.py get a SHA-256 per file (make_public_candidate.py), a Merkle rules_root and a manifest (seal.py), are signed with Sigstore keyless by cosign in publish.yml, are published as a GitHub Release (draft, then public), are mirrored on GitHub Pages and Cloudflare Pages by site.yml and are installed by MacGuard (GUI, TUI, CLI) through RuleInstaller.",
+  "es": "Los ficheros aprobados por decide.py reciben un SHA-256 por archivo (make_public_candidate.py), un rules_root Merkle y un manifiesto (seal.py), se firman con Sigstore sin clave con cosign en publish.yml, se publican como una Release de GitHub (borrador, luego pública), se replican en GitHub Pages y Cloudflare Pages con site.yml y los instala MacGuard (GUI, TUI, CLI) mediante RuleInstaller."
+ },
+ "legend": {
+  "en": "blue: sources and preparation; amber: classification and measurement; white with a thick border: publish gate; green: sealing and signing; purple: publication; red: quarantine path.",
+  "es": "azul: fuentes y preparación; ámbar: clasificación y medición; blanco con borde grueso: puerta de publicación; verde: sellado y firma; morado: publicación; rojo: ruta de cuarentena."
+ }
+}

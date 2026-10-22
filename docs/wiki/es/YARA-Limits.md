@@ -10,7 +10,11 @@ Una regla YARA es un detector de patrones. Ningún detector acierta siempre: a v
 
 Un detector de metales del aeropuerto suena con unas llaves (falso positivo) y puede no sonar con un objeto que no sea metálico (falso negativo). Ajustar la sensibilidad cambia el equilibrio, no lo elimina. Y el sello de «inspeccionado» no dice que el detector sea perfecto.
 
-{{diagram:dynamic-decision}}
+{{diagram:dynamic-decision-1-compare}}
+
+{{diagram:dynamic-decision-2-isolate}}
+
+{{diagram:dynamic-decision-3-publish}}
 
 ## Falsos positivos y negativos
 
