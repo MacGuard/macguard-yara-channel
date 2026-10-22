@@ -162,8 +162,13 @@ class BadgesComeFromData(unittest.TestCase):
         for p in (API / 'cards').glob('*.json'):
             c = jload(p); self.assertEqual(c['status'], table[c['channel']], p.name)
         for r in jload(API / 'roadmap.json')['rows']: self.assertIn(r['status'], STATUSES)
-        self.assertEqual(jload(API / 'provenance.json')['status'], 'planned')
-        self.assertEqual(jload(API / 'provenance.json')['engine_code_found'], [])
+        self.assertEqual(jload(API / 'provenance.json')['status'], self.expected_provenance_status())
+
+    @staticmethod
+    def expected_provenance_status():
+        snap = jload(ROOT / 'tests/fixtures/mgctl/command-tree.json')['commands']
+        ok = (ROOT / 'intel/provenance').is_dir() and (ROOT / 'tests/test_provenance.py').exists() and snap.get('provenance file') == 'experimental'
+        return 'experimental' if ok else 'planned'
 
     def test_operational_or_experimental_without_evidence_is_a_build_error(self):
         fake = copy.deepcopy(chstatus.CHANNELS); fake[2] = {**fake[2], 'status': 'operational', 'evidence': 'no/such/file.py'}
@@ -175,7 +180,9 @@ class BadgesComeFromData(unittest.TestCase):
 
     def test_roadmap_status_follows_the_evidence(self):
         rows = {r['phase']: r for r in jload(API / 'roadmap.json')['rows']}
-        self.assertEqual(rows['P2']['status'], 'planned'); self.assertEqual(rows['Cloud']['status'], 'planned')
+        self.assertEqual(rows['P2']['status'], self.expected_provenance_status())
+        self.assertIn('experimental' if rows['P2']['status'] == 'experimental' else 'design', rows['P2']['done'])   # follows ROADMAP.md, which says what the engine is
+        self.assertEqual(rows['Cloud']['status'], 'planned')
         self.assertEqual(rows['P1']['status'], 'experimental')
         text = jload(API / 'roadmap.json')
         self.assertNotRegex(json.dumps(text), r'\d+\s?%'); self.assertEqual([t['status'] for t in text['tracks'] if t['id'] == 'linux-intelligence-guard'], ['planned'])
@@ -261,8 +268,33 @@ class NoClaimBeyondTheData(unittest.TestCase):
         self.assertIn('not legal advice', jload(API / 'licenses.json')['what_is_real'])
 
     def test_roadmap_and_provenance_state_what_does_not_exist(self):
-        pv = jload(API / 'provenance.json'); self.assertIn('DESIGN', pv['what_is_real']); self.assertEqual(len(pv['six_facts']), 6)
-        self.assertIn('no provenance engine code found', pv['status_basis'])
+        pv = jload(API / 'provenance.json'); self.assertEqual(len(pv['six_facts']), 6)
+        self.assertTrue(pv['still_planned']); self.assertIn('provenance', pv['mgctl_command']); self.assertIn('planned', pv['mgctl_command'])
+
+    def test_provenance_page_never_claims_more_than_the_snapshot_and_tests_show(self):
+        pv = jload(API / 'provenance.json'); d = i18n(); tests = (ROOT / 'tests/test_provenance.py').read_text(encoding='utf-8')
+        snap = jload(ROOT / 'tests/fixtures/mgctl/command-tree.json')['commands']
+        self.assertEqual(pv['engine_test_functions'], len(re.findall(r'^\s+def test_', tests, re.M)))
+        found = {f: sorted(re.findall(r'^def (collect_\w+)\(', (ROOT / f).read_text(), re.M)) for f in pv['engine_collectors']}
+        self.assertEqual({f: sorted(v) for f, v in pv['engine_collectors'].items()}, found)
+        self.assertEqual(sorted(p.name for p in (ROOT / 'intel/provenance/collectors').glob('*.py') if re.search(r'^def collect_', p.read_text(), re.M)), sorted(pathlib.Path(f).name for f in found))
+        pending = bool(re.search(r'^class RealLinuxDpkgPending', tests, re.M)); real_mac = bool(re.search(r'^class RealMacTests', tests, re.M))
+        allfns = {fn for v in found.values() for fn in v}
+        for m in pv['coverage']['managers']:
+            if m['engine'] != 'none': self.assertIn(m['collector'], allfns, m['name'])
+            else: self.assertIsNone(m['collector'])
+            if m['engine'] == 'experimental-real-mac-tested': self.assertTrue(real_mac); self.assertNotEqual(m['collector'], 'collect_dpkg')
+            if m['collector'] == 'collect_dpkg': self.assertEqual(m['engine'], 'fixture-only' if pending else 'experimental')
+        self.assertEqual(any('PENDING' in x for x in pv['still_planned']), pending)
+        if snap['provenance'] == 'planned':   # host-wide scan: the page may only say it does not exist
+            for l in ('es', 'en'): self.assertRegex(d[l]['p_provenance'], r'(?i)(sin análisis de todo el equipo|no host-wide scan)')
+        self.assertIn('experimental', d['en']['p_provenance']) if pv['status'] == 'experimental' else self.assertNotIn('experimental', d['en']['p_provenance'])
+        for l in ('es', 'en'): self.assertRegex(d[l]['p_provenance'], r'(?i)(solo con grabaciones|fixture-only)')
+        self.assertNotRegex(json.dumps(pv), r'(?i)no (provenance )?engine code exists')
+        self.assertNotIn('no está implementado', d['es']['p_provenance'])
+        if pv['status'] == 'experimental':
+            for l in ('es', 'en'):
+                for k, v in d[l].items(): self.assertNotRegex(v, r'(?i)(no engine code|no hay código de motor|motor no está implementado|engine is not implemented)', f'{l}.{k}')
 
 
 @unittest.skipUnless(os.path.exists('/Applications/Google Chrome.app/Contents/MacOS/Google Chrome') or shutil.which('google-chrome') or shutil.which('chromium'), 'no Chrome: the filter test is skipped')
@@ -310,7 +342,7 @@ var out={};function sleep(ms){return new Promise(function(r){setTimeout(r,ms)})}
             m = re.search(r'<pre id="r">DONE(.*?)</pre>', o, re.S); self.assertTrue(m, o[-300:])
             r = json.loads(H.unescape(m.group(1)))
         finally:
-            if srv: srv.terminate()
+            if srv: srv.terminate(); srv.wait(timeout=10)
             shutil.rmtree(tmp, ignore_errors=True)
         ch = jload(API / 'channels.json')['channels']
         self.assertEqual(r['all'], len(ch)); self.assertEqual(r['operational'], 'yara'); self.assertEqual(r['experimental'].split(','), [c['family'] for c in ch if c['status'] == 'experimental'])

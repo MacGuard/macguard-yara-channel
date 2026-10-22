@@ -31,7 +31,7 @@ function dl(rows) {
 function link(href, text) { return el('a', { href: href, text: text || href }); }
 function table(caption, heads, rows) {
   var w = el('div', { class: 'tablewrap', tabindex: '0', role: 'region', 'aria-label': caption });
-  var tb = el('table', { style: 'min-width:' + Math.max(0, heads.length - 2) * 130 + 'px' }), th = el('tr'), body = el('tbody');
+  var tb = el('table', { style: 'min-width:' + (heads.length >= 3 ? heads.length * 140 : 0) + 'px' }), th = el('tr'), body = el('tbody');
   tb.appendChild(el('caption', { class: 'sr', text: caption }));
   heads.forEach(function (h) { th.appendChild(el('th', { scope: 'col', text: h })); });
   tb.appendChild(el('thead', {}, [th]));
@@ -243,12 +243,15 @@ R.provenance = function () {
   var g = MG.$('pv-grp').value, cv = MG.$('pv-cov').value;
   var rows = d.coverage.managers.filter(function (x) { return (!g || x.group === g) && (!cv || x.coverage === cv); });
   var cm = mount('pv-cov-table');
-  cm.appendChild(table(t('pv_cov_cap'), [t('pv_group'), t('pv_manager'), t('pv_coverage')], rows.map(function (x) { return [x.group, x.name, cov(x.coverage)]; })));
+  cm.appendChild(table(t('pv_cov_cap'), [t('pv_group'), t('pv_manager'), t('pv_coverage'), t('pv_engine')], rows.map(function (x) { return [x.group, x.name, cov(x.coverage), t('eng_' + x.engine.replace(/-/g, '_'))]; })));
   MG.$('pv-count').textContent = fmt(rows.length) + ' ' + t('count_of') + ' ' + fmt(d.coverage.managers.length);
   var cnt = mount('pv-counts');
   Object.keys(d.coverage.counts).sort().forEach(function (k) { var ti = el('div', { class: 'tile' }); ti.appendChild(el('small', { text: cov(k) })); ti.appendChild(el('strong', { text: fmt(d.coverage.counts[k]) })); cnt.appendChild(ti); });
   var meaning = mount('pv-meaning');
-  meaning.appendChild(list(Object.keys(d.coverage.meaning).sort().map(function (k) { return cov(k) + ': ' + d.coverage.meaning[k]; })));
+  meaning.appendChild(list(Object.keys(d.coverage.meaning).sort().map(function (k) { return cov(k) + ': ' + d.coverage.meaning[k]; }).concat(Object.keys(d.coverage.engine_meaning).sort().map(function (k) { return t('eng_' + k.replace(/-/g, '_')) + ': ' + d.coverage.engine_meaning[k]; }))));
+  var ec = mount('pv-engine-counts');
+  Object.keys(d.coverage.engine_counts).sort().forEach(function (k) { var ti = el('div', { class: 'tile' }); ti.appendChild(el('small', { text: t('eng_' + k.replace(/-/g, '_')) })); ti.appendChild(el('strong', { text: fmt(d.coverage.engine_counts[k]) })); ec.appendChild(ti); });
+  var sp = mount('pv-still'); sp.appendChild(el('p', { text: t('pv_collectors') + ': ' + Object.keys(d.engine_collectors).map(function (f) { return f + ' (' + d.engine_collectors[f].join(', ') + ')'; }).join('; ') + '. ' + fmt(d.engine_test_functions) + ' ' + t('k_test_fn') + '.' })); sp.appendChild(list(d.still_planned));
   var li = mount('pv-limits'); li.appendChild(list(d.limits));
 };
 

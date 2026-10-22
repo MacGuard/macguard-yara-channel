@@ -29,12 +29,12 @@
     {
       "description": "software provenance design, rules and coverage",
       "path": "provenance.json",
-      "sha256": "7de7a6060492efc0f2bc7ea62e33569682f93d5d88a87f9b398afb43052f1a15"
+      "sha256": "a08b8fc978a714142c9ec7eff1faf1cb37e7d76362e5dcb98daf93fbe7daecca"
     },
     {
       "description": "roadmap rows and tracks",
       "path": "roadmap.json",
-      "sha256": "41c6f566eef5a9119eab74b3883d668e7b4e7f61e6f3e7f88172636929289861"
+      "sha256": "bf27e0641c6bcebe79eba25b3c13579745b03abdd5d020d30b9e63bce3e38ac5"
     },
     {
       "description": "source registry with clearance",

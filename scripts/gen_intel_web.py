@@ -271,18 +271,46 @@ def build_licenses(registry, generated_at):
                           'owner_confirmed': s.get('owner_confirmed', False)} for i, s in sorted(registry.items())]}
 
 
+# ---------------------------------------------------------------- provenance engine (derived from the repository, never typed)
+MANAGER_COLLECTOR = {'Homebrew formula': 'collect_formula', 'Homebrew cask': 'collect_cask', 'PKG installer': 'collect_pkgutil', 'Quarantine xattr': 'collect_xattrs',
+                     'kMDItemWhereFroms': 'collect_xattrs', 'Code signature, notarization, Gatekeeper': 'collect_codesign', 'pip / pipx / uv / Poetry': 'collect_pip',
+                     'APT / aptitude / DPKG, ownership': 'collect_dpkg', 'DPKG integrity': 'collect_dpkg'}
+
+
+def provenance_engine():
+    """experimental only if intel/provenance/ exists AND tests/test_provenance.py exists AND the mgctl command snapshot lists 'provenance file' as experimental."""
+    pdir, tfile, snap_file = ROOT / 'intel/provenance', ROOT / 'tests/test_provenance.py', ROOT / 'tests/fixtures/mgctl/command-tree.json'
+    snap = jload(snap_file)['commands'] if snap_file.exists() else {}
+    collectors = {}
+    for f in sorted((pdir / 'collectors').glob('*.py')) if pdir.is_dir() else []:
+        fn = re.findall(r'^def (collect_\w+)\(', f.read_text(encoding='utf-8'), re.M)
+        if fn:
+            collectors[rel(f)] = fn
+    ttext = tfile.read_text(encoding='utf-8') if tfile.exists() else ''
+    real_mac = bool(re.search(r'^class RealMacTests', ttext, re.M))
+    dpkg_pending = bool(re.search(r'^class RealLinuxDpkgPending', ttext, re.M))
+    ok = pdir.is_dir() and tfile.exists() and snap.get('provenance file') == 'experimental'
+    return {'status': 'experimental' if ok else 'planned', 'collectors': collectors, 'tests': count_tests('tests/test_provenance.py') if tfile.exists() else 0,
+            'real_mac_tests_exist': real_mac, 'dpkg_real_host_pending': dpkg_pending, 'snapshot': {k: snap.get(k) for k in ('provenance', 'provenance file')}, 'ok': ok}
+
+
 # ---------------------------------------------------------------- roadmap
 def build_roadmap(generated_at):
     text = (ROOT / 'docs/intelligence/ROADMAP.md').read_text(encoding='utf-8')
     chs = {c['id']: c['status'] for c in chstatus.CHANNELS}
-    rules = {'P0': ('files', ['intel/channel.py', 'intel/catalog.py', 'intel/verify.py', 'tests/test_intel.py']), 'P1': ('channels', ['ioc', 'vulns']), 'P2': ('files', ['intel/provenance.py']),
+    rules = {'P0': ('files', ['intel/channel.py', 'intel/catalog.py', 'intel/verify.py', 'tests/test_intel.py']), 'P1': ('channels', ['ioc', 'vulns']), 'P2': ('provenance', []),
              'P3': ('channels', ['sigma']), 'P4': ('channels', ['clamav']), 'P5': ('channels', ['heuristics', 'behavior']), 'P6': ('channels', ['sandbox', 'ml']),
              'Web': ('files', ['web/intelligence/index.html', 'scripts/gen_intel_web.py']), 'Cloud': ('files', ['cloud']), 'Install': ('files', ['docs/cli/mgctl-install.md', 'bin/mgctl'])}
     rows = []
     for c in table_rows(text.splitlines()):
         key = clean(c[0])
         kind, refs = rules[key]
-        if kind == 'channels':
+        if kind == 'provenance':
+            pe = provenance_engine()
+            st = pe['status']
+            basis = ('intel/provenance/ and tests/test_provenance.py exist and tests/fixtures/mgctl/command-tree.json lists "provenance file" as experimental' if pe['ok']
+                     else 'the engine, its tests or the experimental command in the snapshot are missing')
+        elif kind == 'channels':
             st = min((chs[i] for i in refs), key=lambda s: ORDER[s])
             basis = 'best status of ' + ', '.join(refs) + ' in intel/status.py'
         else:
@@ -297,7 +325,7 @@ def build_roadmap(generated_at):
         {'id': 'macguard-intelligence', 'name': 'MacGuard Intelligence', 'source': 'docs/intelligence/ROADMAP.md', 'items': [r['phase'] for r in rows if r['phase'] not in ('Cloud', 'Install')]},
         {'id': 'linux-intelligence-guard', 'name': 'Linux Intelligence Guard', 'source': 'docs/intelligence/ROADMAP.md rows P2 and Install; docs/intelligence/PROVENANCE-DESIGN.md section 11 (P1b)',
          'items': ['P2', 'Install'], 'status': 'planned',
-         'note': 'ROADMAP.md has no section with this name. The Linux work it lists is: provenance for Linux package managers (P2, design only), Linux packages of mgctl (Install, templates only). Nothing runs on Linux as a product.',
+         'note': 'ROADMAP.md has no section with this name. The Linux work it lists is: provenance for Linux package managers (P2: the dpkg collector exists but is fixture-only, no real Linux host test; rpm and pacman are not implemented), Linux packages of mgctl (Install, templates only). Nothing runs on Linux as a product.',
          'linux_provenance_phase': {'phase': 'P1b (Linux)', 'scope': clean(p1b[1]), 'justification': clean(p1b[2])}},
         {'id': 'cloud', 'name': 'MacGuard Cloud', 'source': 'docs/intelligence/ROADMAP.md, docs/intelligence/CLOUD-CONTRACTS.md', 'items': ['Cloud'], 'status': byk['Cloud']['status'],
          'note': 'Draft contracts only; no service, agent or schema is published.'}]
@@ -322,15 +350,38 @@ def build_provenance(generated_at):
     for m in managers:
         counts[m['coverage']] = counts.get(m['coverage'], 0) + 1
     limits = [clean(l[2:]) for l in section(text, '## 12.') if l.startswith('- ')]
-    engine_code = sorted(rel(p) for p in list(ROOT.glob('intel/*provenance*')) + list(ROOT.glob('scripts/*provenance*')) + list(ROOT.glob('mgctl/*provenance*')))
-    return {**meta(generated_at, 'docs/intelligence/PROVENANCE-DESIGN.md (sections 1, 2, 4, 12), existence of provenance code in intel/, scripts/, mgctl/',
-                   'This is a DESIGN. The engine is not implemented; the coverage column records which evidence mechanisms were exercised by hand on one Mac, not shipped features.'),
-            'status': 'planned', 'status_basis': 'no provenance engine code found' if not engine_code else 'provenance code found: ' + ', '.join(engine_code),
-            'engine_code_found': engine_code, 'mgctl_command': 'mgctl provenance is declared planned in mgctl/tree.py and exits 4',
-            'hard_rules': rules, 'six_facts': facts, 'coverage': {'meaning': {'exercised-in-survey': 'the mechanism was run by hand on one Mac during the design survey; no engine code exists',
-                                                                             'designed': 'specified only, not exercised on this host', 'not-possible': 'the act leaves no evidence',
-                                                                             'recorded-only': 'recorded but supports no claim', 'other': 'see coverage_raw'},
-                                                         'counts': counts, 'managers': managers}, 'limits': limits}
+    pe = provenance_engine()
+    for m in managers:
+        fn = MANAGER_COLLECTOR.get(m['name'])
+        have = fn and any(fn in v for v in pe['collectors'].values())
+        m['collector'] = fn if have else None
+        m['engine'] = ('none' if not have else 'fixture-only' if fn == 'collect_dpkg' and pe['dpkg_real_host_pending'] else 'experimental-real-mac-tested' if pe['real_mac_tests_exist'] else 'experimental')
+    engine_counts = {}
+    for m in managers:
+        engine_counts[m['engine']] = engine_counts.get(m['engine'], 0) + 1
+    roadmap_missing = next(clean(c[3]) for c in table_rows((ROOT / 'docs/intelligence/ROADMAP.md').read_text(encoding='utf-8').splitlines()) if clean(c[0]) == 'P2')
+    snap = pe['snapshot']
+    if pe['ok']:
+        real = ('A design plus a first EXPERIMENTAL engine. The collectors listed under engine_collectors exist and are tested; macOS collectors were also run against a real Mac '
+                'by the tests, the dpkg collector is fixture-only (real Linux host test pending). Host-wide scanning and online checks are not implemented. '
+                'Per-manager `engine` says what the code covers; `coverage` is the design survey, which is a different thing.')
+        basis = ('intel/provenance/ and tests/test_provenance.py exist and tests/fixtures/mgctl/command-tree.json lists "provenance file" as experimental; '
+                 f'{pe["tests"]} test functions counted in tests/test_provenance.py')
+        mg = f'mgctl provenance file is {snap["provenance file"]}; mgctl provenance (host-wide, --all) is {snap["provenance"]} (tests/fixtures/mgctl/command-tree.json)'
+    else:
+        real = 'This is a DESIGN. The engine, its tests or the experimental command are not all present; the coverage column records design survey results only.'
+        basis = 'one of intel/provenance/, tests/test_provenance.py or the experimental "provenance file" entry in the command snapshot is missing'
+        mg = f'mgctl provenance file is {snap["provenance file"]}; mgctl provenance is {snap["provenance"]} (tests/fixtures/mgctl/command-tree.json)'
+    still = [f'mgctl provenance (host-wide) is {snap["provenance"]} in the command snapshot'] + (['real Linux dpkg host test is PENDING (class RealLinuxDpkgPending in tests/test_provenance.py)'] if pe['dpkg_real_host_pending'] else []) + ['roadmap P2 missing: ' + roadmap_missing]
+    return {**meta(generated_at, 'docs/intelligence/PROVENANCE-DESIGN.md (sections 1, 2, 4, 12), intel/provenance/collectors/*.py, tests/test_provenance.py, tests/fixtures/mgctl/command-tree.json, docs/intelligence/ROADMAP.md', real),
+            'status': pe['status'], 'status_basis': basis, 'engine_collectors': pe['collectors'], 'engine_test_functions': pe['tests'], 'still_planned': still,
+            'mgctl_command': mg, 'hard_rules': rules, 'six_facts': facts,
+            'coverage': {'meaning': {'exercised-in-survey': 'the mechanism was run by hand on one Mac during the design survey (the design document); whether code exists is the separate `engine` field',
+                                     'designed': 'specified in the design document, not exercised in the survey', 'not-possible': 'the act leaves no evidence',
+                                     'recorded-only': 'recorded but supports no claim', 'other': 'see coverage_raw'},
+                         'engine_meaning': {'experimental-real-mac-tested': 'a collector exists and tests ran it against a real Mac', 'experimental': 'a collector exists with tests', 'fixture-only': 'a collector exists, tested only on recorded fixtures (no real-host run)',
+                                            'none': 'no collector code exists for this manager'},
+                         'counts': counts, 'engine_counts': engine_counts, 'managers': managers}, 'limits': limits}
 
 
 # ---------------------------------------------------------------- assembly

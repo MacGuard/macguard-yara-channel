@@ -12,7 +12,7 @@
       "status_basis": "all these files exist: intel/channel.py, intel/catalog.py, intel/verify.py, tests/test_intel.py"
     },
     {
-      "done": "IOC pipeline (normalise, validate, dedupe, TTL, confidence, report), manifest, catalog, verifier, CLI (python3 -m intel, mgctl intelligence …), 42 tests in tests/test_intel.py plus 4 mgctl integration tests",
+      "done": "two real sources wired end to end (abuse.ch Feodo Tracker, CISA KEV) with the original kept and counts recorded (SOURCES-STATUS.md); IOC pipeline (normalise, validate, dedupe, TTL, confidence, report), manifest, catalog, verifier, CLI (python3 -m intel, mgctl intelligence …), 42 tests in tests/test_intel.py plus 4 mgctl integration tests",
       "missing": "a cleared source (licence and access decision, credentials the owner must create); a signing/publishing workflow (a change to a publication workflow needs authorisation); allowlist curation; real-feed false-positive review",
       "phase": "P1",
       "scope": "IOC channel and signed publication",
@@ -20,12 +20,12 @@
       "status_basis": "best status of ioc, vulns in intel/status.py"
     },
     {
-      "done": "design, evidence matrix from real macOS experiments, JSON Schema (PROVENANCE-DESIGN.md)",
-      "missing": "implementation (not started)",
+      "done": "design, evidence matrix from real macOS experiments, JSON Schema (PROVENANCE-DESIGN.md); first engine intel/provenance/ + mgctl provenance file: collectors for Homebrew formula and cask, pkgutil, quarantine/codesign, pip, dpkg; 224 tests with 11 real macOS runs (experimental)",
+      "missing": "Linux real-host test (dpkg collector is fixture-only), online checks, rpm/pacman/npm/cargo/go/containers, host-wide provenance --all and per-file inventory (planned), history across runs",
       "phase": "P2",
       "scope": "Software Provenance v1 (macOS/Linux) and per-file inventory",
-      "status": "planned",
-      "status_basis": "missing: intel/provenance.py; intel/provenance.py"
+      "status": "experimental",
+      "status_basis": "intel/provenance/ and tests/test_provenance.py exist and tests/fixtures/mgctl/command-tree.json lists \"provenance file\" as experimental"
     },
     {
       "done": "validation design only",
@@ -113,7 +113,7 @@
         "scope": "dpkg ownership + md5sums, rpm ownership + digests, pacman ownership + mtree, dnf/zypper install repo"
       },
       "name": "Linux Intelligence Guard",
-      "note": "ROADMAP.md has no section with this name. The Linux work it lists is: provenance for Linux package managers (P2, design only), Linux packages of mgctl (Install, templates only). Nothing runs on Linux as a product.",
+      "note": "ROADMAP.md has no section with this name. The Linux work it lists is: provenance for Linux package managers (P2: the dpkg collector exists but is fixture-only, no real Linux host test; rpm and pacman are not implemented), Linux packages of mgctl (Install, templates only). Nothing runs on Linux as a product.",
       "source": "docs/intelligence/ROADMAP.md rows P2 and Install; docs/intelligence/PROVENANCE-DESIGN.md section 11 (P1b)",
       "status": "planned"
     },
