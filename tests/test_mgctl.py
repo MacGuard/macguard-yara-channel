@@ -696,7 +696,8 @@ class IntelligenceTests(Tmp):
         code, out, _e = run_main(["--json", "intelligence", "sources"], self.env)
         rows = json.loads(out)["sources"]
         self.assertEqual(code, 0)
-        self.assertTrue(rows and not any(r["publishable"] for r in rows))      # no real source is cleared today
+        self.assertTrue(rows)
+        self.assertEqual([r["id"] for r in rows if r["publishable"]], ["macguard-yara-releases"])      # the only cleared source is MacGuard's own release log: no third-party source is
 
     def test_catalog_verify_maps_results_and_never_calls_unsigned_verified(self):
         cat, root, out = self.workspace()

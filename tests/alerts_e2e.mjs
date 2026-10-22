@@ -144,7 +144,7 @@ try {
     await page.fill('#og-name', 'Acme Security'); await page.click('#og-add'); await waitText(page, '#og-status', /OK/);
     await page.waitForSelector('#og-pick option', { state: 'attached' });
     await page.fill('#mb-email', state.second_email); await page.selectOption('#mb-role', 'viewer'); await page.click('#mb-add'); await waitText(page, '#og-status', /OK/);
-    await page.waitForSelector('#members table');
+    await page.waitForSelector('#members >> text=' + state.second_email);      // the list is redrawn after the request: wait for the new row, not for the old table
     ok('the member was added with the role', /Viewer|Lector/i.test(await text(page, '#members')) && (await text(page, '#members')).includes(state.second_email), await text(page, '#members'));
     await page.fill('#un-name', 'Operations'); await page.click('#un-add-unit'); await page.waitForSelector('#units >> text=/Operations/');
     await page.waitForSelector('#audit table');
