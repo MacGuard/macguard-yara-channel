@@ -15,11 +15,11 @@ Los eventos son de dos clases: de **notificación** (solo avisan) y de **autoriz
 Solo **MacUSBGuard**, y solo así {{ev:EV-EC-21}}:
 
 - Evento suscrito: `ES_EVENT_TYPE_AUTH_IOKIT_OPEN` (alguien abre un dispositivo IOKit; sirve para decidir sobre teclados y ratones USB con el Mac bloqueado).
-- Código: `Sources/MacUSBGuardPlatform/RealEndpointSecurityClient.swift` (`es_new_client`, `es_subscribe`, `es_respond_auth_result`) y el motor de decisión `EndpointSecurityDecisionEngine` en Core, que no importa Endpoint Security.
-- `Package.swift` solo enlaza `libEndpointSecurity` si encuentra el SDK; si no, el resto compila sin ella.
+- Implementación documentada: un adaptador de eventos de Endpoint Security y un motor de decisión separado. Utiliza `es_new_client`, `es_subscribe` y `es_respond_auth_result`.
+- La compilación separa el adaptador que requiere el SDK del resto del motor.
 - La decisión sin identidad fiable del dispositivo (mensaje ES anterior a la versión 10) se niega a actuar sobre una conjetura.
 
-**Qué está verificado y qué no.** Compila y enlaza con el SDK de Xcode 26.3 según el README. **La aplicación en vivo no está verificada**: falta el permiso restringido de Apple (y la aprobación de la extensión de sistema y de Acceso total al disco), así que el estado global se muestra como solo observación y las pruebas de hardware HID siguen sin verificar {{ev:EV-EC-02}}. Tampoco hay prueba de que el sistema entregue a este cliente todos los eventos de teclado (el propio README anota la posibilidad de que WindowServer figure en una lista de silenciados por defecto).
+**Qué está verificado y qué no.** Compila y enlaza con el SDK de Xcode 26.3 según el README. **La aplicación en vivo no está verificada**: falta el permiso restringido de Apple (y la aprobación de la extensión de sistema y de Acceso total al disco), así que el estado global se muestra como solo observación y las pruebas de hardware HID siguen sin verificar {{ev:EV-EC-02}}. Tampoco hay prueba de que el sistema entregue a este cliente todos los eventos de teclado (el alcance de los eventos disponibles requiere pruebas con el sistema real).
 
 Ninguna otra aplicación MacGuard la usa hoy; MacFirewallGuard usa la tecnología hermana de red, que no se trata aquí.
 
