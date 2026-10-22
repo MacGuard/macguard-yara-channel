@@ -403,6 +403,9 @@ class AuditFileTests(Tmp):
                     raise InterruptedError("cancelled")
                 threading.Event().wait(0.01)
             return {"sha256": "x", "sha512": "y"}
+        # A shell starts background jobs with SIGINT ignored and Python then installs no handler: make the test independent of how it was launched.
+        before = signal.signal(signal.SIGINT, signal.default_int_handler)
+        self.addCleanup(signal.signal, signal.SIGINT, before)
         with mock.patch.object(hashing, "digests", slow):
             code, _o, err = run_main(["audit", "file", f, "--checks", "hash", "--output", out], self.env)
         self.assertEqual(code, 130)
@@ -413,15 +416,17 @@ class AuditFileTests(Tmp):
     def test_sigint_to_a_real_process_exits_130(self):
         big = self.f("huge.bin", b"")
         with open(big, "wb") as fh:
-            fh.truncate(3 * 1024 * 1024 * 1024)       # sparse 3 GiB: long enough to interrupt, costs no disk
+            fh.truncate(24 * 1024 * 1024 * 1024)      # sparse 24 GiB: far longer than the test waits, costs no disk
         p = subprocess.Popen([sys.executable, LAUNCHER, "audit", "file", big, "--checks", "hash", "--timeout", "600"], stdout=subprocess.PIPE, stderr=subprocess.PIPE,
-                             stdin=subprocess.DEVNULL, env=dict(os.environ, **self.env), text=True)
-        threading.Event().wait(1.0)
+                             stdin=subprocess.DEVNULL, env=dict(os.environ, **self.env), text=True,
+                             preexec_fn=lambda: signal.signal(signal.SIGINT, signal.SIG_DFL))   # background jobs inherit SIGINT ignored: undo that in the child
+        threading.Event().wait(1.5)
+        self.assertIsNone(p.poll(), "the audit finished before it could be interrupted")
         p.send_signal(signal.SIGINT)
         out, err = p.communicate(timeout=60)
-        self.assertIn(p.returncode, (130, 0))         # 0 only if the machine hashed 3 GiB within a second
-        if p.returncode == 130:
-            self.assertNotIn("complete=true", out)
+        self.assertEqual(p.returncode, 130, err)
+        self.assertIn("nothing was reported as complete", err)
+        self.assertNotIn('"complete": true', out)
 
 
 class PathSecurityTests(Tmp):
@@ -610,6 +615,9 @@ class InstallTests(Tmp):
         exe = os.path.join(prefix, "bin", "mgctl")
         v = subprocess.run([exe, "--version"], capture_output=True, text=True, env=dict(os.environ, MGCTL_LANG="en"), timeout=60)
         self.assertEqual((v.returncode, v.stdout.split()[:2]), (0, ["mgctl", VERSION]))
+        ch = subprocess.run([exe, "intelligence", "channels", "--json"], capture_output=True, text=True, env=dict(os.environ, MGCTL_LANG="en"), timeout=60)
+        self.assertEqual(ch.returncode, 0, ch.stderr)                                       # the intel package travels with the install
+        self.assertEqual({c["id"]: c["status"] for c in json.loads(ch.stdout)["channels"]}["yara"], "operational")
         self.assertEqual(run("install", "--prefix", prefix).returncode, 0)                  # upgrade in place
         self.assertFalse(os.path.lexists(os.path.join(prefix, "bin", "mg")))                # never creates the alias
         self.assertEqual(run("uninstall", "--prefix", prefix).returncode, 0)
@@ -660,6 +668,57 @@ class InstallTests(Tmp):
         self.assertIn("REPLACE", text)                   # a template: no invented url or checksum
         if shutil.which("ruby"):
             self.assertEqual(subprocess.run(["ruby", "-c", rb], capture_output=True, timeout=30).returncode, 0)
+
+
+class IntelligenceTests(Tmp):
+    def intel(self, *argv):
+        r = subprocess.run([sys.executable, "-m", "intel"] + list(argv), cwd=ROOT, capture_output=True, text=True, timeout=120)
+        self.assertIn(r.returncode, (0, 5), r.stderr)
+        return r
+
+    def workspace(self):
+        reg = os.path.join(self.d, "reg.json")
+        with open(reg, "w") as fh:
+            json.dump({"schema": "macguard.source-registry/1", "sources": [{"id": "feedA", "redistribution_status": "allowed", "trust": 80, "name": "test double"}]}, fh)
+        src = os.path.join(self.d, "in.txt")
+        with open(src, "w") as fh:
+            fh.write("1.2.3.4\nbad.example.com\n")
+        root = os.path.join(self.d, "root")
+        out = os.path.join(root, "ioc", "1")
+        self.intel("ioc", "build", "--source", f"feedA:{src}", "--out", out, "--version", "1", "--now", "2026-10-22T12:00:00Z", "--registry", reg, "--state", "approved")
+        self.intel("catalog", "build", "--channel", os.path.join(out, "manifest.json"), "--version", "1", "--out", os.path.join(self.d, "cat"), "--now", "2026-10-22T12:30:00Z")
+        return os.path.join(self.d, "cat", "catalog.json"), root, out
+
+    def test_channels_and_sources_are_honest(self):
+        code, out, _e = run_main(["--json", "intelligence", "channels"], self.env)
+        st = {c["id"]: c["status"] for c in json.loads(out)["channels"]}
+        self.assertEqual((code, st["yara"], st["yara-x"], st["ioc"], st["sandbox"]), (0, "operational", "planned", "experimental", "planned"))
+        code, out, _e = run_main(["--json", "intelligence", "sources"], self.env)
+        rows = json.loads(out)["sources"]
+        self.assertEqual(code, 0)
+        self.assertTrue(rows and not any(r["publishable"] for r in rows))      # no real source is cleared today
+
+    def test_catalog_verify_maps_results_and_never_calls_unsigned_verified(self):
+        cat, root, out = self.workspace()
+        code, o, _e = run_main(["--json", "intelligence", "catalog", "verify", cat, "--root", root], self.env)
+        doc = json.loads(o)
+        self.assertEqual((code, doc["intelExitCode"], doc["ok"], doc["result"]), (4, 5, False, "CONSISTENT, SIGNATURE NOT CHECKED"))
+        art = [f for f in os.listdir(out) if f.startswith("ioc-")][0]
+        with open(os.path.join(out, art), "ab") as fh:
+            fh.write(b"tampered\n")
+        code, o, _e = run_main(["--json", "intelligence", "catalog", "verify", cat, "--root", root], self.env)
+        self.assertEqual((code, json.loads(o)["intelExitCode"]), (2, 1))
+
+    def test_catalog_verify_needs_root_and_valid_paths(self):
+        cat, root, _o = self.workspace()
+        self.assertEqual(run_main(["intelligence", "catalog", "verify", cat], self.env)[0], 3)
+        self.assertEqual(run_main(["intelligence", "catalog", "verify", os.path.join(self.d, "none.json"), "--root", root], self.env)[0], 3)
+
+    def test_missing_intel_package_is_unavailable(self):
+        with mock.patch.object(backends, "intel_root", return_value=None):
+            out, err = io.StringIO(), io.StringIO()
+            code = cli.main(["intelligence", "channels"], stdout=out, stderr=err, stdin=io.StringIO(""))
+        self.assertEqual(code, 4)
 
 
 # ---- 9, 10, 15: compatibility and regressions ----------------------------------------------------------------------
