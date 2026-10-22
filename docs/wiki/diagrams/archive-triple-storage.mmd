@@ -1,0 +1,27 @@
+flowchart TB
+  SRC["Publication workflow<br/>release, logs, audit segments"]
+  PRE["Pre-write checks<br/>no secrets, SHA-256"]
+  ENC["Private audit: age encryption<br/>before leaving the process"]
+  R2["Provider 1<br/>one bucket"]
+  B2["Provider 2<br/>one bucket"]
+  SCW["Provider 3<br/>one bucket"]
+  RB["Read back with a different<br/>read-only key, compare SHA-256"]
+  OK["3 of 3 match: window marked archived<br/>otherwise alert, nothing is pruned"]
+  SRC --> PRE
+  PRE --> ENC
+  PRE --> R2
+  PRE --> B2
+  PRE --> SCW
+  ENC --> R2
+  ENC --> B2
+  ENC --> SCW
+  R2 --> RB
+  B2 --> RB
+  SCW --> RB
+  RB --> OK
+  classDef box fill:#1f3a5f,stroke:#8ab4f8,color:#ffffff
+  classDef store fill:#2d4a2d,stroke:#9fd69f,color:#ffffff
+  classDef gate fill:#5a4a1a,stroke:#ffd966,color:#ffffff
+  class SRC,PRE,ENC box
+  class R2,B2,SCW store
+  class RB,OK gate

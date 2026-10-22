@@ -39,4 +39,5 @@ There are no committed dates. Each application's next step, blockers and depende
 
 - [Ecosystem: layers and relations](EN-Ecosystem)
 - [Global roadmap](EN-Roadmap)
+- [YARA Channel in depth](EN-YARA-Channel)
 - [Evidence matrix](EN-Evidence)

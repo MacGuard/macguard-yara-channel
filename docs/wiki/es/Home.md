@@ -39,4 +39,5 @@ No hay fechas comprometidas. El siguiente paso de cada aplicación, sus bloqueos
 
 - [Ecosistema: capas y relaciones](ES-Ecosystem)
 - [Roadmap global](ES-Roadmap)
+- [YARA Channel en profundidad](ES-YARA-Channel)
 - [Matriz de evidencias](ES-Evidence)

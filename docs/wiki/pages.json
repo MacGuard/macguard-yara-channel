@@ -1,8 +1,260 @@
 {
  "schema": 1,
  "pages": [
-  {"id": "Home", "section": {"es": "Empezar", "en": "Start"}, "title": {"es": "Inicio", "en": "Home"}, "summary": {"es": "Qué es MacGuard y el mapa de sus aplicaciones", "en": "What MacGuard is and the map of its applications"}},
-  {"id": "Ecosystem", "section": {"es": "Ecosistema", "en": "Ecosystem"}, "title": {"es": "Ecosistema", "en": "Ecosystem"}, "summary": {"es": "Capas de protección y relación entre aplicaciones", "en": "Layers of protection and how the applications relate"}},
-  {"id": "Roadmap", "section": {"es": "Roadmap", "en": "Roadmap"}, "title": {"es": "Roadmap global", "en": "Global roadmap"}, "summary": {"es": "Fases, bloqueos y siguiente objetivo de cada aplicación", "en": "Phases, blockers and next goal of each application"}}
+  {
+   "id": "Home",
+   "section": {
+    "es": "Empezar",
+    "en": "Start"
+   },
+   "title": {
+    "es": "Inicio",
+    "en": "Home"
+   },
+   "summary": {
+    "es": "Qué es MacGuard y el mapa de sus aplicaciones",
+    "en": "What MacGuard is and the map of its applications"
+   }
+  },
+  {
+   "id": "Ecosystem",
+   "section": {
+    "es": "Ecosistema",
+    "en": "Ecosystem"
+   },
+   "title": {
+    "es": "Ecosistema",
+    "en": "Ecosystem"
+   },
+   "summary": {
+    "es": "Capas de protección y relación entre aplicaciones",
+    "en": "Layers of protection and how the applications relate"
+   }
+  },
+  {
+   "id": "Roadmap",
+   "section": {
+    "es": "Roadmap",
+    "en": "Roadmap"
+   },
+   "title": {
+    "es": "Roadmap global",
+    "en": "Global roadmap"
+   },
+   "summary": {
+    "es": "Fases, bloqueos y siguiente objetivo de cada aplicación",
+    "en": "Phases, blockers and next goal of each application"
+   }
+  },
+  {
+   "id": "YARA-Channel",
+   "section": {
+    "es": "Canal YARA",
+    "en": "YARA Channel"
+   },
+   "title": {
+    "es": "MacGuard YARA Channel",
+    "en": "MacGuard YARA Channel"
+   },
+   "summary": {
+    "es": "Qué es el canal, qué es YARA y una regla, el viaje de una regla y el índice de las demás páginas.",
+    "en": "What the channel is, what YARA and a rule are, the journey of a rule and the index to the other pages."
+   }
+  },
+  {
+   "id": "YARA-Sources",
+   "section": {
+    "es": "Canal YARA",
+    "en": "YARA Channel"
+   },
+   "title": {
+    "es": "Fuentes de las reglas",
+    "en": "Rule sources"
+   },
+   "summary": {
+    "es": "De dónde salen las reglas, procedencia y licencias, fallos de fuente, estructura de una regla y admisión de fuentes nuevas.",
+    "en": "Where the rules come from, provenance and licences, source failures, rule structure and admission of new sources."
+   }
+  },
+  {
+   "id": "YARA-Validation",
+   "section": {
+    "es": "Canal YARA",
+    "en": "YARA Channel"
+   },
+   "title": {
+    "es": "Validación de reglas",
+    "en": "Rule validation"
+   },
+   "summary": {
+    "es": "Comprobaciones estáticas y dinámicas reales con sus umbrales, corpus benigno, política de aceptación y pruebas.",
+    "en": "The real static and dynamic checks with their thresholds, benign corpus, acceptance policy and tests."
+   }
+  },
+  {
+   "id": "YARA-Performance",
+   "section": {
+    "es": "Canal YARA",
+    "en": "YARA Channel"
+   },
+   "title": {
+    "es": "Rendimiento de las reglas",
+    "en": "Rule performance"
+   },
+   "summary": {
+    "es": "Por qué una regla correcta puede ser lenta, qué mide el canal, qué números hay guardados y qué no se ha probado.",
+    "en": "Why a correct rule can be slow, what the channel measures, which numbers are stored and what has not been tested."
+   }
+  },
+  {
+   "id": "YARA-Archive",
+   "section": {
+    "es": "Archivo y límites",
+    "en": "Archive and limits"
+   },
+   "title": {
+    "es": "Archivo histórico en tres proveedores",
+    "en": "Historical archive on three providers"
+   },
+   "summary": {
+    "es": "Diseño de copia permanente en tres proveedores con versionado, Object Lock y cifrado en cliente. No operativo; sin restauración real probada.",
+    "en": "Design of a permanent copy on three providers with versioning, Object Lock and client-side encryption. Not operational; no real restore tested."
+   }
+  },
+  {
+   "id": "YARA-Limits",
+   "section": {
+    "es": "Archivo y límites",
+    "en": "Archive and limits"
+   },
+   "title": {
+    "es": "Límites del canal YARA",
+    "en": "Limits of the YARA channel"
+   },
+   "summary": {
+    "es": "Falsos positivos y negativos, límites del corpus benigno, coste, disponibilidad de fuentes y qué no demuestra la firma.",
+    "en": "False positives and negatives, benign corpus limits, cost, source availability and what the signature does not prove."
+   }
+  },
+  {
+   "id": "Tech-YARA",
+   "section": {
+    "es": "Tecnologías",
+    "en": "Technologies"
+   },
+   "title": {
+    "es": "Tecnología: YARA",
+    "en": "Technology: YARA"
+   },
+   "summary": {
+    "es": "Qué es YARA, diferencia con YARA-X, cómo lo usa el canal y quién más lo usa.",
+    "en": "What YARA is, how it differs from YARA-X, how the channel uses it and who else uses it."
+   }
+  },
+  {
+   "id": "Tech-Sigstore",
+   "section": {
+    "es": "Tecnologías",
+    "en": "Technologies"
+   },
+   "title": {
+    "es": "Tecnología: Sigstore",
+    "en": "Technology: Sigstore"
+   },
+   "summary": {
+    "es": "Firma sin clave con Fulcio, Rekor y cosign; uso en publish.yml y quién más la usa.",
+    "en": "Keyless signing with Fulcio, Rekor and cosign; use in publish.yml and who else uses it."
+   }
+  },
+  {
+   "id": "Tech-Merkle",
+   "section": {
+    "es": "Tecnologías",
+    "en": "Technologies"
+   },
+   "title": {
+    "es": "Tecnología: árboles de Merkle",
+    "en": "Technology: Merkle trees"
+   },
+   "summary": {
+    "es": "Raíz, pruebas de inclusión y consistencia (RFC 6962), su implementación en tlog.py y quién más usa algoritmos relacionados.",
+    "en": "Root, inclusion and consistency proofs (RFC 6962), their implementation in tlog.py and who else uses related algorithms."
+   }
+  },
+  {
+   "id": "Tech-S3-Backups",
+   "section": {
+    "es": "Tecnologías",
+    "en": "Technologies"
+   },
+   "title": {
+    "es": "Tecnología: almacenamiento S3 y copias",
+    "en": "Technology: S3 storage and backups"
+   },
+   "summary": {
+    "es": "Versionado, Object Lock (gobernanza y compliance) y copias en varios proveedores; estado planificado.",
+    "en": "Versioning, Object Lock (governance and compliance) and multi-provider copies; planned state."
+   }
+  },
+  {
+   "id": "YARA-Quarantine",
+   "section": {
+    "es": "Canal YARA",
+    "en": "YARA Channel"
+   },
+   "title": {
+    "es": "Cuarentena de reglas",
+    "en": "Rule quarantine"
+   },
+   "summary": {
+    "es": "Cómo se separan las reglas aceptadas, bloqueadas, rechazadas y pendientes de revisión, qué puede decidir una persona y cómo se registra.",
+    "en": "How rules are split into accepted, blocked, rejected and pending review, what a person can decide and how it is recorded."
+   }
+  },
+  {
+   "id": "YARA-Publishing",
+   "section": {
+    "es": "Canal YARA",
+    "en": "YARA Channel"
+   },
+   "title": {
+    "es": "Publicación y firma",
+    "en": "Publishing and signing"
+   },
+   "summary": {
+    "es": "Cómo se construye, hashea y firma el paquete, qué hay en el manifiesto y qué distingue autor, distribuidor, firmante, integridad y seguridad.",
+    "en": "How the package is built, hashed and signed, what the manifest holds, and what separates author, distributor, signer, integrity and safety."
+   }
+  },
+  {
+   "id": "YARA-Transparency",
+   "section": {
+    "es": "Canal YARA",
+    "en": "YARA Channel"
+   },
+   "title": {
+    "es": "Registro de transparencia",
+    "en": "Transparency log"
+   },
+   "summary": {
+    "es": "Registro, checkpoint, árbol de Merkle y pruebas de inclusión y consistencia, y qué ocurre si alguien altera una publicación anterior.",
+    "en": "Log, checkpoint, Merkle tree and inclusion and consistency proofs, and what happens if someone alters an earlier publication."
+   }
+  },
+  {
+   "id": "YARA-Verify",
+   "section": {
+    "es": "Canal YARA",
+    "en": "YARA Channel"
+   },
+   "title": {
+    "es": "Verificar una release",
+    "en": "Verify a release"
+   },
+   "summary": {
+    "es": "Cómo comprobar hash, firma, identidad y pruebas del registro con comandos reales, reconocer una versión legítima y qué hacer si falla.",
+    "en": "How to check hash, signature, identity and log proofs with real commands, recognise a legitimate new version and what to do on failure."
+   }
+  }
  ]
 }
