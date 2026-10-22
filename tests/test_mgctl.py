@@ -679,7 +679,7 @@ class IntelligenceTests(Tmp):
     def workspace(self):
         reg = os.path.join(self.d, "reg.json")
         with open(reg, "w") as fh:
-            json.dump({"schema": "macguard.source-registry/1", "sources": [{"id": "feedA", "redistribution_status": "allowed", "trust": 80, "name": "test double"}]}, fh)
+            json.dump({"schema": "macguard.source-registry/1", "sources": [{"id": "feedA", "redistribution_status": "allowed", "owner_confirmed": True, "trust": 80, "name": "test double"}]}, fh)
         src = os.path.join(self.d, "in.txt")
         with open(src, "w") as fh:
             fh.write("1.2.3.4\nbad.example.com\n")
