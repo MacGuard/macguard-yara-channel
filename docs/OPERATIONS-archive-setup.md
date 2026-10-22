@@ -167,3 +167,32 @@ Con datos sintéticos, retención de prueba de 30 días y por proveedor. Estado 
 | Scaleway (Standard Multi-AZ, fr-par) | ≈ 0,01606 EUR/GB-mes | 75 GB/mes gratis; después 0,01 EUR/GB | incluidas | **Prueba de 750 GB durante 90 días** (anunciada en la consola; sus condiciones no constan en la página de tarifas). Después, tarifa normal |
 
 Scaleway **no** tiene franquicia permanente de almacenamiento: los escenarios del spec (§2) ya lo calculan sin capa gratuita de almacenamiento. Con unos 0,8 GB tras un año, el coste de Scaleway tras la prueba es ≈ 0,01 EUR/mes y sigue siendo de céntimos a 5 años. Anota el día 90 para revisar la factura y comprobar que la cuenta y los datos siguen.
+
+## 10. Matriz de aceptación (estado real a 2026-10-22; sin valores secretos)
+
+Tres estados distintos: **CONFIGURADO** (existe, sin probar contra el proveedor), **COMPROBADO** (verificado por una llamada real de solo lectura o por un ensayo) y **PENDIENTE**. Ningún control de protección contra borrado está COMPROBADO: no se ha ejecutado ningún ensayo contra un proveedor real.
+
+| Control | B2 | R2 | Scaleway |
+|---|---|---|---|
+| Bucket existe, privado | COMPROBADO (API del proveedor) | PENDIENTE (bucket en otra cuenta; no visible desde las herramientas del agente) | PENDIENTE (idem) |
+| Región coherente con el endpoint | COMPROBADO (`eu-central-003`) | CONFIGURADO (`auto`) | CONFIGURADO (`fr-par`) |
+| Cifrado en reposo | COMPROBADO (SSE-B2) | PENDIENTE | PENDIENTE |
+| Versionado | COMPROBADO (B2 versiona siempre) | n/a (R2 no versiona) | PENDIENTE |
+| Object Lock / bucket lock | COMPROBADO activo; **sin retención por defecto** (nada protegido aún) | PENDIENTE | PENDIENTE |
+| Entornos `-write` / `-read` | CONFIGURADO | CONFIGURADO | CONFIGURADO |
+| Rama permitida = solo `main` | COMPROBADO (política de ramas con `main`) | COMPROBADO | COMPROBADO |
+| Aprobación obligatoria en `-write` | **FALTA** (0 revisores) | **FALTA** | **FALTA** |
+| Secretos = exactamente `ARCHIVE_ACCESS_KEY_ID` y `ARCHIVE_SECRET_ACCESS_KEY` | COMPROBADO (solo nombres) | COMPROBADO | COMPROBADO |
+| Variables `ARCHIVE_BUCKET/ENDPOINT/REGION` | COMPROBADO | CONFIGURADO | CONFIGURADO |
+| `ARCHIVE_S3_PROVIDER` conforme a §2 | **INCORRECTO** (`b2`; debe ser `Other`) | **INCORRECTO** (`r2`; `Cloudflare`) | **INCORRECTO** (`scaleway`; `Scaleway`) |
+| Mínimo privilegio de las claves | **FALLA**: `macguard-b2-write` tiene todas las capacidades (incluidas `deleteFiles`, `bypassGovernance`, `writeKeys`, `deleteKeys`) y no está limitada al bucket; `macguard-b2-read` es de lectura pero de toda la cuenta | PENDIENTE | PENDIENTE |
+| Subida, lectura y SHA-256 | PENDIENTE | PENDIENTE | PENDIENTE |
+| Borrado de versión rechazado | PENDIENTE | PENDIENTE | PENDIENTE |
+| Sobrescritura: original intacto | PENDIENTE | PENDIENTE | PENDIENTE |
+| Cambio de retención rechazado | PENDIENTE | PENDIENTE | PENDIENTE |
+| Clave de lectura no escribe ni borra | PENDIENTE | PENDIENTE | PENDIENTE |
+| Restauración independiente + firma | PENDIENTE | PENDIENTE | PENDIENTE |
+
+**No se ejecutan los ensayos mientras la clave de escritura de B2 conserve `deleteFiles`/`bypassGovernance`, y mientras el bucket no tenga retención por defecto:** el resultado no probaría nada y la clave podría borrar. Orden: corregir claves → fijar retención por defecto Governance de prueba (30 días) → ensayo (`scripts/archive/selftest.py`) → restauración.
+
+`ARCHIVE_ENABLED` sigue sin activar; no hay Compliance; no se ha tocado ninguna release ni D1.
