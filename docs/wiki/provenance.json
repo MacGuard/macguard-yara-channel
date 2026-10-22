@@ -1,0 +1,267 @@
+{
+ "schema": 1,
+ "note": "Evidence matrix of the wiki. 'repo: self' entries are checked by CI (path and commit must exist). Entries about the private repositories are REQUIERE REVISION until the owner approves their publication; they carry commit ids and states only, never internal paths, identities or unpublished weaknesses.",
+ "entries": [
+  {
+   "id": "EV-YC-01",
+   "repo": "self",
+   "path": "config/sources.json",
+   "ref": "1525037",
+   "date": "2026-10-22",
+   "source": "config/sources.json (MacGuard/macguard-yara-channel)",
+   "confidence": "high",
+   "validation": "file read at that commit",
+   "state": "published",
+   "class": "PUBLICABLE",
+   "claim": {
+    "es": "El canal toma reglas de dos repositorios (Neo23x0/signature-base y Yara-Rules/rules) y usa un tercero, VirusTotal/yara-x, solo como motor de evaluación (kind: engine), no como proveedor de reglas.",
+    "en": "The channel takes rules from two repositories (Neo23x0/signature-base and Yara-Rules/rules) and lists a third, VirusTotal/yara-x, only as an evaluation engine (kind: engine), not as a rule provider."
+   }
+  },
+  {
+   "id": "EV-YC-02",
+   "repo": "self",
+   "ref": "rules-20261021-39541028283",
+   "date": "2026-10-22",
+   "source": "GitHub Releases of MacGuard/macguard-yara-channel",
+   "confidence": "high",
+   "validation": "release list read from the GitHub API; the latest release was verified end to end on 2026-10-21",
+   "state": "published",
+   "class": "PUBLICABLE",
+   "claim": {
+    "es": "Hay tres releases de reglas publicadas; la última es rules-20261021-39541028283.",
+    "en": "Three rule releases are published; the latest is rules-20261021-39541028283."
+   }
+  },
+  {
+   "id": "EV-YC-03",
+   "repo": "self",
+   "path": ".github/workflows/publish.yml",
+   "ref": "7cbbf96",
+   "date": "2026-10-22",
+   "source": ".github/workflows/publish.yml",
+   "confidence": "high",
+   "validation": "workflow read; signature verified by scripts/verify_public_release.py on the latest release",
+   "state": "published",
+   "class": "PUBLICABLE",
+   "claim": {
+    "es": "Cada release se firma con Sigstore sin clave almacenada, desde el workflow publish.yml, tras una aprobación humana.",
+    "en": "Each release is signed with Sigstore with no stored key, from the publish.yml workflow, after a human approval."
+   }
+  },
+  {
+   "id": "EV-YC-04",
+   "repo": "self",
+   "path": "logs/log.jsonl",
+   "date": "2026-10-22",
+   "source": "logs/ (log.jsonl and signed checkpoints)",
+   "confidence": "high",
+   "validation": "checkpoints 20, 75 and 180 verified with Sigstore",
+   "state": "published",
+   "class": "PUBLICABLE",
+   "claim": {
+    "es": "Cada publicación se registra en un registro de transparencia (árbol Merkle) con checkpoints firmados que cualquiera puede verificar.",
+    "en": "Every publication is recorded in a transparency log (Merkle tree) with signed checkpoints anyone can verify."
+   }
+  },
+  {
+   "id": "EV-YC-05",
+   "repo": "self",
+   "path": "admin/worker/src/index.js",
+   "date": "2026-10-22",
+   "source": "admin/worker (code) and the owner's production verification of 2026-10-21",
+   "confidence": "medium",
+   "validation": "code read; the deployment itself is recorded by the owner, not in the repository",
+   "state": "operational",
+   "class": "REQUIERE REVISION",
+   "claim": {
+    "es": "El panel privado de cuarentena está desplegado y en uso en su versión anterior a las funciones de retiradas persistentes y propuestas de fuentes.",
+    "en": "The private quarantine panel is deployed and in use, in its version before the persistent-withdrawal and source-proposal features."
+   }
+  },
+  {
+   "id": "EV-YC-06",
+   "repo": "self",
+   "path": "admin/worker/migrations/0003_policies.sql",
+   "ref": "8ef18b0",
+   "date": "2026-10-22",
+   "source": "pull request #24, migration 0003",
+   "confidence": "high",
+   "validation": "merged to main with tests; not deployed and migration not applied",
+   "state": "implemented-not-deployed",
+   "class": "PUBLICABLE",
+   "claim": {
+    "es": "La memoria de decisiones y las retiradas persistentes están implementadas y fusionadas en main, pero no desplegadas y su migración de base de datos no está aplicada.",
+    "en": "Decision memory and persistent withdrawals are implemented and merged to main, but not deployed, and their database migration is not applied."
+   }
+  },
+  {
+   "id": "EV-YC-07",
+   "repo": "self",
+   "path": "docs/audit/source-proposals-spec.md",
+   "ref": "0a62077",
+   "date": "2026-10-22",
+   "source": "pull request #25 and its specification",
+   "confidence": "high",
+   "validation": "merged to main with tests; not deployed",
+   "state": "implemented-not-deployed",
+   "class": "PUBLICABLE",
+   "claim": {
+    "es": "El proceso para proponer y admitir nuevas fuentes de reglas está implementado en main sin desplegar; ninguna fuente nueva se ha incorporado.",
+    "en": "The process to propose and admit new rule sources is implemented in main but not deployed; no new source has been added."
+   }
+  },
+  {
+   "id": "EV-YC-08",
+   "repo": "self",
+   "path": "docs/audit/historical-archive-triple-spec.md",
+   "ref": "5056fad",
+   "date": "2026-10-22",
+   "source": "pull request #22 and the archive specification",
+   "confidence": "high",
+   "validation": "tools merged with tests against simulated providers; no restoration from a real provider has been run",
+   "state": "development",
+   "class": "PUBLICABLE",
+   "claim": {
+    "es": "El archivo histórico en tres proveedores (R2, B2, Scaleway) tiene sus herramientas y su diseño, pero NO está operativo: no hay todavía una restauración probada desde ningún proveedor real.",
+    "en": "The three-provider historical archive (R2, B2, Scaleway) has its tools and design, but is NOT operational: no restoration from any real provider has been tested yet."
+   }
+  },
+  {
+   "id": "EV-YC-09",
+   "repo": "self",
+   "path": "DMGTrustAuditor",
+   "ref": "aa8fa2a",
+   "date": "2026-10-22",
+   "source": "DMGTrustAuditor/ in the YARA Channel repository",
+   "confidence": "medium",
+   "validation": "static survey; tests were not run for this page",
+   "state": "development",
+   "class": "PUBLICABLE",
+   "claim": {
+    "es": "MacGuard Installer Auditor (GUI, CLI y TUI sobre un núcleo común, CLI macguard-audit 0.2.0) instala reglas del canal solo si pasan firma Sigstore, manifiesto, SHA-256, conjunto exacto de ficheros, pruebas Merkle y antirretroceso; está sin firmar ni notarizar.",
+    "en": "MacGuard Installer Auditor (GUI, CLI and TUI over one core, CLI macguard-audit 0.2.0) installs channel rules only if they pass the Sigstore signature, manifest, SHA-256, exact file set, Merkle proofs and anti-rollback; it is neither signed nor notarized."
+   }
+  },
+  {
+   "id": "EV-YC-10",
+   "repo": "self",
+   "path": "scripts/macguard_smoke.py",
+   "date": "2026-10-22",
+   "source": "scripts/macguard_smoke.py and the CI job app-compat",
+   "confidence": "medium",
+   "validation": "absence of an end-to-end test found by survey",
+   "state": "planned",
+   "class": "PUBLICABLE",
+   "claim": {
+    "es": "No existe una prueba de rendimiento de extremo a extremo de la app Installer Auditor con el canal real; la prueba de humo existente copia las reglas directamente sin pasar la verificación del canal. Esa prueba está PLANIFICADA.",
+    "en": "There is no end-to-end performance test of the Installer Auditor app with the live channel; the existing smoke test copies the rules in directly and skips the channel verification. That test is PLANNED."
+   }
+  },
+  {
+   "id": "EV-EC-01",
+   "repo": "private",
+   "ref": "78f7d37",
+   "date": "2026-10-22",
+   "source": "GitLab security-mac/macusb-guard, branch ai/v1-release-integration, HEAD 78f7d37 (2026-09-30); tag v1.0.0-rc1",
+   "confidence": "medium",
+   "validation": "static read-only survey, nothing executed",
+   "state": "validation",
+   "class": "REQUIERE REVISION",
+   "claim": {
+    "es": "MacUSBGuard está en validación hacia una V1: su documentación lo describe como vista previa de desarrollo en modo solo observación; existe un tag v1.0.0-rc1 que no es ancestro de la rama actual. No importa otras aplicaciones MacGuard.",
+    "en": "MacUSBGuard is in validation towards a V1: its documentation describes it as a development preview in observe-only mode; a v1.0.0-rc1 tag exists that is not an ancestor of the current branch. It does not import other MacGuard applications."
+   }
+  },
+  {
+   "id": "EV-EC-02",
+   "repo": "private",
+   "ref": "78f7d37",
+   "date": "2026-10-22",
+   "source": "GitLab security-mac/macusb-guard documentation at HEAD 78f7d37",
+   "confidence": "medium",
+   "validation": "static read-only survey",
+   "state": "blocked",
+   "class": "REQUIERE REVISION",
+   "claim": {
+    "es": "Las comprobaciones de hardware de MacUSBGuard (HID y almacenamiento) siguen sin verificar porque falta la autorización de Apple para Endpoint Security.",
+    "en": "MacUSBGuard hardware checks (HID and storage) remain unverified because Apple's Endpoint Security entitlement is missing."
+   }
+  },
+  {
+   "id": "EV-EC-03",
+   "repo": "private",
+   "ref": "052007e",
+   "date": "2026-10-22",
+   "source": "GitLab security-mac/macfirewall-guard, main, HEAD 052007e (2026-10-10), 58 commits",
+   "confidence": "medium",
+   "validation": "static read-only survey, nothing executed",
+   "state": "development",
+   "class": "REQUIERE REVISION",
+   "claim": {
+    "es": "MacFirewallGuard está en desarrollo: tiene motor de políticas, modelo de flujos y procesos y una app SwiftUI, pero todavía NO puede bloquear conexiones porque falta la autorización de Apple para Network Extension.",
+    "en": "MacFirewallGuard is in development: it has a policy engine, a flow and process model and a SwiftUI app, but it cannot block connections yet because Apple's Network Extension entitlement is missing."
+   }
+  },
+  {
+   "id": "EV-EC-04",
+   "repo": "private",
+   "ref": "052007e",
+   "date": "2026-10-22",
+   "source": "GitLab security-mac/macfirewall-guard, roadmap and release documents at 052007e",
+   "confidence": "medium",
+   "validation": "static read-only survey",
+   "state": "development",
+   "class": "REQUIERE REVISION",
+   "claim": {
+    "es": "Fases de MacFirewallGuard: F1-A, F1-B y GUI-V1 cerradas; F2-A parcial; F2-NIM integrada. Bloqueos documentados: la autorización de Apple y que MacCoreGuard aún no existe como servicio. MacFirewallGuard tiene un cliente de MacCoreGuard probado solo contra un simulacro.",
+    "en": "MacFirewallGuard phases: F1-A, F1-B and GUI-V1 closed; F2-A partial; F2-NIM merged. Documented blockers: Apple's entitlement and the fact that MacCoreGuard does not yet exist as a service. MacFirewallGuard has a MacCoreGuard client tested only against a mock."
+   }
+  },
+  {
+   "id": "EV-EC-05",
+   "repo": "private",
+   "ref": "052007e",
+   "date": "2026-10-22",
+   "source": "GitLab security-mac/macfirewall-guard, README at 052007e",
+   "confidence": "high",
+   "validation": "README sentence read directly",
+   "state": "concept",
+   "class": "REQUIERE REVISION",
+   "claim": {
+    "es": "MacProcessGuard es un concepto: el README de MacFirewallGuard afirma que todavía no existe; no hay repositorio, código ni especificación propia.",
+    "en": "MacProcessGuard is a concept: the MacFirewallGuard README states it does not exist yet; there is no repository, code or specification of its own."
+   }
+  },
+  {
+   "id": "EV-EC-06",
+   "repo": "private",
+   "ref": "b0b0f07",
+   "date": "2026-10-22",
+   "source": "GitLab security-mac/maccore-guard, branch candidate/macfirewallguard-session-reference, one commit b0b0f07 (2026-10-09)",
+   "confidence": "high",
+   "validation": "commit count and message read; static survey of the sources",
+   "state": "prototype",
+   "class": "REQUIERE REVISION",
+   "claim": {
+    "es": "MacCoreGuard es un prototipo de un solo commit: implementa un protocolo y una capa criptográfica (cadena de hashes SHA-256 y árbol Merkle RFC 9162 con pruebas de inclusión y consistencia); registro, firma e ingesta son marcadores de posición.",
+    "en": "MacCoreGuard is a one-commit prototype: it implements a protocol and a cryptography layer (SHA-256 hash chain and an RFC 9162 Merkle tree with inclusion and consistency proofs); ledger, signing and ingest are placeholders."
+   }
+  },
+  {
+   "id": "EV-EC-07",
+   "repo": "private",
+   "ref": "f017df0",
+   "date": "2026-10-22",
+   "source": "GitLab security-mac/macguard-designkit, main, HEAD f017df0 (2026-10-08), tags v0.1.0 to v0.3.1",
+   "confidence": "medium",
+   "validation": "static read-only survey",
+   "state": "development",
+   "class": "REQUIERE REVISION",
+   "claim": {
+    "es": "MacGuardDesignKit es una biblioteca SwiftUI sin dependencias externas (tags v0.1.0 a v0.3.1); su 1.0 exige dos productos que la usen y cinco decisiones de diseño pendientes.",
+    "en": "MacGuardDesignKit is a SwiftUI library with no external dependencies (tags v0.1.0 to v0.3.1); its 1.0 needs two consuming products and five pending design decisions."
+   }
+  }
+ ]
+}
