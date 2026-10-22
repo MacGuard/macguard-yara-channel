@@ -262,6 +262,940 @@
     "es": "MacGuardDesignKit es una biblioteca SwiftUI sin dependencias externas (tags v0.1.0 a v0.3.1); su 1.0 exige dos productos que la usen y cinco decisiones de diseño pendientes.",
     "en": "MacGuardDesignKit is a SwiftUI library with no external dependencies (tags v0.1.0 to v0.3.1); its 1.0 needs two consuming products and five pending design decisions."
    }
+  },
+  {
+   "id": "EV-YC-20",
+   "repo": "self",
+   "path": ".github/workflows/daily.yml",
+   "ref": "07b247c",
+   "date": "2026-10-22",
+   "source": "daily.yml and docs-src/diagrams/architecture.mmd",
+   "confidence": "high",
+   "validation": "file read at commit; step order prepare.py, rulecheck.py, dynamic_gate.py, request-publish verified in daily.yml",
+   "state": "operational",
+   "class": "PUBLICABLE",
+   "claim": {
+    "es": "La revisión diaria ejecuta prepare.py, rulecheck.py, dynamic_gate.py (que usa decide.py) y, si el conjunto cambia, solicita la publicación.",
+    "en": "The daily review runs prepare.py, rulecheck.py, dynamic_gate.py (which uses decide.py) and, if the set changed, requests publication."
+   }
+  },
+  {
+   "id": "EV-YC-21",
+   "repo": "self",
+   "path": "config/sources.json",
+   "ref": "1525037",
+   "date": "2026-10-22",
+   "source": "config/sources.json",
+   "confidence": "high",
+   "validation": "file read at commit: nextron and community are kind rules, yara-x is kind engine with no paths",
+   "state": "operational",
+   "class": "PUBLICABLE",
+   "claim": {
+    "es": "Hay dos fuentes de reglas (Neo23x0/signature-base y Yara-Rules/rules) y una entrada de motor (VirusTotal/yara-x) que no aporta reglas.",
+    "en": "There are two rule sources (Neo23x0/signature-base and Yara-Rules/rules) and one engine entry (VirusTotal/yara-x) that contributes no rules."
+   }
+  },
+  {
+   "id": "EV-YC-22",
+   "repo": "self",
+   "path": "scripts/prepare.py",
+   "ref": "c16bc18",
+   "date": "2026-10-22",
+   "source": "scripts/prepare.py",
+   "confidence": "high",
+   "validation": "file read at commit: commits/HEAD lookup, tarball of that sha, MAX_DOWNLOAD 90,000,000, 25,000 entries, 3 attempts, 40 s, 1,000,000-byte cap, NUL check, token only for api.github.com",
+   "state": "operational",
+   "class": "PUBLICABLE",
+   "claim": {
+    "es": "prepare.py sigue el HEAD de cada fuente, descarga el tarball de ese commit exacto y registra el commit; no hay commit fijo por fuente en la configuración. Límites de descarga y extracción segura implementados.",
+    "en": "prepare.py follows each source's HEAD, downloads the tarball of that exact commit and records the commit; there is no fixed commit per source in the configuration. Download limits and safe extraction are implemented."
+   }
+  },
+  {
+   "id": "EV-YC-23",
+   "repo": "self",
+   "path": "scripts/licensing.py",
+   "ref": "29b918a",
+   "date": "2026-10-22",
+   "source": "scripts/licensing.py and config/policy.json licenses",
+   "confidence": "high",
+   "validation": "file read at commit; policy expects DRL-1.1 marker for Neo23x0/signature-base and GPL-2.0 for Yara-Rules/rules; license-changed is not in WAIVABLE (decide.py)",
+   "state": "operational",
+   "class": "PUBLICABLE",
+   "claim": {
+    "es": "La licencia de cada fuente de reglas se comprueba contra la política; si no coincide, todos sus ficheros van a cuarentena y la aprobación humana no lo levanta.",
+    "en": "The licence of each rule source is checked against the policy; if it does not match, all its files are quarantined and human approval does not lift it."
+   }
+  },
+  {
+   "id": "EV-YC-24",
+   "repo": "self",
+   "path": "scripts/rulecheck.py",
+   "ref": "86ab1d8",
+   "date": "2026-10-22",
+   "source": "scripts/rulecheck.py",
+   "confidence": "high",
+   "validation": "file read at commit: strip, rule_blocks, analyse_text, compile_file (6 rounds), classify with transitive dependency check, states VALIDATED/QUARANTINED/REJECTED/DEPRECATED",
+   "state": "operational",
+   "class": "PUBLICABLE",
+   "claim": {
+    "es": "rulecheck.py analiza el texto sin ejecutarlo, detecta reglas truncadas o corruptas, resuelve dependencias entre ficheros y clasifica cada fichero.",
+    "en": "rulecheck.py analyses the text without executing it, detects truncated or corrupt rules, resolves dependencies between files and classifies each file."
+   }
+  },
+  {
+   "id": "EV-YC-25",
+   "repo": "self",
+   "path": "config/policy.json",
+   "ref": "2cfd23f",
+   "date": "2026-10-22",
+   "source": "config/policy.json",
+   "confidence": "high",
+   "validation": "file read at commit: max_file_bytes 1000000, max_rules_per_file 3000, allowed and blocked modules, regex.max_risk_score 7, wide_gap 1000, max_for_loops 3, forbid_filesize_loops true",
+   "state": "operational",
+   "class": "PUBLICABLE",
+   "claim": {
+    "es": "La política fija 1 000 000 bytes, 3000 reglas por fichero, módulos permitidos y bloqueados, puntuación de regex 7, hueco ancho 1000 y 3 bucles for.",
+    "en": "The policy sets 1,000,000 bytes, 3000 rules per file, allowed and blocked modules, regex score 7, wide gap 1000 and 3 for loops."
+   }
+  },
+  {
+   "id": "EV-YC-26",
+   "repo": "self",
+   "path": "scripts/rulecheck.py",
+   "ref": "86ab1d8",
+   "date": "2026-10-22",
+   "source": "scripts/rulecheck.py regex_risk and analyse_text",
+   "confidence": "high",
+   "validation": "file read at commit; analyse_text run locally with Python 3.12 on three example rules: /(ab+)+c/ gives costly-regex observed 9, /ab.*cd.*ef/ gives no finding, for all i in (0..filesize-1) gives filesize-loop",
+   "state": "operational",
+   "class": "PUBLICABLE",
+   "claim": {
+    "es": "La puntuación de regex suma 9 por cuantificador anidado, 3 por dos o más tramos abiertos, 2 por .* inicial, 4 por hueco >= 1000 y 3 por repetición abierta; los bucles sobre filesize se marcan.",
+    "en": "The regex score adds 9 for a nested quantifier, 3 for two or more open stretches, 2 for a leading .*, 4 for a gap >= 1000 and 3 for an open-ended repetition; loops over filesize are flagged."
+   }
+  },
+  {
+   "id": "EV-YC-27",
+   "repo": "self",
+   "path": "scripts/decide.py",
+   "ref": "81981a7",
+   "date": "2026-10-22",
+   "source": "scripts/decide.py and tests/test_decide.py",
+   "confidence": "high",
+   "validation": "file read at commit: WAIVABLE set, hit_rate_limit 0.05 with corpus >= 50, publishability conditions, anomaly gate from policy.json (0.15 removed, 0.4 changed)",
+   "state": "operational",
+   "class": "PUBLICABLE",
+   "claim": {
+    "es": "decide.py solo permite renunciar a hallazgos de juicio, exige que la medición dinámica corresponda al conjunto exacto, que se detecten los canarios y limita cambios masivos (15 % retirado, 40 % tocado).",
+    "en": "decide.py lets a human waive only judgement findings, requires the dynamic measurement to belong to the exact set, canaries to be detected, and limits mass changes (15 % removed, 40 % touched)."
+   }
+  },
+  {
+   "id": "EV-YC-28",
+   "repo": "self",
+   "path": "scripts/dynamic_gate.py",
+   "ref": "d3236cf",
+   "date": "2026-10-22",
+   "source": "scripts/dynamic_gate.py, scripts/bench.py, config/policy.json dynamic",
+   "confidence": "high",
+   "validation": "file read at commit: runs 5, min_runs 3, noise multiplier 3.0, relative 0.25, cpu 0.5 s, rss 25 MB, absolute p95 2.0 s, scan RSS 1500 MB, compile RSS 3000 MB, compile 240 s, ddmin budget 40, max_iter 3, per-file timeout 10 s, max_failures 3",
+   "state": "operational",
+   "class": "PUBLICABLE",
+   "claim": {
+    "es": "La puerta dinámica mide 5 repeticiones frente a la release anterior con umbrales documentados y aísla culpables por delta debugging con un máximo de 3 rondas.",
+    "en": "The dynamic gate measures 5 repetitions against the previous release with documented thresholds and isolates culprits by delta debugging in at most 3 rounds."
+   }
+  },
+  {
+   "id": "EV-YC-29",
+   "repo": "self",
+   "path": "scripts/bench.py",
+   "ref": "d3236cf",
+   "date": "2026-10-22",
+   "source": "scripts/bench.py build_corpus and CANARY_RULES",
+   "confidence": "high",
+   "validation": "file read at commit: 40 random, 10 text, up to 8 system binaries, 5 canaries; root-cause document cites a clean corpus of 58 files",
+   "state": "operational",
+   "class": "PUBLICABLE",
+   "claim": {
+    "es": "El corpus benigno determinista tiene 40 ficheros aleatorios, 10 de texto y hasta 8 binarios del sistema, más 5 canarios.",
+    "en": "The deterministic benign corpus has 40 random files, 10 text files and up to 8 system binaries, plus 5 canaries."
+   }
+  },
+  {
+   "id": "EV-YC-30",
+   "repo": "self",
+   "path": "tests/test_rulecheck_adversarial.py",
+   "ref": "c16bc18",
+   "date": "2026-10-22",
+   "source": "tests/test_rulecheck_adversarial.py",
+   "confidence": "high",
+   "validation": "file read at commit: truncation at every position, 1500 random damage cases, Unicode/control inputs, pathological inputs up to 1,000,000 characters bounded by 8 s",
+   "state": "operational",
+   "class": "PUBLICABLE",
+   "claim": {
+    "es": "Hay pruebas adversariales del analizador estático: truncamiento en cada posición, 1500 daños aleatorios y entradas patológicas acotadas en tiempo.",
+    "en": "There are adversarial tests of the static analyser: truncation at every position, 1500 random damage cases and pathological inputs bounded in time."
+   }
+  },
+  {
+   "id": "EV-YC-31",
+   "repo": "self",
+   "path": "scripts/admission.py",
+   "ref": "81981a7",
+   "date": "2026-10-22",
+   "source": "scripts/admission.py, admin/worker/src/proposals.js, docs/audit/source-proposals-spec.md",
+   "confidence": "medium",
+   "validation": "file read at commit; held_sources and the new-source finding exist; decide.py accepts sources only when the caller passes them (--sources); dynamic_gate.py calls decide.decide without sources (read, not run); deployment status taken from EV-YC-07",
+   "state": "implemented-not-deployed",
+   "class": "PUBLICABLE",
+   "claim": {
+    "es": "El control de admisión de fuentes nuevas (new-source, probation) está implementado en main y no desplegado; no se ha verificado que la ejecución diaria lo active.",
+    "en": "The admission control for new sources (new-source, probation) is implemented in main and not deployed; it was not verified that the daily run activates it."
+   }
+  },
+  {
+   "id": "EV-YC-32",
+   "repo": "self",
+   "path": "config/policy.json",
+   "ref": "2cfd23f",
+   "date": "2026-10-22",
+   "source": "config/policy.json engines; logs/log.jsonl engine field",
+   "confidence": "medium",
+   "validation": "policy declares engines.min_version 4.3.0; grep of scripts, workflows, tests and config found no reader of that key; log entries record engine 4.5.0",
+   "state": "documented design",
+   "class": "PUBLICABLE",
+   "claim": {
+    "es": "La política declara versión mínima del motor 4.3.0 pero no se encontró código que la lea; la versión usada se registra (4.5.0).",
+    "en": "The policy declares a minimum engine version of 4.3.0 but no code reading it was found; the version used is recorded (4.5.0)."
+   }
+  },
+  {
+   "id": "EV-YC-33",
+   "repo": "self",
+   "path": "logs/log.jsonl",
+   "ref": "b4b9697",
+   "date": "2026-10-22",
+   "source": "logs/log.jsonl candidate.classified entries; docs/audit/root-cause-benign-hit-count-2026-10-20.md",
+   "confidence": "high",
+   "validation": "10 entries parsed with a script: scan_p95_s 0.1676 to 0.1988, scan_rss_peak_mb 84.3 to 86.6, compile_rss_mb 72.7 to 73.7, gate_seconds 81 to 174, engine 4.5.0; root-cause document table read (0.54 s vs 0.46 s)",
+   "state": "operational",
+   "class": "PUBLICABLE",
+   "claim": {
+    "es": "El registro público guarda 10 mediciones de rendimiento de CI (p95 de escaneo 0,1676 a 0,1988 s, RSS 84,3 a 86,6 MB) y un documento de auditoría guarda una comparación 0,54 s frente a 0,46 s.",
+    "en": "The public log stores 10 CI performance measurements (scan p95 0.1676 to 0.1988 s, RSS 84.3 to 86.6 MB) and an audit document stores a 0.54 s versus 0.46 s comparison."
+   }
+  },
+  {
+   "id": "EV-YC-34",
+   "repo": "self",
+   "path": "scripts/macguard_smoke.py",
+   "ref": "8165a4a",
+   "date": "2026-10-22",
+   "source": "scripts/macguard_smoke.py and the app-compat job of daily.yml",
+   "confidence": "high",
+   "validation": "file read at commit; app-compat job comment states it reports and never decides; it uses candidate rules from dist-public, not the published channel",
+   "state": "operational",
+   "class": "PUBLICABLE",
+   "claim": {
+    "es": "macguard_smoke.py ejecuta la CLI macguard-audit sobre el corpus seguro con las reglas candidatas e informa de caídas, cuelgues, percentiles y canarios; no decide la publicación.",
+    "en": "macguard_smoke.py runs the macguard-audit CLI over the safe corpus with the candidate rules and reports crashes, hangs, percentiles and canaries; it does not decide publication."
+   }
+  },
+  {
+   "id": "EV-YC-35",
+   "repo": "self",
+   "path": "docs/audit/TEST-MATRIX.md",
+   "ref": "5eba4f7",
+   "date": "2026-10-22",
+   "source": "docs/audit/TEST-MATRIX.md; search of tests, scripts and app tests",
+   "confidence": "medium",
+   "validation": "TEST-MATRIX read; grep for concurrency found only a unit test that a second concurrent rules update is refused (Swift) and no end-to-end performance or scan-during-update test",
+   "state": "planned",
+   "class": "PUBLICABLE",
+   "claim": {
+    "es": "No hay prueba de rendimiento de extremo a extremo de Installer Auditor con el canal real ni pruebas de concurrencia entre escaneo y actualización; están planificadas.",
+    "en": "There is no end-to-end performance test of Installer Auditor with the live channel and no concurrency test between scanning and updates; they are planned."
+   }
+  },
+  {
+   "id": "EV-YC-36",
+   "repo": "self",
+   "path": ".github/workflows/daily.yml",
+   "ref": "07b247c",
+   "date": "2026-10-22",
+   "source": ".github/workflows/daily.yml and scripts/prepare.py",
+   "confidence": "medium",
+   "validation": "file read at commit: run.failed event when decision.json is missing; request-publish only when publishable and changed; prepare.py raises after 3 attempts; behaviour read, not triggered",
+   "state": "operational",
+   "class": "PUBLICABLE",
+   "claim": {
+    "es": "Si prepare.py falla, el flujo diario registra run.failed y no solicita publicación.",
+    "en": "If prepare.py fails, the daily flow records run.failed and requests no publication."
+   }
+  },
+  {
+   "id": "EV-YC-37",
+   "repo": "self",
+   "path": ".github/workflows/ci.yml",
+   "ref": "bec4ecd",
+   "date": "2026-10-22",
+   "source": ".github/workflows/ci.yml and daily.yml",
+   "confidence": "high",
+   "validation": "file read at commit: python3 -m unittest discover -s tests on pull requests and before the daily review",
+   "state": "operational",
+   "class": "PUBLICABLE",
+   "claim": {
+    "es": "La suite de pruebas Python se ejecuta en cada pull request y antes de cada revisión diaria.",
+    "en": "The Python test suite runs on every pull request and before each daily review."
+   }
+  },
+  {
+   "id": "EV-YC-38",
+   "repo": "self",
+   "path": "scripts/bench.py",
+   "ref": "d3236cf",
+   "date": "2026-10-22",
+   "source": "scripts/bench.py compile_set; docs/audit/root-cause-benign-hit-count-2026-10-20.md",
+   "confidence": "high",
+   "validation": "file read at commit: one namespace per rule file with its dependency closure; tests/test_bench.py test_the_same_rule_name_in_two_files_is_loadable_in_one_set",
+   "state": "operational",
+   "class": "PUBLICABLE",
+   "claim": {
+    "es": "El conjunto se compila con un espacio de nombres por fichero para que reglas con el mismo nombre en ficheros distintos coexistan.",
+    "en": "The set is compiled with one namespace per file so that rules with the same name in different files coexist."
+   }
+  },
+  {
+   "id": "EV-YC-60",
+   "repo": "self",
+   "path": "docs/audit/historical-archive-triple-spec.md",
+   "ref": "8423c75",
+   "date": "2026-10-22",
+   "source": "docs/audit/historical-archive-triple-spec.md (sections 3-6, 12)",
+   "confidence": "high",
+   "validation": "file read at commit; sections on content, independence, integrity, encryption and owner-authorised operations",
+   "state": "documented design",
+   "class": "PUBLICABLE",
+   "claim": {
+    "es": "El archivo histórico en tres proveedores (R2, B2, Scaleway; un bucket cada uno) es un diseño: guardaría bundles, manifiestos, hashes, firmas Sigstore, checkpoints, pruebas Merkle, registros públicos y auditoría privada cifrada con age; la retención compliance y las cuentas/claves exigen autorización del propietario.",
+    "en": "The three-provider historical archive (R2, B2, Scaleway; one bucket each) is a design: it would keep bundles, manifests, hashes, Sigstore signatures, checkpoints, Merkle proofs, public logs and age-encrypted private audit; compliance retention, accounts and keys need owner authorisation."
+   }
+  },
+  {
+   "id": "EV-YC-61",
+   "repo": "self",
+   "path": "scripts/archivectl.py",
+   "ref": "87d5c88",
+   "date": "2026-10-22",
+   "source": "scripts/archivectl.py, scripts/archive/*.py, tests/test_archive_*.py, spec section 14",
+   "confidence": "high",
+   "validation": "files read at commit; spec section 14 states phase 1 is implemented and tested locally with nothing deployed; tests were not re-run by this page author",
+   "state": "implemented-not-deployed",
+   "class": "PUBLICABLE",
+   "claim": {
+    "es": "Las herramientas de la fase 1 del archivo (segmentos, sellos, envoltorio de age, proveedores de directorio local y S3 por CLI, restore, rehearse, manifest con raíz Merkle, prune-check en seco) están en main; no hay cuentas, buckets, claves ni escritura en proveedores reales.",
+    "en": "The archive phase 1 tools (segments, seals, age wrapper, local-directory and CLI-based S3 providers, restore, rehearse, manifest with Merkle root, dry-run prune-check) are in main; there are no accounts, buckets, keys or writes to real providers."
+   }
+  },
+  {
+   "id": "EV-YC-62",
+   "repo": "self",
+   "path": "docs/audit/historical-archive-triple-spec.md",
+   "ref": "8423c75",
+   "date": "2026-10-22",
+   "source": "spec section 14 and checkout listing of docs/",
+   "confidence": "high",
+   "validation": "file read at commit; docs/OPERATIONS-archive-setup.md is absent from the main checkout (it lives in the PR #23 branch under review)",
+   "state": "planned",
+   "class": "PUBLICABLE",
+   "claim": {
+    "es": "El archivo en tres proveedores no es operativo: no se ha probado ninguna restauración desde un proveedor real y la guía de configuración docs/OPERATIONS-archive-setup.md no está en main, está en revisión.",
+    "en": "The three-provider archive is not operational: no restoration from a real provider has been tested and the setup guide docs/OPERATIONS-archive-setup.md is not in main, it is under review."
+   }
+  },
+  {
+   "id": "EV-YC-63",
+   "repo": "self",
+   "path": "docs/audit/historical-archive-triple-spec.md",
+   "ref": "8423c75",
+   "date": "2026-10-22",
+   "source": "spec section 4 (immutability per provider, independence and limits), section 2 (costs)",
+   "confidence": "medium",
+   "validation": "file read at commit; provider statements are as read by the spec author on 2026-10-21, Scaleway Object Lock explicitly flagged as to be verified on an authorised test bucket",
+   "state": "documented design",
+   "class": "PUBLICABLE",
+   "claim": {
+    "es": "Según la especificación, el bloqueo de R2 es una regla de retención eliminable, B2 ofrece gobernanza y compliance, y Scaleway debe confirmarse en un bucket de prueba; las tres copias comparten un único origen de escritura y un propietario, y el coste estimado es de céntimos a decenas de dólares en casi todos los escenarios.",
+    "en": "According to the specification, R2's lock is a removable retention rule, B2 offers governance and compliance, and Scaleway must be confirmed on a test bucket; the three copies share a single write origin and owner, and the estimated cost is cents to tens of dollars in almost all scenarios."
+   }
+  },
+  {
+   "id": "EV-YC-64",
+   "repo": "self",
+   "path": "scripts/bench.py",
+   "ref": "d3236cf",
+   "date": "2026-10-22",
+   "source": "scripts/bench.py build_corpus, CANARY_RULES",
+   "confidence": "high",
+   "validation": "file read at commit (function build_corpus)",
+   "state": "operational",
+   "class": "PUBLICABLE",
+   "claim": {
+    "es": "El corpus benigno es sintético: 40 ficheros aleatorios (semilla 1234, 512 B a 256 KiB), 10 de texto, hasta 8 binarios del sistema del ejecutor y 5 ficheros canario aparte.",
+    "en": "The benign corpus is synthetic: 40 random files (seed 1234, 512 B to 256 KiB), 10 text files, up to 8 runner system binaries and 5 separate canary files."
+   }
+  },
+  {
+   "id": "EV-YC-65",
+   "repo": "self",
+   "path": "scripts/decide.py",
+   "ref": "81981a7",
+   "date": "2026-10-22",
+   "source": "scripts/decide.py decide(); docs/audit/root-cause-benign-hit-count-2026-10-20.md",
+   "confidence": "high",
+   "validation": "file read at commit; the root-cause document describes the counting defect, its fix and tests tests/test_bench.py and tests/test_dynamic_gate.py",
+   "state": "operational",
+   "class": "PUBLICABLE",
+   "claim": {
+    "es": "La puerta dinámica pone en cuarentena una regla que coincide con más del 5 % del corpus benigno (hit_rate_limit=0.05, solo con corpus de 50 o más ficheros); un defecto de recuento por espacio de nombres se corrigió sin cambiar el límite y el resultado depende de los binarios de la imagen del ejecutor.",
+    "en": "The dynamic gate quarantines a rule that matches more than 5% of the benign corpus (hit_rate_limit=0.05, only with a corpus of 50 or more files); a per-namespace counting defect was fixed without changing the limit and the result depends on the runner image's binaries."
+   }
+  },
+  {
+   "id": "EV-YC-66",
+   "repo": "self",
+   "path": "docs/audit/RESIDUAL-RISKS.md",
+   "ref": "5eba4f7",
+   "date": "2026-10-22",
+   "source": "docs/audit/RESIDUAL-RISKS.md (RR-02, RR-06, RR-07, RR-10, RR-11, RR-12, RR-13), SECURITY-FINDINGS.md FA-11, TEST-MATRIX.md",
+   "confidence": "high",
+   "validation": "files read at commit; summarised at public level, only items already public",
+   "state": "documented design",
+   "class": "PUBLICABLE",
+   "claim": {
+    "es": "La auditoría deja abiertos, entre otros: sin atestación independiente de la revisión (manifest.evidence es declaración del flujo de publicación), puerta Linux con YARA 4.5.0 frente al motor 4.5.8 y macOS en máquina virtual, fuzzing con semillas fijas, Grype/Scorecard/lectores de pantalla sin ejecutar, revisión legal de licencias fuera de alcance y diez ficheros de la primera release retenidos.",
+    "en": "The audit leaves open, among others: no independent attestation of the review (manifest.evidence is the publishing workflow's statement), Linux gate on YARA 4.5.0 versus the 4.5.8 engine and macOS in a virtual machine, fuzzing with fixed seeds, Grype/Scorecard/screen readers not run, legal licence review out of scope and ten files of the first release withheld."
+   }
+  },
+  {
+   "id": "EV-YC-67",
+   "repo": "self",
+   "path": "config/policy.json",
+   "ref": "2cfd23f",
+   "date": "2026-10-22",
+   "source": "config/policy.json (engines, blocked_modules, dynamic, anomaly)",
+   "confidence": "high",
+   "validation": "file read at commit; values quoted as written",
+   "state": "operational",
+   "class": "PUBLICABLE",
+   "claim": {
+    "es": "La política exige YARA 4.3.0 o superior, bloquea los módulos cuckoo, magic y androguard, fija límites de cordura (scan p95 2,0 s, 1500 MB; compilación 3000 MB, 240 s), regresión con 3 veces el ruido, 25 % relativo, 0,5 s CPU o 25 MB, y rechaza la publicación automática que quite más del 15 % o cambie más del 40 %.",
+    "en": "The policy requires YARA 4.3.0 or later, blocks the cuckoo, magic and androguard modules, sets sanity limits (scan p95 2.0 s, 1500 MB; compile 3000 MB, 240 s), regression at 3 times the noise, 25% relative, 0.5 s CPU or 25 MB, and refuses automatic publication that removes more than 15% or changes more than 40%."
+   }
+  },
+  {
+   "id": "EV-YC-68",
+   "repo": "self",
+   "path": "scripts/tlog.py",
+   "ref": "c16bc18",
+   "date": "2026-10-22",
+   "source": "scripts/tlog.py (leaf_hash, node_hash, mth, inclusion_proof, verify_inclusion, consistency_proof, verify_consistency, check_inventory); tests/test_tlog_adversarial.py; docs/audit/TEST-MATRIX.md",
+   "confidence": "high",
+   "validation": "file read at commit; TEST-MATRIX records the adversarial Merkle tests as OK; not re-run by this page author",
+   "state": "operational",
+   "class": "PUBLICABLE",
+   "claim": {
+    "es": "scripts/tlog.py implementa el árbol Merkle de RFC 6962 con pruebas de inclusión y consistencia y valida el inventario de rutas; hay pruebas adversarias que mutan cada elemento de las pruebas.",
+    "en": "scripts/tlog.py implements the RFC 6962 Merkle tree with inclusion and consistency proofs and validates the path inventory; adversarial tests mutate every proof element."
+   }
+  },
+  {
+   "id": "EV-YC-69",
+   "repo": "self",
+   "path": ".github/workflows/publish.yml",
+   "ref": "7cbbf96",
+   "date": "2026-10-22",
+   "source": ".github/workflows/publish.yml (cosign sign-blob steps); scripts/tlog.py cosign_verifier",
+   "confidence": "high",
+   "validation": "file read at commit; publish.yml signs the checkpoint and dist/manifest.json with cosign sign-blob --bundle; cosign_verifier runs cosign verify-blob with certificate identity, OIDC issuer and workflow repository",
+   "state": "operational",
+   "class": "PUBLICABLE",
+   "claim": {
+    "es": "publish.yml firma con cosign sign-blob --bundle el checkpoint del registro y dist/manifest.json, y tlog.py verifica con cosign verify-blob exigiendo identidad, emisor OIDC y repositorio del flujo.",
+    "en": "publish.yml signs the log checkpoint and dist/manifest.json with cosign sign-blob --bundle, and tlog.py verifies with cosign verify-blob requiring identity, OIDC issuer and workflow repository."
+   }
+  },
+  {
+   "id": "EV-YC-70",
+   "repo": "external",
+   "date": "2026-10-22",
+   "source": "YARA documentation and README: https://yara.readthedocs.io/en/stable/ ; https://github.com/VirusTotal/yara",
+   "url": "https://github.com/VirusTotal/yara",
+   "confidence": "high",
+   "validation": "both pages opened; the README lists users under 'Who's using YARA' (the page fetch was summarised by a tool, names quoted as returned)",
+   "state": "published",
+   "class": "PUBLICABLE",
+   "claim": {
+    "es": "La documentación de YARA lo describe como una herramienta para ayudar a investigadores de malware a identificar y clasificar muestras, y su README lista usuarios como VirusTotal, ESET, Kaspersky Lab, Trend Micro y Elastic Security.",
+    "en": "YARA's documentation describes it as a tool to help malware researchers identify and classify samples, and its README lists users such as VirusTotal, ESET, Kaspersky Lab, Trend Micro and Elastic Security."
+   }
+  },
+  {
+   "id": "EV-YC-71",
+   "repo": "external",
+   "date": "2026-10-22",
+   "source": "YARA-X documentation: https://virustotal.github.io/yara-x/",
+   "url": "https://virustotal.github.io/yara-x/",
+   "confidence": "high",
+   "validation": "page opened; the roughly 99% compatibility is the project's own claim, not independently measured",
+   "state": "published",
+   "class": "PUBLICABLE",
+   "claim": {
+    "es": "YARA-X es descrito por VirusTotal como una reencarnación de YARA escrita en Rust, que busca ser más rápida y segura, con APIs para C/C++, Python y Go, y una compatibilidad declarada cercana al 99 % con las reglas de YARA.",
+    "en": "YARA-X is described by VirusTotal as a re-incarnation of YARA written in Rust, aiming to be faster and safer, with C/C++, Python and Go APIs, and a self-declared compatibility of about 99% with YARA rules."
+   }
+  },
+  {
+   "id": "EV-YC-72",
+   "repo": "external",
+   "date": "2026-10-22",
+   "source": "ClamAV manual, YARA rules: https://docs.clamav.net/manual/Signatures/YaraRules.html",
+   "url": "https://docs.clamav.net/manual/Signatures/YaraRules.html",
+   "confidence": "high",
+   "validation": "page opened; limitations quoted as listed by the manual on the date read",
+   "state": "published",
+   "class": "PUBLICABLE",
+   "claim": {
+    "es": "El manual de ClamAV dice que ClamAV puede procesar reglas YARA, con limitaciones: sin módulos, sin reglas globales, sin variables externas, sin reglas precompiladas con yarac y un máximo de 64 cadenas por regla.",
+    "en": "The ClamAV manual says ClamAV can process YARA rules, with limitations: no modules, no global rules, no external variables, no rules precompiled with yarac and at most 64 strings per rule."
+   }
+  },
+  {
+   "id": "EV-YC-73",
+   "repo": "external",
+   "date": "2026-10-22",
+   "source": "Sigstore overview: https://docs.sigstore.dev/about/overview/",
+   "url": "https://docs.sigstore.dev/about/overview/",
+   "confidence": "high",
+   "validation": "page opened",
+   "state": "published",
+   "class": "PUBLICABLE",
+   "claim": {
+    "es": "Sigstore es un proyecto abierto para firmar y verificar artefactos con eventos de firma en un registro público; Fulcio emite certificados de corta duración, Rekor es un registro de transparencia y la firma sin clave descarta el par de claves tras firmar.",
+    "en": "Sigstore is an open source project for signing and verifying artifacts with signing events recorded in a public log; Fulcio issues short-lived certificates, Rekor is a transparency log and keyless signing discards the key pair after signing."
+   }
+  },
+  {
+   "id": "EV-YC-74",
+   "repo": "external",
+   "date": "2026-10-22",
+   "source": "npm docs, generating provenance statements: https://docs.npmjs.com/generating-provenance-statements",
+   "url": "https://docs.npmjs.com/generating-provenance-statements",
+   "confidence": "high",
+   "validation": "page opened; statement quoted from the 'About npm provenance' section",
+   "state": "published",
+   "class": "PUBLICABLE",
+   "claim": {
+    "es": "La documentación de npm indica que un paquete publicado con procedencia se firma con los servidores públicos de Sigstore y se registra en un libro de transparencia público.",
+    "en": "npm documentation states that a package published with provenance is signed by Sigstore public good servers and logged in a public transparency ledger."
+   }
+  },
+  {
+   "id": "EV-YC-75",
+   "repo": "external",
+   "date": "2026-10-22",
+   "source": "Kubernetes docs, verify signed artifacts: https://kubernetes.io/docs/tasks/administer-cluster/verify-signed-artifacts/",
+   "url": "https://kubernetes.io/docs/tasks/administer-cluster/verify-signed-artifacts/",
+   "confidence": "high",
+   "validation": "page opened",
+   "state": "published",
+   "class": "PUBLICABLE",
+   "claim": {
+    "es": "La documentación de Kubernetes dice que su proceso de release firma todos los artefactos binarios (tarballs, ficheros SPDX, binarios) con la firma sin clave de cosign.",
+    "en": "Kubernetes documentation says its release process signs all binary artifacts (tarballs, SPDX files, standalone binaries) using cosign keyless signing."
+   }
+  },
+  {
+   "id": "EV-YC-76",
+   "repo": "external",
+   "date": "2026-10-22",
+   "source": "RFC 6962 Certificate Transparency: https://www.rfc-editor.org/rfc/rfc6962",
+   "url": "https://www.rfc-editor.org/rfc/rfc6962",
+   "confidence": "high",
+   "validation": "page opened; section 2.1 hash definitions; the RFC is obsoleted by RFC 9162",
+   "state": "published",
+   "class": "PUBLICABLE",
+   "claim": {
+    "es": "El RFC 6962 define el hash de árbol de Merkle con hoja SHA-256(0x00 || dato) y nodo SHA-256(0x01 || izquierda || derecha), partiendo en la mayor potencia de dos menor que n, con pruebas de inclusión y consistencia; está obsoleto por el RFC 9162.",
+    "en": "RFC 6962 defines the Merkle tree hash with leaf SHA-256(0x00 || data) and node SHA-256(0x01 || left || right), splitting at the largest power of two smaller than n, with inclusion and consistency proofs; it is obsoleted by RFC 9162."
+   }
+  },
+  {
+   "id": "EV-YC-77",
+   "repo": "external",
+   "date": "2026-10-22",
+   "source": "Go blog, module mirror and checksum database: https://go.dev/blog/module-mirror-launch",
+   "url": "https://go.dev/blog/module-mirror-launch",
+   "confidence": "high",
+   "validation": "page opened; blog post from the Go project (describes the design at launch)",
+   "state": "published",
+   "class": "PUBLICABLE",
+   "claim": {
+    "es": "El blog de Go describe la base de datos de sumas de comprobación como construida sobre un registro transparente (árbol de Merkle) de hashes respaldado por Trillian, con comprobaciones de inclusión y consistencia por la herramienta go.",
+    "en": "The Go blog describes the checksum database as built on a transparent log (Merkle tree) of hashes backed by Trillian, with inclusion and consistency checks by the go command."
+   }
+  },
+  {
+   "id": "EV-YC-78",
+   "repo": "external",
+   "date": "2026-10-22",
+   "source": "Amazon S3 User Guide, Object Lock: https://docs.aws.amazon.com/AmazonS3/latest/userguide/object-lock.html",
+   "url": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/object-lock.html",
+   "confidence": "high",
+   "validation": "page opened and read",
+   "state": "published",
+   "class": "PUBLICABLE",
+   "claim": {
+    "es": "S3 Object Lock usa un modelo escribir-una-vez-leer-muchas, solo funciona en buckets con versionado, y tiene modo gobernanza (se puede saltar con el permiso s3:BypassGovernanceRetention) y modo compliance (ningún usuario, ni el root, puede borrar durante la retención).",
+    "en": "S3 Object Lock uses a write-once-read-many model, works only on versioned buckets, and has governance mode (can be bypassed with the s3:BypassGovernanceRetention permission) and compliance mode (no user, not even root, can delete during retention)."
+   }
+  },
+  {
+   "id": "EV-YC-79",
+   "repo": "external",
+   "date": "2026-10-22",
+   "source": "Backblaze B2 Object Lock: https://www.backblaze.com/docs/cloud-storage-object-lock",
+   "url": "https://www.backblaze.com/docs/cloud-storage-object-lock",
+   "confidence": "high",
+   "validation": "page opened; summary returned by the fetch tool, statements quoted as returned",
+   "state": "published",
+   "class": "PUBLICABLE",
+   "claim": {
+    "es": "Backblaze B2 ofrece Object Lock con modo gobernanza (modificable o saltable por clientes con las capacidades de clave adecuadas) y modo compliance (nadie puede quitarlo), que debe habilitarse en el bucket y no se puede desactivar después.",
+    "en": "Backblaze B2 offers Object Lock with governance mode (modifiable or overridable by clients with the right key capabilities) and compliance mode (nobody can remove it), which must be enabled on the bucket and cannot be disabled afterwards."
+   }
+  },
+  {
+   "id": "EV-YC-40",
+   "repo": "self",
+   "path": "scripts/rulecheck.py",
+   "ref": "86ab1d8",
+   "date": "2026-10-22",
+   "source": "scripts/rulecheck.py classification (REJECTED/QUARANTINED/DEPRECATED/VALIDATED) and docs-src/en/quarantine.md",
+   "confidence": "high",
+   "validation": "file read at commit; tests.test_admission and tests.test_decide run OK 2026-10-22",
+   "state": "operational",
+   "class": "PUBLICABLE",
+   "claim": {
+    "es": "Cada archivo de reglas termina en uno de cuatro estados (VALIDATED, QUARANTINED, REJECTED, DEPRECATED); solo VALIDATED se publica; los topes de tamaño y de reglas por archivo están en config/policy.json.",
+    "en": "Each rule file ends in one of four states (VALIDATED, QUARANTINED, REJECTED, DEPRECATED); only VALIDATED is published; the size and rules-per-file caps are in config/policy.json."
+   }
+  },
+  {
+   "id": "EV-YC-41",
+   "repo": "self",
+   "path": "scripts/decide.py",
+   "ref": "81981a7",
+   "date": "2026-10-22",
+   "source": "scripts/decide.py WAIVABLE, scripts/rulecheck.py finding codes, admin/worker/src/core.js WAIVABLE and blockingReasons",
+   "confidence": "high",
+   "validation": "file read at commit; tests.test_admission (WAIVABLE parity between Python and JS) and tests.test_decide run OK 2026-10-22",
+   "state": "operational",
+   "class": "PUBLICABLE",
+   "claim": {
+    "es": "Solo nueve hallazgos de criterio son aprobables a mano; truncado, corrupción, errores de compilación, módulo bloqueado, licencia cambiada, fallo dinámico y contenido rechazado antes no se pueden aprobar, y decide.py lo aplica de nuevo.",
+    "en": "Only nine judgement findings can be approved by hand; truncation, corruption, compile errors, blocked module, changed licence, dynamic failure and previously rejected content cannot be approved, and decide.py enforces it again."
+   }
+  },
+  {
+   "id": "EV-YC-42",
+   "repo": "self",
+   "path": "admin/worker/src/core.js",
+   "ref": "faff238",
+   "date": "2026-10-22",
+   "source": "admin/worker/src/core.js (HUMAN, validateDecisionRequest, chainHash, verifyChain), docs-src/en/admin-panel.md",
+   "confidence": "high",
+   "validation": "file read at commit; node --test test/service.test.js test/policies.test.js test/anchor.test.js in admin/worker gave 113 pass, 0 fail on 2026-10-22",
+   "state": "operational",
+   "class": "PUBLICABLE",
+   "claim": {
+    "es": "El panel permite approve, reject, hold, review y release_review con motivo y control de versión; ninguna acción humana produce RELEASED; las decisiones se registran en una cadena de hashes SHA-256 verificable (verifyChain).",
+    "en": "The panel allows approve, reject, hold, review and release_review with a reason and version check; no human action produces RELEASED; decisions are recorded in a verifiable SHA-256 hash chain (verifyChain)."
+   }
+  },
+  {
+   "id": "EV-YC-43",
+   "repo": "self",
+   "path": "admin/worker/src/policies.js",
+   "ref": "c99995e",
+   "date": "2026-10-22",
+   "source": "admin/worker/src/policies.js, admin/worker/migrations/0003_policies.sql, docs/audit/quarantine-decision-memory-and-withdrawal-spec.md",
+   "confidence": "medium",
+   "validation": "files read at commit; grep for blocked-by-policy/policy_mode in scripts/ and .github/ found nothing, so the pipeline does not consume policies; migration 0003 not applied (header says NOT RUN); no `reopen` action found in admin/worker/src. Deployment state of the live Worker not checked beyond the brief",
+   "state": "implemented-not-deployed",
+   "class": "PUBLICABLE",
+   "claim": {
+    "es": "El Worker de main implementa políticas persistentes y retirada de reglas publicadas (tablas de la migración 0003), pero la migración no está aplicada, no hay acción reopen y decide.py no lee todavía políticas.",
+    "en": "The main Worker implements persistent policies and withdrawal of published rules (migration 0003 tables), but the migration is not applied, there is no reopen action and decide.py does not read policies yet."
+   }
+  },
+  {
+   "id": "EV-YC-44",
+   "repo": "self",
+   "path": "admin/worker/src/anchor.js",
+   "ref": "c99995e",
+   "date": "2026-10-22",
+   "source": "admin/worker/src/anchor.js, admin/worker/migrations/0004_audit_anchor.sql",
+   "confidence": "medium",
+   "validation": "files read at commit; tests/anchor.test.js within the 113 passing node tests; migration 0004 not applied per its header and per the brief",
+   "state": "implemented-not-deployed",
+   "class": "PUBLICABLE",
+   "claim": {
+    "es": "Las anclas de auditoría (audit_anchor) están implementadas en main y solo se escriben tras probar el archivo en tres proveedores, pero la migración 0004 no está aplicada y el archivo de tres proveedores no está operativo.",
+    "en": "Audit anchors (audit_anchor) are implemented in main and written only after proving archival in three providers, but migration 0004 is not applied and the three-provider archive is not operational."
+   }
+  },
+  {
+   "id": "EV-YC-45",
+   "repo": "self",
+   "path": ".github/workflows/publish.yml",
+   "ref": "7cbbf96",
+   "date": "2026-10-22",
+   "source": ".github/workflows/publish.yml, scripts/seal.py, docs-src/en/release.md",
+   "confidence": "high",
+   "validation": "workflow and seal.py read at commit; manifest.json of the latest release downloaded and its keys listed 2026-10-22",
+   "state": "operational",
+   "class": "PUBLICABLE",
+   "claim": {
+    "es": "publish.yml re-verifica el conjunto, escribe y firma el manifiesto, empaqueta rules-release.tar.gz, crea la release como borrador y la hace pública solo con todos los archivos adjuntos; el manifiesto tiene las claves created_at, evidence, files, log, rejected, rules_root, schema, sources, stats, status, validation.",
+    "en": "publish.yml re-verifies the set, writes and signs the manifest, packages rules-release.tar.gz, creates the release as a draft and makes it public only with all files attached; the manifest has the keys created_at, evidence, files, log, rejected, rules_root, schema, sources, stats, status, validation."
+   }
+  },
+  {
+   "id": "EV-YC-46",
+   "repo": "self",
+   "path": ".github/workflows/publish.yml",
+   "ref": "7cbbf96",
+   "date": "2026-10-22",
+   "source": "publish.yml cosign sign-blob steps, scripts/verify_public_release.py DEFAULT_IDENTITY/DEFAULT_ISSUER, docs-src/en/sigstore.md",
+   "confidence": "high",
+   "validation": "files read at commit; cosign v3.1.1 verify-blob of manifest.json of the latest release printed Verified OK with the default identity, issuer and workflow repository on 2026-10-22",
+   "state": "operational",
+   "class": "PUBLICABLE",
+   "claim": {
+    "es": "Se firman con Sigstore keyless (cosign sign-blob) el manifiesto y el checkpoint; la identidad es el workflow publish.yml de la rama main de este repositorio; el paquete no se firma por separado.",
+    "en": "The manifest and the checkpoint are signed with keyless Sigstore (cosign sign-blob); the identity is the publish.yml workflow on the main branch of this repository; the package is not signed separately."
+   }
+  },
+  {
+   "id": "EV-YC-47",
+   "repo": "self",
+   "path": ".github/workflows",
+   "ref": "7cbbf96",
+   "date": "2026-10-22",
+   "source": "search of .github/workflows and scripts for attest/slsa; scripts/seal.py comment; docs-src/en/sigstore.md LIMIT",
+   "confidence": "medium",
+   "validation": "grep -i attest/slsa/provenance over .github/workflows and scripts/*.py found only a 'Verify candidate provenance' step name and seal.py's note that evidence is not an independent attestation; absence of a feature, so confidence is medium (releases were not inspected for GitHub attestation records)",
+   "state": "planned",
+   "class": "PUBLICABLE",
+   "claim": {
+    "es": "El repositorio no produce atestaciones GitHub ni SLSA; existen firmas Sigstore de dos blobs y un campo evidence dentro del manifiesto firmado que es declaración del propio workflow. No hay plan programado para añadirlas.",
+    "en": "The repository does not produce GitHub or SLSA attestations; what exists is Sigstore signatures of two blobs and an evidence field inside the signed manifest that is the workflow's own statement. There is no scheduled plan to add them."
+   }
+  },
+  {
+   "id": "EV-YC-48",
+   "repo": "self",
+   "path": "scripts/seal.py",
+   "ref": "c16bc18",
+   "date": "2026-10-22",
+   "source": "scripts/seal.py evidence block, publish.yml tag naming, manifest.json of the latest release",
+   "confidence": "high",
+   "validation": "file read at commit; manifest.json evidence keys candidate_run_id, candidate_workflow_sha, publish_run_url, dynamic read 2026-10-22; tag format rules-YYYYMMDD-<run id> from publish.yml",
+   "state": "operational",
+   "class": "PUBLICABLE",
+   "claim": {
+    "es": "El manifiesto firmado incluye el enlace a la ejecución de publish.yml, la ejecución diaria del candidato y el commit de su workflow; el tag lleva el id de la ejecución de publicación.",
+    "en": "The signed manifest includes the link to the publish.yml run, the candidate's daily run and its workflow commit; the tag carries the publication run id."
+   }
+  },
+  {
+   "id": "EV-YC-49",
+   "repo": "self",
+   "path": "scripts/seal.py",
+   "ref": "c16bc18",
+   "date": "2026-10-22",
+   "source": "manifest.json sources field of the latest release; EV-YC-01",
+   "confidence": "medium",
+   "validation": "manifest.json of the latest release read 2026-10-22: each source lists id, kind, commit and licence check; not exhaustively compared with upstream repositories",
+   "state": "operational",
+   "class": "PUBLICABLE",
+   "claim": {
+    "es": "El manifiesto lista las fuentes con su commit upstream y la comprobación de licencia; así el autor original de una regla se distingue del distribuidor del paquete.",
+    "en": "The manifest lists the sources with their upstream commit and licence check, so the original author of a rule is distinguishable from the distributor of the package."
+   }
+  },
+  {
+   "id": "EV-YC-50",
+   "repo": "self",
+   "path": "scripts/tlog.py",
+   "ref": "c16bc18",
+   "date": "2026-10-22",
+   "source": "scripts/tlog.py leaf_hash/node_hash/mth, scripts/verify_public_release.py, tests/test_rules_root_vectors.py",
+   "confidence": "high",
+   "validation": "files read at commit; tests.test_rules_root_vectors, tests.test_tlog, tests.test_tlog_adversarial run OK 2026-10-22 (112 tests in the combined run)",
+   "state": "operational",
+   "class": "PUBLICABLE",
+   "claim": {
+    "es": "El árbol usa hashing RFC 6962: hoja SHA-256(0x00 || datos), nodo SHA-256(0x01 || izq || der), partición en la mayor potencia de dos menor que n; el verificador lo reimplementa de forma independiente.",
+    "en": "The tree uses RFC 6962 hashing: leaf SHA-256(0x00 || data), node SHA-256(0x01 || left || right), split at the largest power of two below n; the verifier reimplements it independently."
+   }
+  },
+  {
+   "id": "EV-YC-51",
+   "repo": "self",
+   "path": "scripts/tlog.py",
+   "ref": "c16bc18",
+   "date": "2026-10-22",
+   "source": "scripts/tlog.py ORIGIN, Log.checkpoint, parse_checkpoint; docs-src/en/transparency-log.md",
+   "confidence": "high",
+   "validation": "file read at commit; checkpoint.txt of the latest release verified by the public verifier 2026-10-22",
+   "state": "operational",
+   "class": "PUBLICABLE",
+   "claim": {
+    "es": "El checkpoint tiene tres líneas (origen macguard-rules-log v1, tamaño, raíz en base64) y lo firma Sigstore; el manifiesto repite tamaño y raíz.",
+    "en": "The checkpoint has three lines (origin macguard-rules-log v1, size, root in base64) and is signed with Sigstore; the manifest repeats size and root."
+   }
+  },
+  {
+   "id": "EV-YC-52",
+   "repo": "self",
+   "path": "tests/test_tlog_adversarial.py",
+   "ref": "c16bc18",
+   "date": "2026-10-22",
+   "source": "tests/test_tlog.py, tests/test_tlog_adversarial.py, tests/test_verify_public_release.py",
+   "confidence": "high",
+   "validation": "tests named in the page ran OK 2026-10-22 (python3 -m unittest, combined run of 112 tests)",
+   "state": "operational",
+   "class": "PUBLICABLE",
+   "claim": {
+    "es": "Las pruebas cubren historia reescrita, fork con el mismo tamaño y checkpoint de historia distinta; el verificador detecta ROLLBACK y FORK frente a un checkpoint de confianza guardado.",
+    "en": "Tests cover rewritten history, a fork at the same size and a checkpoint of a different history; the verifier detects ROLLBACK and FORK against a saved trusted checkpoint."
+   }
+  },
+  {
+   "id": "EV-YC-53",
+   "repo": "self",
+   "path": "scripts/verify_public_release.py",
+   "ref": "1e1ed4a",
+   "date": "2026-10-22",
+   "source": "scripts/verify_public_release.py run against the latest public release",
+   "confidence": "high",
+   "validation": "command output: `python3 -I scripts/verify_public_release.py --latest --color never` printed PASS (exit 0) for rules-20261021-39541028283 with 1178 files and 10021 YARA rules, 2026-10-22; tests.test_verify_public_release OK",
+   "state": "operational",
+   "class": "PUBLICABLE",
+   "claim": {
+    "es": "El verificador público, ejecutado el 2026-10-22 contra la última release, superó firma, hashes, rules_root, inclusión y recuentos.",
+    "en": "The public verifier, run on 2026-10-22 against the latest release, passed signature, hashes, rules_root, inclusion and counts."
+   }
+  },
+  {
+   "id": "EV-YC-54",
+   "repo": "self",
+   "path": "scripts/verify_public_release.py",
+   "ref": "1e1ed4a",
+   "date": "2026-10-22",
+   "source": "scripts/verify_public_release.py consistency section, tests/test_verify_public_release.py",
+   "confidence": "high",
+   "validation": "command output 2026-10-22: first run with --trust-state printed n/a, second run printed `[PASS] consistency: same checkpoint as the trusted one (180 entries)`; tests test_trust_state_is_written_only_after_a_full_pass_and_prevents_rollback and test_a_fork_at_the_same_size_is_detected OK",
+   "state": "operational",
+   "class": "PUBLICABLE",
+   "claim": {
+    "es": "Con --trust-state o --previous-checkpoint el verificador detecta retroceso (ROLLBACK), fork y exige una prueba de consistencia válida cuando el registro crece; sin ellos, la primera ejecución no establece protección.",
+    "en": "With --trust-state or --previous-checkpoint the verifier detects rollback (ROLLBACK), fork and requires a valid consistency proof when the log grows; without them a first run does not establish protection."
+   }
+  },
+  {
+   "id": "EV-YC-55",
+   "repo": "self",
+   "path": "scripts/verify_public_release.py",
+   "ref": "1e1ed4a",
+   "date": "2026-10-22",
+   "source": "scripts/verify_public_release.py EXIT_MEANING and PRECEDENCE, docs-src/en/verification.md",
+   "confidence": "high",
+   "validation": "file read at commit; exit 0 and exit 2 (fake identity) observed 2026-10-22",
+   "state": "operational",
+   "class": "PUBLICABLE",
+   "claim": {
+    "es": "El verificador usa los códigos de salida 0 a 6 y, con varios fallos, el primero según la precedencia 5, 4, 6, 2, 1, 3.",
+    "en": "The verifier uses exit codes 0 to 6 and, with several failures, the first by precedence 5, 4, 6, 2, 1, 3."
+   }
+  },
+  {
+   "id": "EV-YC-56",
+   "repo": "self",
+   "path": "docs-src/en/client-failures.md",
+   "ref": "4e60268",
+   "date": "2026-10-22",
+   "source": "docs-src/en/client-failures.md, docs-src/en/client-update.md",
+   "confidence": "medium",
+   "validation": "documentation read at commit; the app's behaviour was not re-tested for this page",
+   "state": "documented design",
+   "class": "PUBLICABLE",
+   "claim": {
+    "es": "Ante un fallo de firma, red, archivo alterado o retroceso, la aplicación no instala nada nuevo, conserva las reglas instaladas y guarda el estado de confianza con permisos 0600 antes de activar.",
+    "en": "On a signature, network, altered-file or rollback failure the app installs nothing new, keeps the installed rules and saves the trust state with 0600 permissions before activating."
+   }
+  },
+  {
+   "id": "EV-YC-57",
+   "repo": "self",
+   "path": "docs-src/en/verification.md",
+   "ref": "943302d",
+   "date": "2026-10-22",
+   "source": "docs-src/en/verification.md section H",
+   "confidence": "high",
+   "validation": "file read at commit; publish.yml has no step that signs or attaches verify_public_release.py",
+   "state": "planned",
+   "class": "PUBLICABLE",
+   "claim": {
+    "es": "Firmar el verificador con Sigstore y adjuntarlo a cada release es una propuesta; hoy ninguna release lleva una copia firmada.",
+    "en": "Signing the verifier with Sigstore and attaching it to every release is a proposal; no release carries a signed copy today."
+   }
+  },
+  {
+   "id": "EV-YC-58",
+   "repo": "self",
+   "path": "docs-src/en/merkle.md",
+   "ref": "4e60268",
+   "date": "2026-10-22",
+   "source": "docs-src/en/merkle.md LIMIT",
+   "confidence": "medium",
+   "validation": "documentation read at commit; web code not re-inspected",
+   "state": "documented design",
+   "class": "PUBLICABLE",
+   "claim": {
+    "es": "Las páginas web recalculan las sumas Merkle en el navegador pero no verifican firmas Sigstore.",
+    "en": "The web pages recompute the Merkle sums in the browser but do not verify Sigstore signatures."
+   }
+  },
+  {
+   "id": "EV-YC-59",
+   "repo": "self",
+   "path": "docs-src/en/release.md",
+   "ref": "7cbbf96",
+   "date": "2026-10-22",
+   "source": "docs-src/en/release.md publication rules, publish.yml draft-then-public step",
+   "confidence": "medium",
+   "validation": "documentation and workflow read at commit; the repository setting itself was not queried",
+   "state": "planned",
+   "class": "PUBLICABLE",
+   "claim": {
+    "es": "Las releases inmutables de GitHub no están activadas (ajuste que requiere autorización de una persona); el flujo borrador a público ya es el que ese ajuste exige.",
+    "en": "GitHub immutable releases are not enabled (a setting that needs a person's authorization); the draft-to-public flow is already the one that setting requires."
+   }
   }
  ]
 }

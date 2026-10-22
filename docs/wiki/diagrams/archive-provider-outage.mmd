@@ -1,0 +1,22 @@
+flowchart TB
+  F["One provider fails<br/>outage, account lost or tampered"]
+  W["Writes: 3 of 3 not reached<br/>alert, no pruning"]
+  S["The other two copies stay<br/>locked and signed"]
+  C["Compare SHA-256 and<br/>the signed archive manifest"]
+  D{"Do they agree?"}
+  Y["Restore from a surviving<br/>provider and verify offline"]
+  N["Divergence: investigate,<br/>do not retry until it passes"]
+  A["Add a new provider later<br/>by copying verified objects"]
+  F --> W
+  F --> S
+  S --> C
+  C --> D
+  D -->|yes| Y
+  D -->|no| N
+  Y --> A
+  classDef bad fill:#6b2222,stroke:#ff8a8a,color:#ffffff
+  classDef ok fill:#2d4a2d,stroke:#9fd69f,color:#ffffff
+  classDef mid fill:#1f3a5f,stroke:#8ab4f8,color:#ffffff
+  class F,N bad
+  class S,Y,A ok
+  class W,C,D mid

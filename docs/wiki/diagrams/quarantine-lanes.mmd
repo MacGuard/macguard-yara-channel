@@ -1,0 +1,16 @@
+flowchart TB
+  F["rule file examined"]:::src --> S{"static and dynamic checks"}:::gate
+  S -->|"no finding"| A["accepted: VALIDATED"]:::ok
+  S -->|"hard criteria"| R["rejected: REJECTED"]:::bad
+  S -->|"technical finding"| B["blocked: QUARANTINED, not approvable"]:::bad
+  S -->|"judgement finding only"| P["pending review: QUARANTINED, approvable"]:::warn
+  P -->|"person approves"| V["checks run again"]:::gate
+  V -->|"still clean"| A
+  V -->|"finding remains"| B
+  P -->|"person rejects"| R
+  A --> PUB["published in a release"]:::ok
+  classDef src fill:#cfe3ff,stroke:#2f6df0,color:#0b1b33
+  classDef gate fill:#e8e0ff,stroke:#6b4fd8,color:#1a1033
+  classDef ok fill:#d6f5dd,stroke:#2e8b4a,color:#0c2a16
+  classDef warn fill:#fff0c2,stroke:#b8860b,color:#33280a
+  classDef bad fill:#ffd9d9,stroke:#c0392b,color:#3a0d0d
