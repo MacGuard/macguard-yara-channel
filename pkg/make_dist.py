@@ -22,13 +22,15 @@ FILES = [("bin/mgctl", "bin/mgctl"), ("pkg/install.sh", "install.sh"), ("docs/cl
 
 def collect():
     out = list(FILES)
-    for d, _dirs, files in os.walk(os.path.join(ROOT, "mgctl")):
-        if "__pycache__" in d:
-            continue
-        for f in files:
-            if f.endswith((".py",)):
-                rel = os.path.relpath(os.path.join(d, f), ROOT)
-                out.append((rel, rel))
+    for pkg in ("mgctl", "intel"):
+        for d, _dirs, files in os.walk(os.path.join(ROOT, pkg)):
+            if "__pycache__" in d:
+                continue
+            for f in files:
+                if f.endswith((".py",)):
+                    rel = os.path.relpath(os.path.join(d, f), ROOT)
+                    out.append((rel, rel))
+    out += [("config/intel/sources.registry.json", "config/intel/sources.registry.json"), ("scripts/tlog.py", "scripts/tlog.py")]
     return sorted(out, key=lambda x: x[1])
 
 
