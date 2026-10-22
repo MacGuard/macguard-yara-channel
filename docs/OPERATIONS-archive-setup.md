@@ -28,28 +28,38 @@ Las claves de **escritura** deben poder: listar, comprobar existencia, leer y es
 
 ## 2. Un proveedor tras otro
 
-Cada proveedor en **una cuenta distinta**, con correo propio, 2FA con llave física y facturación propia. La cuenta Cloudflare del archivo **no puede ser** la del Worker/D1 de producción (spec §4-a).
+Cada proveedor en **una cuenta distinta**, con correo propio, 2FA con llave física y facturación propia. La cuenta Cloudflare del archivo **debería no ser** la del Worker/D1 de producción (spec §4-a); usar la misma cuenta es una decisión del propietario que reduce la independencia de la copia R2 y debe quedar anotada.
 
-### 2.1 Cloudflare R2 (cuenta nueva)
-1. Crear la cuenta, activar 2FA con llave física, activar R2 (pide medio de pago: gasto, tu autorización).
+**Bloqueo de objetos: qué protege y qué no (corregido 2026-10-22).** Governance no protege frente a identidades autorizadas para saltarse la retención; las reglas de bucket lock de R2 admiten cambios administrativos y **no** equivalen a un Compliance inmutable; solo Compliance (B2, Scaleway) impide a todos borrar o acortar, y **no se activa sin autorización expresa del propietario**. Hasta entonces la retención por defecto es Governance (B2, Scaleway) o una regla de prueba de 30 días (R2). **Ninguna protección contra borrado se da por verificada hasta ejecutar las pruebas negativas de §8** (borrado, sobrescritura, modificación de retención y bypass).
+
+### 2.1 Cloudflare R2
+1. Activar R2 en el panel (pide medio de pago: gasto, tu autorización). Preferible cuenta separada; si se usa la de producción, anótalo (ver arriba).
 2. Crear el bucket `macguard-archive-r2`; jurisdicción `eu` si D2 lo decide así (no se puede cambiar después).
-3. **Bucket lock** (reglas de retención): regla sobre todo el bucket. Prueba: 30 días. Definitiva: indefinida. **No es modo compliance**: quien tenga permisos de administración puede quitar la regla; por eso las claves de archivo nunca llevan permisos de administración y la cuenta lleva 2FA físico.
-4. API tokens (Manage R2 API Tokens), limitados al bucket: `Object Read & Write` para escritura (R2 no ofrece «solo escribir»: **el borrado queda impedido por la regla de bloqueo, no por el token**; ver §6) y `Object Read only` para lectura.
+3. **Bucket lock** (Settings → Bucket lock rules), antes de crear ningún token: regla `macguard-test-30d`, prefijo vacío (todo el bucket), duración fija de 30 días. **No usar «indefinida»** hasta saber si esa regla puede retirarse. Un bucket con reglas no se puede vaciar ni borrar. Las reglas se pueden cambiar o quitar con un token de administración de la cuenta (panel, Wrangler o API): **no es Compliance**.
+4. Credenciales S3 de **publicación y lectura** (Manage R2 API Tokens, limitadas al bucket `macguard-archive-r2`): `macguard-r2-write` con `Object Read & Write` y `macguard-r2-read` con `Object Read only`. R2 no ofrece «solo escribir»: el borrado lo impide la regla de bloqueo, no el token. Los tokens **administrativos** de la API (`Admin Read & Write`, que son de cuenta y pueden editar reglas de bloqueo) son otra cosa: **no se crean**, y no entran en GitHub.
 5. Entornos: `ARCHIVE_ENDPOINT` = `https://<ID_DE_CUENTA>.r2.cloudflarestorage.com` (añade `.eu` tras `r2` si el bucket es de jurisdicción EU), `ARCHIVE_S3_PROVIDER` = `Cloudflare`, `ARCHIVE_REGION` = `auto`, `ARCHIVE_BUCKET` = `macguard-archive-r2`. Pega Access Key ID y Secret **directamente en el secreto del entorno**, nunca en un chat.
 
 ### 2.2 Backblaze B2
 1. Crear la cuenta, 2FA con llave física, medio de pago.
-2. Crear el bucket `macguard-archive-b2` **con Object Lock activado en la creación** (no se puede activar ni desactivar después en un bucket existente según la documentación; irreversible) y privado.
-3. Retención por defecto del bucket en **modo cumplimiento (compliance)**: prueba 30 días; definitiva 3 000 días, que es el máximo documentado, y se renueva alargándola (solo se puede alargar). Es irreversible: nadie, ni tú, puede borrar antes.
-4. Application keys limitadas al bucket: escritura con `listBuckets, listFiles, readFiles, writeFiles` y **sin** `deleteFiles` ni `writeFileRetentions`/`bypassGovernance`; lectura con `listBuckets, listFiles, readFiles`.
+2. Crear el bucket `macguard-archive-b2`, privado. **Object Lock se puede activar en un bucket existente** (API nativa, `fileLockEnabled`); una vez activado no se puede desactivar. Estado verificado 2026-10-21: `allPrivate`, SSE-B2, Object Lock activo, **sin retención por defecto**, sin reglas de ciclo de vida.
+3. Retención por defecto del bucket en **Governance**: prueba 30 días. Pasar a Compliance (hasta 3 000 días, solo alargable, irreversible) requiere autorización expresa y las tres restauraciones verificadas.
+4. Application keys limitadas al bucket (capacidades distintas, no intercambiables): `deleteFiles` borra versiones; `writeFileRetentions` cambia la retención de un objeto; `bypassGovernance` salta Governance.
+   - `macguard-b2-write` (entorno `archive-b2-write`): `listBuckets, listFiles, readFiles, writeFiles`. **Sin** `deleteFiles`, `writeFileRetentions` ni `bypassGovernance` (la retención llega de la regla por defecto del bucket).
+   - `macguard-b2-read` (entorno `archive-b2-read`): `listBuckets, listFiles, readFiles`.
+   - `macguard-b2-admin`: `deleteFiles, writeFileRetentions, readFileRetentions, bypassGovernance`. **Solo en el llavero del propietario, nunca en GitHub, y no se crea hasta que el ensayo muestre qué combinación hace falta.**
 5. Entornos: `ARCHIVE_ENDPOINT` = `https://s3.<región>.backblazeb2.com` (la que muestre el bucket), `ARCHIVE_S3_PROVIDER` = `Other`, `ARCHIVE_REGION` = `<región>`, `ARCHIVE_BUCKET` = `macguard-archive-b2`.
 
 ### 2.3 Scaleway
-1. Crear la cuenta/organización, 2FA, medio de pago.
-2. Crear el bucket `macguard-archive-scw` en `fr-par` (Standard Multi-AZ) con **versionado y Object Lock activados en la creación**; privado.
-3. Retención por defecto en modo **compliance**: prueba 30 días; definitiva equivalente a 3 000 días (decisión D5). Irreversible.
-4. IAM: dos aplicaciones, cada una con su API key y una política limitada a este proyecto y bucket. Escritura: lectura y escritura de objetos **sin** `ObjectStorageObjectsDelete` ni nada que salte la retención; lectura: solo lectura de objetos y listado.
-5. Entornos: `ARCHIVE_ENDPOINT` = `https://s3.fr-par.scw.cloud`, `ARCHIVE_S3_PROVIDER` = `Scaleway`, `ARCHIVE_REGION` = `fr-par`, `ARCHIVE_BUCKET` = `macguard-archive-scw`.
+Cinco cosas distintas, en este orden:
+1. **Proyecto** exclusivo `macguard-archive` (los permisos IAM se aplican al proyecto, no al bucket: con un único bucket dentro, el alcance del proyecto es el del bucket). La prueba gratuita de 750 GB (Standard Multi-AZ y One Zone) dura **90 días** y después se paga por uso; no es una franquicia permanente (§9).
+2. **Bucket** `macguard-archive-scw` en `fr-par` (Standard Multi-AZ), privado, con versionado y Object Lock. Object Lock puede habilitarse al crear o después, exige versionado y **no se puede deshabilitar**. Retención por defecto en Governance (prueba 30 días); Compliance solo con autorización expresa.
+3. **Aplicaciones IAM**: `macguard-scw-write` y `macguard-scw-read` (identidades, sin permisos propios).
+4. **Políticas IAM** (unen aplicación, permisos y proyecto):
+   - `macguard-scw-write-policy` → `ObjectStorageObjectsRead` + `ObjectStorageObjectsWrite`, en el proyecto. Nunca `ObjectStorageObjectsDelete` ni `ObjectStorageFullAccess`. **Aviso:** `ObjectsWrite` incluye `PutObjectRetention` y `PutObjectLegalHold`, así que la clave de escritura podría intentar cambiar retenciones; el ensayo (§8) debe probarlo y, si lo logra, se añade una política de bucket que lo deniegue.
+   - `macguard-scw-read-policy` → `ObjectStorageReadOnly`.
+   - `s3:BypassGovernanceRetention` no figura en la tabla de equivalencias IAM; el procedimiento de bypass **no está documentado en lo leído** y se determina con el ensayo. No se crea ninguna credencial administrativa.
+5. **Claves de API**: una por aplicación (en «bearer» se elige la aplicación, no el usuario), proyecto preferido `macguard-archive`.
+6. Entornos: `ARCHIVE_ENDPOINT` = `https://s3.fr-par.scw.cloud`, `ARCHIVE_S3_PROVIDER` = `Scaleway`, `ARCHIVE_REGION` = `fr-par`, `ARCHIVE_BUCKET` = `macguard-archive-scw`.
 
 ### 2.4 Rotación y caducidad
 Claves de larga duración (ningún proveedor ofrece OIDC verificado, D4): rotar cada 90 días, con la anterior revocada al confirmar la nueva. Apunta la fecha de la próxima rotación en el calendario del propietario.
@@ -123,13 +133,37 @@ Mientras no se resuelva D7: retención de prueba de 30 días en los buckets de p
 ## 8. Suposiciones de plataforma que exigen un bucket de prueba (verificar antes de confiar)
 
 1. **R2**: que la regla de bloqueo del bucket impida sobrescribir y borrar objetos con un token `Object Read & Write`, y que `rclone copyto --immutable` más nuestra comprobación de existencia no deje una ventana de carrera aprovechable.
-2. **R2**: que no exista modo compliance ni versionado (la documentación leída el 2026-10-21 no los menciona).
-3. **B2**: que el Object Lock activado en la creación acepte retención por defecto en compliance desde la API S3, y que una application key sin `deleteFiles` no pueda ocultar/«borrar» versiones.
+2. **R2**: que no exista modo compliance ni versionado (la documentación leída el 2026-10-21 no los menciona) y si una regla indefinida puede retirarse.
+3. **B2**: que la retención por defecto en Governance se aplique a las subidas S3, y que una application key sin `deleteFiles` no pueda ocultar/«borrar» versiones.
 4. **B2**: código de salida de `aws s3api head-object` para objeto inexistente (el adaptador asume 254) y soporte de `--if-none-match '*'` en `put-object`; si no existe, la escritura única depende de la comprobación previa y del bloqueo.
-5. **Scaleway**: Object Lock en compliance en Standard Multi-AZ; que versionado + lock se activen en la creación; qué conjuntos de permisos IAM permiten escribir sin borrar.
+5. **Scaleway**: Object Lock en Governance en Standard Multi-AZ, y que una clave con `ObjectsWrite` no pueda acortar la retención (`PutObjectRetention`); qué conjuntos de permisos IAM permiten escribir sin borrar.
 6. **rclone** (paquete de Ubuntu 24.04): que `RCLONE_CONFIG_ARCHIVE_*` basta para las tres, y `NO_CHECK_BUCKET` con claves sin permiso de crear buckets.
 7. **Todos**: que listar con la clave de lectura funciona sobre el bucket completo y su coste/tiempo sigue siendo razonable con miles de objetos.
 8. **D1**: que existe un permiso de token de solo lectura para D1 y que `wrangler d1 execute --json` pagina bien con 1 000 filas por consulta.
 9. **GitHub**: que un entorno con revisores requeridos pausa cada trabajo de la matriz por separado, y que `max-filesize` de `curl` respeta el límite.
 
 Ningún punto de esta lista se da por bueno hasta ejecutarlo contra un bucket de prueba autorizado por ti.
+
+## 8.1 Pruebas negativas obligatorias (la protección contra borrado NO está verificada hasta pasarlas)
+
+Con datos sintéticos, retención de prueba de 30 días y por proveedor. Estado inicial de todas: **PENDIENTE**.
+
+| Prueba | Clave | Resultado esperado |
+|---|---|---|
+| Subida, lectura y comparación SHA-256 | write / read | coinciden |
+| Borrado normal (de la versión) | write | rechazado |
+| Sobrescritura de un objeto bloqueado | write | rechazada, el original intacto |
+| Acortar o quitar la retención | write | rechazado (crítico en Scaleway con `ObjectsWrite`; en R2 con el token de escritura) |
+| Borrado desde la lectura | read | rechazado |
+| Bypass autorizado | administración (llavero, solo en el ensayo) | borra solo con la combinación documentada; se anota cuál |
+| Recuperación y firma | read | `verify_public_release.py` sale 0 |
+
+## 9. Precios (leídos el 2026-10-22; sin garantía de que permanezcan)
+
+| | Almacenamiento | Salida | Operaciones | Gratis |
+|---|---|---|---|---|
+| R2 | 0,015 USD/GB-mes | gratis | A 4,50 / B 0,36 USD por millón | 10 GB-mes, 1 M A, 10 M B al mes |
+| B2 | 6,95 USD/TB-mes | gratis hasta 3× lo almacenado; después 0,01 USD/GB | clases A, B y C gratis | 10 GB |
+| Scaleway (Standard Multi-AZ, fr-par) | ≈ 0,01606 EUR/GB-mes | 75 GB/mes gratis; después 0,01 EUR/GB | incluidas | **Prueba de 750 GB durante 90 días** (anunciada en la consola; sus condiciones no constan en la página de tarifas). Después, tarifa normal |
+
+Scaleway **no** tiene franquicia permanente de almacenamiento: los escenarios del spec (§2) ya lo calculan sin capa gratuita de almacenamiento. Con unos 0,8 GB tras un año, el coste de Scaleway tras la prueba es ≈ 0,01 EUR/mes y sigue siendo de céntimos a 5 años. Anota el día 90 para revisar la factura y comprobar que la cuenta y los datos siguen.
