@@ -393,12 +393,11 @@ class AuditFileTests(Tmp):
         self.assertEqual(slurp(os.path.join(out, "report.json")), first)
 
     def test_cancellation_leaves_a_report_marked_cancelled_and_incomplete(self):
-        import _thread
         f = self.f()
         out = os.path.join(self.d, "o")
 
         def slow(path, cancel=None):
-            _thread.interrupt_main()                   # the user presses Ctrl-C while the hash is running
+            os.kill(os.getpid(), signal.SIGINT)       # a REAL SIGINT (the user presses Ctrl-C while the hash runs): it also wakes the main thread if it is blocked waiting
             for _ in range(200):
                 if cancel is not None and cancel.is_set():
                     raise InterruptedError("cancelled")
