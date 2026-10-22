@@ -1,0 +1,9 @@
+flowchart TB
+  FW["MacFirewallGuard<br/>development"]:::dev
+  KEY["ProcessSecurityIdentityReference<br/>key pid.pidversion<br/>state PROVIDER_ABSENT"]:::ok
+  PG["MacProcessGuard<br/>concept: no repo, no code, no spec"]:::con
+  FW --> KEY
+  KEY -. "reserved slot, not implemented" .-> PG
+  classDef dev fill:#fff3cd,stroke:#8a6d00,color:#3d2f00
+  classDef ok fill:#d6e4ff,stroke:#1a3d8f,color:#0d1f4d
+  classDef con fill:#e8e8e8,stroke:#555555,color:#111111

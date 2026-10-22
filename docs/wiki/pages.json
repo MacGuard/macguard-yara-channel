@@ -255,6 +255,156 @@
     "es": "Cómo comprobar hash, firma, identidad y pruebas del registro con comandos reales, reconocer una versión legítima y qué hacer si falla.",
     "en": "How to check hash, signature, identity and log proofs with real commands, recognise a legitimate new version and what to do on failure."
    }
+  },
+  {
+   "id": "App-USB",
+   "section": {
+    "es": "Aplicaciones",
+    "en": "Applications"
+   },
+   "title": {
+    "es": "MacUSBGuard",
+    "en": "MacUSBGuard"
+   },
+   "summary": {
+    "es": "Admisión de dispositivos USB con el Mac bloqueado: en validación, solo observación",
+    "en": "USB device admission while the Mac is locked: in validation, observe only"
+   }
+  },
+  {
+   "id": "App-Core",
+   "section": {
+    "es": "Aplicaciones",
+    "en": "Applications"
+   },
+   "title": {
+    "es": "MacCoreGuard",
+    "en": "MacCoreGuard"
+   },
+   "summary": {
+    "es": "Prototipo de registro verificable: cadena de hashes y árbol Merkle RFC 9162",
+    "en": "Prototype of a verifiable log: hash chain and RFC 9162 Merkle tree"
+   }
+  },
+  {
+   "id": "App-DesignKit",
+   "section": {
+    "es": "Aplicaciones",
+    "en": "Applications"
+   },
+   "title": {
+    "es": "MacGuardDesignKit",
+    "en": "MacGuardDesignKit"
+   },
+   "summary": {
+    "es": "Biblioteca de componentes SwiftUI compartidos; no es un producto de protección",
+    "en": "Shared SwiftUI component library; not a protection product"
+   }
+  },
+  {
+   "id": "Tech-EndpointSecurity",
+   "section": {
+    "es": "Tecnologías",
+    "en": "Technologies"
+   },
+   "title": {
+    "es": "Endpoint Security",
+    "en": "Endpoint Security"
+   },
+   "summary": {
+    "es": "Qué es y cómo la usa MacUSBGuard: compila, uso en vivo sin verificar",
+    "en": "What it is and how MacUSBGuard uses it: compiles, live use unverified"
+   }
+  },
+  {
+   "id": "Tech-DriverKit",
+   "section": {
+    "es": "Tecnologías",
+    "en": "Technologies"
+   },
+   "title": {
+    "es": "DriverKit",
+    "en": "DriverKit"
+   },
+   "summary": {
+    "es": "Controladores fuera del núcleo; en este proyecto solo en ramas, fuera del producto",
+    "en": "Drivers outside the kernel; in this project branch-only, outside the product"
+   }
+  },
+  {
+   "id": "App-Firewall",
+   "section": {
+    "es": "Aplicaciones",
+    "en": "Applications"
+   },
+   "title": {
+    "es": "MacFirewallGuard",
+    "en": "MacFirewallGuard"
+   },
+   "summary": {
+    "es": "Observación de red y motor de políticas; hoy no puede bloquear",
+    "en": "Network observation and policy engine; it cannot block today"
+   }
+  },
+  {
+   "id": "App-Process",
+   "section": {
+    "es": "Aplicaciones",
+    "en": "Applications"
+   },
+   "title": {
+    "es": "MacProcessGuard",
+    "en": "MacProcessGuard"
+   },
+   "summary": {
+    "es": "Solo un concepto: qué existe exactamente y qué no",
+    "en": "Only a concept: what exactly exists and what does not"
+   }
+  },
+  {
+   "id": "App-InstallerAuditor",
+   "section": {
+    "es": "Aplicaciones",
+    "en": "Applications"
+   },
+   "title": {
+    "es": "Installer Auditor",
+    "en": "Installer Auditor"
+   },
+   "summary": {
+    "es": "Revisa instaladores con GUI, CLI y TUI; instala reglas del canal solo si se verifican",
+    "en": "Checks installers with GUI, CLI and TUI; installs channel rules only when verified"
+   }
+  },
+  {
+   "id": "Tech-NetworkExtension",
+   "section": {
+    "es": "Tecnologías",
+    "en": "Technologies"
+   },
+   "title": {
+    "es": "Network Extension",
+    "en": "Network Extension"
+   },
+   "summary": {
+    "es": "El marco de Apple para filtrar red y el permiso que falta",
+    "en": "Apple's framework for network filtering and the missing entitlement"
+   }
+  },
+  {
+   "id": "Tech-CodeSigning",
+   "section": {
+    "es": "Tecnologías",
+    "en": "Technologies"
+   },
+   "title": {
+    "es": "Firma, notarización y Gatekeeper",
+    "en": "Code signing, notarization and Gatekeeper"
+   },
+   "summary": {
+    "es": "Qué son, cómo se relacionan y qué hace cada app MacGuard",
+    "en": "What they are, how they relate and what each MacGuard app does"
+   }
   }
  ]
 }

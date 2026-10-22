@@ -40,4 +40,5 @@ There are no committed dates. Each application's next step, blockers and depende
 - [Ecosystem: layers and relations](EN-Ecosystem)
 - [Global roadmap](EN-Roadmap)
 - [YARA Channel in depth](EN-YARA-Channel)
+- Pages: [MacUSBGuard](EN-App-USB), [MacFirewallGuard](EN-App-Firewall), [MacProcessGuard](EN-App-Process), [MacCoreGuard](EN-App-Core), [Installer Auditor](EN-App-InstallerAuditor), [DesignKit](EN-App-DesignKit)
 - [Evidence matrix](EN-Evidence)

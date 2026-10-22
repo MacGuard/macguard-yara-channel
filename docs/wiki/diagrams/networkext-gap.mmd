@@ -1,0 +1,9 @@
+flowchart TB
+  APP["App: MacFirewallGuard"]:::dev --> SE["System extension with a<br/>content filter provider"]:::plan
+  SE --> NE["Network Extension<br/>(Apple framework)"]:::ext
+  APPLE["Apple grants the entitlement"]:::blocked -. "not granted today" .-> SE
+  NE --> FL["Real flows can be allowed or blocked"]:::plan
+  classDef dev fill:#fff3cd,stroke:#8a6d00,color:#3d2f00
+  classDef plan fill:#e8e8e8,stroke:#555555,color:#111111
+  classDef ext fill:#d6e4ff,stroke:#1a3d8f,color:#0d1f4d
+  classDef blocked fill:#f8d7da,stroke:#842029,color:#3b0a10

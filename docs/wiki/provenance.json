@@ -1196,6 +1196,579 @@
     "es": "Las releases inmutables de GitHub no están activadas (ajuste que requiere autorización de una persona); el flujo borrador a público ya es el que ese ajuste exige.",
     "en": "GitHub immutable releases are not enabled (a setting that needs a person's authorization); the draft-to-public flow is already the one that setting requires."
    }
+  },
+  {
+   "id": "EV-EC-20",
+   "repo": "private",
+   "ref": "78f7d37",
+   "date": "2026-10-22",
+   "source": "GitLab security-mac/macusb-guard, branch ai/v1-release-integration, commit 78f7d37 (2026-09-30); tag v1.0.0-rc1 (c2f9492, 2026-09-25)",
+   "confidence": "high",
+   "validation": "README and git ancestry read statically; git merge-base --is-ancestor v1.0.0-rc1 HEAD returned false; nothing executed",
+   "state": "validation",
+   "class": "REQUIERE REVISION",
+   "claim": {
+    "es": "MacUSBGuard separa cuatro dominios (HID, almacenamiento, red USB, llaves de acceso) y bloquea por defecto un dispositivo nuevo con el Mac bloqueado. El tag v1.0.0-rc1 no es ancestro de la rama actual: son líneas divergentes y sus cifras de pruebas (10.862 en el tag, 816 en el README de la rama) no se suman.",
+    "en": "MacUSBGuard separates four domains (HID, storage, USB network, login keys) and by default blocks a new device while the Mac is locked. Tag v1.0.0-rc1 is not an ancestor of the current branch: they are diverging lines and their test figures (10,862 on the tag, 816 in the branch README) are not merged."
+   }
+  },
+  {
+   "id": "EV-EC-21",
+   "repo": "private",
+   "ref": "78f7d37",
+   "date": "2026-10-22",
+   "source": "GitLab security-mac/macusb-guard, commit 78f7d37: Sources/MacUSBGuardPlatform/RealEndpointSecurityClient.swift, Package.swift, README",
+   "confidence": "high",
+   "validation": "source read; calls es_new_client, es_subscribe(ES_EVENT_TYPE_AUTH_IOKIT_OPEN), es_respond_auth_result located; README says the client compiles and links but the restricted entitlement is missing; nothing executed",
+   "state": "validation",
+   "class": "REQUIERE REVISION",
+   "claim": {
+    "es": "MacUSBGuard usa Endpoint Security con un único evento AUTH (AUTH_IOKIT_OPEN). El cliente compila y enlaza con el SDK, pero su aplicación en vivo no está verificada porque falta el permiso restringido de Apple.",
+    "en": "MacUSBGuard uses Endpoint Security with a single AUTH event (AUTH_IOKIT_OPEN). The client compiles and links against the SDK, but live enforcement is unverified because Apple's restricted entitlement is missing."
+   }
+  },
+  {
+   "id": "EV-EC-22",
+   "repo": "private",
+   "ref": "78f7d37",
+   "date": "2026-10-22",
+   "source": "GitLab security-mac/macusb-guard, commit 78f7d37 (README, Sources grep, DistributionTests) and branches ai/dk2-driverkit-v1 (92243ba) and ai/dk2-2-c2-narrow-userclient-v1 (b6356bb)",
+   "confidence": "medium",
+   "validation": "grep of Sources at HEAD found DriverKit only in comments, a deliberately-unrequested entitlement record and a test; git ls-tree of the DK2 branches lists Driver/*.iig and .cpp; nothing executed",
+   "state": "planned",
+   "class": "REQUIERE REVISION",
+   "claim": {
+    "es": "DriverKit no forma parte del producto actual de MacUSBGuard; solo existe código de controlador en ramas DK2 separadas y su verificación con el permiso real de Apple sigue pendiente.",
+    "en": "DriverKit is not part of MacUSBGuard's current product; driver code exists only on separate DK2 branches and verification with Apple's real entitlement remains pending."
+   }
+  },
+  {
+   "id": "EV-EC-23",
+   "repo": "private",
+   "ref": "78f7d37",
+   "date": "2026-10-22",
+   "source": "GitLab security-mac/macusb-guard, commit 78f7d37, Sources (DiskArbitrationBackend, IOKitDeviceInventory, PolicyDaemon/main.swift, PeerAuthentication, DeviceFingerprint, PIV services)",
+   "confidence": "medium",
+   "validation": "source read statically; symbols DARegisterDiskMountApprovalCallback, NSXPCListener, SecCodeCheckValidity, TKSmartCard, SHA-256 fingerprint located",
+   "state": "validation",
+   "class": "REQUIERE REVISION",
+   "claim": {
+    "es": "El código de MacUSBGuard usa DiskArbitration, IOKit, XPC con verificación de firma del llamante, Security.framework, CryptoTokenKit, LocalAuthentication y huellas SHA-256; NetworkExtension y CGEventTap están descartados.",
+    "en": "MacUSBGuard's code uses DiskArbitration, IOKit, XPC with caller signature verification, Security.framework, CryptoTokenKit, LocalAuthentication and SHA-256 fingerprints; NetworkExtension and CGEventTap are rejected."
+   }
+  },
+  {
+   "id": "EV-EC-24",
+   "repo": "private",
+   "ref": "78f7d37",
+   "date": "2026-10-22",
+   "source": "GitLab security-mac/macusb-guard, README at 78f7d37; untracked local folder release/0.9.0-beta; tag v1.0.0-rc1 RELEASE_READINESS_REPORT.md",
+   "confidence": "medium",
+   "validation": "README warning read; ReleaseNotes of an untracked folder claim Notarization PASS while the rc1 report says NOT_NOTARIZED; no spctl or stapler check run; no release URL or tag found",
+   "state": "validation",
+   "class": "REQUIERE REVISION",
+   "claim": {
+    "es": "La notarización del DMG 0.9.0-beta y su publicación no están verificadas: la nota que la declara está en una carpeta sin versionar y el informe del tag rc1 dice NOT_NOTARIZED; el README habla de firma ad hoc y vista previa de desarrollo.",
+    "en": "Notarization of the 0.9.0-beta DMG and its publication are not verified: the note claiming it lives in an untracked folder and the rc1 tag report says NOT_NOTARIZED; the README speaks of ad hoc signing and a development preview."
+   }
+  },
+  {
+   "id": "EV-EC-25",
+   "repo": "private",
+   "ref": "78f7d37",
+   "date": "2026-10-22",
+   "source": "GitLab security-mac/macusb-guard, Sources/macusbguard-tests (63 files), README, tag v1.0.0-rc1 report",
+   "confidence": "medium",
+   "validation": "static count of the literal text check( in test sources (2929); declared figures read from README and tag report; no test executed",
+   "state": "validation",
+   "class": "REQUIERE REVISION",
+   "claim": {
+    "es": "Recuento estático de unas 2.929 apariciones de check( en 63 archivos de prueba; las cifras declaradas (816 en la rama, 10.862 en el tag) son autoinformadas y no se ejecutaron.",
+    "en": "Static count of about 2,929 occurrences of check( across 63 test files; the declared figures (816 on the branch, 10,862 on the tag) are self-reported and were not executed."
+   }
+  },
+  {
+   "id": "EV-EC-26",
+   "repo": "private",
+   "ref": "78f7d37",
+   "date": "2026-10-22",
+   "source": "GitLab security-mac/macusb-guard, Package.swift at 78f7d37",
+   "confidence": "high",
+   "validation": "Package.swift read: targets Core, StoragePlatform, Platform, PolicyDaemon, ctl, App, tests; no external package dependencies",
+   "state": "validation",
+   "class": "REQUIERE REVISION",
+   "claim": {
+    "es": "MacUSBGuard es un paquete SwiftPM sin dependencias externas cuyo demonio con privilegios depende solo de Core y StoragePlatform, de modo que el grafo de dependencias le impide alcanzar Endpoint Security y la interfaz.",
+    "en": "MacUSBGuard is a SwiftPM package with no external dependencies whose privileged daemon depends only on Core and StoragePlatform, so the dependency graph keeps it from reaching Endpoint Security and the UI."
+   }
+  },
+  {
+   "id": "EV-EC-27",
+   "repo": "private",
+   "ref": "b0b0f07",
+   "date": "2026-10-22",
+   "source": "GitLab security-mac/maccore-guard, branch candidate/macfirewallguard-session-reference, commit b0b0f07 (2026-10-09): Sources/MacCoreCrypto/CanonicalHashing.swift, MerkleTree.swift",
+   "confidence": "high",
+   "validation": "source read: recordHash with 0x02 domain tag, leaf 0x00, node 0x01, RFC 9162 recursion, inclusionProof/verifyInclusionProof, consistencyProof/verifyConsistencyProof located; nothing executed",
+   "state": "prototype",
+   "class": "REQUIERE REVISION",
+   "claim": {
+    "es": "MacCore implementa una cadena de hashes SHA-256 con etiqueta de dominio y un árbol de Merkle RFC 9162 con pruebas de inclusión y de consistencia.",
+    "en": "MacCore implements a domain-tagged SHA-256 hash chain and an RFC 9162 Merkle tree with inclusion and consistency proofs."
+   }
+  },
+  {
+   "id": "EV-EC-28",
+   "repo": "private",
+   "ref": "b0b0f07",
+   "date": "2026-10-22",
+   "source": "GitLab security-mac/maccore-guard, commit b0b0f07: Sources/MacCoreLedger, MacCoreSigning, MacCoreIngest, MacCoreWitness Placeholder.swift; Sources/maccorectl/main.swift",
+   "confidence": "high",
+   "validation": "placeholder files read: one comment line each; maccorectl prints not yet implemented",
+   "state": "prototype",
+   "class": "REQUIERE REVISION",
+   "claim": {
+    "es": "Registro durable, firma, ingesta, testigo y verificador sin conexión son marcadores de posición sin lógica en MacCore.",
+    "en": "Durable ledger, signing, ingest, witness and offline verifier are logic-free placeholders in MacCore."
+   }
+  },
+  {
+   "id": "EV-EC-29",
+   "repo": "private",
+   "ref": "b0b0f07",
+   "date": "2026-10-22",
+   "source": "GitLab security-mac/maccore-guard, commit b0b0f07 message and Sources/maccore-tests",
+   "confidence": "medium",
+   "validation": "commit message claims 147/147 tests for Protocol and Crypto; KAT vectors read in MerkleKAT.swift; tests not run",
+   "state": "prototype",
+   "class": "REQUIERE REVISION",
+   "claim": {
+    "es": "MacCore declara 147/147 pruebas para protocolo y criptografía con vectores de respuesta conocida; cifra autoinformada y no ejecutada.",
+    "en": "MacCore claims 147/147 tests for protocol and crypto with known-answer vectors; a self-reported figure that was not executed."
+   }
+  },
+  {
+   "id": "EV-EC-30",
+   "repo": "private",
+   "ref": "f017df0",
+   "date": "2026-10-22",
+   "source": "GitLab security-mac/macguard-designkit, main, commit f017df0 (2026-10-08): README, Package.swift, MacGuardDesignKit.swift",
+   "confidence": "high",
+   "validation": "README and Package.swift read; version constant 0.3.1 in code; README text partly stale; no consumer found in other Package.swift files",
+   "state": "development",
+   "class": "REQUIERE REVISION",
+   "claim": {
+    "es": "MacGuardDesignKit es una biblioteca de interfaz SwiftUI (versión 0.3.1 en el código), no un producto de protección, y ninguna aplicación la importa según los paquetes revisados.",
+    "en": "MacGuardDesignKit is a SwiftUI interface library (version 0.3.1 in code), not a protection product, and no application imports it according to the packages reviewed."
+   }
+  },
+  {
+   "id": "EV-EC-31",
+   "repo": "private",
+   "ref": "f017df0",
+   "date": "2026-10-22",
+   "source": "GitLab security-mac/macguard-designkit, commit f017df0: Package.swift, import statements in Sources, README Hard constraint",
+   "confidence": "high",
+   "validation": "import statements counted: SwiftUI, AppKit, CoreGraphics, Foundation only; no import Charts, DriverKit, NetworkExtension or EndpointSecurity",
+   "state": "development",
+   "class": "REQUIERE REVISION",
+   "claim": {
+    "es": "MacGuardDesignKit solo importa SwiftUI, AppKit, CoreGraphics y Foundation, sin dependencias externas ni frameworks de seguridad de Apple.",
+    "en": "MacGuardDesignKit imports only SwiftUI, AppKit, CoreGraphics and Foundation, with no external dependencies or Apple security frameworks."
+   }
+  },
+  {
+   "id": "EV-EC-32",
+   "repo": "private",
+   "ref": "f017df0",
+   "date": "2026-10-22",
+   "source": "GitLab security-mac/macguard-designkit, commit f017df0: Tests/MacGuardDesignKitTests, docs pending decisions",
+   "confidence": "medium",
+   "validation": "static count of func test: 26 in 3 files; no execution results documented; pending decisions document read; tests not run",
+   "state": "development",
+   "class": "REQUIERE REVISION",
+   "claim": {
+    "es": "MacGuardDesignKit tiene 26 funciones de prueba (recuento estático, sin ejecutar) y cinco decisiones de diseño pendientes de visto bueno humano.",
+    "en": "MacGuardDesignKit has 26 test functions (static count, not run) and five design decisions awaiting human sign-off."
+   }
+  },
+  {
+   "id": "EV-EC-33",
+   "repo": "external",
+   "date": "2026-10-22",
+   "source": "https://learn.microsoft.com/en-us/defender-endpoint/mac-support-sys-ext",
+   "confidence": "high",
+   "validation": "page opened on 2026-10-22; it lists an endpoint security extension (com.microsoft.wdav.epsext) and a network extension as system extensions",
+   "state": "published",
+   "class": "PUBLICABLE",
+   "claim": {
+    "es": "Microsoft documenta que Defender for Endpoint en macOS usa una extensión de seguridad de endpoint y una extensión de red como extensiones de sistema que requieren aprobación.",
+    "en": "Microsoft documents that Defender for Endpoint on macOS uses an endpoint security extension and a network extension as system extensions that require approval."
+   }
+  },
+  {
+   "id": "EV-EC-34",
+   "repo": "external",
+   "date": "2026-10-22",
+   "source": "https://github.com/pqrs-org/Karabiner-DriverKit-VirtualHIDDevice",
+   "confidence": "high",
+   "validation": "README opened on 2026-10-22; it states it implements a virtual keyboard and mouse using DriverKit and that Apple permissions must be applied for",
+   "state": "published",
+   "class": "PUBLICABLE",
+   "claim": {
+    "es": "El proyecto Karabiner-DriverKit-VirtualHIDDevice implementa un teclado y ratón virtuales con DriverKit y su README indica que hay que solicitar permisos a Apple.",
+    "en": "The Karabiner-DriverKit-VirtualHIDDevice project implements a virtual keyboard and mouse using DriverKit and its README says permissions must be requested from Apple."
+   }
+  },
+  {
+   "id": "EV-EC-35",
+   "repo": "external",
+   "date": "2026-10-22",
+   "source": "https://developer.apple.com/documentation/endpointsecurity",
+   "confidence": "low",
+   "validation": "page fetched on 2026-10-22 but only its title (Endpoint Security) was returned; the body is script-rendered and was not read",
+   "state": "published",
+   "class": "PUBLICABLE",
+   "claim": {
+    "es": "Apple publica documentación de un framework llamado Endpoint Security; el contenido de la página no pudo leerse.",
+    "en": "Apple publishes documentation for a framework named Endpoint Security; the page body could not be read."
+   }
+  },
+  {
+   "id": "EV-EC-36",
+   "repo": "external",
+   "date": "2026-10-22",
+   "source": "https://developer.apple.com/documentation/driverkit",
+   "confidence": "low",
+   "validation": "page fetched on 2026-10-22 but only its title (DriverKit) was returned; the body is script-rendered and was not read",
+   "state": "published",
+   "class": "PUBLICABLE",
+   "claim": {
+    "es": "Apple publica documentación de un framework llamado DriverKit; el contenido de la página no pudo leerse.",
+    "en": "Apple publishes documentation for a framework named DriverKit; the page body could not be read."
+   }
+  },
+  {
+   "id": "EV-EC-60",
+   "repo": "private",
+   "ref": "052007e",
+   "date": "2026-10-22",
+   "source": "GitLab security-mac/macfirewall-guard, main, commit 052007e (2026-10-10): README, docs/release entitlement decision, docs/project-management/BLOCKERS",
+   "confidence": "high",
+   "validation": "files read at the commit; nothing executed",
+   "state": "blocked",
+   "class": "REQUIERE REVISION",
+   "claim": {
+    "es": "MacFirewallGuard no puede bloquear: falta el permiso de Network Extension (filtro de contenido) y toda decisión BLOCK acaba como UNAVAILABLE(ENTITLEMENT_MISSING). El permiso de instalación de extensiones del sistema figura como concedido en su documento de decisión. Si la solicitud se presentó o respondió no está verificado. La coexistencia con otros filtros de contenido es un bloqueo documentado sin resolver.",
+    "en": "MacFirewallGuard cannot block: the Network Extension (content filter) entitlement is missing and every BLOCK decision ends as UNAVAILABLE(ENTITLEMENT_MISSING). The system-extension install entitlement is recorded as granted in its decision document. Whether the request was filed or answered is not verified. Coexistence with other content filters is a documented, unresolved blocker."
+   }
+  },
+  {
+   "id": "EV-EC-61",
+   "repo": "private",
+   "ref": "052007e",
+   "date": "2026-10-22",
+   "source": "GitLab security-mac/macfirewall-guard, main, commit 052007e: Sources/MacFirewallGuardPlatform/MacCoreGuardIPCClient.swift, Sources/MacFirewallGuardAudit/MacCoreAuditClient.swift, docs/architecture",
+   "confidence": "high",
+   "validation": "source and docs read; grep of Sources for xpc shows only comments and capability-matrix text, no XPC implementation; socket(AF_UNIX, SOCK_STREAM) in the client",
+   "state": "development",
+   "class": "REQUIERE REVISION",
+   "claim": {
+    "es": "Las docs de arquitectura hablan de XPC autenticado como diseño objetivo, pero el cliente de MacCore en el código usa un socket Unix con JSON con longitud y comprobación de la firma del par con LOCAL_PEERPID; las fuentes de producción no contienen implementación XPC.",
+    "en": "The architecture docs speak of authenticated XPC as the target design, but the MacCore client in the code uses a Unix socket with length-prefixed JSON and a peer-signature check via LOCAL_PEERPID; the production sources contain no XPC implementation."
+   }
+  },
+  {
+   "id": "EV-EC-62",
+   "repo": "private",
+   "ref": "052007e",
+   "date": "2026-10-22",
+   "source": "GitLab security-mac/macfirewall-guard, main, commit 052007e: README.md, verify (EXPECTED_DETERMINISTIC_TOTAL), docs/testing/TESTING_V1.md, docs/release/F2A_CLOSEOUT.md, docs/architecture/F2_NIM_ARCHITECTURE.md",
+   "confidence": "medium",
+   "validation": "numbers read in each document; no test was run or re-measured",
+   "state": "development",
+   "class": "REQUIERE REVISION",
+   "claim": {
+    "es": "El README (661 deterministas + 10 en vivo) está desactualizado. Cifras por documento: 661 (TESTING_V1, F1-A), 1038 (total fijado en verify), 1160 superadas (cierre F2-A), 78/78 (suite NIM). Ninguna fue re-medida y el README también afirma cero dependencias externas, ya falso.",
+    "en": "The README (661 deterministic + 10 live) is stale. Figures per document: 661 (TESTING_V1, F1-A), 1038 (total pinned in verify), 1160 passed (F2-A closeout), 78/78 (NIM suite). None was re-measured, and the README also claims zero external dependencies, which is no longer true."
+   }
+  },
+  {
+   "id": "EV-EC-63",
+   "repo": "private",
+   "ref": "052007e",
+   "date": "2026-10-22",
+   "source": "GitLab security-mac/macfirewall-guard, main, commit 052007e: Package.swift and Sources/",
+   "confidence": "high",
+   "validation": "package manifest and sources read; imports and symbols located statically",
+   "state": "development",
+   "class": "REQUIERE REVISION",
+   "claim": {
+    "es": "Capas Core, Audit, Platform, CBPFShim, UI/App y CLI; con código: PolicyEngine, CodeSignatureResolver (Security.framework), parsers DNS/TLS/QUIC, sensor BPF opcional, monitor de integridad de red, app SwiftUI con MacGuardDesignKit. NetworkExtension solo como puente de traducción; sin extensión del sistema ni ficheros de entitlements en el árbol principal. Endpoint Security, PKTAP y Rust no tienen código.",
+    "en": "Layers Core, Audit, Platform, CBPFShim, UI/App and CLI; with code: PolicyEngine, CodeSignatureResolver (Security.framework), DNS/TLS/QUIC parsers, optional BPF sensor, network-integrity monitor, SwiftUI app with MacGuardDesignKit. NetworkExtension only as a translation bridge; no system extension and no entitlement files in the main tree. Endpoint Security, PKTAP and Rust have no code."
+   }
+  },
+  {
+   "id": "EV-EC-64",
+   "repo": "private",
+   "ref": "052007e",
+   "date": "2026-10-22",
+   "source": "GitLab security-mac/macfirewall-guard, main, commit 052007e: docs/release/F2A_CLOSEOUT.md",
+   "confidence": "high",
+   "validation": "closeout report read",
+   "state": "development",
+   "class": "REQUIERE REVISION",
+   "claim": {
+    "es": "Cierre de F2-A: F2A_COMPLETE = NO; F2A_RUNTIME_VERIFIED = NO (ningún paquete real capturado, solo la ruta de permiso denegado del sensor BPF); sin TSan, fuzzing guiado por cobertura ni benchmarks de rendimiento.",
+    "en": "F2-A closeout: F2A_COMPLETE = NO; F2A_RUNTIME_VERIFIED = NO (no real packet captured, only the permission-denied path of the BPF sensor); no TSan, coverage-guided fuzzing or performance benchmarks."
+   }
+  },
+  {
+   "id": "EV-EC-65",
+   "repo": "private",
+   "ref": "052007e",
+   "date": "2026-10-22",
+   "source": "GitLab security-mac/macfirewall-guard, main, commit 052007e: docs/project-management/RELEASE_PLAN.md",
+   "confidence": "high",
+   "validation": "document read",
+   "state": "development",
+   "class": "REQUIERE REVISION",
+   "claim": {
+    "es": "FIREWALL_PRODUCTION_READY = NO: ninguna compilación está firmada, notarizada ni distribuida y no hay aplicación real de bloqueos; sin tags en el repositorio.",
+    "en": "FIREWALL_PRODUCTION_READY = NO: no build is signed, notarized or distributed and no enforcement is real; the repository has no tags."
+   }
+  },
+  {
+   "id": "EV-EC-66",
+   "repo": "private",
+   "ref": "052007e",
+   "date": "2026-10-22",
+   "source": "GitLab security-mac/macfirewall-guard, main, commit 052007e: README, docs/architecture/MFG_ARCHITECTURE_V2_AUDIT.md, docs/contracts/PROCESS_ATTRIBUTION_MODEL_V1.md, docs/security threat model",
+   "confidence": "medium",
+   "validation": "documents read; negative search of local clones for any MacProcessGuard or MacEndpointGuard repository or package found none",
+   "state": "concept",
+   "class": "REQUIERE REVISION",
+   "claim": {
+    "es": "MacProcessGuard solo aparece como frontera trazada por MacFirewallGuard (producto hermano no iniciado, decisión de mantenerlo aparte, responsabilidades futuras y maquetas de interfaz). No hay repositorio, código ni especificación propia. Los nombres MacProcessGuard y MacEndpointGuard se usan de forma inconsistente; que sean el mismo producto no está verificado.",
+    "en": "MacProcessGuard appears only as a boundary drawn by MacFirewallGuard (a not-yet-started sibling product, a decision to keep it separate, future responsibilities and interface mock-ups). There is no repository, code or specification of its own. The names MacProcessGuard and MacEndpointGuard are used inconsistently; that they are the same product is not verified."
+   }
+  },
+  {
+   "id": "EV-EC-67",
+   "repo": "private",
+   "ref": "052007e",
+   "date": "2026-10-22",
+   "source": "GitLab security-mac/macfirewall-guard, main, commit 052007e: Sources/MacFirewallGuardCore/Attribution/ProcessAttributionV1.swift, Sources/MacFirewallGuardCore/Egress/EgressProvenanceV1.swift",
+   "confidence": "high",
+   "validation": "source read: enum value PROCESS_GUARD_CORRELATION documented as not implemented yet; ExternalProducerType slots",
+   "state": "concept",
+   "class": "REQUIERE REVISION",
+   "claim": {
+    "es": "En el código de MacFirewallGuard solo hay huecos reservados para MacProcessGuard: el valor PROCESS_GUARD_CORRELATION (no implementado), la referencia ProcessSecurityIdentityReference con estado PROVIDER_ABSENT y un productor externo reconocido; ninguna función de MacProcessGuard.",
+    "en": "In the MacFirewallGuard code there are only reserved slots for MacProcessGuard: the PROCESS_GUARD_CORRELATION value (not implemented), the ProcessSecurityIdentityReference reference with state PROVIDER_ABSENT and a recognised external producer; no MacProcessGuard function."
+   }
+  },
+  {
+   "id": "EV-EC-68",
+   "repo": "self",
+   "path": "DMGTrustAuditor/DMGTrustAuditor/SIGNING.md",
+   "ref": "90b59e3",
+   "date": "2026-10-22",
+   "source": "DMGTrustAuditor/DMGTrustAuditor/SIGNING.md, docs/ENGINE.md, docs/ADR-0001-sigstore-verification.md",
+   "confidence": "high",
+   "validation": "files read at checkout c20e806; no release tag for the app found",
+   "state": "development",
+   "class": "PUBLICABLE",
+   "claim": {
+    "es": "Installer Auditor está en desarrollo: SIGNING.md dice que el paquete fuente no está firmado ni notarizado, ENGINE.md lo repite para los ayudantes y el ADR-0001 sigue con revisión humana pendiente. No hay etiqueta de versión de la app.",
+    "en": "Installer Auditor is in development: SIGNING.md says the source package is not signed or notarized, ENGINE.md repeats it for the helpers and ADR-0001 still has human review pending. There is no app version tag."
+   }
+  },
+  {
+   "id": "EV-EC-69",
+   "repo": "self",
+   "path": "DMGTrustAuditor/DMGTrustAuditor/project.yml",
+   "ref": "375896b",
+   "date": "2026-10-22",
+   "source": "project.yml, CLI/README.md, Core/Version.swift, App/, CLI/TUI.swift",
+   "confidence": "high",
+   "validation": "files read at checkout",
+   "state": "development",
+   "class": "PUBLICABLE",
+   "claim": {
+    "es": "Hay una app SwiftUI, una herramienta macguard-audit (CLI, versión 0.2.0, esquema JSON 1) y una TUI sobre un único núcleo Core (macOS 13, hardened runtime activado, Swift 5.9).",
+    "en": "There is a SwiftUI app, a macguard-audit tool (CLI, version 0.2.0, JSON schema 1) and a TUI over a single Core (macOS 13, hardened runtime on, Swift 5.9)."
+   }
+  },
+  {
+   "id": "EV-EC-70",
+   "repo": "self",
+   "path": "DMGTrustAuditor/DMGTrustAuditor/Core/RuleInstaller.swift",
+   "ref": "9b2433e",
+   "date": "2026-10-22",
+   "source": "Core/RuleInstaller.swift, Core/ChannelVerifier.swift, Tests/ChannelUpdateTests.swift",
+   "confidence": "high",
+   "validation": "source read: install() steps, Limits, activate(), verify()",
+   "state": "implemented-not-deployed",
+   "class": "PUBLICABLE",
+   "claim": {
+    "es": "RuleInstaller descarga con topes, extrae de forma segura (10 000 entradas, 160 MB expandidos, profundidad 16, 60 s), exige manifiesto idéntico al firmado, verifica con ChannelVerifier, recalcula hashes antes de activar y activa con dos renombrados con diario conservando la versión anterior; sin verificador Sigstore no instala nada.",
+    "en": "RuleInstaller downloads with caps, extracts safely (10,000 entries, 160 MB expanded, depth 16, 60 s), requires a manifest identical to the signed one, verifies with ChannelVerifier, re-hashes before activation and activates with two journalled renames keeping the previous version; without a Sigstore verifier it installs nothing."
+   }
+  },
+  {
+   "id": "EV-EC-71",
+   "repo": "self",
+   "path": "DMGTrustAuditor/DMGTrustAuditor/docs/ADR-0001-sigstore-verification.md",
+   "ref": "3c382aa",
+   "date": "2026-10-22",
+   "source": "docs/ADR-0001-sigstore-verification.md, Core/SigstoreVerifier.swift",
+   "confidence": "high",
+   "validation": "ADR and source read",
+   "state": "implemented-not-deployed",
+   "class": "PUBLICABLE",
+   "claim": {
+    "es": "La verificación Sigstore usa el cosign oficial v3.1.1 como ayudante, ejecutado solo si su SHA-256 coincide con el fijado en el código, con una raíz de confianza incluida y sin red; falla cerrado. El ADR está aceptado con revisión humana pendiente.",
+    "en": "Sigstore verification uses the official cosign v3.1.1 as a helper, run only if its SHA-256 matches the one pinned in the code, with a bundled trust root and no network; it fails closed. The ADR is accepted with human review pending."
+   }
+  },
+  {
+   "id": "EV-EC-72",
+   "repo": "self",
+   "path": "DMGTrustAuditor/DMGTrustAuditor/Core/YARAEngine.swift",
+   "ref": "375896b",
+   "date": "2026-10-22",
+   "source": "Core/YARAEngine.swift, Scripts/build-yara-engine.sh, docs/ENGINE.md",
+   "confidence": "high",
+   "validation": "source read; grep for yara-x and yarax over DMGTrustAuditor/ found no match",
+   "state": "implemented-not-deployed",
+   "class": "PUBLICABLE",
+   "claim": {
+    "es": "El motor es YARA 4.5.8 como ejecutables externos yara y yarac (universales, macOS 13+, OpenSSL estático fijado); se verifican hash, codesign --verify --strict, versión mínima 4.5.0, arquitectura y una regla canario. YARA-X no se usa. Límites de escaneo: 25 000 000 bytes por fichero y 2 000 ficheros (maxFileBytes, maxFiles).",
+    "en": "The engine is YARA 4.5.8 as external yara and yarac executables (universal, macOS 13+, pinned static OpenSSL); hash, codesign --verify --strict, minimum version 4.5.0, architecture and a canary rule are verified. YARA-X is not used. Scan limits: 25,000,000 bytes per file and 2,000 files (maxFileBytes, maxFiles)."
+   }
+  },
+  {
+   "id": "EV-EC-73",
+   "repo": "self",
+   "path": "DMGTrustAuditor/DMGTrustAuditor/Scripts/build-yara-engine.sh",
+   "ref": "375896b",
+   "date": "2026-10-22",
+   "source": "Scripts/build-yara-engine.sh (codesign --sign -), docs/ENGINE.md section on signing",
+   "confidence": "high",
+   "validation": "script and document read",
+   "state": "planned",
+   "class": "PUBLICABLE",
+   "claim": {
+    "es": "Los ayudantes yara y yarac se firman ad hoc con hardened runtime; la firma Developer ID y la notarización de la app y los ayudantes están pendientes porque no hay credenciales configuradas.",
+    "en": "The yara and yarac helpers are signed ad hoc with the hardened runtime; Developer ID signing and notarization of the app and helpers are pending because no credentials are configured."
+   }
+  },
+  {
+   "id": "EV-EC-74",
+   "repo": "self",
+   "path": "DMGTrustAuditor/DMGTrustAuditor/Tests/ChannelUpdateTests.swift",
+   "ref": "aa8fa2a",
+   "date": "2026-10-22",
+   "source": "Tests/*.swift (static count of func test), .github/workflows/app-tests.yml",
+   "confidence": "medium",
+   "validation": "static count: 105 functions in 9 files; no run and no stored CI result read",
+   "state": "validation",
+   "class": "PUBLICABLE",
+   "claim": {
+    "es": "Hay 105 funciones de prueba XCTest en 9 archivos (recuento estático, no ejecutado) y un flujo de CI en macOS; LiveChannelTests es opt-in con MACGUARD_LIVE=1 y es funcional, no de rendimiento.",
+    "en": "There are 105 XCTest functions in 9 files (static count, not run) and a macOS CI workflow; LiveChannelTests is opt-in with MACGUARD_LIVE=1 and is functional, not a performance test."
+   }
+  },
+  {
+   "id": "EV-EC-75",
+   "repo": "self",
+   "path": "scripts/macguard_smoke.py",
+   "ref": "8165a4a",
+   "date": "2026-10-22",
+   "source": "scripts/macguard_smoke.py, .github/workflows/daily.yml job app-compat, DMGTrustAuditor Tests/ResponsivenessTests.swift",
+   "confidence": "medium",
+   "validation": "scripts read: the smoke test copies rules directly and writes a fake manifest; no end-to-end performance test with the live channel found",
+   "state": "planned",
+   "class": "PUBLICABLE",
+   "claim": {
+    "es": "No existe una prueba de rendimiento de extremo a extremo de Installer Auditor con el canal real; la prueba de humo copia las reglas directamente con un manifiesto falso y se salta la verificación del canal. La prueba está PLANIFICADA y se describe cómo debería hacerse.",
+    "en": "There is no end-to-end performance test of Installer Auditor with the live channel; the smoke test copies rules in directly with a fake manifest and skips channel verification. The test is PLANNED and how it should be done is described."
+   }
+  },
+  {
+   "id": "EV-EC-76",
+   "repo": "self",
+   "path": "DMGTrustAuditor/DMGTrustAuditor/README.md",
+   "ref": "e787db8",
+   "date": "2026-10-22",
+   "source": "README.md, README_V8.md, YARA_INTEGRATION.md compared with Core/ and docs/",
+   "confidence": "high",
+   "validation": "stale statements read and compared with the current code",
+   "state": "development",
+   "class": "PUBLICABLE",
+   "claim": {
+    "es": "README.md, README_V8.md y YARA_INTEGRATION.md de la carpeta de la app describen versiones anteriores (prototipo sin compilar, actualizador desde rama de GitHub, motor no incluido, límite de 40 reglas y 30 ficheros); el código actual instala solo del canal firmado, incluye motor YARA, tiene CI en macOS y sus límites de escaneo están en YARAEngine.",
+    "en": "README.md, README_V8.md and YARA_INTEGRATION.md in the app folder describe earlier versions (uncompiled prototype, updater from a GitHub branch, engine not included, 40-rule and 30-file limit); the current code installs only from the signed channel, includes a YARA engine, has macOS CI and its scan limits are in YARAEngine."
+   }
+  },
+  {
+   "id": "EV-EC-77",
+   "repo": "self",
+   "path": "DMGTrustAuditor/DMGTrustAuditor/Core/YARARuleManager.swift",
+   "ref": "eb552a0",
+   "date": "2026-10-22",
+   "source": "Core/YARARuleManager.swift (defaultChannelBase, mirrorChannelBase), Core/RuleInstaller.swift (network failure falls to next origin; verification failure does not)",
+   "confidence": "high",
+   "validation": "source read",
+   "state": "implemented-not-deployed",
+   "class": "PUBLICABLE",
+   "claim": {
+    "es": "Los orígenes del canal son GitHub Pages primero y un espejo en Cloudflare Pages después; solo un fallo de red pasa al siguiente origen.",
+    "en": "Channel origins are GitHub Pages first and a Cloudflare Pages mirror second; only a network failure moves on to the next origin."
+   }
+  },
+  {
+   "id": "EV-EC-78",
+   "repo": "external",
+   "date": "2026-10-22",
+   "source": "https://support.apple.com/guide/security/gatekeeper-and-runtime-protection-sec5599b66df/web",
+   "confidence": "medium",
+   "validation": "page opened with WebFetch; summary of what Gatekeeper checks (developer identity, notarization, integrity, first-run approval, provenance tracking)",
+   "state": "published",
+   "class": "PUBLICABLE",
+   "claim": {
+    "es": "Según la guía de seguridad de plataforma de Apple, Gatekeeper comprueba la identidad del desarrollador, la notarización y la integridad, pide aprobación en el primer arranque de lo descargado y sigue la procedencia de los ficheros.",
+    "en": "According to Apple's Platform Security guide, Gatekeeper checks developer identity, notarization and integrity, asks for approval on first run of downloaded software and tracks file provenance."
+   }
+  },
+  {
+   "id": "EV-EC-79",
+   "repo": "external",
+   "date": "2026-10-22",
+   "source": "https://objective-see.org/products/lulu.html",
+   "confidence": "medium",
+   "validation": "page opened with WebFetch; describes LuLu as a free open-source firewall that blocks unknown outgoing connections and mentions Network Extensions (such as LuLu)",
+   "state": "published",
+   "class": "PUBLICABLE",
+   "claim": {
+    "es": "La página de Objective-See describe LuLu como cortafuegos gratuito y de código abierto que bloquea conexiones salientes desconocidas, y menciona que parte del tráfico puede no pasar por las Network Extensions (como LuLu).",
+    "en": "The Objective-See page describes LuLu as a free, open-source firewall that blocks unknown outgoing connections, and mentions that some traffic may not go through Network Extensions (such as LuLu)."
+   }
+  },
+  {
+   "id": "EV-EC-81",
+   "repo": "external",
+   "date": "2026-10-22",
+   "source": "https://developer.apple.com/documentation/networkextension",
+   "confidence": "low",
+   "validation": "page requested with WebFetch but only its title was returned; no statement of the page is relied upon",
+   "state": "published",
+   "class": "PUBLICABLE",
+   "claim": {
+    "es": "La documentación oficial de Apple sobre Network Extension existe en esa dirección, pero su cuerpo no pudo leerse con la herramienta; ninguna afirmación de la wiki depende de ella.",
+    "en": "Apple's official Network Extension documentation exists at that address, but its body could not be read with the tool; no wiki statement depends on it."
+   }
   }
  ]
 }
