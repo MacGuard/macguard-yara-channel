@@ -54,11 +54,11 @@ def build(out_dir):
     os.makedirs(out_dir, exist_ok=True)
     files, dirs = [], set()
     entries = [("./", b"", 0o755, "dir", None)]
-    for d in ("usr", "usr/bin", "usr/lib", "usr/lib/mgctl", "usr/lib/mgctl/bin", "usr/lib/mgctl/mgctl", "usr/lib/mgctl/mgctl/services", "usr/share", "usr/share/doc", f"usr/share/doc/{PACKAGE}"):
+    for d in ("usr", "usr/bin", "usr/lib", "usr/lib/mgctl", "usr/lib/mgctl/bin", "usr/lib/mgctl/mgctl", "usr/lib/mgctl/mgctl/services", "usr/lib/mgctl/intel", "usr/lib/mgctl/config", "usr/lib/mgctl/config/intel", "usr/lib/mgctl/scripts", "usr/share", "usr/share/doc", f"usr/share/doc/{PACKAGE}"):
         entries.append((f"./{d}/", b"", 0o755, "dir", None))
     for src, dst in collect():
         data = open(os.path.join(ROOT, src), "rb").read()
-        if dst.startswith("mgctl/"):
+        if dst.startswith(("mgctl/", "intel/", "config/", "scripts/")):
             target = f"usr/lib/mgctl/{dst}"
         elif dst == "bin/mgctl":
             target = "usr/lib/mgctl/bin/mgctl"

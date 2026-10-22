@@ -1,0 +1,98 @@
+{
+  "schema": "macguard.source-registry/1",
+  "note": "Redistribution status is a human decision. 'not-evaluated' and 'pending-legal' block publication. Evidence and open questions: docs/intelligence/LICENSE-MATRIX.md",
+  "sources": [
+    {
+      "id": "nextron",
+      "name": "Neo23x0/signature-base (Nextron Systems)",
+      "families": [
+        "yara"
+      ],
+      "upstream_url": "https://github.com/Neo23x0/signature-base",
+      "license": {
+        "name": "Detection Rule License 1.1",
+        "spdx": "DRL-1.1",
+        "note": "individual rule files may carry their own licence lines"
+      },
+      "redistribution_status": "pending-legal",
+      "attribution": "keep the rule author and the licence reference that each rule carries",
+      "access": {
+        "method": "git clone, public",
+        "credential_required": false
+      },
+      "trust": 70,
+      "original_signature": {
+        "kind": "none (git commits)"
+      },
+      "status_note": "LICENSE-MATRIX.md: the repository default is DRL-1.1 but individual rule files carry other licences (some non-commercial); the licence must be resolved per rule, not per repository."
+    },
+    {
+      "id": "community",
+      "name": "Yara-Rules/rules",
+      "families": [
+        "yara"
+      ],
+      "upstream_url": "https://github.com/Yara-Rules/rules",
+      "license": {
+        "name": "GNU General Public License v2",
+        "spdx": "GPL-2.0"
+      },
+      "redistribution_status": "pending-legal",
+      "attribution": "keep copyright and warranty notices and ship the licence text",
+      "access": {
+        "method": "git clone, public",
+        "credential_required": false
+      },
+      "trust": 50,
+      "original_signature": {
+        "kind": "none (git commits)"
+      }
+    },
+    {
+      "id": "yara-x",
+      "name": "VirusTotal/yara-x",
+      "families": [
+        "yara-x"
+      ],
+      "upstream_url": "https://github.com/VirusTotal/yara-x",
+      "license": {
+        "name": "BSD-3-Clause",
+        "spdx": "BSD-3-Clause"
+      },
+      "redistribution_status": "not-evaluated",
+      "attribution": "engine entry only: no rules are taken from this repository today",
+      "access": {
+        "method": "git clone, public",
+        "credential_required": false
+      },
+      "trust": 50,
+      "original_signature": {
+        "kind": "none"
+      }
+    },
+    {
+      "id": "abusech-bulk",
+      "name": "abuse.ch indicator feeds (MalwareBazaar, URLhaus, ThreatFox)",
+      "families": [
+        "ioc"
+      ],
+      "upstream_url": "https://abuse.ch/",
+      "license": {
+        "name": "abuse.ch Terms of Use (no licence grant for redistribution of these feeds)"
+      },
+      "redistribution_status": "blocked",
+      "attribution": "to be recorded",
+      "access": {
+        "method": "to be recorded",
+        "credential_required": true,
+        "credential_terms_allow_redistribution": false
+      },
+      "trust": 80,
+      "default_ttl_days": 30,
+      "original_signature": {
+        "kind": "none"
+      },
+      "status_note": "LICENSE-MATRIX.md (read 2026-10-22): MalwareBazaar, URLhaus and ThreatFox need an Auth-Key and the terms bar derivative works without consent; the old unauthenticated bulk exports return HTTP 410. Feodo Tracker and SSL Blacklist are listed separately in the matrix."
+    }
+  ]
+}

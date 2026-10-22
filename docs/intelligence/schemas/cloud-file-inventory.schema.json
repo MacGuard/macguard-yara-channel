@@ -1,0 +1,33 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.macguard.example/cloud/file-inventory/1",
+  "title": "File inventory per file (PLANNED, v1)",
+  "description": "DESIGN ONLY. MacGuard Cloud does not exist. One record per file observed on a host. It carries metadata and hashes, NEVER file contents. Provenance of each file is described by the separate file-provenance schema (written elsewhere), referenced by relative name only.",
+  "allOf": [{ "$ref": "cloud-common.schema.json#/$defs/record_header" }],
+  "type": "object",
+  "properties": {
+    "host_id": { "$ref": "cloud-common.schema.json#/$defs/id" },
+    "agent_id": { "$ref": "cloud-common.schema.json#/$defs/id" },
+    "observed_utc": { "$ref": "cloud-common.schema.json#/$defs/utc_datetime" },
+    "path": { "$ref": "cloud-common.schema.json#/$defs/path_ref" },
+    "sha256": { "$ref": "cloud-common.schema.json#/$defs/sha256" },
+    "size_bytes": { "type": "integer", "minimum": 0 },
+    "kind": { "enum": ["regular", "symlink", "bundle", "archive_member", "other"] },
+    "mode": { "type": "string", "pattern": "^[0-7]{3,4}$" },
+    "mtime_utc": { "$ref": "cloud-common.schema.json#/$defs/utc_datetime" },
+    "code_signature": {
+      "type": "object",
+      "description": "Result of the local signature check, as produced locally. 'not_checked' is a valid, honest value.",
+      "properties": {
+        "state": { "enum": ["valid", "invalid", "unsigned", "not_checked"] },
+        "team_or_issuer_hash": { "$ref": "cloud-common.schema.json#/$defs/sha256" }
+      },
+      "required": ["state"],
+      "additionalProperties": false
+    },
+    "provenance": { "$ref": "file-provenance.schema.json", "description": "Embedded or referenced provenance document; defined by file-provenance.schema.json, not here." },
+    "submission_signature": { "$ref": "cloud-common.schema.json#/$defs/signature_envelope" }
+  },
+  "required": ["host_id", "agent_id", "observed_utc", "path", "sha256", "size_bytes", "kind"],
+  "unevaluatedProperties": false
+}

@@ -1,0 +1,28 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.macguard.example/cloud/evidence/1",
+  "title": "Evidence with UTC date and trusted timestamp (PLANNED, v1)",
+  "description": "DESIGN ONLY. MacGuard Cloud does not exist. An evidence record binds the SHA-256 of an audit result, baseline or attestation to a UTC date and to an independent time proof. Primary time proof: RFC 3161 (a TSA signs the hash and its own clock). Reason: it is an open standard verifiable offline with common tools, it needs only the hash (no tenant data leaves), and it does not depend on a public log. A Sigstore Rekor entry time may be added when the artefact is public, but is not sufficient for tenant evidence because Rekor is a public log.",
+  "allOf": [{ "$ref": "cloud-common.schema.json#/$defs/record_header" }],
+  "type": "object",
+  "properties": {
+    "evidence_id": { "$ref": "cloud-common.schema.json#/$defs/id" },
+    "subject": {
+      "type": "object",
+      "properties": {
+        "kind": { "enum": ["audit_result", "baseline", "host_attestation", "fleet_result"] },
+        "id": { "$ref": "cloud-common.schema.json#/$defs/id" },
+        "sha256": { "$ref": "cloud-common.schema.json#/$defs/sha256", "description": "Hash of the canonical subject document." }
+      },
+      "required": ["kind", "id", "sha256"],
+      "additionalProperties": false
+    },
+    "recorded_utc": { "$ref": "cloud-common.schema.json#/$defs/utc_datetime", "description": "Service clock; informational. The trusted time is trusted_timestamp.gen_time." },
+    "trusted_timestamp": { "$ref": "cloud-common.schema.json#/$defs/trusted_timestamp" },
+    "chain_previous_sha256": { "$ref": "cloud-common.schema.json#/$defs/sha256", "description": "Hash of the previous evidence record of the tenant (append-only chain)." },
+    "tool_versions": { "type": "object", "additionalProperties": { "type": "string" } },
+    "signature": { "$ref": "cloud-common.schema.json#/$defs/signature_envelope" }
+  },
+  "required": ["evidence_id", "subject", "recorded_utc", "trusted_timestamp", "signature"],
+  "unevaluatedProperties": false
+}

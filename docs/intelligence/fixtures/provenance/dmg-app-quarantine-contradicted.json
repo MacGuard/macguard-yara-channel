@@ -1,0 +1,144 @@
+{
+  "schema_version": "1.0.0",
+  "document_id": "fx-dmg-app-quarantine-contradicted",
+  "generated_at": "2026-10-22T13:31:00Z",
+  "engine": { "name": "macguard-provenance", "version": "0.0.0-design", "policy_version": "1.0.0", "network_used": false, "privileges": "USER" },
+  "host": { "os_family": "macos", "os_version": "15.7", "arch": "x86_64", "host_ref": "run-0001" },
+  "subject": {
+    "kind": "application",
+    "application": { "bundle_id": "invalid.example.demoapp", "version": "2.4.0", "team_id": "AAAAAAAAAA", "root_path_class": "/Applications" }
+  },
+  "assessment": {
+    "content_origin": {
+      "value": "USER_DOWNLOAD_RECORDED",
+      "claim_basis": "DECLARED_BY_WRITABLE_METADATA",
+      "source": { "url_host": "downloads.mirror.example", "team_id": "AAAAAAAAAA", "publisher": "Example Software Ltd (from signature)", "recorded_by": "com.apple.quarantine + kMDItemWhereFroms" },
+      "basis": ["ev-quarantine", "ev-wherefroms"],
+      "contradicted_by": ["ev-host-mismatch"],
+      "reasons": ["Download was recorded by a browser, but the recorded host is not the publisher's declared site and xattrs are editable by any process of the user."]
+    },
+    "installation_method": {
+      "value": "APP_BUNDLE_COPY",
+      "basis": ["ev-quarantine", "ev-no-receipt"],
+      "missing": ["DMG file itself no longer present, cannot show it was mounted-and-dragged", "no pkg receipt"],
+      "reasons": ["Quarantine on the bundle plus no pkg receipt and no Caskroom entry is consistent with a drag install, but does not exclude other copy methods."]
+    },
+    "package_ownership": {
+      "value": "NOT_OWNED",
+      "queried_managers": ["pkgutil", "brew-cask", "mas-receipt"],
+      "unqueryable_managers": [],
+      "basis": ["ev-no-receipt"],
+      "reasons": ["No pkg receipt names the bundle, no Caskroom metadata, no _MASReceipt. A cask with the same token exists in the current catalog; that is recorded as a name collision and ignored."]
+    },
+    "integrity_status": {
+      "value": "MODIFIED",
+      "reference": { "kind": "CODE_SIGNATURE", "authority": "Developer ID team AAAAAAAAAA", "strength": "CRYPTOGRAPHIC_SIGNED", "reference_location_writable_by_attacker": false, "scope": "CODE_PAGES_ONLY" },
+      "basis": ["ev-codesign-invalid"],
+      "reasons": ["codesign --verify --deep --strict reports a sealed resource missing or invalid. The signature seals the bundle contents; something changed after signing."]
+    },
+    "provenance_confidence": {
+      "value": "LOW",
+      "contradicted": true,
+      "capped_from": "MEDIUM",
+      "cap_rule_ids": ["CAP-INTEGRITY-MODIFIED", "CAP-ORIGIN-HOST-MISMATCH"],
+      "independent_sources": 1,
+      "basis": ["ev-quarantine"],
+      "contradicted_by": ["ev-codesign-invalid", "ev-host-mismatch", "ev-gatekeeper"],
+      "reasons": ["Two writable-metadata records agree with each other but share a writer; capped to LOW by two contradictions."]
+    },
+    "detection_status": { "value": "NOT_SCANNED" }
+  },
+  "ownership_chain": [
+    { "level": "file", "resolution": "RESOLVED", "id": "DemoApp.app" },
+    { "level": "package", "resolution": "UNRESOLVED", "note": "no receipt" },
+    { "level": "manager", "resolution": "UNRESOLVED" },
+    { "level": "repository", "resolution": "UNRESOLVED" },
+    { "level": "source", "resolution": "UNRESOLVED", "note": "recorded origin is writable metadata only" }
+  ],
+  "evidence": [
+    {
+      "id": "ev-quarantine",
+      "kind": "QUARANTINE_XATTR",
+      "present": true,
+      "source": { "type": "XATTR", "command_or_api": "getxattr(com.apple.quarantine) on the bundle directory, no symlink following", "needs_root": false, "needs_network": false },
+      "observed_at": "2026-10-22T13:30:40Z",
+      "trust": "WRITABLE_METADATA",
+      "independence_group": "xattr-writer",
+      "supports": [{ "field": "content_origin", "value": "USER_DOWNLOAD_RECORDED", "weight": "MODERATE" }],
+      "summary": "flags=0083, timestamp=2025-09, agent=Safari, event UUID present. The UUID would key the quarantine event DB, which this engine does not read (personal data)."
+    },
+    {
+      "id": "ev-wherefroms",
+      "kind": "WHERE_FROMS_XATTR",
+      "present": true,
+      "source": { "type": "XATTR", "command_or_api": "getxattr(com.apple.metadata:kMDItemWhereFroms), parse binary plist; do not rely on mdls (Spotlight index)", "needs_root": false },
+      "observed_at": "2026-10-22T13:30:41Z",
+      "trust": "WRITABLE_METADATA",
+      "independence_group": "xattr-writer",
+      "supports": [{ "field": "content_origin", "value": "USER_DOWNLOAD_RECORDED", "weight": "WEAK" }],
+      "summary": "two URLs: https://downloads.mirror.example/... and the referring page"
+    },
+    {
+      "id": "ev-host-mismatch",
+      "kind": "OTHER",
+      "present": true,
+      "source": { "type": "COMPUTED", "command_or_api": "compare recorded URL host with publisher domains declared in Info.plist / signature" },
+      "observed_at": "2026-10-22T13:30:45Z",
+      "trust": "HEURISTIC",
+      "independence_group": "engine",
+      "contradicts": [{ "field": "content_origin", "value": "USER_DOWNLOAD_RECORDED", "weight": "MODERATE" }],
+      "summary": "Download host is a third-party mirror, not the publisher's declared domain. May be a legitimate CDN; recorded as a contradiction to be explained, not as a verdict."
+    },
+    {
+      "id": "ev-codesign-invalid",
+      "kind": "CODE_SIGNATURE_INVALID",
+      "present": true,
+      "source": { "type": "CODE_SIGNATURE", "command_or_api": "codesign --verify --deep --strict", "exit_status": 1 },
+      "observed_at": "2026-10-22T13:30:50Z",
+      "trust": "CRYPTOGRAPHIC",
+      "independence_group": "codesign",
+      "supports": [{ "field": "integrity_status", "value": "MODIFIED", "weight": "STRONG" }],
+      "contradicts": [{ "field": "provenance_confidence", "value": "MEDIUM", "weight": "STRONG" }],
+      "summary": "a sealed resource is missing or invalid"
+    },
+    {
+      "id": "ev-gatekeeper",
+      "kind": "GATEKEEPER_REJECTED",
+      "present": true,
+      "source": { "type": "OS_API", "command_or_api": "spctl --assess --type execute -vv", "exit_status": 3 },
+      "observed_at": "2026-10-22T13:30:55Z",
+      "trust": "SYSTEM_AUTHORITATIVE",
+      "independence_group": "gatekeeper",
+      "contradicts": [{ "field": "provenance_confidence", "value": "MEDIUM", "weight": "STRONG" }],
+      "summary": "assessment rejected"
+    },
+    {
+      "id": "ev-no-receipt",
+      "kind": "PKG_RECEIPT_OWNER",
+      "present": false,
+      "source": { "type": "PACKAGE_DB", "command_or_api": "pkgutil --file-info <bundle main executable>; Caskroom lookup; _MASReceipt presence", "exit_status": 0 },
+      "observed_at": "2026-10-22T13:30:30Z",
+      "trust": "SYSTEM_AUTHORITATIVE",
+      "independence_group": "pkgdb",
+      "summary": "No owner found in the receipts database, no Caskroom metadata, no Mac App Store receipt."
+    },
+    {
+      "id": "ev-name-collision",
+      "kind": "NAME_COLLISION_NOTE",
+      "present": true,
+      "source": { "type": "MANAGER_METADATA", "command_or_api": "brew info --json=v2 --cask demoapp (catalog entry, not an install)" },
+      "observed_at": "2026-10-22T13:30:35Z",
+      "trust": "HEURISTIC",
+      "independence_group": "catalog",
+      "summary": "A cask named demoapp exists today at a different version. Ignored for origin: a catalog entry is not an install record."
+    }
+  ],
+  "history": [
+    { "at": "2025-09-01T00:00:00Z", "at_precision": "BOUNDED_BEFORE", "change": "FIRST_SEEN_BY_ENGINE", "known_via": "FILESYSTEM_TIMESTAMP", "reliability": "LOW", "detail": "quarantine timestamp, month precision after parsing; install time and modification time of the sealed resource are unknown" }
+  ],
+  "attestations": [
+    { "kind": "NOTARIZATION_TICKET", "availability": "VERIFICATION_FAILED", "verifier": "spctl", "evidence_id": "ev-gatekeeper" }
+  ],
+  "links": { "detections": [], "vulnerabilities": [] },
+  "coverage": { "manager_or_method": "dmg-app-manual", "state": "IMPLEMENTED", "historical_reconstruction": "PARTIAL", "limits": ["Original DMG and download URL are not provable", "Quarantine event database not read (privacy)", "xattrs are lost on copy tools that drop them"] }
+}

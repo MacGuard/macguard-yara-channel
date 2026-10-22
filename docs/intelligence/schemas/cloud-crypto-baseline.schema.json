@@ -1,0 +1,47 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.macguard.example/cloud/crypto-baseline/1",
+  "title": "Cryptographic baseline (PLANNED, v1)",
+  "description": "DESIGN ONLY. MacGuard Cloud does not exist. A baseline is a sealed, hash-linked snapshot of the expected state of a host or host group (set of file hashes and configuration digests). A later audit compares against it. The baseline is tied to a signer and to a trusted timestamp; it is append-only (a change is a new baseline that names its predecessor).",
+  "allOf": [{ "$ref": "cloud-common.schema.json#/$defs/record_header" }],
+  "type": "object",
+  "properties": {
+    "baseline_id": { "$ref": "cloud-common.schema.json#/$defs/id" },
+    "scope": {
+      "type": "object",
+      "properties": {
+        "host_id": { "$ref": "cloud-common.schema.json#/$defs/id" },
+        "host_group_id": { "$ref": "cloud-common.schema.json#/$defs/id" }
+      },
+      "minProperties": 1,
+      "additionalProperties": false
+    },
+    "previous_baseline_sha256": { "$ref": "cloud-common.schema.json#/$defs/sha256", "description": "Hash of the previous baseline document; absent only for the first one." },
+    "hash_algorithm": { "enum": ["sha256"] },
+    "root": { "$ref": "cloud-common.schema.json#/$defs/sha256", "description": "Merkle root (RFC 9162 style, as the existing rules_root) over the sorted leaf list." },
+    "entry_count": { "type": "integer", "minimum": 0 },
+    "entries": {
+      "type": "array",
+      "description": "Optional inline leaves; large baselines carry only root and a retrievable blob digest.",
+      "items": {
+        "type": "object",
+        "properties": {
+          "path": { "$ref": "cloud-common.schema.json#/$defs/path_ref" },
+          "sha256": { "$ref": "cloud-common.schema.json#/$defs/sha256" }
+        },
+        "required": ["path", "sha256"],
+        "additionalProperties": false
+      }
+    },
+    "entries_blob_sha256": { "$ref": "cloud-common.schema.json#/$defs/sha256" },
+    "tools": {
+      "type": "object",
+      "description": "Versions of the tools that produced it.",
+      "additionalProperties": { "type": "string" }
+    },
+    "signature": { "$ref": "cloud-common.schema.json#/$defs/signature_envelope" },
+    "trusted_timestamp": { "$ref": "cloud-common.schema.json#/$defs/trusted_timestamp" }
+  },
+  "required": ["baseline_id", "scope", "hash_algorithm", "root", "entry_count", "signature"],
+  "unevaluatedProperties": false
+}

@@ -122,6 +122,13 @@ def doctor(ctx: Ctx, cmd: Cmd, args: Dict[str, Any]) -> int:
     add("cosign", "ok" if shutil.which("cosign") else "missing", shutil.which("cosign") or "not on PATH (evidence verify needs it)")
     st = aliasing.status()
     add("alias-mg", "info", ("'mg' on PATH: " + ", ".join(f["path"] + (" (ours)" if f["ours"] else " (NOT ours)") for f in st["found"])) if st["found"] else "no 'mg' on PATH")
+    mine = []
+    for d in os.environ.get("PATH", "").split(os.pathsep):
+        c = os.path.join(d, "mgctl") if d else ""
+        if c and os.path.isfile(c) and c not in mine:
+            mine.append(c)
+    real = {os.path.realpath(c) for c in mine}
+    add("mgctl-installs", "info" if len(real) <= 1 else "warn", ("one mgctl on PATH: " + mine[0]) if len(mine) == 1 else (", ".join(mine) + (" (several different installs: the first one on PATH wins; remove the others, for example the Homebrew one or the .deb)" if len(real) > 1 else " (same install)")) if mine else "mgctl is not on PATH (running from a checkout?)")
     add("telemetry", "ok", "none: mgctl never sends data")
     bad = any(c["status"] == "fail" for c in checks) or (backends.is_macos() and not exe)
     if ctx.json:
@@ -245,3 +252,77 @@ def alias_enable(ctx: Ctx, cmd: Cmd, args: Dict[str, Any]) -> int:
 
 def alias_disable(ctx: Ctx, cmd: Cmd, args: Dict[str, Any]) -> int:
     return _alias_result(ctx, "alias disable", aliasing.disable(args.get("dir")))
+
+
+# ---- intelligence channels, sources and catalog (delegated to the intel package) ----------------------------------------
+def _intel(ctx: Ctx, command: str, argv: List[str]):
+    root = backends.intel_root()
+    if not root:
+        return None, _engine_unavailable(ctx, command, ctx.t("the intel package was not found: run from a checkout or set MGCTL_INTEL_DIR.", "no se encontró el paquete intel: ejecuta desde un checkout o define MGCTL_INTEL_DIR."))
+    env = dict(os.environ, PYTHONPATH=root + (os.pathsep + os.environ["PYTHONPATH"] if os.environ.get("PYTHONPATH") else ""))
+    full = [sys.executable, "-m", "intel"] + argv
+    ctx.debug("engine call: " + " ".join(full))
+    return backends.run(full, ctx.timeout, env=env), 0
+
+
+def intelligence_channels(ctx: Ctx, cmd: Cmd, args: Dict[str, Any]) -> int:
+    res, rc = _intel(ctx, "intelligence channels", ["channels"] + (["--json"] if ctx.json else []))
+    if res is None:
+        return rc
+    code, out, err, timed_out = res
+    if code != 0 or timed_out:
+        return _engine_unavailable(ctx, "intelligence channels", (err or "the intel package failed").strip())
+    ctx.stdout.write(out)
+    return OK
+
+
+def intelligence_sources(ctx: Ctx, cmd: Cmd, args: Dict[str, Any]) -> int:
+    res, rc = _intel(ctx, "intelligence sources", ["registry", "list"])
+    if res is None:
+        return rc
+    code, out, err, timed_out = res
+    if code != 0 or timed_out:
+        return _engine_unavailable(ctx, "intelligence sources", (err or "the intel package failed").strip())
+    if ctx.json:
+        rows = []
+        for line in out.splitlines():
+            parts = line.split()
+            if len(parts) >= 3:
+                rows.append({"id": parts[0], "redistributionStatus": parts[1], "publishable": parts[2] == "publishable"})
+        ctx.emit_json({"schemaVersion": 1, "command": "intelligence sources", "sources": rows})
+    else:
+        ctx.stdout.write(out)
+    return OK
+
+
+def intelligence_catalog_verify(ctx: Ctx, cmd: Cmd, args: Dict[str, Any]) -> int:
+    validate_path(args["catalog"])
+    if not args.get("root"):
+        raise UsageError("--root DIR is required")
+    validate_path(args["root"], allow_dir=True)
+    argv = ["catalog", "verify", os.path.abspath(args["catalog"]), "--root", os.path.abspath(args["root"]), "--json"]
+    for flag, key in (("--bundle", "bundle"), ("--identity", "identity"), ("--issuer", "issuer"), ("--key", "key"), ("--signature", "signature"), ("--previous", "previous"), ("--min-version", "min_version")):
+        if args.get(key):
+            argv += [flag, str(args[key])]
+    if args.get("allow_draft"):
+        argv.append("--allow-draft")
+    res, rc = _intel(ctx, "intelligence catalog verify", argv)
+    if res is None:
+        return rc
+    code, out, err, timed_out = res
+    if timed_out:
+        return _engine_unavailable(ctx, "intelligence catalog verify", f"the verifier did not finish within {ctx.timeout} s")
+    try:
+        doc = json.loads(out)
+    except ValueError:
+        return _engine_unavailable(ctx, "intelligence catalog verify", "the verifier returned no readable answer: " + (err or "").strip()[:200])
+    mapped = {0: OK, 1: FAILED, 2: FAILED, 3: FAILED, 4: UNAVAILABLE, 5: UNAVAILABLE}.get(code, FAILED)
+    if ctx.json:
+        ctx.emit_json({"schemaVersion": 1, "command": "intelligence catalog verify", "ok": code == 0, "intelExitCode": code, "exitCode": mapped, "result": doc.get("result"), "checks": doc.get("checks")})
+    else:
+        for c in doc.get("checks", []):
+            ctx.out(f"  [{c['status']:^4}] {c['check']}: {c['detail']}")
+        ctx.out(f"{doc.get('result')} (exit {code} -> mgctl exit {mapped})")
+        if code == 5:
+            ctx.out(ctx.t("The files match the catalog, but nothing proves WHO published them until the signature is checked.", "Los archivos coinciden con el catálogo, pero nada prueba QUIÉN los publicó hasta comprobar la firma."))
+    return mapped

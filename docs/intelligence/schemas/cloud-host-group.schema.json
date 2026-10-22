@@ -1,0 +1,31 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.macguard.example/cloud/host-group/1",
+  "title": "Host group (PLANNED, v1)",
+  "description": "DESIGN ONLY. MacGuard Cloud does not exist. A named set of hosts inside ONE tenant. Groups never span tenants.",
+  "allOf": [{ "$ref": "cloud-common.schema.json#/$defs/record_header" }],
+  "type": "object",
+  "properties": {
+    "host_group_id": { "$ref": "cloud-common.schema.json#/$defs/id" },
+    "name": { "type": "string", "maxLength": 120 },
+    "description": { "type": "string", "maxLength": 1000 },
+    "hosts": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "object",
+        "properties": {
+          "host_id": { "$ref": "cloud-common.schema.json#/$defs/id" },
+          "agent_id": { "$ref": "cloud-common.schema.json#/$defs/id" },
+          "platform": { "enum": ["macos", "linux", "windows"] },
+          "labels": { "type": "object", "additionalProperties": { "type": "string", "maxLength": 100 }, "maxProperties": 32 }
+        },
+        "required": ["host_id", "platform"],
+        "additionalProperties": false
+      }
+    },
+    "audit_policy_ref": { "$ref": "cloud-common.schema.json#/$defs/sha256", "description": "Hash of the audit policy document applied to the group." }
+  },
+  "required": ["host_group_id", "name", "hosts"],
+  "unevaluatedProperties": false
+}
