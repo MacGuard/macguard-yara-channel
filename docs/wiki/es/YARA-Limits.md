@@ -23,7 +23,7 @@ Un detector de metales del aeropuerto suena con unas llaves (falso positivo) y p
 
 ## Límites del corpus benigno
 
-El corpus benigno es **pequeño y sintético**; mide genericidad grosera, no la tasa real de falsos positivos en el mundo {{ev:EV-YC-64}}. No contiene software real variado (documentos, instaladores, aplicaciones), así que una regla demasiado genérica puede pasar {{ev:EV-YC-65}}. Un defecto real: un archivo benigno se contaba una vez por copia de espacio de nombres y hacía superar el límite a reglas que no lo merecían; se corrigió contando archivos distintos, sin cambiar el límite {{ev:EV-YC-65}}.
+El corpus benigno es **pequeño y sintético**; mide genericidad grosera, no la tasa real de falsos positivos en el mundo {{ev:EV-YC-64}}. No representa software real, así que una regla demasiado genérica puede pasar {{ev:EV-YC-65}}. Un defecto real: un archivo benigno se contaba una vez por copia de espacio de nombres y hacía superar el límite a reglas que no lo merecían; se corrigió contando archivos distintos, sin cambiar el límite {{ev:EV-YC-65}}.
 
 ## Coste de rendimiento
 

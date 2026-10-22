@@ -27,7 +27,7 @@ It is like a building doorman with a tenant list: at night (Mac locked) he is me
 1. You plug in a device. The program inventories it and computes a SHA-256 fingerprint of its canonical data {{ev:EV-EC-23}}.
 2. If the Mac is unlocked, it does not intervene.
 3. If locked, a **two-stage** decision is designed: first on the device (untrusted means deny everything) and then on each granted interface; if the identity changes, re-admission is blocked.
-4. The decision becomes an Endpoint Security reply (HID) or a mount dissent (storage).
+4. The decision becomes an Endpoint Security reply (HID) or a mount decision (storage).
 5. A global resolver combines each domain's state: it cannot reach "strong" while a required domain only observes.
 
 ## Architecture
@@ -36,9 +36,9 @@ A Swift package for macOS 13 or later with no external dependencies {{ev:EV-EC-2
 
 - decision logic that makes no system calls;
 - platform adapters;
-- an interface: an app, a command-line tool and a privileged background service, plus an internal test harness.
+- an interface: an app, a command-line tool and a privileged component, plus an internal test harness.
 
-Trust boundary: the app and command-line tool talk to the service over XPC and the service verifies the caller's code signature.
+Trust boundary: the privileged component is separate from the interface and checks who is calling it.
 
 ## Under the hood
 
@@ -48,10 +48,10 @@ Trust boundary: the app and command-line tool talk to the service over XPC and t
 | Device fingerprint | SHA-256 fingerprint of a canonical device description | A device that clones every field | See the [evidence matrix](EN-Evidence) |
 | Endpoint Security decision engine | Turns a device-open event into allow/deny with a reason; refuses to act without reliable identity | Nothing live: there is no usable permission to run it {{ev:EV-EC-21}} | See the [evidence matrix](EN-Evidence) |
 | Overall protection resolver | Honest per-domain overall state | False "greens" from averaging | See the [evidence matrix](EN-Evidence) |
-| Storage admission policy | Approves or rejects mounts via DiskArbitration | Whether the system honors the dissent: unproven | See the [evidence matrix](EN-Evidence) |
-| PIV challenge | Cryptographic proof of a key (signed nonce) instead of a mere fingerprint | Physical theft of the key and its PIN | See the [evidence matrix](EN-Evidence) |
+| Storage admission policy | Approves or rejects storage mounts | Whether the system honors the decision: unproven | See the [evidence matrix](EN-Evidence) |
+| Key challenge | Cryptographic proof of a key instead of a mere fingerprint | Physical theft of the key and its PIN | See the [evidence matrix](EN-Evidence) |
 
-Technologies proven in code: Endpoint Security, DiskArbitration, IOKit, XPC, Security.framework, CryptoTokenKit, LocalAuthentication, SMAppService {{ev:EV-EC-23}}. **Planned or rejected only:** DriverKit (an explored option, not part of the product, see below), NetworkExtension (studied and rejected because it would disable other content filters), CGEventTap (documented as not chosen) {{ev:EV-EC-22}}.
+The code uses Apple system services for devices and disks, inter-process communication, code-signature checks, smart cards and local authentication {{ev:EV-EC-23}}. **Planned or rejected only:** DriverKit (an explored option, not part of the product, see below) and other approaches that were studied and not chosen {{ev:EV-EC-22}}.
 
 ## Tests
 

@@ -23,7 +23,7 @@ An airport metal detector beeps for a set of keys (false positive) and may stay 
 
 ## Limits of the benign corpus
 
-The benign corpus is **small and synthetic**; it measures gross genericity, not the real-world false-positive rate {{ev:EV-YC-64}}. It holds no varied real-world software (documents, installers, applications), so an over-generic rule may still pass {{ev:EV-YC-65}}. A real defect: one benign file was counted once per namespace copy and pushed rules over the limit unfairly; it was fixed by counting distinct files, without changing the limit {{ev:EV-YC-65}}.
+The benign corpus is **small and synthetic**; it measures gross genericity, not the real-world false-positive rate {{ev:EV-YC-64}}. It does not represent real-world software, so an over-generic rule may still pass {{ev:EV-YC-65}}. A real defect: one benign file was counted once per namespace copy and pushed rules over the limit unfairly; it was fixed by counting distinct files, without changing the limit {{ev:EV-YC-65}}.
 
 ## Performance cost
 

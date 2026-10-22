@@ -22,7 +22,7 @@ La documentación oficial de Apple sobre Network Extension no pudo leerse en su 
 
 ### MacFirewallGuard
 
-- **Uso comprobado en el código:** solo tipos de `NetworkExtension` (`NEFilterSocketFlow`) como **puente de traducción**.
+- **Uso comprobado en el código:** solo tipos de datos para traducir flujos.
 - **No existe** ninguna extensión del sistema ni ningún proveedor en ejecución.
 - No se ha demostrado la autorización operativa (el entitlement) {{ev:EV-EC-63}}.
 

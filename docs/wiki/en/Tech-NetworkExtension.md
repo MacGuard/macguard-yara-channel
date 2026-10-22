@@ -22,7 +22,7 @@ Apple's official Network Extension documentation could not be read in its body f
 
 ### MacFirewallGuard
 
-- **Use verified in code:** only `NetworkExtension` types (`NEFilterSocketFlow`) as a **translation bridge**.
+- **Use verified in code:** only data types for translating flows.
 - **No** system extension or running provider exists.
 - Operational authorization (the entitlement) has not been demonstrated {{ev:EV-EC-63}}.
 

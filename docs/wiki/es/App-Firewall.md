@@ -44,7 +44,7 @@ Algoritmos con código que los prueba (problema, evidencia):
 
 ### Canal hacia MacCoreGuard
 
-La documentación de arquitectura describe un canal autenticado como diseño objetivo del lado de MacCore. **El cliente usa un canal local más simple que el diseño objetivo; las fuentes de producción no contienen la implementación objetivo** {{ev:EV-EC-61}}. El cliente y sus comprobaciones se ejercitan solo contra un doble de prueba.
+**El canal hacia MacCoreGuard es un objetivo de diseño; el cliente solo se ejercita contra un doble de prueba** {{ev:EV-EC-61}}.
 
 ## Cómo comprobarlo tú
 
@@ -68,8 +68,8 @@ Pendiente según su propio cierre: ninguna captura real de paquetes, ni ejecuci�
 | Capacidad | Estado |
 |---|---|
 | Motor de políticas, modelo de flujos, resolución de firma, app SwiftUI, línea de comandos | Implementado, no desplegado |
-| Cliente MacCoreGuard (canal local simple) | Implementado, probado solo contra un doble de prueba |
+| Cliente MacCoreGuard | Implementado, probado solo contra un doble de prueba |
 | Observación y bloqueo reales (extensión del sistema) | Planificado, sin permiso confirmado como utilizable |
 | Endpoint Security, captura de paquetes, Rust | Planificado o fuera de este repositorio; sin código |
 
-Las fases iniciales de base e interfaz están cerradas; una fase posterior está parcial; el módulo de integridad de red está integrado {{ev:EV-EC-04}}. Sin fechas. Más: [Network Extension](ES-Tech-NetworkExtension), [Firma de código](ES-Tech-CodeSigning).
+Las fases iniciales están cerradas; una fase posterior está parcial; el módulo de integridad de red está integrado {{ev:EV-EC-04}}. Sin fechas. Más: [Network Extension](ES-Tech-NetworkExtension), [Firma de código](ES-Tech-CodeSigning).

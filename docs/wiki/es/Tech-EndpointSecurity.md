@@ -12,14 +12,13 @@ Es como un portero que, ante ciertas visitas, llama a la oficina de seguridad y 
 
 ## Con más detalle
 
-Los eventos son de dos clases: de **notificación** (solo avisan) y de **autorización o AUTH** (el programa debe contestar permitir o denegar dentro de un plazo; si no contesta, el sistema puede actuar contra él). Un cliente se crea con `es_new_client`, se suscribe a eventos con `es_subscribe` y responde con `es_respond_auth_result`. Esta descripción general procede de la API usada en el código del proyecto; no se pudo leer el cuerpo de la página de Apple, así que no se apoya en ella.
+Los eventos son de dos clases: de **notificación** (solo avisan) y de **autorización o AUTH** (el programa debe contestar permitir o denegar dentro de un plazo; si no contesta, el sistema puede actuar contra él). Un cliente se crea con `es_new_client`, se suscribe a eventos con `es_subscribe` y responde con `es_respond_auth_result`. Esta descripción general usa los nombres públicos de la API de Apple; no se pudo leer el cuerpo de la página de Apple, así que no se apoya en ella.
 
 ## Dónde la usa este proyecto
 
-Solo **MacUSBGuard**, y solo así {{ev:EV-EC-21}}:
+Solo **MacUSBGuard** {{ev:EV-EC-21}}:
 
-- Evento suscrito: `ES_EVENT_TYPE_AUTH_IOKIT_OPEN` (alguien abre un dispositivo en IOKit, la capa de macOS que gestiona dispositivos; sirve para decidir sobre teclados y ratones USB con el Mac bloqueado).
-- Implementación documentada: un adaptador de eventos de Endpoint Security y un paso de decisión, que usan las tres llamadas anteriores.
+- MacUSBGuard usa eventos de autorización de Endpoint Security para el acceso a dispositivos (un cliente que compila; uso en vivo sin verificar).
 - La decisión sin identidad fiable del dispositivo se niega a actuar sobre una conjetura.
 
 **Qué está verificado y qué no.** Compila y enlaza con un SDK reciente de Xcode. **La aplicación en vivo no está verificada**: ningún permiso restringido de Apple consta como utilizable (ni la aprobación de la extensión de sistema y de Acceso total al disco), así que el estado global se muestra como solo observación y las pruebas de hardware HID siguen sin verificar {{ev:EV-EC-02}}. Tampoco hay prueba de que el sistema entregue a este cliente todos los eventos de teclado (el alcance de los eventos disponibles requiere pruebas con el sistema real).
@@ -43,7 +42,7 @@ No se añaden más ejemplos porque no se pudo abrir una fuente oficial que los r
 
 | Capacidad | Estado |
 |---|---|
-| Cliente ES con eventos AUTH de IOKit en MacUSBGuard | Compila; uso en vivo sin verificar (sin permiso confirmado como utilizable) |
+| Cliente ES con eventos de autorización en MacUSBGuard | Compila; uso en vivo sin verificar (sin permiso confirmado como utilizable) |
 | Aplicación en vivo de bloqueos | No verificada |
 
 ## Dónde seguir

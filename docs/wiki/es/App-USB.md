@@ -27,7 +27,7 @@ Es como el portero de un edificio con una lista de inquilinos: de noche (Mac blo
 1. Conectas un dispositivo. El programa lo inventaría y calcula una huella SHA-256 de sus datos canónicos {{ev:EV-EC-23}}.
 2. Si el Mac está desbloqueado, no interviene.
 3. Si está bloqueado, se ha diseñado una decisión de **dos etapas**: primero sobre el dispositivo (no confiable implica denegar todo) y después sobre cada interfaz concedida; si la identidad cambia, se bloquea la readmisión.
-4. La decisión se traduce en una respuesta de Endpoint Security (HID) o en una denegación de montaje (almacenamiento).
+4. La decisión se traduce en una respuesta de Endpoint Security (HID) o en una decisión de montaje (almacenamiento).
 5. Un resolutor global combina el estado de cada dominio: no puede llegar a "fuerte" si un dominio requerido solo observa.
 
 ## Arquitectura
@@ -36,9 +36,9 @@ Paquete Swift para macOS 13 o superior, sin dependencias externas {{ev:EV-EC-26}
 
 - lógica de decisión que no hace llamadas al sistema;
 - adaptadores de plataforma;
-- una interfaz: una app, una herramienta de línea de comandos y un servicio privilegiado en segundo plano, además de un arnés de pruebas interno.
+- una interfaz: una app, una herramienta de línea de comandos y un componente privilegiado, además de un arnés de pruebas interno.
 
-Frontera de confianza: app y herramienta de línea de comandos hablan con el servicio por XPC y este verifica la firma de código del llamante.
+Frontera de confianza: el componente privilegiado está separado de la interfaz y comprueba quién lo llama.
 
 ## Cómo funciona por dentro
 
@@ -48,10 +48,10 @@ Frontera de confianza: app y herramienta de línea de comandos hablan con el ser
 | Huella del dispositivo | Huella SHA-256 de una descripción canónica del dispositivo | Que un dispositivo imite todos los campos | Ver la [matriz de evidencias](ES-Evidence) |
 | Motor de decisión de Endpoint Security | Convierte un evento de apertura de dispositivo en permitir/denegar con motivo; se niega a actuar sin identidad fiable | Nada en vivo: no hay permiso utilizable para ejecutarlo {{ev:EV-EC-21}} | Ver la [matriz de evidencias](ES-Evidence) |
 | Resolutor de protección global | Estado global honesto por dominio | Falsos "verdes" por promedio | Ver la [matriz de evidencias](ES-Evidence) |
-| Política de admisión de almacenamiento | Aprueba o rechaza montajes con DiskArbitration | Que el sistema respete la denegación: sin probar | Ver la [matriz de evidencias](ES-Evidence) |
-| Desafío PIV | Prueba criptográfica de una llave (nonce firmado) frente a mera huella | Robo físico de la llave y su PIN | Ver la [matriz de evidencias](ES-Evidence) |
+| Política de admisión de almacenamiento | Aprueba o rechaza montajes de almacenamiento | Que el sistema respete la decisión: sin probar | Ver la [matriz de evidencias](ES-Evidence) |
+| Desafío de llave | Prueba criptográfica de una llave frente a mera huella | Robo físico de la llave y su PIN | Ver la [matriz de evidencias](ES-Evidence) |
 
-Tecnologías con prueba en el código: Endpoint Security, DiskArbitration, IOKit, XPC, Security.framework, CryptoTokenKit, LocalAuthentication, SMAppService {{ev:EV-EC-23}}. **Solo planeadas o descartadas:** DriverKit (opción explorada, fuera del producto, ver más abajo), NetworkExtension (estudiada y descartada porque desactivaría otros filtros de contenido), CGEventTap (documentado como no elegido) {{ev:EV-EC-22}}.
+El código usa servicios del sistema de Apple para dispositivos y discos, comunicación entre procesos, comprobación de firmas de código, tarjetas inteligentes y autenticación local {{ev:EV-EC-23}}. **Solo planeadas o descartadas:** DriverKit (opción explorada, fuera del producto, ver más abajo) y otros enfoques que se estudiaron y no se eligieron {{ev:EV-EC-22}}.
 
 ## Pruebas
 

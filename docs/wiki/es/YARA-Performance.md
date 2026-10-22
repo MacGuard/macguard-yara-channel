@@ -48,7 +48,7 @@ La revisión estática (`analyse_text` en `rulecheck.py`) convierte formas como 
 ### Qué mide realmente el canal
 
 - `scripts/bench.py`: compilación (tiempo, CPU, RSS), escaneo (p50, p95, p99, CPU total, RSS máximo, errores, cuelgues, caídas), comprobación canario y aciertos en el corpus limpio. El corpus es pequeño y sintético (ver [Límites](ES-YARA-Limits)). El informe marca si los percentiles tienen al menos 50 muestras (`min_samples_for_percentiles`, campo `percentiles_reported`). Umbrales en [Validación](ES-YARA-Validation). {{ev:EV-YC-28}}
-- `scripts/macguard_smoke.py`: ejecuta la CLI `macguard-audit` sobre el mismo corpus más paquetes de muestra creados con herramientas del sistema, con las reglas **candidatas** instaladas en un directorio privado, e informa de caídas, cuelgues, errores, p50/p95/p99, memoria máxima y el resultado de la comprobación canario. Se ejecuta en el trabajo `app-compat` de `daily.yml`, que **informa y no decide** la publicación. {{ev:EV-YC-34}}
+- `scripts/macguard_smoke.py`: ejecuta la CLI `macguard-audit` sobre el mismo corpus, con las reglas **candidatas** instaladas en un directorio privado, e informa de caídas, cuelgues, errores, p50/p95/p99, memoria máxima y el resultado de la comprobación canario. Se ejecuta en el trabajo `app-compat` de `daily.yml`, que **informa y no decide** la publicación. {{ev:EV-YC-34}}
 - **Números guardados en el repositorio:** el registro público (`logs/log.jsonl`) guarda, por cada revisión diaria con medición, `scan_p95_s`, `scan_rss_peak_mb` y `compile_rss_mb`. En las 10 entradas con medición (2026-10-18 a 2026-10-22, motor YARA 4.5.0): p95 de escaneo entre 0,1676 y 0,1988 s; RSS máximo de escaneo entre 84,3 y 86,6 MB; RSS de compilación entre 72,7 y 73,7 MB; duración de la puerta entre 81 y 174 s. Son mediciones en un ejecutor de CI, no promesas de rendimiento en un Mac. {{ev:EV-YC-33}}
 - `docs/audit/root-cause-benign-hit-count-2026-10-20.md` guarda una comparación en un contenedor compartido: p95 de escaneo 0,54 s (base) y 0,46 s (candidata); compilación 6,19 s y 4,94 s; los tiempos absolutos eran unas cinco veces peores que en el ejecutor, según el propio documento. {{ev:EV-YC-33}}
 
@@ -72,7 +72,7 @@ La revisión estática (`analyse_text` en `rulecheck.py`) convierte formas como 
 
 ## Límites
 
-- El corpus es pequeño y sintético; no representa los archivos reales de cada persona.
+- El corpus es pequeño y sintético y no representa software real.
 - Las cifras de CI no se extrapolan a otros equipos.
 - Los umbrales del ruido son arranques documentados, no garantías de rendimiento.
 - Las puertas existen para proteger los equipos que escanean. Los valores numéricos salen de `config/policy.json`, pueden cambiar y son límites de revisión, no metas para quien escribe reglas.

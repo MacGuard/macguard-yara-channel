@@ -49,7 +49,7 @@ Stages used: concept, prototype, development, validation, release candidate and 
 ### MacFirewallGuard
 
 - **Phase:** development (a later phase is partial).
-- **Done:** the foundation, the interface and the network-integrity module {{ev:EV-EC-04}}.
+- **Done:** the early phases and the network-integrity module {{ev:EV-EC-04}}.
 - **Blockers:** no Network Extension entitlement is confirmed as usable; MacCoreGuard does not exist as a service {{ev:EV-EC-03}}.
 - **Next:** complete the partial phase.
 

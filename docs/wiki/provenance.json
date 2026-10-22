@@ -1223,8 +1223,8 @@
    "state": "validation",
    "class": "REQUIERE REVISION",
    "claim": {
-    "es": "MacUSBGuard usa Endpoint Security con un único evento AUTH. El cliente compila y enlaza con el SDK, pero su aplicación en vivo no está verificada porque ningún permiso consta como utilizable.",
-    "en": "MacUSBGuard uses Endpoint Security with a single AUTH event. The client compiles and links against the SDK, but live enforcement is unverified because no entitlement is confirmed as usable."
+    "es": "MacUSBGuard usa eventos de autorización de Endpoint Security para el acceso a dispositivos. El cliente compila y enlaza con el SDK, pero su aplicación en vivo no está verificada porque ningún permiso consta como utilizable.",
+    "en": "MacUSBGuard uses Endpoint Security authorization events for device access. The client compiles and links against the SDK, but live enforcement is unverified because no entitlement is confirmed as usable."
    }
   },
   {
@@ -1253,8 +1253,8 @@
    "state": "validation",
    "class": "REQUIERE REVISION",
    "claim": {
-    "es": "El código de MacUSBGuard usa frameworks del sistema de Apple para discos, acceso a dispositivos, comunicación entre procesos con verificación del llamante, comprobación de firmas de código, tarjetas inteligentes y autenticación local, además de huellas SHA-256; Network Extension y los event taps están descartados.",
-    "en": "MacUSBGuard's code uses Apple system frameworks for disks, device access, inter-process communication with caller verification, code-signature checks, smart cards and local authentication, plus SHA-256 fingerprints; Network Extension and event taps are rejected."
+    "es": "El código de MacUSBGuard usa servicios del sistema de Apple para discos, dispositivos, comunicación entre procesos, comprobación de firmas de código, tarjetas inteligentes y autenticación local, además de huellas SHA-256.",
+    "en": "MacUSBGuard's code uses Apple system services for disks, devices, inter-process communication, code-signature checks, smart cards and local authentication, plus SHA-256 fingerprints."
    }
   },
   {
@@ -1313,8 +1313,8 @@
    "state": "prototype",
    "class": "REQUIERE REVISION",
    "claim": {
-    "es": "MacCore implementa una cadena de hashes que enlaza cada registro con el anterior y un árbol de Merkle según la RFC 9162 (pública) con pruebas de inclusión y consistencia; sin ejecutar.",
-    "en": "MacCore implements a hash chain that links each record to the previous one and a Merkle tree following RFC 9162 (public) with inclusion and consistency proofs; not executed."
+    "es": "MacCoreGuard implementa una cadena de hashes que enlaza cada registro con el anterior y un árbol de Merkle según la RFC 9162 (pública) con pruebas de inclusión y consistencia; sin ejecutar.",
+    "en": "MacCoreGuard implements a hash chain that links each record to the previous one and a Merkle tree following RFC 9162 (public) with inclusion and consistency proofs; not executed."
    }
   },
   {
@@ -1324,12 +1324,12 @@
    "date": "2026-10-22",
    "source": "Private repository (MacCoreGuard), static review dated 2026-10-22",
    "confidence": "high",
-   "validation": "placeholder files read: one comment line each; the command-line tool reports not yet implemented",
+   "validation": "placeholders only",
    "state": "prototype",
    "class": "REQUIERE REVISION",
    "claim": {
-    "es": "Registro durable, firma, ingesta, testigo y verificador sin conexión son marcadores de posición sin lógica en MacCore.",
-    "en": "Durable ledger, signing, ingest, witness and offline verifier are logic-free placeholders in MacCore."
+    "es": "Registro durable, firma, ingesta, testigo y verificador sin conexión son marcadores de posición sin lógica en MacCoreGuard.",
+    "en": "Durable ledger, signing, ingest, witness and offline verifier are logic-free placeholders in MacCoreGuard."
    }
   },
   {
@@ -1343,8 +1343,8 @@
    "state": "prototype",
    "class": "REQUIERE REVISION",
    "claim": {
-    "es": "MacCore declara pruebas de protocolo y criptografía con vectores de respuesta conocida; cifra autoinformada y no ejecutada.",
-    "en": "MacCore claims protocol and crypto tests with known-answer vectors; a self-reported figure that was not run."
+    "es": "MacCoreGuard declara pruebas de protocolo y criptografía con vectores de respuesta conocida; cifra autoinformada y no ejecutada.",
+    "en": "MacCoreGuard claims protocol and crypto tests with known-answer vectors; a self-reported figure that was not run."
    }
   },
   {
@@ -1474,8 +1474,8 @@
    "state": "development",
    "class": "REQUIERE REVISION",
    "claim": {
-    "es": "Las docs de arquitectura nombran un canal autenticado entre procesos como diseño objetivo; el cliente actual usa un canal local más simple y las fuentes de producción no contienen implementación del objetivo.",
-    "en": "The architecture docs name an authenticated inter-process channel as the target design; the current client uses a simpler local channel, and the production sources contain no implementation of the target."
+    "es": "El canal hacia MacCoreGuard es un objetivo de diseño; el cliente solo se ejercita contra un doble de prueba.",
+    "en": "The channel to MacCoreGuard is a design target; the client is only exercised against a test double."
    }
   },
   {
@@ -1504,8 +1504,8 @@
    "state": "development",
    "class": "REQUIERE REVISION",
    "claim": {
-    "es": "MacFirewallGuard tiene capas de lógica de dominio, adaptadores de plataforma e interfaz, con motor de políticas, resolución de firmas de código, analizadores de protocolos, un sensor de paquetes opcional y una app SwiftUI. Network Extension aparece solo como puente de traducción; no hay extensión del sistema ni archivo de entitlements. Endpoint Security y Rust no tienen código.",
-    "en": "MacFirewallGuard has layers for domain logic, platform adapters and interface, with a policy engine, code-signature resolution, protocol parsers, an optional packet sensor and a SwiftUI app. Network Extension appears only as a translation bridge; there is no system extension and no entitlement file. Endpoint Security and Rust have no code."
+    "es": "MacFirewallGuard tiene capas de lógica de dominio, adaptadores de plataforma e interfaz, con motor de políticas, resolución de firmas de código, analizadores de protocolos, un sensor de paquetes opcional y una app SwiftUI. Network Extension aparece solo como tipos de datos para traducir flujos; no hay extensión del sistema ni archivo de entitlements. Endpoint Security y Rust no tienen código.",
+    "en": "MacFirewallGuard has layers for domain logic, platform adapters and interface, with a policy engine, code-signature resolution, protocol parsers, an optional packet sensor and a SwiftUI app. Network Extension appears only as data types for translating flows; there is no system extension and no entitlement file. Endpoint Security and Rust have no code."
    }
   },
   {
@@ -1576,7 +1576,7 @@
    "date": "2026-10-22",
    "source": "DMGTrustAuditor/DMGTrustAuditor/SIGNING.md, docs/ENGINE.md, docs/ADR-0001-sigstore-verification.md",
    "confidence": "high",
-   "validation": "files read at commit c20e806; no release tag for the app found",
+   "validation": "files read; no release tag for the app found",
    "state": "development",
    "class": "PUBLICABLE",
    "claim": {

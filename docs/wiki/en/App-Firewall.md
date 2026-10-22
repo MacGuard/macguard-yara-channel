@@ -44,7 +44,7 @@ Algorithms with code behind them (problem, evidence):
 
 ### Channel to MacCoreGuard
 
-The architecture documentation describes an authenticated channel as the target design on the MacCore side. **The client uses a simpler local channel than the target design; the production sources do not contain the target implementation** {{ev:EV-EC-61}}. The client and its checks are exercised only against a test double.
+**The channel to MacCoreGuard is a design target; the client is only exercised against a test double** {{ev:EV-EC-61}}.
 
 ## Check it yourself
 
@@ -68,8 +68,8 @@ Pending per its own closeout: no real packet capture, no thread-sanitizer run, n
 | Capability | State |
 |---|---|
 | Policy engine, flow model, signature resolution, SwiftUI app, command line | Implemented, not deployed |
-| MacCoreGuard client (simple local channel) | Implemented, tested only against a test double |
+| MacCoreGuard client | Implemented, tested only against a test double |
 | Real observation and blocking (system extension) | Planned, no entitlement confirmed as usable |
 | Endpoint Security, packet tap, Rust | Planned or outside this repository; no code |
 
-Early foundation and interface phases are closed; a later phase is partial; the network-integrity module is merged {{ev:EV-EC-04}}. No dates. More: [Network Extension](EN-Tech-NetworkExtension), [Code signing](EN-Tech-CodeSigning).
+Early phases are closed; a later phase is partial; the network-integrity module is merged {{ev:EV-EC-04}}. No dates. More: [Network Extension](EN-Tech-NetworkExtension), [Code signing](EN-Tech-CodeSigning).

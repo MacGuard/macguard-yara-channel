@@ -12,14 +12,13 @@ It is like a doorman who, for certain visitors, phones the security office and w
 
 ## In more detail
 
-Events come in two kinds: **notify** (they only inform) and **authorization or AUTH** (the program must answer allow or deny within a deadline; if it does not, the system can act against it). A client is created with `es_new_client`, subscribes to events with `es_subscribe` and answers with `es_respond_auth_result`. This general description comes from the API as used in the project's code; the body of Apple's page could not be read, so it does not rest on it.
+Events come in two kinds: **notify** (they only inform) and **authorization or AUTH** (the program must answer allow or deny within a deadline; if it does not, the system can act against it). A client is created with `es_new_client`, subscribes to events with `es_subscribe` and answers with `es_respond_auth_result`. This general description uses Apple's public API names; the body of Apple's page could not be read, so it does not rest on it.
 
 ## Where this project uses it
 
-Only **MacUSBGuard**, and only like this {{ev:EV-EC-21}}:
+Only **MacUSBGuard** {{ev:EV-EC-21}}:
 
-- Subscribed event: `ES_EVENT_TYPE_AUTH_IOKIT_OPEN` (someone opens a device in IOKit, the macOS layer that manages devices; used to decide on USB keyboards and mice while the Mac is locked).
-- Documented implementation: an adapter for Endpoint Security events and a decision step, using the three calls above.
+- MacUSBGuard uses Endpoint Security authorization events for device access (a client that compiles; live use unverified).
 - A decision without reliable device identity refuses to act on a guess.
 
 **What is verified and what is not.** It compiles and links against a recent Xcode SDK. **Live enforcement is unverified**: no Apple restricted entitlement is confirmed as usable (nor the system extension and Full Disk Access approvals), so the overall state shows as observe only and the HID hardware checks remain unverified {{ev:EV-EC-02}}. There is also no proof the system delivers all keyboard events to this client (event coverage requires testing on a real system).
@@ -43,7 +42,7 @@ No further examples are added because no official source for them could be opene
 
 | Capability | State |
 |---|---|
-| ES client with IOKit AUTH events in MacUSBGuard | Compiles; live use unverified (no entitlement confirmed as usable) |
+| ES client with authorization events in MacUSBGuard | Compiles; live use unverified (no entitlement confirmed as usable) |
 | Live enforcement of blocks | Not verified |
 
 ## Further reading

@@ -17,8 +17,8 @@ Think of a notebook where each page carries the "fingerprint" of the previous pa
 ## Step by step (design)
 
 1. A producer (one of the MacGuard applications) proposes a security event, for example "a USB device was blocked". Only MacCoreGuard decides to record it.
-2. MacCore serializes it in a canonical form, so the hash is identical on any Mac.
-3. MacCore, and only MacCore, assigns the record its place in the sequence and computes the chain link.
+2. MacCoreGuard serializes it in a canonical form, so the hash is identical on any Mac.
+3. MacCoreGuard, and only MacCoreGuard, assigns the record its place in the sequence and computes the chain link.
 4. Periodically the Merkle tree root is computed and a checkpoint would be signed.
 5. An independent verifier, not trusting the writer process, would check chain, proofs and signature.
 
@@ -53,7 +53,7 @@ The repository is private; nothing was run for this page. To validate the algori
 
 ## State
 
-The code and package use the shorter name **MacCore**. It is an **unpublished prototype**: the reviewed material is an initial implementation that its own documentation does not present as authoritative. Today the **data formats** and the **hash mathematics** exist; the on-disk ledger, signing, ingest and verifier are **placeholders** {{ev:EV-EC-28}} {{ev:EV-EC-06}}. It guarantees nothing to a user yet.
+It is an **unpublished prototype**: the reviewed material is an initial implementation that its own documentation does not present as authoritative. Today the **data formats** and the **hash mathematics** exist; the on-disk ledger, signing, ingest and verifier are **placeholders** {{ev:EV-EC-28}} {{ev:EV-EC-06}}. It guarantees nothing to a user yet.
 
 | Capability | State |
 |---|---|

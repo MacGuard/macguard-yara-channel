@@ -49,7 +49,7 @@ Etapas usadas: concepto, prototipo, desarrollo, validación, candidata a versió
 ### MacFirewallGuard
 
 - **Fase:** desarrollo (una fase posterior está parcial).
-- **Hecho:** la base, la interfaz y el módulo de integridad de red {{ev:EV-EC-04}}.
+- **Hecho:** las fases iniciales y el módulo de integridad de red {{ev:EV-EC-04}}.
 - **Bloqueos:** ningún permiso de Network Extension consta como utilizable; MacCoreGuard no existe como servicio {{ev:EV-EC-03}}.
 - **Siguiente:** completar la fase parcial.
 

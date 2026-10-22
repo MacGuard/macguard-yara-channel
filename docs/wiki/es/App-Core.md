@@ -17,8 +17,8 @@ Piensa en un cuaderno donde cada página lleva la "huella" de la página anterio
 ## Paso a paso (diseño)
 
 1. Un productor (una de las aplicaciones MacGuard) propone un evento de seguridad, por ejemplo "se bloqueó un dispositivo USB". Solo MacCoreGuard decide registrarlo.
-2. MacCore lo serializa en una forma canónica, de modo que el hash sea idéntico en cualquier Mac.
-3. MacCore, y solo MacCore, asigna al registro su lugar en la secuencia y calcula el eslabón de la cadena.
+2. MacCoreGuard lo serializa en una forma canónica, de modo que el hash sea idéntico en cualquier Mac.
+3. MacCoreGuard, y solo MacCoreGuard, asigna al registro su lugar en la secuencia y calcula el eslabón de la cadena.
 4. Periódicamente se calcula la raíz del árbol de Merkle y se firmaría un punto de control.
 5. Un verificador independiente, que no se fía del proceso escritor, comprobaría cadena, pruebas y firma.
 
@@ -53,7 +53,7 @@ El repositorio es privado; no se ejecutó nada para esta página. Para validar e
 
 ## Estado
 
-El código y el paquete usan el nombre corto **MacCore**. Es un **prototipo sin publicar**: lo revisado es una implementación inicial que su propia documentación no presenta como autoritativa. Hoy existen los **formatos de datos** y las **matemáticas de hash**; el libro en disco, la firma, la recepción y el verificador son **marcadores de posición** {{ev:EV-EC-28}} {{ev:EV-EC-06}}. Todavía no garantiza nada a ningún usuario.
+Es un **prototipo sin publicar**: lo revisado es una implementación inicial que su propia documentación no presenta como autoritativa. Hoy existen los **formatos de datos** y las **matemáticas de hash**; el libro en disco, la firma, la recepción y el verificador son **marcadores de posición** {{ev:EV-EC-28}} {{ev:EV-EC-06}}. Todavía no garantiza nada a ningún usuario.
 
 | Capacidad | Estado |
 |---|---|
