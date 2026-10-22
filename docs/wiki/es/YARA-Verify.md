@@ -4,7 +4,7 @@
 
 ## En 30 segundos
 
-Puedes comprobar tú mismo una release en cuatro pasos, sin depender de lo que afirmamos aquí. Aun así confías en el verificador (léelo antes de ejecutarlo), en cosign y en la raíz de confianza de Sigstore. (1) Los hashes: los archivos son los que lista el manifiesto. (2) La firma: el manifiesto lo firmó el workflow `publish.yml` de este repositorio. (3) La raíz Merkle: la lista de archivos produce el `rules_root` firmado. (4) El registro: la publicación consta en el registro de transparencia y extiende el que ya conocías. Un script público lo hace todo de una vez. {{ev:EV-YC-53}}
+Puedes comprobar tú mismo una release en cuatro pasos, sin depender de lo que afirmamos aquí. Aun así confías en el verificador (léelo antes de ejecutarlo), en cosign y en la raíz de confianza de Sigstore. (1) Los hashes: los archivos son los que lista el manifiesto. (2) La firma: el manifiesto lo firmó el flujo de trabajo `publish.yml` de este repositorio. (3) La raíz Merkle: la lista de archivos produce el `rules_root` firmado. (4) El registro: la publicación consta en el registro de transparencia y extiende el que ya conocías. Un script público lo hace todo de una vez. {{ev:EV-YC-53}}
 
 ## Un ejemplo cotidiano
 
@@ -16,10 +16,10 @@ Recibes un paquete por mensajería. Compruebas que el precinto no está roto (ha
 
 Requisitos: `cosign` instalado desde su origen oficial, Python 3 (solo biblioteca estándar) y `shasum` o `sha256sum`.
 
-1. Descarga el verificador **a un archivo**, léelo y ejecútalo; no lo canalices a un intérprete:
+1. Descarga el verificador **a un archivo**, léelo y ejecútalo; no lo canalices a un intérprete. El script vive en este repositorio; fija la descarga a un commit que hayas revisado (sustituye `<COMMIT_SHA>`). Una URL que termine en `main` descarga lo que haya en ese momento en esa rama, que no es una versión fija. {{ev:EV-YC-90}}
 
 ```bash
-curl -fsSLo verify_public_release.py https://raw.githubusercontent.com/MacGuard/macguard-yara-channel/main/scripts/verify_public_release.py
+curl -fsSLo verify_public_release.py https://raw.githubusercontent.com/MacGuard/macguard-yara-channel/<COMMIT_SHA>/scripts/verify_public_release.py
 less verify_public_release.py
 python3 -I verify_public_release.py --latest --trust-state ~/.macguard-trust.json
 ```
@@ -40,7 +40,7 @@ Lo mismo con `checkpoint.txt` y `checkpoint.sigstore.json`. Resultado correcto: 
 
 ## Cómo funciona por dentro
 
-El verificador resuelve la release **una vez** y descarga todo de ese tag. Comprueba, sin fiarse del texto de ninguna orden (solo códigos de retorno y datos): artefactos presentes, firma del manifiesto y del checkpoint, extracción segura del paquete (sin enlaces ni rutas fuera del directorio, con límites), SHA-256 de cada archivo, `rules_root`, recuentos, que el checkpoint coincide con el `log` del manifiesto, la prueba de inclusión y, si le das un checkpoint previo, la consistencia. Identidad y emisor por defecto: los de [Publicación](ES-YARA-Publishing). Código: `scripts/verify_public_release.py`. {{ev:EV-YC-53}}
+El verificador resuelve la release **una vez** y descarga todo de ese tag. Comprueba, sin fiarse del texto de ninguna orden (solo códigos de retorno y datos): artefactos presentes, firma del manifiesto y del punto de control, y extracción segura del paquete (sin enlaces ni rutas fuera del directorio, con límites). Comprueba también el SHA-256 de cada archivo, `rules_root`, los recuentos, que el punto de control coincide con el `log` del manifiesto y la prueba de inclusión. Si le das un punto de control previo, comprueba además la consistencia. Identidad y emisor por defecto: los de [Publicación](ES-YARA-Publishing). Código: `scripts/verify_public_release.py`. {{ev:EV-YC-53}}
 
 Salida real, abreviada, de la última release el 2026-10-22 (prueba ejecutada para esta página):
 
@@ -68,7 +68,7 @@ Files     1178   individual YARA rules: 10021
 
 Si fallan varias, el informe las lista todas y el código es el primero según la precedencia 5, 4, 6, 2, 1, 3. {{ev:EV-YC-55}}
 
-**Reconocer una versión nueva legítima (anti-retroceso).** Con `--trust-state FILE` (o `--previous-checkpoint FILE`) el verificador compara con el último checkpoint que verificaste: si el tamaño es menor, falla con `ROLLBACK`; si el tamaño es igual y la raíz distinta, con `FORK`; si es mayor, exige `consistency.json` y una prueba válida que parte exactamente de tu checkpoint. El archivo de estado se escribe solo tras una verificación completa. Probado: una primera ejecución con `--trust-state` dice "n/a"; la segunda sobre la misma release da `[PASS] consistency: same checkpoint as the trusted one (180 entries)`. Una identidad distinta falla con salida 2 (probado con una identidad falsa). {{ev:EV-YC-54}}
+**Reconocer una versión nueva legítima (anti-retroceso).** Con `--trust-state FILE` (o `--previous-checkpoint FILE`) el verificador compara con el último punto de control que verificaste. Si el tamaño es menor, falla con `ROLLBACK`. Si el tamaño es igual y la raíz distinta, falla con `FORK`. Si es mayor, exige `consistency.json` y una prueba válida que parte exactamente de tu punto de control. El archivo de estado se escribe solo tras una verificación completa. Probado: una primera ejecución con `--trust-state` dice "n/a"; la segunda sobre la misma release da `[PASS] consistency: same checkpoint as the trusted one (180 entries)`. Una identidad distinta falla con salida 2 (probado con una identidad falsa). {{ev:EV-YC-54}}
 
 **Si la verificación falla** (el mismo criterio que sigue la aplicación): no se instala nada nuevo, las reglas ya instaladas siguen funcionando y se explica el motivo. No uses las reglas de esa release; repite con `--output-dir DIR` y compara con los artefactos de GitHub Releases; abre una incidencia con la salida `--json` (no contiene secretos). La aplicación guarda el estado de confianza en un archivo con permisos 0600 antes de activar las reglas. {{ev:EV-YC-56}}
 
@@ -81,8 +81,8 @@ Las órdenes de arriba son las del repositorio. Ejecutadas el 2026-10-22: `--lat
 ## Límites
 
 - Sin `--previous-checkpoint` ni `--trust-state`, una primera ejecución **no** establece protección contra retroceso. {{ev:EV-YC-54}}
-- El verificador es código que ejecutas: léelo. Descargarlo del mismo sitio que las reglas no es una raíz de confianza independiente. Firmarlo con Sigstore y adjuntarlo a cada release es una propuesta, no existe todavía. {{ev:EV-YC-57}}
-- Una firma válida y hashes correctos prueban quién publicó esos bytes, no que las reglas sean buenas ni que los archivos analizados sean seguros.
+- El verificador es código que ejecutas: léelo. Se obtiene del repositorio, así que fija un commit revisado en lugar de un nombre de rama. {{ev:EV-YC-57}}
+- Una firma válida y hashes correctos prueban qué identidad de flujo de trabajo publicó exactamente esos bytes, dentro del modelo de confianza de Sigstore. No prueban quién escribió las reglas, que sean buenas ni que los archivos analizados sean seguros.
 - No existe una prueba de rendimiento de extremo a extremo entre el canal y Installer Auditor. {{ev:EV-YC-10}}
 
 ## Estado
@@ -91,4 +91,4 @@ Las órdenes de arriba son las del repositorio. Ejecutadas el 2026-10-22: `--lat
 |---|---|
 | Verificador público (mismo repositorio, no independiente) con pruebas | operativo {{ev:EV-YC-53}} |
 | Protección anti-retroceso con estado local | operativo {{ev:EV-YC-54}} |
-| Verificador firmado y adjunto a cada release | no implementado (propuesta) {{ev:EV-YC-57}} |
+| Distribución firmada del verificador | planificado {{ev:EV-YC-57}} |

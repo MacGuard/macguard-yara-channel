@@ -1,0 +1,10 @@
+flowchart LR
+  Q1["¿Quién escribió<br/>la regla?"]:::src --> A1["repositorio original y<br/>licencia, en las fuentes<br/>del manifiesto"]:::val
+  Q2["¿Quién me entrega<br/>el paquete?"]:::src --> A2["el canal MacGuard,<br/>un release de GitHub"]:::val
+  Q3["¿Quién lo firmó?"]:::src --> A3["la identidad del workflow<br/>publish.yml, vía Sigstore"]:::sec
+  Q4["¿Son los bytes<br/>los firmados?"]:::src --> A4["SHA-256 por archivo<br/>+ rules_root"]:::sec
+  Q5["¿Es inocuo<br/>el contenido?"]:::src --> A5["NO lo demuestra<br/>nada de lo anterior"]:::bad
+  classDef src fill:#cfe3ff,stroke:#2f6df0,color:#0b1b33
+  classDef val fill:#d6f5dd,stroke:#2e8b4a,color:#0c2a16
+  classDef sec fill:#e8e0ff,stroke:#6b4fd8,color:#1a1033
+  classDef bad fill:#ffd9d9,stroke:#c0392b,color:#3a0d0d

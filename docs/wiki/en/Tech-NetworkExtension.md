@@ -4,11 +4,11 @@
 
 ## In 30 seconds
 
-Network Extension is Apple's framework that lets a program **see and control the network traffic of other apps** on the Mac (filter connections, proxy DNS, create a VPN). Apple does not let just anyone use it: a **special permission (entitlement)** granted to the developer account is needed. The planned MacFirewallGuard content filter requires the appropriate authorization; other network technologies may have different requirements.
+Network Extension is Apple's framework that lets a program see and filter the network connections of other apps on the Mac. Apple requires a special permission (entitlement) tied to the developer account. Without that permission, a program cannot block other apps' connections.
 
 ## An everyday example
 
-It is a guard post at a building's exit. Only someone holding a credential issued by the management may stand there and watch who leaves. A neighbour can note who leaves from their window (half-observing), but cannot close the barrier.
+It is a guard post at a building's exit, where someone decides who may leave (the network filter). Only someone holding a credential issued by the management (Apple's permission) may stand there. A neighbor can note who leaves from their window, that is, half-observe, but cannot close the barrier or stop an exit.
 
 {{diagram:networkext-gap}}
 
@@ -20,16 +20,21 @@ Apple's official Network Extension documentation could not be read in its body f
 
 ## Where this project uses it
 
-| App | Use verified in code |
-|---|---|
-| MacFirewallGuard | Only `NetworkExtension` types (`NEFilterSocketFlow`) as a **translation bridge** (flow translation adapters). **No** system extension or running provider exists; operational authorization has not been demonstrated {{ev:EV-EC-63}} |
-| The others | They do not use Network Extension; Installer Auditor does not import NetworkExtension in its code |
+### MacFirewallGuard
 
-The project classifies its situation as "the entitlement is absent and can be requested" (entitlement decision document). **Not verified** whether the request was already filed or answered {{ev:EV-EC-60}}.
+- **Use verified in code:** only `NetworkExtension` types (`NEFilterSocketFlow`) as a **translation bridge**.
+- **No** system extension or running provider exists.
+- Operational authorization (the entitlement) has not been demonstrated {{ev:EV-EC-63}}.
+
+### The other applications
+
+- **Use verified in code:** none. They do not use Network Extension; Installer Auditor does not import NetworkExtension in its code.
+
+No entitlement is confirmed as usable for this project. **Not verified** whether one was requested or what the answer was {{ev:EV-EC-60}}.
 
 ## Limits
 
-- Without the entitlement, no BLOCK decision is applied: it ends as `UNAVAILABLE(ENTITLEMENT_MISSING)` {{ev:EV-EC-60}}.
+- Without a usable entitlement, no block decision is applied: it ends as "action unavailable: entitlement missing" {{ev:EV-EC-60}}.
 - Enabling this product's filter may disable other active content filters; coexistence is a documented, unresolved blocker {{ev:EV-EC-60}}.
 - A network filter does not replace process identity or installer review.
 

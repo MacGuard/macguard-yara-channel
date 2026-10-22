@@ -1,16 +1,17 @@
 flowchart LR
   subgraph YCH["YARA Channel"]
-    Y1["V1<br/>signed channel"]:::done --> Y2["V1.1 phase 1<br/>merged"]:::done --> Y3["V1.1 phase 2<br/>awaiting acceptance"]:::wait --> Y4["Archive 3x<br/>not operational"]:::todo
+    direction TB
+    Y1["V1<br/>signed channel<br/>done"]:::done --> Y2["V1.1 phase 1<br/>merged"]:::done --> Y3["V1.1 phase 2<br/>awaiting<br/>acceptance"]:::wait --> Y4["Archive 3x<br/>not operational"]:::todo
   end
   subgraph FWG["MacFirewallGuard"]
-    F1["F1-A, F1-B, GUI-V1<br/>closed"]:::done --> F2["F2-A<br/>partial"]:::doing --> F3["Blocking<br/>needs Apple entitlement"]:::block
+    F1["F1-A, F1-B,<br/>GUI-V1<br/>closed"]:::done --> F2["F2-A<br/>partial"]:::doing --> F3["Blocking: needs<br/>Apple entitlement<br/>blocked"]:::block
   end
   subgraph USBG["MacUSBGuard"]
-    U1["rc1 tag"]:::done --> U2["V1 candidate<br/>validation"]:::doing --> U3["Hardware gates<br/>need Apple entitlement"]:::block
+    U1["release-candidate<br/>tag: done"]:::done --> U2["V1 candidate<br/>validation"]:::doing --> U3["Hardware gates:<br/>need Apple entitlement<br/>blocked"]:::block
   end
   subgraph OTH["Others"]
     C1["MacCoreGuard<br/>prototype"]:::doing
-    D1["DesignKit<br/>0.3.1"]:::doing
+    D1["DesignKit 0.3.1<br/>development"]:::doing
     P1["MacProcessGuard<br/>concept"]:::todo
     A1["Installer Auditor<br/>development"]:::doing
   end

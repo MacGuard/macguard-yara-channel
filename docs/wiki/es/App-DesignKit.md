@@ -4,66 +4,66 @@
 
 ## En 30 segundos
 
-MacGuardDesignKit es una **biblioteca de componentes de interfaz en SwiftUI**: botones, tarjetas, tablas, insignias de estado, barras de búsqueda y el aspecto de los gráficos. **No es un producto de protección**: no vigila, bloquea ni detecta nada. Su objetivo es que todas las aplicaciones MacGuard se vean y se comporten igual, de modo que una insignia verde "protegido" signifique lo mismo en todas {{ev:EV-EC-30}}.
+MacGuardDesignKit es una **biblioteca de componentes SwiftUI compartida por las apps**: botones, tarjetas, tablas, insignias de estado, barras de búsqueda y el aspecto de los gráficos. **No es un producto de protección**: no vigila, no bloquea ni detecta nada. Su objetivo es que todas las aplicaciones MacGuard se vean y se comporten igual, de modo que una insignia verde de "protegido" signifique lo mismo en todas {{ev:EV-EC-30}}.
 
-**Estado: en desarrollo** (versión 0.3.1; la propia biblioteca dice que no es 1.0 porque gran parte del catálogo de 16 componentes aún no está construido). La capa de interfaz de MacFirewallGuard la importa (dependencia de paquete desde la 0.2.0); MacUSBGuard todavía no la ha adoptado, y el README de DesignKit aún dice «cero consumidores», lo que está desactualizado {{ev:EV-EC-07}}.
+**Estado: desarrollo** (una versión anterior a la 1.0; la propia biblioteca dice que no es 1.0 porque gran parte de su catálogo previsto de componentes aún no está construida). La capa de interfaz de MacFirewallGuard la importa; MacUSBGuard todavía no la ha adoptado, y el README de la biblioteca sigue diciendo que no tiene consumidores, algo ya desactualizado {{ev:EV-EC-07}}.
 
 ## Un ejemplo cotidiano
 
-Es la caja de piezas de un mismo juego de construcción: si todas las casas se montan con las mismas piezas, un tejado rojo significa lo mismo en todas. Pero la caja de piezas no construye ninguna casa por sí sola ni la hace más segura.
+Es la caja de piezas de un mismo juego de construcción: si todas las casas se montan con las mismas piezas, un tejado rojo significa lo mismo en todas partes. Pero la caja de piezas no construye ninguna casa por sí sola ni hace una más segura.
 
 ## Diagrama
 
 {{diagram:ecosystem-map}}
 
-En el mapa aparece entre los "bloques compartidos": una pieza de apoyo que las aplicaciones podrían usar, sin lógica de seguridad propia.
+En el mapa está entre los "bloques de construcción compartidos": una pieza de apoyo que las aplicaciones podrían usar, sin lógica de seguridad propia.
 
 ## Paso a paso
 
-1. Una aplicación declara el paquete como dependencia de SwiftPM.
-2. Construye sus pantallas con componentes `MG...` (`MGCard`, `MGStatusBadge`, `MGTable`...).
-3. Los componentes aplican colores, tipografía y espaciados del sistema de diseño.
-4. Un script heurístico (`Scripts/anti-drift-check.sh`) puede revisar el código de la aplicación para detectar colores o tamaños de letra "a mano" que se saltan el sistema.
+1. Una aplicación declara el paquete como dependencia SwiftPM.
+2. Construye sus pantallas con los componentes ya hechos de la biblioteca (tarjetas, insignias de estado, tablas...).
+3. Los componentes aplican los colores, la tipografía y el espaciado del sistema de diseño.
+4. Un script de comprobación heurístico puede revisar el código de la aplicación en busca de colores o tamaños de letra escritos a mano que se salten el sistema.
 
 ## Arquitectura
 
-Un solo destino de biblioteca más uno de pruebas; swift-tools 5.9, macOS 13 o superior, **sin dependencias externas** {{ev:EV-EC-31}}. Carpetas: Charts, Colors, Components, Detail, Feedback, Icons, Search, Shell, Spacing, State, Status, Table, Theme, Typography. Importa solo SwiftUI, AppKit, CoreGraphics y Foundation: **no usa el framework Charts**; los gráficos son solo estilo.
+Una biblioteca más sus pruebas, para macOS 13 o superior, **sin dependencias externas** {{ev:EV-EC-31}}. Se organiza por temas (colores, espaciado, tipografía, componentes, tablas, búsqueda, estados, estilo de gráficos). Importa solo los marcos de interfaz y gráficos de Apple y **no usa el marco Charts**; los gráficos son solo estilo.
 
-**Restricción dura** (documentada y comprobable con un `grep` de su README): no puede depender de DriverKit, NetworkExtension, EndpointSecurity ni de ningún módulo interno de las aplicaciones. Por eso no requiere permisos ni perfiles de aprovisionamiento especiales.
+**Restricción dura** (documentada y comprobable): no debe depender de tecnologías de seguridad de nivel de sistema ni de ningún módulo interno de las aplicaciones. Por eso no necesita permisos especiales ni perfiles de aprovisionamiento.
 
 ## Cómo funciona por dentro
 
 | Pieza | Problema | Cómo | Evidencia |
 |---|---|---|---|
-| `MGSecurityTint` | Que colores del sistema (verde, naranja, rojo, azul) fallen en contraste sobre algunos fondos | Mezcla el color hacia negro o blanco en pasos del 5 % hasta alcanzar un contraste de 4,5:1 (criterio WCAG 2.2 AA) | `Colors/MGSecurityTint.swift` |
-| `MGHealthStatus` | Estados incoherentes entre apps | Vocabulario único de 9 casos, cada uno con color, símbolo SF y palabra | `Status/MGHealthStatus.swift` |
-| `MGStatusBadge` | Insignias que solo dependen del color | El parámetro `text:` no es opcional: no se puede crear una insignia solo con color | `Components/MGStatusBadge.swift` |
-| `MGDestructiveButton` + `MGConfirmationDialog` | Acciones destructivas sin confirmar | La confirmación no se puede omitir | `Components/MGButtons.swift` |
-| `MGTable` | Tablas ordenables coherentes | Tabla genérica sobre datos `Identifiable`; la 0.3.1 corrigió la agrupación de accesibilidad de filas | `Table/MGTable.swift` |
+| Colores de seguridad accesibles | Los colores del sistema (verde, naranja, rojo, azul) fallan en contraste sobre algunos fondos | Ajusta el color hacia negro o blanco en pasos pequeños hasta alcanzar un contraste legible (criterio WCAG 2.2 AA) | Ver la [matriz de evidencias](ES-Evidence) |
+| Vocabulario de salud compartido | Estados incoherentes entre apps | Un vocabulario de estados, cada uno con color, símbolo y palabra | Ver la [matriz de evidencias](ES-Evidence) |
+| Insignia de estado | Insignias que dependen solo del color | El texto es obligatorio: no se puede crear una insignia solo de color | Ver la [matriz de evidencias](ES-Evidence) |
+| Botón destructivo y diálogo de confirmación | Acciones destructivas sin confirmación | La confirmación no se puede omitir | Ver la [matriz de evidencias](ES-Evidence) |
+| Tabla ordenable | Tablas ordenables coherentes | Tabla genérica sobre datos identificables, con agrupación accesible de filas | Ver la [matriz de evidencias](ES-Evidence) |
 
-Qué **no** garantiza: que una aplicación que la use sea accesible (depende de cómo la use), ni sustituye una validación humana con VoiceOver. El script anti-deriva es heurístico y puede dar falsos positivos y negativos.
+Lo que **no** garantiza: que una aplicación que la usa sea accesible (depende de cómo se use), ni sustituye la validación humana con VoiceOver. El script anti-deriva es heurístico y puede dar falsos positivos y negativos.
 
 ## Pruebas
 
-Un destino de pruebas con 3 archivos y 26 funciones `test` (recuento estático, **no ejecutadas**); no hay resultados de ejecución documentados en el repositorio {{ev:EV-EC-32}}. El README menciona unos 15 hallazgos de anti-deriva en sus propias fuentes que se dejaron sin marcar.
+La biblioteca tiene un pequeño objetivo de pruebas (lectura estática, **no ejecutado**); no hay resultados de ejecución documentados en el repositorio {{ev:EV-EC-32}}. El README reconoce algunos hallazgos de deriva de diseño en sus propias fuentes que quedaron sin marcar.
 
 ## Cómo comprobarlo tú
 
-El repositorio es privado. Según su README: `swift build` y `swift test`, y el `grep` de la restricción dura. No se ejecutaron para esta wiki.
+El repositorio es privado. Su README describe una compilación y una ejecución de pruebas más una comprobación de dependencias; no se ejecutaron para esta wiki.
 
 ## Límites
 
-- El README conserva texto desactualizado (versión 0.1.0 y "aún no publicado"), mientras el código declara 0.3.1; no se verificó que el repositorio remoto sea accesible ni que las etiquetas estén publicadas.
-- Cinco decisiones de diseño esperan visto bueno humano {{ev:EV-EC-32}}.
-- No es un control de seguridad ni protege a nadie por sí misma.
+- El README conserva texto desactualizado (una versión anterior y "aún no publicado") mientras el código declara una más reciente; no se verificó que el repositorio remoto sea accesible ni que haya etiquetas publicadas.
+- Algunas decisiones de diseño esperan la aprobación humana {{ev:EV-EC-32}}.
+- No es un control de seguridad y no protege a nadie por sí sola.
 
 ## Estado
 
 | Capacidad | Estado |
 |---|---|
-| Tokens, componentes base, shell, tabla, búsqueda, estados | Implementado (0.1.0 a 0.3.1), no verificado por ejecución |
-| Resto del catálogo de 16 componentes | Planificado |
-| Versión 1.0 | Planeada: exige estabilidad y que al menos dos productos la usen (hoy cero) |
+| Tokens, componentes base, estructura, tabla, búsqueda, estados | Implementado (anterior a 1.0), no verificado por ejecución |
+| Resto del catálogo previsto de componentes | Planificado |
+| Versión 1.0 | Planificado: requiere estabilidad y al menos dos productos que la usen (hoy uno) |
 
 ## Dónde seguir
 

@@ -18,18 +18,30 @@ La firma es el sello de lacre de una carta: dice de quién viene y si se abrió.
 
 ## Cómo se relacionan (técnico)
 
-El flujo de notarización que sigue el proyecto (`SIGNING.md` de Installer Auditor, basado en la documentación de Apple; la página de Apple no se pudo leer completa desde aquí): firma con un certificado **Developer ID Application**, **hardened runtime**, `xcrun notarytool` para enviar, y grapar el ticket al `.app`, y comprobar con Gatekeeper {{ev:EV-EC-68}}. Gatekeeper verifica identidad del desarrollador, notarización e integridad al primer arranque, y sigue la procedencia de los ficheros {{ev:EV-EC-78}}.
+El flujo de notarización que sigue el proyecto (`SIGNING.md` de Installer Auditor, basado en la documentación de Apple; la página de Apple no se pudo leer completa desde aquí): firma con un certificado **Developer ID Application**, **hardened runtime**, `xcrun notarytool` para enviar, y grapar el ticket al `.app`, y comprobar con Gatekeeper {{ev:EV-EC-68}}. Gatekeeper verifica identidad del desarrollador, notarización e integridad al primer arranque, y sigue la procedencia de los archivos {{ev:EV-EC-78}}.
 
 Una firma **ad hoc** (`codesign --sign -`) no tiene identidad de desarrollador: sirve para comprobar integridad local, pero no para que Gatekeeper acepte una descarga como notarizada.
 
 ## Dónde lo usa este proyecto
 
-| App | Qué hace según la evidencia |
-|---|---|
-| Installer Auditor | Sus ayudantes `yara`/`yarac` van firmados **ad hoc** con hardened runtime; la app y los ayudantes **no están notarizados** y falta Developer ID por falta de credenciales {{ev:EV-EC-73}}. Además, **lee** firmas: ejecuta `codesign --verify --strict` sobre sus propios ayudantes antes de usarlos {{ev:EV-EC-72}} |
-| MacFirewallGuard | **Lee** la firma real de los procesos con `CodeSignatureResolver` (Security.framework) para no fiarse del nombre; no hay compilación firmada ni notarizada {{ev:EV-EC-63}} {{ev:EV-EC-65}} |
-| YARA Channel | No firma apps; firma el canal de reglas con Sigstore, otro mecanismo {{ev:EV-YC-03}} |
-| MacProcessGuard | Nada: es un concepto {{ev:EV-EC-05}} |
+### Installer Auditor
+
+- **Firma:** sus ayudantes `yara`/`yarac` van firmados **ad hoc** con hardened runtime.
+- **Notarización:** la app y los ayudantes **no están notarizados**; falta Developer ID por falta de credenciales {{ev:EV-EC-73}}.
+- **Lectura de firmas:** ejecuta `codesign --verify --strict` sobre sus propios ayudantes antes de usarlos {{ev:EV-EC-72}}.
+
+### MacFirewallGuard
+
+- **Lectura de firmas:** lee la firma real de los procesos mediante Security.framework para no fiarse del nombre {{ev:EV-EC-63}} {{ev:EV-EC-65}}.
+- **Firma propia:** no hay compilación firmada ni notarizada.
+
+### YARA Channel
+
+- No firma apps; firma el canal de reglas con Sigstore, otro mecanismo {{ev:EV-YC-03}}.
+
+### MacProcessGuard
+
+- Nada: es un concepto {{ev:EV-EC-05}}.
 
 El estado de firma de MacUSBGuard, MacCoreGuard y MacGuardDesignKit no se revisó para esta página: **no verificado**.
 

@@ -1,0 +1,30 @@
+flowchart TB
+  N["Nextron Systems<br/>Neo23x0/signature-base"]:::src
+  C["Reglas de la comunidad<br/>Yara-Rules/rules"]:::src
+  V["VirusTotal YARA-X<br/>registrado como motor, sin reglas"]:::src
+  P["prepare.py<br/>fijar commit, extraer, normalizar"]:::src
+  R["rulecheck.py<br/>clasificación estática"]:::val
+  G["dynamic_gate.py + bench.py<br/>mediciones del motor YARA"]:::val
+  D{"decide.py<br/>PUERTA DE PUBLICACIÓN"}:::gate
+  H["SHA-256 por archivo<br/>make_public_candidate.py"]:::sec
+  M["rules_root + manifest.json<br/>seal.py"]:::sec
+  S["Sigstore sin clave<br/>cosign en publish.yml"]:::sec
+  RL["Release de GitHub<br/>borrador, luego pública"]:::pub
+  W["GitHub Pages + réplica Cloudflare<br/>site.yml"]:::pub
+  A["MacGuard GUI TUI CLI<br/>RuleInstaller"]:::pub
+  Q[("Cuarentena privada<br/>admin/worker D1")]:::qua
+  API["API y panel de administración"]:::qua
+  HR["Revisión humana<br/>aprobar, borrar o conservar"]:::qua
+  N --> P
+  C --> P
+  V -.-> P
+  P --> R --> G --> D
+  D -->|aprobado| H --> M --> S --> RL --> W --> A
+  D -->|no aprobado| Q --> API --> HR
+  HR -->|decisión| R
+  classDef src fill:#cfe3ff,stroke:#2f6df0,color:#0b1b33
+  classDef val fill:#ffe9b8,stroke:#b8860b,color:#2b1d00
+  classDef sec fill:#cdeedd,stroke:#1b6e3c,color:#08210f
+  classDef pub fill:#e4d7ff,stroke:#6a3fd1,color:#1b0b3b
+  classDef qua fill:#ffd4cc,stroke:#c0392b,color:#33100b
+  classDef gate fill:#ffffff,stroke:#111111,stroke-width:3px,color:#111111

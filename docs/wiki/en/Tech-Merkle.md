@@ -48,5 +48,5 @@ The root shows integrity of the set, not its quality. The log is only as trustwo
 
 | Capability | State |
 |---|---|
-| `rules_root` and public log with signed checkpoints | operational {{ev:EV-YC-04}} |
+| `rules_root` and public log with signed checkpoints | published {{ev:EV-YC-04}} |
 | Archive manifest with a Merkle root (local tool) | implemented-not-deployed {{ev:EV-YC-61}} |

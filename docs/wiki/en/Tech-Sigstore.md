@@ -4,11 +4,11 @@
 
 ## In 30 seconds
 
-Sigstore provides tools to sign artifacts and verify their integrity and the asserted signing identity; verification evidence can include an auditable public log {{ev:EV-YC-73}}. In MacGuard it helps verify that a release was signed under the configured publishing-workflow identity. It does not establish authorship of individual third-party rules.
+Sigstore signs files and leaves a public record of each signature that anyone can consult {{ev:EV-YC-73}}. Here it lets you check which automated workflow (`publish.yml`) published a rule bundle. It proves that workflow's identity and that the file did not change; it does not prove who wrote the third-party rules or that they are safe.
 
 ## An everyday example
 
-It is like a wax seal that exists for only a moment: the user proves who they are with an ID, receives a valid seal for a few minutes, then destroys it. Later, anyone can check a public ledger to see that the seal was used and who asked for it. It does not say whether what was sealed is good.
+It is like a wax seal that exists for only a moment. Whoever asks for it proves who they are with an ID (the workflow's identity token), receives a seal that is valid for a few minutes (the short-lived certificate), then destroys it. Anyone can check a public ledger (the transparency log) to see that the seal was used and who asked for it. The seal says which office closed the envelope and that it was not opened afterwards; it does not say who wrote the letter or whether what it says is true.
 
 {{diagram:sigstore-sequence}}
 
@@ -29,7 +29,7 @@ It is like a wax seal that exists for only a moment: the user proves who they ar
 
 ## Who else uses it
 
-No row implies that these organisations use MacGuard.
+No row implies that these organizations use MacGuard.
 
 | Who | Classification | Source |
 |---|---|---|
@@ -47,11 +47,11 @@ The second command needs `cosign` installed and the exact workflow identity.
 
 ## Limits
 
-A signature binds an artifact to a publishing identity and permits integrity checks; it does not establish authorship of every rule or its quality. `manifest.evidence` is a statement by the publishing workflow, not an independent attestation {{ev:EV-YC-66}}. The in-browser verifier is served from the same origin as the package (RR-07).
+The signature proves the verifiable identity of the publishing workflow and the integrity of the signed artifact, within Sigstore's trust model. It does **not** prove who wrote the third-party rules, that they are safe, or that the content is good. This repository does not claim SLSA attestations or GitHub attestations. `manifest.evidence` is a statement by the publishing workflow, not an independent attestation {{ev:EV-YC-66}}.
 
 ## State
 
 | Capability | State |
 |---|---|
-| Keyless signing of checkpoints and manifests in each release | operational {{ev:EV-YC-03}} |
+| Keyless signing of checkpoints and manifests in each release | published {{ev:EV-YC-03}} |
 | Sigstore signature of the historical archive manifest | planned (the archive is not operational) {{ev:EV-YC-60}} |

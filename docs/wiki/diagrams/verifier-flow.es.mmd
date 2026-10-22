@@ -1,0 +1,18 @@
+flowchart TD
+  A["resolver la etiqueta una vez<br/>--latest o --tag"]:::src --> B["descargar artefactos obligatorios<br/>exit 4 si faltan"]:::src
+  B --> C["cosign verify-blob<br/>manifiesto y checkpoint<br/>exit 2 o 5"]:::sec
+  C --> D["extracción segura<br/>exit 6 si no es segura"]:::val
+  D --> E["SHA-256 de cada archivo<br/>exit 1 si difiere"]:::val
+  E --> F["recalcular rules_root<br/>exit 3"]:::sec
+  F --> G["el checkpoint coincide con la cabeza del registro del manifiesto<br/>prueba de inclusión<br/>exit 3"]:::sec
+  G --> H{"¿se indicó el checkpoint<br/>anterior?"}:::gate
+  H -->|sí| I["prueba de consistencia y control de retroceso<br/>exit 3"]:::sec
+  H -->|no| J["informe: protección contra retroceso no establecida"]:::qua
+  I --> K["PASS exit 0"]:::pub
+  J --> K
+  classDef src fill:#cfe3ff,stroke:#2f6df0,color:#0b1b33
+  classDef val fill:#ffe9b8,stroke:#b8860b,color:#2b1d00
+  classDef sec fill:#cdeedd,stroke:#1b6e3c,color:#08210f
+  classDef pub fill:#e4d7ff,stroke:#6a3fd1,color:#1b0b3b
+  classDef qua fill:#ffd4cc,stroke:#c0392b,color:#33100b
+  classDef gate fill:#ffffff,stroke:#111111,stroke-width:3px,color:#111111

@@ -6,7 +6,7 @@
 
 MacGuard YARA Channel es un sistema que recopila, valida, prepara y distribuye reglas YARA verificables para ayudar a identificar patrones sospechosos en archivos.
 
-Cada día, un proceso automático descarga reglas de dos repositorios públicos, las revisa con comprobaciones estáticas y con medidas reales del motor YARA, aparta las que no pasan, y solo publica las que sí, con una firma que cualquiera puede comprobar. Ayuda a reconocer patrones conocidos; **no** garantiza que un archivo sea seguro ni que una amenaza nueva se detecte. {{ev:EV-YC-20}}
+Cada día, un proceso automático descarga reglas de dos repositorios públicos, las revisa con comprobaciones estáticas y con medidas reales del motor YARA, aparta las que no pasan y solo publica las que sí. Un conjunto que cambia se publica únicamente si la validación pasa y el trabajo de medición en macOS termina bien. Cualquiera puede comprobar la firma del resultado. Ayuda a reconocer patrones conocidos; **no** garantiza que un archivo sea seguro ni que una amenaza nueva se detecte. {{ev:EV-YC-20}}
 
 ## Qué es YARA, sin tecnicismos
 
@@ -53,11 +53,11 @@ Es como la lista de comprobación de un guardia de aduanas: «si en la maleta ha
 
 ## Cómo funciona por dentro
 
-El orden real de los programas, según `.github/workflows/daily.yml`: `scripts/prepare.py` (recoge), `scripts/rulecheck.py` (clasificación estática), `scripts/dynamic_gate.py` con `scripts/bench.py` (medidas con el motor), `scripts/decide.py` (puerta de decisión) y, si el conjunto cambia, `publish.yml` firma y publica. La puerta es el único punto que decide qué conjunto es publicable. {{ev:EV-YC-20}}
+El orden real de los programas, según `.github/workflows/daily.yml`: `scripts/prepare.py` (recoge), `scripts/rulecheck.py` (clasificación estática), `scripts/dynamic_gate.py` con `scripts/bench.py` (medidas con el motor), `scripts/decide.py` (puerta de decisión) y, si el conjunto cambia, un trabajo de medición en `macos-15`. Solo si ese trabajo termina bien, `daily.yml` pide `publish.yml`, que vuelve a verificar, firma y publica. La puerta es el único punto que decide qué conjunto es publicable. {{ev:EV-YC-20}} {{ev:EV-YC-89}}
 
 - Qué detecta: coincidencias con patrones que alguien escribió en una regla.
 - Qué **no** previene: malware sin regla, ofuscado, o cuyo patrón no esté en las reglas; ni garantiza ausencia de falsos positivos.
-- Evidencia de implementación: los ficheros citados arriba; diagrama `docs-src/diagrams/architecture.mmd`.
+- Evidencia de implementación: los archivos citados arriba; diagrama `docs-src/diagrams/architecture.mmd`.
 
 ## Cómo comprobarlo tú
 
@@ -73,8 +73,8 @@ Un conjunto de reglas validado no equivale a un archivo seguro. Lo que el canal 
 
 | Capacidad | Estado |
 |---|---|
-| Revisión diaria, puerta de decisión y release firmada | operativo {{ev:EV-YC-02}} {{ev:EV-YC-03}} |
+| Revisión diaria, puerta de decisión y release firmada | publicado {{ev:EV-YC-02}} {{ev:EV-YC-03}} |
 | Panel privado de cuarentena | operativo {{ev:EV-YC-05}} |
-| Retiradas persistentes, políticas, anclas y propuestas de fuentes | implementado en `main`, no desplegado {{ev:EV-YC-06}} {{ev:EV-YC-07}} |
+| Retiradas persistentes, políticas, anclas y control de admisión de fuentes | implementado en el repositorio, aún no activo en producción {{ev:EV-YC-06}} {{ev:EV-YC-07}} |
 | Archivo en tres proveedores | no operativo {{ev:EV-YC-08}} |
 | Prueba de rendimiento con la app real | planificado {{ev:EV-YC-10}} |

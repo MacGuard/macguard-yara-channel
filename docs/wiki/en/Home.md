@@ -2,7 +2,7 @@
 
 ## In 30 seconds
 
-MacGuard is a family of tools to protect a Mac. Each one watches a different thing: the installers you download, USB devices, network connections. One of them, **YARA Channel**, distributes the "lists of clues" (YARA rules) used to recognise suspicious files, and signs them so anyone can check they are the published ones and did not change after signing. They help recognise known patterns; they do not guarantee a file is safe.
+MacGuard is a family of tools to protect a Mac. Each one watches a different thing: the installers you download, USB devices, network connections. One of them, **YARA Channel**, distributes the "lists of clues" (YARA rules) used to recognize suspicious files, and signs them so anyone can check they are the published ones and did not change after signing. They help recognize known patterns; they do not guarantee a file is safe.
 
 This wiki explains what each piece does, how it works and **where its development really stands**. When something is not proven, we say so.
 
@@ -14,15 +14,13 @@ Think of a house: a lock, an alarm and someone watching the door. None is enough
 
 {{diagram:ecosystem-map}}
 
-| Application | What it does, in one sentence | State | Evidence |
-|---|---|---|---|
-| YARA Channel | Collects, validates and publishes signed, verifiable YARA rules | Published | {{ev:EV-YC-02}} |
-| Installer Auditor | Checks installers with those rules before you open them | In development | {{ev:EV-YC-09}} |
-| MacUSBGuard | Watches the USB devices that get connected | In validation | {{ev:EV-EC-01}} |
-| MacFirewallGuard | Observes network connections and will apply a policy | In development | {{ev:EV-EC-03}} |
-| MacProcessGuard | Would identify which program does what | Concept only | {{ev:EV-EC-05}} |
-| MacCoreGuard | Common base to keep verifiable evidence | Prototype | {{ev:EV-EC-06}} |
-| MacGuardDesignKit | Interface pieces shared between the apps | In development | {{ev:EV-EC-07}} |
+- **YARA Channel**: Collects, validates and publishes signed, verifiable YARA rules. *State: Published* {{ev:EV-YC-02}}
+- **Installer Auditor**: Checks installers with those rules before you open them. *State: In development* {{ev:EV-YC-09}}
+- **MacUSBGuard**: Watches the USB devices that get connected. *State: In validation* {{ev:EV-EC-01}}
+- **MacFirewallGuard**: Observes network connections and will apply a policy. *State: In development* {{ev:EV-EC-03}}
+- **MacProcessGuard**: Would identify which program does what. *State: Concept only* {{ev:EV-EC-05}}
+- **MacCoreGuard**: Common base to keep verifiable evidence. *State: Prototype* {{ev:EV-EC-06}}
+- **MacGuardDesignKit**: Interface pieces shared between the apps. *State: In development* {{ev:EV-EC-07}}
 
 ## What exists today
 
@@ -32,7 +30,7 @@ Think of a house: a lock, an alarm and someone watching the door. None is enough
 
 ## What we are working on
 
-- YARA Channel: persistent withdrawals and source proposals, written and tested but not deployed yet {{ev:EV-YC-06}} {{ev:EV-YC-07}}, and the three-provider historical archive, which is **not operational yet** {{ev:EV-YC-08}}.
+- YARA Channel: persistent withdrawals and source admission control, implemented in the repository and not yet active in production {{ev:EV-YC-06}} {{ev:EV-YC-07}}, and the three-provider historical archive, which is **not operational yet** {{ev:EV-YC-08}}.
 - MacFirewallGuard and MacUSBGuard: moving the tests that depend on Apple permissions that are still missing {{ev:EV-EC-02}} {{ev:EV-EC-04}}.
 
 ## Next milestone
@@ -45,5 +43,6 @@ There are no committed dates. Each application's next step, blockers and depende
 - [Global roadmap](EN-Roadmap)
 - [YARA Channel in depth](EN-YARA-Channel)
 - Pages: [MacUSBGuard](EN-App-USB), [MacFirewallGuard](EN-App-Firewall), [MacProcessGuard](EN-App-Process), [MacCoreGuard](EN-App-Core), [Installer Auditor](EN-App-InstallerAuditor), [DesignKit](EN-App-DesignKit)
+- Technologies: [YARA](EN-Tech-YARA), [Sigstore](EN-Tech-Sigstore), [Merkle trees](EN-Tech-Merkle), [S3 backups](EN-Tech-S3-Backups), [Endpoint Security](EN-Tech-EndpointSecurity), [DriverKit](EN-Tech-DriverKit), [Network Extension](EN-Tech-NetworkExtension), [Code signing](EN-Tech-CodeSigning)
 - [Glossary](EN-Glossary) · [How to contribute](EN-Contribute)
 - [Evidence matrix](EN-Evidence)

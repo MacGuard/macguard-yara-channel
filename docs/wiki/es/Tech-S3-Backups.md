@@ -6,7 +6,7 @@
 
 ## En 30 segundos
 
-«S3» es la forma de hablar con almacenes de objetos en la nube (guardas ficheros en «cubos» o *buckets*). Muchos proveedores la entienden. Con **versionado** (se conservan versiones antiguas) y **Object Lock** (no se puede borrar ni sobrescribir durante un tiempo) se obtiene una copia «solo se añade», útil contra errores y borrados.
+«S3» es la forma de hablar con almacenes de objetos en la nube (guardas archivos en «cubos» o *buckets*). Muchos proveedores la entienden. Con **versionado** (se conservan versiones antiguas) y **Object Lock** (no se puede borrar ni sobrescribir durante un tiempo) se obtiene una copia «solo se añade», útil contra errores y borrados.
 
 ## Un ejemplo cotidiano
 
@@ -19,7 +19,7 @@ Es una caja fuerte con ranura: puedes meter documentos, pero durante un plazo na
 - **Problema:** conservar el historial aunque falle, se corrompa o se manipule un proveedor.
 - **Piezas:** versionado; retención por Object Lock; reglas de identidad que dan a la clave de escritura solo permiso de subir; lectura de vuelta con otra clave; hashes SHA-256 por objeto {{ev:EV-YC-60}}.
 - **Gobernanza frente a compliance:** en gobernanza, quien tenga el permiso especial puede saltarse el bloqueo; en compliance no puede nadie durante la retención, ni el titular de la cuenta (salvo borrar la cuenta, en el caso de AWS) {{ev:EV-YC-78}} {{ev:EV-YC-79}}.
-- **Tres proveedores:** Cloudflare R2, Backblaze B2 y Scaleway, un bucket cada uno. La especificación anota que el bloqueo de R2 es una regla de retención que se puede eliminar, y que en Scaleway la función debe confirmarse en un bucket de prueba {{ev:EV-YC-63}}.
+- **Tres proveedores:** Cloudflare R2, Backblaze B2 y Scaleway, un bucket cada uno. La especificación anota que la fortaleza del bloqueo depende de la configuración de cada proveedor, y que la función debe confirmarse en buckets de prueba {{ev:EV-YC-63}}.
 - **Implementación en el repositorio:** `scripts/archive/providers.py` (directorio local y adaptador S3 por línea de órdenes), `store.py`, `restore.py`, entrada `scripts/archivectl.py` {{ev:EV-YC-61}}.
 - **Coste:** la especificación estima de céntimos a decenas de dólares en total en casi todos los escenarios, con precios leídos el 2026-10-21 que pueden cambiar {{ev:EV-YC-60}}.
 - **No previene:** un origen de escritura comprometido que suba datos falsos con firma válida; ni la pérdida de la clave de descifrado.

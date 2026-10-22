@@ -4,11 +4,11 @@
 
 ## En 30 segundos
 
-MacProcessGuard es un **concepto**: una pieza que, si se emprende, vigilaría qué programas se ejecutan en el Mac. **No existe**: no hay repositorio, ni código, ni especificación propia {{ev:EV-EC-05}}. Esta página dice solo lo que otros proyectos escriben sobre él. **No se le atribuye ninguna función implementada.**
+MacProcessGuard es un **concepto**: una pieza que, si se emprendiera, vigilaría qué programas se ejecutan en el Mac. **No existe**: ni repositorio, ni código, ni especificación propia {{ev:EV-EC-05}}. Esta página solo dice lo que otros proyectos escriben sobre ella. **No se le atribuye ninguna función implementada.**
 
 ## Un ejemplo cotidiano
 
-Es un hueco reservado en un plano: alguien dibujó una puerta con la etiqueta "aquí iría el control de procesos", pero la habitación no está construida. Se sabe dónde encajaría, no cómo sería.
+Es un hueco reservado en un plano: alguien dibujó una puerta con la etiqueta "aquí iría el control de procesos", pero la sala no está construida. Sabemos dónde encajaría, no cómo sería.
 
 ## Diagrama
 
@@ -16,21 +16,21 @@ Es un hueco reservado en un plano: alguien dibujó una puerta con la etiqueta "a
 
 ## Paso a paso: qué existe exactamente
 
-1. El README de MacFirewallGuard dice literalmente que MacProcessGuard "does not exist yet" {{ev:EV-EC-05}}.
-2. Sus documentos de arquitectura lo llaman un producto hermano "separate, not-yet-started"; hay una decisión registrada de mantenerlo como producto aparte {{ev:EV-EC-66}}.
-3. En el código de MacFirewallGuard solo hay **huecos reservados**: un valor de enumeración `PROCESS_GUARD_CORRELATION` ("Not implemented yet; reserved") y una referencia con estado `PROVIDER_ABSENT` {{ev:EV-EC-67}}.
-4. Hay marcadores de interfaz propuestos (barra lateral "Process Activity"); son maquetas de diseño, no funciones {{ev:EV-EC-66}}.
+1. El README de MacFirewallGuard dice literalmente que MacProcessGuard "todavía no existe" {{ev:EV-EC-05}}.
+2. Sus documentos de arquitectura lo llaman producto hermano "separado, aún no iniciado"; una decisión registrada lo mantiene como producto separado {{ev:EV-EC-66}}.
+3. En el código de MacFirewallGuard solo hay **huecos reservados**: una categoría de correlación de marcador de posición marcada como "aún no implementada; reservada" y una referencia de identidad de proceso cuyo estado de proveedor es "ausente" {{ev:EV-EC-67}}.
+4. Hay marcadores de interfaz propuestos (una barra lateral "Actividad de procesos"); son maquetas de diseño, no funciones {{ev:EV-EC-66}}.
 
 ## Cómo funciona por dentro
 
-No hay algoritmos que describir. Lo único con código es la **frontera** del lado de MacFirewallGuard:
+No hay algoritmos que describir. Lo único con código es la **frontera** del lado de MacFirewallGuard, hecha de huecos reservados:
 
-- `ProcessSecurityIdentityReference` (Core/Attribution/ProcessAttributionV1.swift): clave `pid.pidversion` y estado de correlación `PROVIDER_ABSENT`. En producción siempre queda en ausente {{ev:EV-EC-67}}.
-- `ExternalProducerType` (Core/Egress/EgressProvenanceV1.swift): lista productores externos reconocidos; trata a un productor no reconocido como no admisible.
+- una referencia de identidad de proceso que identifica un proceso y lleva un estado de correlación; en producción ese estado queda siempre "ausente" {{ev:EV-EC-67}}.
+- una lista de productores externos reconocidos; un productor no reconocido se trata como no admisible.
 
-Lo que MacFirewallGuard **dice** que MacProcessGuard haría (procedencia de ejecución, hash del ejecutable, linaje de procesos, persistencia, detección de inyección) es una **frontera trazada por otro proyecto**, no un compromiso ni una especificación {{ev:EV-EC-66}}. Endpoint Security se nombra como la API adecuada, pero no hay código ni permiso de Apple para ella en este ecosistema. No se documenta que use XPC, YARA u otra tecnología.
+Lo que MacFirewallGuard **dice** que haría MacProcessGuard (procedencia de ejecución, hash del ejecutable, linaje de procesos, persistencia, detección de inyección) es una **frontera trazada por otro proyecto**, no un compromiso ni una especificación {{ev:EV-EC-66}}. Se nombra Endpoint Security como la API adecuada, pero no hay código ni permiso de Apple utilizable para ella en este ecosistema. No se documenta el uso de XPC, YARA ni de ninguna otra tecnología.
 
-Nombre sin resolver: los repositorios usan también "MacEndpointGuard" (`MACENDPOINTGUARD` en un valor, `MACPROCESSGUARD` en otro). La documentación no afirma que sean el mismo producto; **no verificado**.
+Nombre sin resolver: el material del proyecto menciona a veces un producto similar orientado al endpoint. La documentación no afirma que sean el mismo producto; **no verificado**.
 
 ## Cómo comprobarlo tú
 
@@ -38,16 +38,16 @@ No hay nada que ejecutar. La comprobación es negativa: en las copias locales re
 
 ## Límites
 
-- No protege nada hoy. Nadie debe depender de él.
-- Que MacFirewallGuard reserve un hueco no obliga a construir MacProcessGuard; el propietario aún no ha decidido si se emprende ({{ev:EV-EC-66}}).
-- Mientras no exista, la identidad de proceso de MacFirewallGuard seguirá siendo la de su propia resolución de firma, y la detección de inyección no tiene dueño.
+- Hoy no protege nada. Nadie debería depender de ello.
+- Que MacFirewallGuard reserve un hueco no obliga a nadie a construir MacProcessGuard; el propietario aún no ha decidido si lo emprenderá ({{ev:EV-EC-66}}).
+- Mientras no exista, la identidad de proceso de MacFirewallGuard sigue siendo la que dé su propia resolución de firma, y la detección de inyección no tiene responsable.
 
 ## Estado
 
 | Capacidad | Estado |
 |---|---|
 | Producto MacProcessGuard | Concepto |
-| Huecos reservados en MacFirewallGuard | Implementado (solo como marcadores) |
+| Huecos reservados en MacFirewallGuard | Implementado (solo como marcadores de posición) |
 | Cualquier función de vigilancia de procesos | Planificado en el sentido más débil: solo mencionado; sin diseño |
 
 Sin fechas. Ver el [Roadmap](ES-Roadmap) y [MacFirewallGuard](ES-App-Firewall).

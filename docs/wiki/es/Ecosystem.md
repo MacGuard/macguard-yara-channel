@@ -16,7 +16,7 @@ Cada capa cubre un punto distinto del camino que sigue algo hasta ejecutarse en 
 
 - **YARA Channel** suministra reglas firmadas. **Installer Auditor** es el consumidor que hoy tiene evidencia: solo instala reglas que pasan todas las comprobaciones de firma, huella (hash) y registro de transparencia {{ev:EV-YC-09}}.
 - **MacFirewallGuard** está diseñado para recibir de **MacProcessGuard** la identidad de cada proceso, pero MacProcessGuard todavía es solo un concepto, de modo que esa pieza falta {{ev:EV-EC-05}}.
-- **MacFirewallGuard** tiene un cliente para **MacCoreGuard**, probado solo contra un simulacro, porque MacCoreGuard es todavía un prototipo {{ev:EV-EC-04}} {{ev:EV-EC-06}}.
+- **MacFirewallGuard** tiene un cliente para **MacCoreGuard**, probado solo contra un doble de prueba (mock), porque MacCoreGuard es todavía un prototipo {{ev:EV-EC-04}} {{ev:EV-EC-06}}.
 - **MacGuardDesignKit** reúne piezas de interfaz pensadas para compartirse. La evidencia revisada no muestra todavía otros proyectos que dependan de ella {{ev:EV-EC-07}}.
 - **MacUSBGuard** funciona por su cuenta; no hay en la evidencia revisada dependencia con las otras aplicaciones {{ev:EV-EC-01}}.
 

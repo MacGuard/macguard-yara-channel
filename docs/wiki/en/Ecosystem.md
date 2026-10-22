@@ -25,7 +25,7 @@ Each layer covers a different point on the path something follows until it runs 
 | Layer | Helps to... | Does not guarantee... |
 |---|---|---|
 | Supply (YARA Channel) | Know the rules are the published ones and were not altered | That the rules detect everything, or that they are harmless: third parties write them {{ev:EV-YC-01}} |
-| Installers (Installer Auditor) | Check a file with verified rules | That a file with no match is safe. A rule only recognises what it already knows |
+| Installers (Installer Auditor) | Check a file with verified rules | That a file with no match is safe. A rule only recognizes what it already knows |
 | Devices (MacUSBGuard) | Observe what is connected | Blocking: its hardware tests depend on an Apple permission that is missing {{ev:EV-EC-02}} |
 | Network (MacFirewallGuard) | Observe and model connections | Blocking connections: it cannot today {{ev:EV-EC-03}} |
 | Processes (MacProcessGuard) | Nothing yet: it is a concept | Nothing: it does not exist {{ev:EV-EC-05}} |

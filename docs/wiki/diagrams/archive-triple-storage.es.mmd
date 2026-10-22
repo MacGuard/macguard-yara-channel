@@ -1,0 +1,27 @@
+flowchart TB
+  SRC["Flujo de publicación<br/>release, logs y segmentos<br/>de auditoría"]
+  PRE["Comprobaciones previas<br/>sin secretos, SHA-256"]
+  ENC["Auditoría privada: cifrado<br/>age antes de salir<br/>del proceso"]
+  R2["Proveedor 1<br/>un bucket"]
+  B2["Proveedor 2<br/>un bucket"]
+  SCW["Proveedor 3<br/>un bucket"]
+  RB["Leer de vuelta con otra clave<br/>de solo lectura y comparar<br/>SHA-256"]
+  OK["Coinciden los 3: ventana<br/>marcada como archivada<br/>si no: alerta,<br/>sin poda"]
+  SRC --> PRE
+  PRE --> ENC
+  PRE --> R2
+  PRE --> B2
+  PRE --> SCW
+  ENC --> R2
+  ENC --> B2
+  ENC --> SCW
+  R2 --> RB
+  B2 --> RB
+  SCW --> RB
+  RB --> OK
+  classDef box fill:#1f3a5f,stroke:#8ab4f8,color:#ffffff
+  classDef store fill:#2d4a2d,stroke:#9fd69f,color:#ffffff
+  classDef gate fill:#5a4a1a,stroke:#ffd966,color:#ffffff
+  class SRC,PRE,ENC box
+  class R2,B2,SCW store
+  class RB,OK gate

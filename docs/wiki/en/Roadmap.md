@@ -16,15 +16,57 @@ It is like a building-site board: it shows which floor is finished, which is sta
 
 ## By application
 
-| Application | Current phase | Done | Blockers | Next |
-|---|---|---|---|---|
-| YARA Channel | V1.1, phase 2 | Signed and verified channel (V1); V1.1 phase 1 merged {{ev:EV-YC-02}} {{ev:EV-YC-06}} {{ev:EV-YC-07}} | Three changes that alter publication guarantees await a specific acceptance; human validations are missing for the formal V1 sign-off | Deploy and migrate after authorization; test restorations from the three archive providers {{ev:EV-YC-08}} |
-| Installer Auditor | Development | Installs rules only if they pass every channel check {{ev:EV-YC-09}} | Neither signed nor notarized; one architecture decision awaits human review | End-to-end performance test with the live channel, planned {{ev:EV-YC-10}} |
-| MacUSBGuard | Validation | Tag v1.0.0-rc1 (on a line different from the current branch, see its page); audit reports {{ev:EV-EC-01}} | Apple's Endpoint Security permission is missing {{ev:EV-EC-02}} | V1 candidate; the next workstream is not chosen yet |
-| MacFirewallGuard | F2-A (partial) | F1-A, F1-B, GUI-V1 and F2-NIM {{ev:EV-EC-04}} | Apple's Network Extension permission is missing; MacCoreGuard does not exist as a service {{ev:EV-EC-03}} | Complete F2-A |
-| MacCoreGuard | Prototype | Protocol and cryptography layer with their own tests {{ev:EV-EC-06}} | Ledger, signing and ingest are placeholders | Work waves defined in its contract, no dates |
-| MacGuardDesignKit | Development | Versions 0.1.0 to 0.3.1 {{ev:EV-EC-07}} | Five pending design decisions | 1.0 once two products use it |
-| MacProcessGuard | Concept | Nothing beyond the boundary described in other projects {{ev:EV-EC-05}} | No repository or specification exists | Decide whether to start it |
+Stages used: concept, prototype, development, validation, release candidate and published. Each application is placed in the one its evidence supports.
+
+### YARA Channel
+
+- **Phase:** V1 published; V1.1, phase 2, in development.
+- **Done:** signed and verified channel (V1); V1.1 phase 1 merged {{ev:EV-YC-02}} {{ev:EV-YC-06}} {{ev:EV-YC-07}}.
+- **Implemented in the repository, not yet deployed:** persistent withdrawals, policies, source proposals; archive not operational.
+- **Blockers:** changes that alter publication guarantees await a specific acceptance; human validations are missing for the formal V1 sign-off.
+- **Next:** deploy and migrate after authorization; test restorations from the three archive providers {{ev:EV-YC-08}}.
+
+### Installer Auditor
+
+- **Phase:** development.
+- **Done:** installs rules only if they pass every channel check {{ev:EV-YC-09}}.
+- **Blockers:** neither signed nor notarized; one architecture decision awaits human review.
+- **Next:** end-to-end performance test with the live channel, planned {{ev:EV-YC-10}}.
+
+### MacUSBGuard
+
+- **Phase:** validation (a release candidate exists on one of two development lines).
+- **Done:** a release-candidate milestone and audit reports {{ev:EV-EC-01}}.
+- **Blockers:** no Endpoint Security entitlement is confirmed as usable {{ev:EV-EC-02}}.
+- **Next:** V1 candidate; the next workstream is not chosen yet.
+
+### MacFirewallGuard
+
+- **Phase:** development (a later phase is partial).
+- **Done:** the foundation, the interface and the network-integrity module {{ev:EV-EC-04}}.
+- **Blockers:** no Network Extension entitlement is confirmed as usable; MacCoreGuard does not exist as a service {{ev:EV-EC-03}}.
+- **Next:** complete the partial phase.
+
+### MacCoreGuard
+
+- **Phase:** prototype.
+- **Done:** protocol and cryptography layer with their own tests {{ev:EV-EC-06}}.
+- **Blockers:** ledger, signing and ingest are placeholders.
+- **Next:** staged work waves, no dates.
+
+### MacGuardDesignKit
+
+- **Phase:** development.
+- **Done:** several pre-1.0 versions {{ev:EV-EC-07}}.
+- **Blockers:** pending design decisions.
+- **Next:** 1.0 once two products use it.
+
+### MacProcessGuard
+
+- **Phase:** concept (no repository, no specification).
+- **Done:** nothing beyond the boundary described in other projects {{ev:EV-EC-05}}.
+- **Blockers:** no repository or specification exists.
+- **Next:** decide whether to start it.
 
 ## Dependencies between projects
 

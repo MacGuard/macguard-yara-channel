@@ -1,0 +1,13 @@
+stateDiagram-v2
+  [*] --> PENDING: el pipeline envía un archivo en cuarentena
+  PENDING --> UNDER_REVIEW: el revisor lo retiene
+  PENDING --> APPROVED_PENDING_VALIDATION: aprobar
+  UNDER_REVIEW --> APPROVED_PENDING_VALIDATION: aprobar
+  PENDING --> REJECTED: borrar
+  UNDER_REVIEW --> REJECTED: borrar
+  APPROVED_PENDING_VALIDATION --> REJECTED: borrar
+  APPROVED_PENDING_VALIDATION --> UNDER_REVIEW: retener, retira la aprobación
+  APPROVED_PENDING_VALIDATION --> RELEASED: publish.yml cuando las comprobaciones vuelven a pasar
+  APPROVED_PENDING_VALIDATION --> PENDING: la revalidación falló
+  RELEASED --> PENDING: la revalidación falló más tarde
+  REJECTED --> [*]

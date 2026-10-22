@@ -34,9 +34,9 @@ Piensa en el control de calidad de una panadería. El pan bueno sale a la tienda
 
 **Cuatro destinos** (`rulecheck.py`, función de clasificación): `REJECTED` si hay un criterio duro (binario, sin reglas, por encima del tope de tamaño, demasiadas reglas o contenido rechazado antes: códigos `binary`, `no-rules`, `oversized`, `too-many-rules`, `previously-rejected`); `QUARANTINED` si hay hallazgos truncados, corruptos o de revisión; `DEPRECATED` si el propio archivo se marca obsoleto; `VALIDATED` si nada de eso aplica. Solo `VALIDATED` se publica. Los topes están en `config/policy.json`: `max_file_bytes` 1000000 y `max_rules_per_file` 3000. {{ev:EV-YC-40}}
 
-**Qué puede decidir una persona.** El panel ofrece `approve`, `reject`, `hold`, `review` y `release_review` (`admin/worker/src/core.js`, tabla `HUMAN`). Aprobar, rechazar y retener exigen un motivo de 5 a 2000 caracteres visibles; un lote de varios exige `confirm_count` igual al número real; cada petición lleva un `request_id` idempotente y la versión que el revisor vio (si cambió, se rechaza). No existe ninguna acción humana que produzca `RELEASED`: solo lo escribe `publish.yml` tras ver el archivo en un manifiesto verificado. {{ev:EV-YC-42}}
+**Qué puede decidir una persona.** En el servicio privado de revisión, una persona revisora autorizada puede aprobar, rechazar, retener o enviar un candidato a revisión. Cada decisión exige un motivo registrado, y las peticiones están protegidas contra repeticiones y contra actuar sobre una versión obsoleta. No existe ninguna acción humana que produzca `RELEASED`: solo lo escribe `publish.yml` tras ver el archivo en un manifiesto verificado. {{ev:EV-YC-42}}
 
-**Hallazgos que NO se pueden aprobar.** Solo los hallazgos de criterio de la lista `WAIVABLE` se pueden aceptar a mano: `costly-regex`, `filesize-loop`, `many-loops`, `unknown-module`, `include`, `license-unchecked`, `matches-benign-corpus`, `dependency-not-validated`, `new-source`. Todo lo demás es un control técnico: el panel no deja aprobar (`blockingReasons`) y `decide.py` lo vuelve a aplicar al ejecutar las decisiones. Una prueba mantiene idénticas ambas listas (`tests/test_admission.py`). {{ev:EV-YC-41}}
+**Hallazgos que NO se pueden aprobar.** Solo una lista cerrada de hallazgos de criterio se puede aceptar a mano: `costly-regex`, `filesize-loop`, `many-loops`, `unknown-module`, `include`, `license-unchecked`, `matches-benign-corpus`, `dependency-not-validated`. Todo lo demás es un control técnico: el panel no deja aprobar y `decide.py` lo vuelve a aplicar al ejecutar las decisiones. Una prueba mantiene idénticas ambas listas. {{ev:EV-YC-41}}
 
 | Código real | Qué significa | Por qué no se aprueba |
 |---|---|---|
@@ -49,33 +49,32 @@ Piensa en el control de calidad de una panadería. El pan bueno sale a la tienda
 
 Un archivo cambiado es un candidato nuevo (clave `(sha256, path)`) que no hereda aprobaciones; solo se muestra la versión anterior como precedente. {{ev:EV-YC-41}}
 
-**Registro de decisiones.** Cada decisión escribe una entrada de auditoría en el mismo lote atómico de D1. El hash de cada entrada es `SHA-256(hash_anterior + JSON canónico de la entrada)`, empezando por 64 ceros (`chainHash`, `GENESIS` en `core.js`). `verifyChain` falla si se edita, borra o reordena una entrada (verificación restringida a administradores). Qué no evita: alguien con control total de la base de datos podría reescribir **toda** la cadena; por eso existe el diseño de anclas (ver Estado). {{ev:EV-YC-42}}
+**Registro de decisiones.** Cada decisión escribe una entrada de auditoría en la misma operación atómica que la decisión. El hash de cada entrada depende de la entrada anterior y de su propio contenido, de modo que una entrada editada, borrada o reordenada es detectable mediante una verificación autorizada. Refuerzo previsto: anclar periódicamente el registro fuera del servicio (ver Estado). {{ev:EV-YC-42}}
 
 ## Cómo comprobarlo tú
 
-El código del panel y sus pruebas son públicos. Desde un clon del repositorio:
+El código del pipeline y sus pruebas son públicos. Desde un clon del repositorio:
 
 ```bash
 python3 -m unittest tests.test_admission tests.test_decide
-cd admin/worker && npm test
 ```
 
-Ejecutados el 2026-10-22 sobre `main`: las pruebas Python de este tema (112 pruebas, junto con las de firma y registro) pasaron, y `node --test test/service.test.js test/policies.test.js test/anchor.test.js` en `admin/worker` dio 113 correctas y 0 fallos. Los códigos se leyeron en `scripts/rulecheck.py`, `scripts/decide.py` y `admin/worker/src/core.js`. Código: [core.js](https://github.com/MacGuard/macguard-yara-channel/blob/main/admin/worker/src/core.js), [decide.py](https://github.com/MacGuard/macguard-yara-channel/blob/main/scripts/decide.py), [rulecheck.py](https://github.com/MacGuard/macguard-yara-channel/blob/main/scripts/rulecheck.py). Detalle del panel público: [admin-panel](https://github.com/MacGuard/macguard-yara-channel/blob/main/docs-src/en/admin-panel.md).
+En el momento de la revisión (2026-10-22) estas suites pasaron sobre `main`. El servicio de revisión tiene su propia suite de pruebas, que la CI ejecuta en cada pull request. El número de pruebas cambia con cada commit, así que no se cita ninguno: ejecuta las órdenes para obtener la cifra actual. {{ev:EV-YC-42}} Los códigos se leyeron en `scripts/rulecheck.py` y `scripts/decide.py`. Código: [decide.py](https://github.com/MacGuard/macguard-yara-channel/blob/main/scripts/decide.py), [rulecheck.py](https://github.com/MacGuard/macguard-yara-channel/blob/main/scripts/rulecheck.py).
 
 ## Límites
 
 - Un archivo "validado" no es una garantía de calidad de detección ni de ausencia de falsos positivos.
 - Los detalles de reglas en cuarentena (nombres, hallazgos, contenido) van solo al servicio privado; lo público lleva recuentos.
-- El Worker no verifica firmas Sigstore; las verifica `publish.yml`. El Worker solo recalcula `rules_root` del manifiesto público.
+- El servicio de revisión solo registra decisiones; la publicación y la firma se hacen en `publish.yml`.
 
 ## Estado
 
 | Capacidad | Estado |
 |---|---|
 | Clasificación, decisión y hallazgos no aprobables en el pipeline | operativo {{ev:EV-YC-41}} |
-| Panel desplegado: aprobar, rechazar, retener, cadena de auditoría | operativo {{ev:EV-YC-05}} |
-| Memoria persistente de decisiones, retirada de reglas publicadas (`policies`, migración 0003) | implementado, no desplegado {{ev:EV-YC-43}} |
-| Anclas de auditoría (`audit_anchor`, migración 0004) | implementado, no desplegado {{ev:EV-YC-44}} |
-| Propuestas de fuentes (migración 0005) | implementado, no desplegado {{ev:EV-YC-07}} |
+| Panel privado de revisión: aprobar, rechazar, retener, registro de auditoría | operativo {{ev:EV-YC-05}} |
+| Memoria persistente de decisiones y retirada de reglas publicadas | implementado en el repositorio, aún no activo en producción {{ev:EV-YC-43}} |
+| Anclaje de la auditoría fuera del servicio | implementado en el repositorio, aún no activo en producción {{ev:EV-YC-44}} |
+| Control de admisión de fuentes nuevas | implementado en el repositorio, aún no activo en producción {{ev:EV-YC-07}} |
 
-Las migraciones 0003, 0004 y 0005 no están aplicadas. El Worker de `main` tolera que falten (las lecturas responden "sin políticas"), pero en producción **no existen** retiradas persistentes, políticas ni anclas. Además, en `main` el pipeline (`decide.py`) no lee todavía políticas: no se encontró `blocked-by-policy` en `scripts/`, así que una retirada registrada no se aplicaría aún a la siguiente release. Tampoco existe acción `reopen`: nada saca un candidato de `REJECTED`. Diseño: [especificación](https://github.com/MacGuard/macguard-yara-channel/blob/main/docs/audit/quarantine-decision-memory-and-withdrawal-spec.md) (su cabecera dice "solo diseño"; el código de `policies.js` y `anchor.js` ya está en `main`). {{ev:EV-YC-43}} {{ev:EV-YC-06}}
+Las retiradas persistentes, las políticas y el anclaje de auditoría están implementados en el repositorio y aún no están activos en producción; el servicio en vivo tolera que falten. Hasta que lo estén, el pipeline (`decide.py`) todavía no aplica las retiradas registradas a la siguiente release. {{ev:EV-YC-43}} {{ev:EV-YC-06}}

@@ -1,0 +1,16 @@
+sequenceDiagram
+  autonumber
+  participant W as publish.yml
+  participant T as tlog.py
+  participant CO as cosign
+  participant SE as seal.py
+  W->>T: evento release.approved
+  W->>T: checkpoint (origen, tamaño, raíz)
+  W->>CO: sign-blob del checkpoint
+  CO-->>W: checkpoint.sigstore.json
+  W->>T: verify (todos los checkpoints, consistencia, firmas)
+  W->>SE: escribir manifest.json (rules_root y cabeza del registro)
+  W->>CO: sign-blob de manifest.json
+  CO-->>W: manifest.sigstore.json
+  W->>T: release-proof (prueba de inclusión de la entrada candidate.accepted)
+  T-->>W: inclusion-proof.json

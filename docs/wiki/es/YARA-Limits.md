@@ -4,7 +4,7 @@
 
 ## En 30 segundos
 
-Una regla YARA es un detector de patrones. Ningún detector acierta siempre: a veces **da la alarma por un fichero inocente** (falso positivo) y a veces **no ve algo malicioso** (falso negativo). El canal mide y filtra, pero no puede prometer que no haya ni lo uno ni lo otro. Y la firma del canal demuestra *quién publicó y que nada cambió después*, no que las reglas sean buenas.
+Una regla YARA es un detector de patrones. Ningún detector acierta siempre: a veces **da la alarma por un archivo inocente** (falso positivo) y a veces **no ve algo malicioso** (falso negativo). El canal mide y filtra, pero no puede prometer que no haya ni lo uno ni lo otro. Y la firma del canal demuestra *quién publicó y que nada cambió después*, no que las reglas sean buenas.
 
 ## Un ejemplo cotidiano
 
@@ -14,8 +14,8 @@ Un detector de metales del aeropuerto suena con unas llaves (falso positivo) y p
 
 ## Falsos positivos y negativos
 
-- **Falsos positivos.** La puerta dinámica ejecuta cada conjunto de reglas contra un **corpus benigno** y pone en cuarentena una regla que acierta en demasiados ficheros limpios. En el código el límite es una fracción del 5 % (`hit_rate_limit=0.05` en `scripts/decide.py`), y solo se aplica si el corpus tiene al menos 50 ficheros {{ev:EV-YC-65}}.
-- **Falsos negativos.** No hay medida de cuántas amenazas reales se escapan. La única comprobación de detección son 5 ficheros «canario» inofensivos (`MACGUARD-CANARY-n-DETECT-ME`) que deben detectarse siempre; prueban que el motor funciona, no que las reglas cubran el malware real {{ev:EV-YC-64}}.
+- **Falsos positivos.** La puerta dinámica ejecuta cada conjunto de reglas contra un **corpus benigno** y pone en cuarentena una regla que acierta en demasiados archivos limpios. El límite es una fracción del corpus fijada en el código (`scripts/decide.py`); es un valor de política que puede cambiar {{ev:EV-YC-65}}.
+- **Falsos negativos.** No hay medida de cuántas amenazas reales se escapan. La única comprobación de detección es un pequeño conjunto de archivos «canario» inofensivos que deben detectarse siempre; prueban que el motor funciona, no que las reglas cubran el malware real {{ev:EV-YC-64}}.
 
 ## Límites del corpus benigno
 
@@ -23,16 +23,16 @@ El corpus de `build_corpus` en `scripts/bench.py` es **pequeño y sintético** {
 
 | Parte | Contenido |
 |---|---|
-| Binarios aleatorios | 40 ficheros, semilla fija 1234, tamaños 512 B a 256 KiB |
-| Texto | 10 ficheros de la misma frase repetida |
-| Binarios del sistema | hasta 8 (`/bin/ls`, `/bin/cat`, `/bin/sh`, `/usr/bin/awk`…), los que existan en el ejecutor |
-| Canarios | 5 ficheros, aparte del cómputo de falsos positivos |
+| Binarios aleatorios | Archivos sintéticos de tamaños variados |
+| Texto | Unos pocos archivos de texto |
+| Binarios del sistema | Algunos binarios del sistema operativo del ejecutor, los que existan |
+| Canarios | Unos pocos archivos, aparte del cómputo de falsos positivos |
 
-Consecuencias: no contiene software real variado (documentos, instaladores, aplicaciones), así que una regla puede ser demasiado genérica y pasar. Y como incluye binarios del sistema del ejecutor, **cambiar la imagen del ejecutor puede cambiar qué ficheros coinciden** {{ev:EV-YC-65}}. Un defecto real: un fichero benigno se contaba una vez por copia de espacio de nombres y hacía superar el 5 % a reglas que no lo merecían; se corrigió contando ficheros distintos, sin cambiar el límite {{ev:EV-YC-65}}.
+Consecuencias: no contiene software real variado (documentos, instaladores, aplicaciones), así que una regla puede ser demasiado genérica y pasar. Y como incluye binarios del sistema del ejecutor, **cambiar la imagen del ejecutor puede cambiar qué archivos coinciden** {{ev:EV-YC-65}}. Un defecto real: un archivo benigno se contaba una vez por copia de espacio de nombres y hacía superar el límite a reglas que no lo merecían; se corrigió contando archivos distintos, sin cambiar el límite {{ev:EV-YC-65}}.
 
 ## Coste de rendimiento
 
-La política (`config/policy.json`) fija límites de cordura cuando no hay release anterior: p95 de escaneo 2,0 s, memoria de escaneo 1500 MB, memoria de compilación 3000 MB y compilación 240 s. Contra una release previa, una regresión exige superar 3 veces el ruido medido, un 25 % relativo y mínimos absolutos de 0,5 s de CPU o 25 MB {{ev:EV-YC-67}}. Son puntos de partida del proyecto, no garantías de rendimiento en cualquier Mac. No existe prueba de rendimiento de extremo a extremo con la aplicación {{ev:EV-YC-10}}.
+La política (`config/policy.json`) fija límites de cordura que se aplican cuando no hay una release anterior con la que comparar; un candidato que los supera no se aprueba. Contra una release previa, un aumento cuenta como regresión solo si supera el ruido medido y un mínimo relativo y otro absoluto {{ev:EV-YC-67}}. Los valores exactos están, en contexto, en [Validación](ES-YARA-Validation). Salen de la política, pueden cambiar y son puntos de partida que protegen los equipos que escanean, no garantías de rendimiento en cualquier Mac ni objetivos. No existe prueba de rendimiento de extremo a extremo con la aplicación {{ev:EV-YC-10}}.
 
 ## Disponibilidad de las fuentes
 
@@ -40,15 +40,15 @@ Dos repositorios de reglas alimentan el canal (`Neo23x0/signature-base` y `Yara-
 
 ## Confianza en los motores
 
-La política exige YARA 4.3.0 o superior; el motor distribuido es 4.5.8, pero la puerta de Linux usa el YARA 4.5.0 de Ubuntu, y la medición en macOS corre en una máquina virtual, no en un Mac independiente {{ev:EV-YC-66}}. Los motores no son idénticos; un fichero que compila en uno puede no hacerlo en otro, y la aplicación verifica el motor distribuido antes de usarlo ([`docs/ENGINE.md`](https://github.com/MacGuard/macguard-yara-channel/blob/main/docs/ENGINE.md)).
+La política declara una versión mínima del motor; algunos valores de configuración están declarados pero el código todavía no los aplica {{ev:EV-YC-32}}. El motor distribuido es 4.5.8, la puerta de Linux usa el YARA 4.5.0 de Ubuntu y la medición en macOS corre en una máquina virtual, no en un Mac independiente {{ev:EV-YC-66}}. Los motores no son idénticos; un archivo que compila en uno puede no hacerlo en otro, y la aplicación verifica el motor distribuido antes de usarlo ([`docs/ENGINE.md`](https://github.com/MacGuard/macguard-yara-channel/blob/main/docs/ENGINE.md)).
 
 ## Qué NO demuestra la firma
 
-La firma Sigstore y la raíz Merkle demuestran que **ese flujo de trabajo publicó esos bytes** y que el registro solo crece {{ev:EV-YC-03}} {{ev:EV-YC-04}}. No demuestran que las reglas detecten bien, que no tengan falsos positivos, ni que el proceso de revisión sea correcto. `manifest.evidence` es la declaración del propio flujo de publicación, no una atestación independiente in-toto/SLSA {{ev:EV-YC-66}}.
+La firma Sigstore y la raíz Merkle demuestran que **ese flujo de trabajo publicó esos bytes** y que el registro solo crece {{ev:EV-YC-03}} {{ev:EV-YC-04}}. No demuestran quién escribió las reglas, que detecten bien, que no tengan falsos positivos, ni que el proceso de revisión sea correcto. `manifest.evidence` es la declaración del propio flujo de publicación, no una atestación independiente in-toto/SLSA {{ev:EV-YC-66}}.
 
 ## Lo que la auditoría dejó abierto (nivel público)
 
-Resumen de `RESIDUAL-RISKS.md`, `SECURITY-FINDINGS.md` y `TEST-MATRIX.md` {{ev:EV-YC-66}}: no hay atestación independiente de la revisión (RR-02); las pruebas de fuzzing usa semillas fijas y no se ejecutó con herramientas de larga duración (RR-10); Grype, OpenSSF Scorecard y lectores de pantalla reales no se ejecutaron (RR-11); diez ficheros de la primera release siguen retenidos (RR-13). No se resumen aquí otros hallazgos para no adelantar detalles no publicados.
+El proyecto mantiene una auditoría con puntos abiertos {{ev:EV-YC-66}}: no hay atestación independiente de la revisión, el fuzzing es limitado y aún no se han ejecutado algunas herramientas.
 
 ## Cómo comprobarlo tú
 

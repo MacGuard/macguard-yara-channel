@@ -5,8 +5,8 @@ flowchart TB
   R2["Provider 1<br/>one bucket"]
   B2["Provider 2<br/>one bucket"]
   SCW["Provider 3<br/>one bucket"]
-  RB["Read back with a different<br/>read-only key, compare SHA-256"]
-  OK["3 of 3 match: window marked archived<br/>otherwise alert, nothing is pruned"]
+  RB["Read back with a different<br/>read-only key and compare<br/>SHA-256"]
+  OK["3 of 3 match: window<br/>marked archived<br/>otherwise: alert,<br/>nothing is pruned"]
   SRC --> PRE
   PRE --> ENC
   PRE --> R2

@@ -1,5 +1,5 @@
-flowchart LR
-  L1["1 Supply<br/>YARA Channel<br/>verified rules"]:::pub --> L2["2 Installers<br/>Installer Auditor<br/>checks a file"]:::dev --> L3["3 Devices<br/>MacUSBGuard<br/>watches USB"]:::val --> L4["4 Network<br/>MacFirewallGuard<br/>sees connections"]:::dev --> L5["5 Processes<br/>MacProcessGuard<br/>idea only"]:::con
+flowchart TB
+  L1["1 Supply<br/>YARA Channel<br/>verified rules<br/>(published)"]:::pub --> L2["2 Installers<br/>Installer Auditor<br/>checks a file<br/>(development)"]:::dev --> L3["3 Devices<br/>MacUSBGuard<br/>watches USB<br/>(validation)"]:::val --> L4["4 Network<br/>MacFirewallGuard<br/>sees connections<br/>(development)"]:::dev --> L5["5 Processes<br/>MacProcessGuard<br/>idea only"]:::con
   classDef pub fill:#d4edda,stroke:#1b5e20,color:#102a12
   classDef val fill:#d6e4ff,stroke:#1a3d8f,color:#0d1f4d
   classDef dev fill:#fff3cd,stroke:#8a6d00,color:#3d2f00

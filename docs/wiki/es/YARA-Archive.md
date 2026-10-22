@@ -2,11 +2,11 @@
 
 [Inicio](ES-Home) · [Límites](ES-YARA-Limits) · [Tecnología: S3 y copias](ES-Tech-S3-Backups) · [Tecnología: Merkle](ES-Tech-Merkle) · [Tecnología: Sigstore](ES-Tech-Sigstore)
 
-> **Estado: NO operativo.** Es un diseño con herramientas locales. Ningún workflow de archivo en `main` escribe en un proveedor; las credenciales y los ajustes de bucket se configuraron como secretos y variables de entornos de GitHub el 2026-10-22, pero no se ha escrito ni restaurado nada con ellos, y **no se ha probado ninguna restauración desde un proveedor real** {{ev:EV-YC-62}} {{ev:EV-YC-08}}. Las herramientas de la fase 1 están en `main`; el flujo de trabajo de archivo no escribe en ningún proveedor.
+> **Estado: NO operativo.** Es un diseño con herramientas locales. Ningún flujo de trabajo de archivo en `main` escribe en un proveedor. No se ha escrito ni restaurado nada en un proveedor, y **no se ha probado ninguna restauración desde un proveedor real** {{ev:EV-YC-62}} {{ev:EV-YC-08}}. Las herramientas de la fase 1 están en `main`.
 
 ## En 30 segundos
 
-El canal publica reglas firmadas en GitHub. Si GitHub perdiera el historial, ¿se podría demostrar qué se publicó y cuándo? El plan es guardar una copia permanente en **tres proveedores de almacenamiento independientes** (Cloudflare R2, Backblaze B2 y Scaleway Object Storage), un bucket por proveedor, de modo que el fallo o la decisión de un solo proveedor no pueda borrar ni falsificar el historial (los tres comparten un único origen de escritura; ver Límites) {{ev:EV-YC-60}}.
+El canal publica reglas firmadas en GitHub. Si GitHub perdiera el historial, ¿se podría demostrar qué se publicó y cuándo? El plan es guardar una copia permanente en **tres proveedores de almacenamiento independientes** (Cloudflare R2, Backblaze B2 y Scaleway Object Storage), un bucket por proveedor, de modo que el fallo o la decisión de un solo proveedor no pueda borrar ni falsificar el historial. Los tres comparten un único origen de escritura; ver Límites. {{ev:EV-YC-60}}
 
 ## Un ejemplo cotidiano
 
@@ -40,7 +40,7 @@ Fuente de la lista: sección 3 de la especificación {{ev:EV-YC-60}}. No se publ
 - **Gobernanza:** protege frente a la mayoría de usuarios, pero una identidad con el permiso adecuado **puede saltarse el bloqueo**. No detiene a una identidad autorizada que esté comprometida.
 - **Cumplimiento (compliance):** nadie puede quitarlo durante la retención. Es irreversible: un error de subida (por ejemplo, un secreto) no se podría retirar.
 
-> **Compliance NO está activado** y activarlo requiere autorización explícita del propietario {{ev:EV-YC-60}}. Según la especificación, en R2 el bloqueo es una regla de retención que **se puede eliminar** con permisos de administración del bucket, así que la protección depende de que la clave de escritura no los tenga; Scaleway debe confirmarse en un bucket de prueba {{ev:EV-YC-63}}.
+> **Compliance NO está activado** y activarlo requiere autorización explícita del propietario {{ev:EV-YC-60}}. La fortaleza del bloqueo depende de la configuración de cada proveedor y de los permisos de las claves usadas; las capacidades de cada proveedor aún deben confirmarse en buckets de prueba {{ev:EV-YC-63}}.
 
 **Replicación independiente.** Tres cuentas, tres entidades legales y jurisdicciones distintas, credenciales distintas. Límite reconocido: los tres dependen de un único origen de escritura (GitHub Actions) y de un único propietario; «independiente» no significa inmune a quien controle el origen de firma {{ev:EV-YC-63}}.
 
@@ -54,7 +54,6 @@ Fuente de la lista: sección 3 de la especificación {{ev:EV-YC-60}}. No se publ
 
 ```
 python3.12 -m unittest tests.test_archive_segments tests.test_archive_providers tests.test_archive_store
-cd admin/worker && node --test test/anchor.test.js
 ```
 
 Son pruebas rápidas y sin red. La prueba con el binario real de `age` solo corre con `ARCHIVE_REAL_AGE=1`; sin esa variable consta como no ejecutada {{ev:EV-YC-61}}. Código: [`scripts/archive/`](https://github.com/MacGuard/macguard-yara-channel/tree/main/scripts/archive), [especificación](https://github.com/MacGuard/macguard-yara-channel/blob/main/docs/audit/historical-archive-triple-spec.md).
@@ -63,7 +62,7 @@ Son pruebas rápidas y sin red. La prueba con el binario real de `age` solo corr
 
 - Una copia inmutable de datos erróneos sigue siendo errónea; el archivo conserva, no valida el contenido de las reglas.
 - Precios, capas gratuitas y funciones de cada proveedor pueden cambiar; la especificación lee los precios del 2026-10-21 y no son garantía.
-- La guía de configuración (`docs/OPERATIONS-archive-setup.md`) no está en `main`: está en revisión en una rama aparte, así que esta página se apoya en la especificación {{ev:EV-YC-62}}.
+- La guía de configuración todavía no está en el repositorio, así que esta página se apoya en la especificación {{ev:EV-YC-62}}.
 - La retención compliance, la poda de la base de datos y cualquier restauración con la clave real exigen autorización del propietario.
 
 ## Estado
@@ -71,7 +70,7 @@ Son pruebas rápidas y sin red. La prueba con el binario real de `age` solo corr
 | Capacidad | Estado |
 |---|---|
 | Herramientas de archivo de la fase 1 (segmentos, sellos, `age`, restauración local) | implementado, no desplegado {{ev:EV-YC-61}} |
-| Credenciales configuradas en entornos de GitHub (2026-10-22) | configurado, sin usar |
+| Preparación de proveedores | no iniciada |
 | Escritura en proveedores y restauración | planificado |
 | Bloqueo en modo compliance | planificado, sin autorizar |
 | Restauración probada desde un proveedor real | no realizada |

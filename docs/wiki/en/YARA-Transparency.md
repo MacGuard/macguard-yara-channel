@@ -13,7 +13,7 @@ A ledger whose pages are mathematically linked: at the foot of each page a finge
 Key words, once:
 
 - **Entry**: one JSON line of `logs/log.jsonl` (an event, for example `candidate.accepted`).
-- **Merkle tree**: hashes of hashes; each leaf is an entry and each node summarises its two children.
+- **Merkle tree**: hashes of hashes; each leaf is an entry and each node summarizes its two children.
 - **Root**: the hash at the top; it changes if any leaf changes.
 - **Checkpoint**: a three-line text with origin, number of entries and root; it is signed with Sigstore.
 - **Inclusion proof**: the sibling hashes that join one entry to the root.
@@ -81,6 +81,6 @@ Recompute `rules_root` with the Python standard library (script in [merkle.md](h
 
 | Capability | State |
 |---|---|
-| Log, signed checkpoints, inclusion and consistency proofs in each release | operational {{ev:EV-YC-04}} |
+| Log, signed checkpoints, inclusion and consistency proofs in each release | published {{ev:EV-YC-04}} |
 | Third-party verification with a public script and tests | operational {{ev:EV-YC-52}} |
 | Independent external monitor watching the log | not verified: none found in the repository |

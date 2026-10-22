@@ -432,8 +432,8 @@
     "en": "Contribute"
    },
    "summary": {
-    "es": "Cómo ejecutar las pruebas, proponer cambios, avisar de fallos y vulnerabilidades, y qué licencias aplican hoy.",
-    "en": "How to run the tests, propose changes, report bugs and vulnerabilities, and which licences apply today."
+    "es": "Cómo ejecutar las pruebas, proponer cambios, avisar de fallos, el canal de seguridad previsto y qué licencias aplican hoy.",
+    "en": "How to run the tests, propose changes, report bugs, the planned security channel, and which licences apply today."
    }
   }
  ]

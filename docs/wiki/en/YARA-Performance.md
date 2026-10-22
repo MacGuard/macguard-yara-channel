@@ -37,17 +37,17 @@ rule Example_Open { strings: $a = /ab.*cd.*ef/ condition: $a }
 rule Example_Loop { condition: for all i in (0..filesize-1) : ( uint8(i) == 0 ) }
 ```
 
-- **Nested:** the shape `(x+)+` is the classic one that, in many regular-expression engines, produces an enormous number of combinations when the match fails. How YARA's engine behaves was not measured; the repository treats it as a risk signal (score 9, threshold 7).
-- **Open-ended stretches** `.*` with no anchor: make the engine keep looking across the file after every possible start. With two such stretches the score is 3, below the threshold: the heuristic does not flag it and only the dynamic measurement would see it.
+- **Nested:** the shape `(x+)+` is the classic one that, in many regular-expression engines, produces an enormous number of combinations when the match fails. How YARA's engine behaves was not measured; the static review treats this shape as a risk signal and sends the file to review.
+- **Open-ended stretches** `.*` with no anchor: make the engine keep looking across the file after every possible start. The static review sees such shapes only as approximate signals; the dynamic measurement is what observes the real cost.
 - **Loop over the whole file:** a `filesize` of 100 MB means a hundred million iterations for every file scanned. `rulecheck.py` flags it as `filesize-loop`.
 
-Result of running `analyse_text` on these three examples with Python 3.12: example 1 `costly-regex` (9), example 2 no findings, example 3 `filesize-loop`. {{ev:EV-YC-26}}
+The static review (`analyse_text` in `rulecheck.py`) turns shapes like these into risk signals. It is an approximation and cannot replace the measurement with the real engine. Its scoring weights and thresholds are values in the code and in `config/policy.json`; they are explained in context on [Validation](EN-YARA-Validation), they can change, and they are not targets. {{ev:EV-YC-26}}
 
 **Risk.** CPU and memory use on the machine of whoever scans and, if scanning is automatic, a possible **denial of service**: a hostile file or a slow rule that blocks the tool. Hence the time limits, the regression check against the previous release and the culprit isolation.
 
 ### What the channel really measures
 
-- `scripts/bench.py`: compilation (time, CPU, RSS), scanning (p50, p95, p99, total CPU, peak RSS, errors, hangs, crashes), canaries and hits on the clean corpus. The corpus: 40 random files, 10 text files, up to 8 system binaries and 5 canaries. The report flags whether the percentiles have at least 50 samples (`min_samples_for_percentiles`, field `percentiles_reported`). Thresholds are on [Validation](EN-YARA-Validation). {{ev:EV-YC-28}}
+- `scripts/bench.py`: compilation (time, CPU, RSS), scanning (p50, p95, p99, total CPU, peak RSS, errors, hangs, crashes), canaries and hits on the clean corpus. The corpus is small and synthetic (see [Limits](EN-YARA-Limits)). The report flags whether the percentiles have at least 50 samples (`min_samples_for_percentiles`, field `percentiles_reported`). Thresholds are on [Validation](EN-YARA-Validation). {{ev:EV-YC-28}}
 - `scripts/macguard_smoke.py`: runs the `macguard-audit` CLI over the same corpus plus a `.app` bundle, a `.tgz` and a `.zip` built with system tools, with the **candidate** rules installed in a private directory, and reports crashes, hangs, errors, p50/p95/p99, peak memory and canaries detected. It runs in the `app-compat` job of `daily.yml`, which **reports and does not decide** publication. {{ev:EV-YC-34}}
 - **Numbers stored in the repository:** the public log (`logs/log.jsonl`) stores, for every daily review with a measurement, `scan_p95_s`, `scan_rss_peak_mb` and `compile_rss_mb`. Across the 10 entries with a measurement (2026-10-18 to 2026-10-22, YARA engine 4.5.0): scan p95 between 0.1676 and 0.1988 s; scan peak RSS between 84.3 and 86.6 MB; compile RSS between 72.7 and 73.7 MB; gate duration between 81 and 174 s. These are measurements on a CI runner, not performance promises for a Mac. {{ev:EV-YC-33}}
 - `docs/audit/root-cause-benign-hit-count-2026-10-20.md` stores a comparison in a shared container: scan p95 0.54 s (baseline) and 0.46 s (candidate); compile 6.19 s and 4.94 s; absolute times were about five times worse than on the runner, according to the document itself. {{ev:EV-YC-33}}
@@ -75,6 +75,7 @@ Result of running `analyse_text` on these three examples with Python 3.12: examp
 - The corpus is small and synthetic; it does not represent any one person's real files.
 - CI figures are not extrapolated to other machines.
 - The noise thresholds are documented starting points, not performance guarantees.
+- The gates exist to protect the machines that scan. The numeric values come from `config/policy.json`, can change, and are limits for review, not goals for rule authors.
 
 ## State
 

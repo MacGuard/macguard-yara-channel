@@ -19,7 +19,7 @@ class Wiki(unittest.TestCase):
         (self.d / 'es').mkdir(); (self.d / 'en').mkdir(); (self.d / 'diagrams').mkdir()
         self.put('pages.json', PAGES); self.put('provenance.json', PROV)
         (self.d / 'es' / 'Home.md').write_text(ES); (self.d / 'en' / 'Home.md').write_text(EN)
-        (self.d / 'diagrams' / 'd1.mmd').write_text('flowchart LR\n  A --> B\n'); self.put('diagrams/d1.json', DJ)
+        (self.d / 'diagrams' / 'd1.mmd').write_text('flowchart LR\n  A --> B\n'); (self.d / 'diagrams' / 'd1.es.mmd').write_text('flowchart LR\n  A --> B\n'); self.put('diagrams/d1.json', DJ)
         for m in (wiki_build, wiki_check): p = mock.patch.object(m, 'WIKI', self.d); p.start(); self.addCleanup(p.stop)
 
     def put(self, name, obj): (self.d / name).write_text(json.dumps(obj))
@@ -93,12 +93,74 @@ class Wiki(unittest.TestCase):
         out = self.d / 'out'; wiki_build.main(['--out', str(out)]); built = (out / 'EN-Home.md').read_text()
         self.assertIn('| [A](https://x/1) | 0 | 0 |', built); self.assertIn('2026-10-22', built); self.assertIn('[r1](https://x/r1)', built)
 
+    EN_D = 'flowchart TB\n  A["Start"]:::a --> B["Two<br/>lines"]:::b\n  classDef a fill:#111111,stroke:#eeeeee,color:#ffffff\n  classDef b fill:#eeeeee,stroke:#111111,color:#000000\n'
+    ES_D = EN_D.replace('Start', 'Inicio').replace('Two<br/>lines', 'Dos<br/>líneas')
+
+    def diagram(self, en, es=None, meta=None):
+        (self.d / 'diagrams' / 'd1.mmd').write_text(en); self.put('diagrams/d1.json', meta or dict(DJ, legend={'es': 'a, b', 'en': 'a, b'}))
+        (self.d / 'diagrams' / 'd1.es.mmd').write_text(en if es is None else es)
+
+    def test_a_spanish_variant_is_used_by_the_es_page_and_drops_the_english_labels_note(self):
+        self.diagram(self.EN_D, self.ES_D); self.assertEqual(self.problems(), [])
+        self.assertIn('Dos<br/>líneas', wiki_build.diagram_block('d1', 'es')); self.assertNotIn('Start', wiki_build.diagram_block('d1', 'es'))
+        self.assertNotIn('inglés', wiki_build.diagram_block('d1', 'es')); self.assertIn('Start', wiki_build.diagram_block('d1', 'en'))
+        self.assertIn('*Leyenda: a, b*', wiki_build.diagram_block('d1', 'es')); self.assertIn('*Legend: a, b*', wiki_build.diagram_block('d1', 'en'))
+        (self.d / 'diagrams' / 'd1.es.mmd').unlink(); self.assertIn('inglés', wiki_build.diagram_block('d1', 'es'), 'without a Spanish variant the note stays')
+        self.assertTrue(any('no Spanish variant' in p for p in self.problems()), 'and the check fails: every diagram a page uses needs Spanish labels')
+
+    SEQ_EN = 'sequenceDiagram\n  participant U as User\n  participant S as Server (Pages)\n  U->>S: ask for the file\n  S-->>U: the file\n'
+    SEQ_ES = 'sequenceDiagram\n  participant U as Usuario\n  participant S as Servidor (Pages)\n  U->>S: pedir el archivo\n  S-->>U: el archivo\n'
+
+    def reuse_from_docs_src(self, en, es):
+        # d1 lives in a docs-src tree (not owned by the wiki); only the Spanish variant is in docs/wiki/diagrams
+        src = self.d / 'src' / 'docs-src' / 'diagrams'; src.mkdir(parents=True)
+        (src / 'd1.mmd').write_text(en); (src / 'd1.json').write_text(json.dumps(DJ)); (self.d / 'diagrams' / 'd1.mmd').unlink(); (self.d / 'diagrams' / 'd1.json').unlink()
+        (self.d / 'diagrams' / 'd1.es.mmd').write_text(es)
+        for m in (wiki_build, wiki_check): p = mock.patch.object(m, 'ROOT', self.d / 'src'); p.start(); self.addCleanup(p.stop)
+
+    def test_a_docs_src_diagram_uses_the_wiki_spanish_variant_and_is_compared_with_its_english_source(self):
+        self.reuse_from_docs_src(self.SEQ_EN, self.SEQ_ES); self.assertEqual(self.problems(), [])
+        es = wiki_build.diagram_block('d1', 'es'); self.assertIn('pedir el archivo', es); self.assertNotIn('inglés', es)
+        en = wiki_build.diagram_block('d1', 'en'); self.assertIn('ask for the file', en); self.assertNotIn('pedir', en)
+        (self.d / 'diagrams' / 'd1.es.mmd').write_text(self.SEQ_ES.replace('  S-->>U: el archivo\n', '')); self.assertTrue(any('differs from d1.mmd' in p or 'structure' in p for p in self.problems()))
+        (self.d / 'diagrams' / 'd1.es.mmd').write_text(self.SEQ_ES.replace('U->>S', 'S->>U')); self.assertTrue(any('structure' in p for p in self.problems()))
+        (self.d / 'diagrams' / 'd1.es.mmd').unlink(); self.assertTrue(any('no Spanish variant' in p for p in self.problems())); self.assertIn('inglés', wiki_build.diagram_block('d1', 'es'))
+        (self.d / 'diagrams' / 'd1.es.mmd').write_text(self.SEQ_ES); (self.d / 'diagrams' / 'orphan.es.mmd').write_text(self.SEQ_ES); self.assertTrue(any('no English twin' in p for p in self.problems()))
+
+    def test_a_spanish_variant_without_its_english_twin_or_with_another_structure_is_reported(self):
+        self.diagram(self.EN_D, self.ES_D); (self.d / 'diagrams' / 'orphan.es.mmd').write_text(self.ES_D); self.assertTrue(any('no English twin' in p for p in self.problems()))
+        (self.d / 'diagrams' / 'orphan.es.mmd').unlink()
+        self.diagram(self.EN_D, self.ES_D.replace('A["Inicio"]:::a --> B', 'A["Inicio"]:::a --> C["Extra"]:::b\n  A --> B')); self.assertTrue(any('differs from d1.mmd' in p for p in self.problems()))
+        self.diagram(self.EN_D, self.ES_D.replace(':::b', ':::a')); self.assertTrue(any('structure' in p for p in self.problems()))
+        self.diagram(self.EN_D, self.ES_D.replace('  classDef b fill:#eeeeee,stroke:#111111,color:#000000\n', '')); self.assertTrue(any('classDef' in p for p in self.problems()))
+
+    def test_dark_mode_every_classdef_sets_fill_stroke_and_color_and_every_node_has_a_class(self):
+        for missing in ('fill:#111111,', 'stroke:#eeeeee,', ',color:#ffffff'):
+            self.diagram(self.EN_D.replace(missing, '', 1)); self.assertTrue(any('lacks' in p for p in self.problems()), missing)
+        self.diagram(self.EN_D.replace('B["Two<br/>lines"]:::b', 'B["Two<br/>lines"]')); self.assertTrue(any('nodes without a class: B' in p for p in self.problems()))
+        self.diagram(self.EN_D.replace('B["Two<br/>lines"]:::b', 'B["Two<br/>lines"]') + '  class B b\n'); self.assertEqual(self.problems(), [])
+
+    def test_long_label_lines_and_a_missing_legend_are_reported(self):
+        self.diagram(self.EN_D.replace('Start', 'x' * 20 + ' ' + 'y' * 20)); self.assertTrue(any('characters (max' in p for p in self.problems()))
+        self.diagram(self.EN_D.replace('Start', 'x' * 20 + '<br/>' + 'y' * 20)); self.assertEqual(self.problems(), [])
+        self.diagram(self.EN_D, meta=DJ); self.assertTrue(any('needs a legend' in p for p in self.problems()))
+
+    def test_the_real_diagrams_have_a_spanish_variant(self):
+        real = ROOT / 'docs' / 'wiki' / 'diagrams'
+        if not real.exists(): self.skipTest('docs/wiki/diagrams not present')
+        missing = [p.stem for p in real.glob('*.mmd') if not p.name.endswith('.es.mmd') and not p.with_name(p.stem + '.es.mmd').exists()]
+        self.assertEqual(missing, [], 'every wiki-owned diagram has Spanish labels')
+        for p in sorted((ROOT / 'docs-src' / 'diagrams').glob('*.mmd')):   # the ones reused from docs-src (the pages use 13 of them) also have Spanish labels
+            if (real / (p.stem + '.es.mmd')).exists(): self.assertEqual(wiki_check.parity_problems(p, real / (p.stem + '.es.mmd')), [], p.stem)
+        self.assertGreaterEqual(len([p for p in real.glob('*.es.mmd') if (ROOT / 'docs-src' / 'diagrams' / p.name.replace('.es.mmd', '.mmd')).exists()]), 13)
+
     def test_the_real_sources_pass(self):
         # the repository's own docs/wiki (when present) must satisfy every rule; this is the check CI runs
         real = ROOT / 'docs' / 'wiki'
         if not (real / 'pages.json').exists(): self.skipTest('docs/wiki not present')
         with mock.patch.object(wiki_build, 'WIKI', real), mock.patch.object(wiki_check, 'WIKI', real):
             self.assertEqual(wiki_check.check(real), [])
+            self.assertEqual(wiki_check.private_report(real), [], 'no internal path, branch or private commit may appear in the public pages')
             out = pathlib.Path(tempfile.mkdtemp(prefix='wikiout-')); self.addCleanup(shutil.rmtree, out, True); self.assertEqual(wiki_build.main(['--out', str(out)]), 0)
 
 

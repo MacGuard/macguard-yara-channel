@@ -6,7 +6,7 @@
 
 MacGuard YARA Channel is a system that collects, validates, prepares and distributes verifiable YARA rules to help identify suspicious patterns in files.
 
-Every day an automated job downloads rules from two public repositories, checks them with static checks and with real measurements of the YARA engine, sets aside the ones that fail, and publishes only the ones that pass, with a signature anyone can check. It helps recognise known patterns; it does **not** guarantee that a file is safe or that a new threat will be detected. {{ev:EV-YC-20}}
+Every day an automated job downloads rules from two public repositories, checks them with static checks and with real measurements of the YARA engine, sets aside the ones that fail and publishes only the ones that pass. A changed set is published only if validation passes and the macOS measurement job succeeds. Anyone can check the signature of the result. It helps recognize known patterns; it does **not** guarantee that a file is safe or that a new threat will be detected. {{ev:EV-YC-20}}
 
 ## What YARA is, in plain words
 
@@ -53,7 +53,7 @@ It is like a customs officer's checklist: "if the suitcase has A and B, look clo
 
 ## Under the hood
 
-The real order of the programs, per `.github/workflows/daily.yml`: `scripts/prepare.py` (collect), `scripts/rulecheck.py` (static classification), `scripts/dynamic_gate.py` with `scripts/bench.py` (engine measurements), `scripts/decide.py` (decision gate) and, if the set changed, `publish.yml` signs and publishes. The gate is the only point that decides which set is publishable. {{ev:EV-YC-20}}
+The real order of the programs, per `.github/workflows/daily.yml`: `scripts/prepare.py` (collect), `scripts/rulecheck.py` (static classification), `scripts/dynamic_gate.py` with `scripts/bench.py` (engine measurements), `scripts/decide.py` (decision gate) and, if the set changed, a `macos-15` measurement job. Only if that job succeeds does `daily.yml` request `publish.yml`, which re-verifies, signs and publishes. The gate is the only point that decides which set is publishable. {{ev:EV-YC-20}} {{ev:EV-YC-89}}
 
 - What it detects: matches against patterns someone wrote into a rule.
 - What it does **not** prevent: malware with no rule, obfuscated malware, or malware whose pattern is not in the rules; nor does it guarantee the absence of false positives.
@@ -73,8 +73,8 @@ A validated rule set is not the same as a safe file. What the channel does not c
 
 | Capability | State |
 |---|---|
-| Daily review, decision gate and signed release | operational {{ev:EV-YC-02}} {{ev:EV-YC-03}} |
+| Daily review, decision gate and signed release | published {{ev:EV-YC-02}} {{ev:EV-YC-03}} |
 | Private quarantine panel | operational {{ev:EV-YC-05}} |
-| Persistent withdrawals, policies, anchors and source proposals | implemented in `main`, not deployed {{ev:EV-YC-06}} {{ev:EV-YC-07}} |
+| Persistent withdrawals, policies, anchors and source proposals | implemented in the repository, not yet active in production {{ev:EV-YC-06}} {{ev:EV-YC-07}} |
 | Three-provider archive | not operational {{ev:EV-YC-08}} |
 | Performance test with the real app | planned {{ev:EV-YC-10}} |

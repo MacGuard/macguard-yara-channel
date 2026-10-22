@@ -1,0 +1,16 @@
+sequenceDiagram
+  autonumber
+  participant U as Usuario
+  participant M as MacGuard RuleInstaller
+  participant S as Canal (Pages)
+  participant V as ChannelVerifier y cosign
+  U->>M: actualizar reglas (con consentimiento)
+  M->>M: flock update.lock, recuperar intercambios interrumpidos
+  M->>S: latest.json
+  M->>S: tarball, manifiesto, bundles, prueba, checkpoint, log.jsonl (con límite de bytes)
+  M->>M: extracción segura en área temporal
+  M->>V: firma del manifiesto, hashes de archivos, rules_root
+  M->>V: firma del checkpoint, inclusión, consistencia, control de retroceso
+  V-->>M: todas las comprobaciones superadas
+  M->>M: guardar checkpoint de confianza, renombrar live a previous, temporal a live
+  M-->>U: reglas instaladas

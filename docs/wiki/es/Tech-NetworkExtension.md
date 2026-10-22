@@ -4,11 +4,11 @@
 
 ## En 30 segundos
 
-Network Extension es el marco de Apple que permite a un programa **ver y controlar el tráfico de red de otras apps** en el Mac (filtrar conexiones, hacer de proxy de DNS, crear una VPN). Apple no deja usarlo a cualquiera: hace falta un **permiso especial (entitlement)** concedido a la cuenta de desarrollador. Para el filtro previsto en MacFirewallGuard se necesita la autorización adecuada; otras tecnologías de red pueden tener requisitos distintos.
+Network Extension es el marco de Apple que permite a un programa ver y filtrar las conexiones de red de otras apps en el Mac. Apple exige un permiso especial (entitlement), vinculado a la cuenta de desarrollador. Sin ese permiso, un programa no puede bloquear conexiones de otras apps.
 
 ## Un ejemplo cotidiano
 
-Es una garita en la salida de un edificio. Solo quien tiene una credencial emitida por la administración puede ponerse en ella a mirar quién sale. Un vecino puede apuntar quién sale desde su ventana (observar a medias), pero no puede cerrar la barrera.
+Es una garita en la salida de un edificio, donde se decide quién sale (el filtro de red). Solo quien tiene una credencial emitida por la administración (el permiso de Apple) puede ponerse en ella. Un vecino puede apuntar quién sale desde su ventana, es decir, observar a medias, pero no puede cerrar la barrera ni impedir una salida.
 
 {{diagram:networkext-gap}}
 
@@ -20,16 +20,21 @@ La documentación oficial de Apple sobre Network Extension no pudo leerse en su 
 
 ## Dónde lo usa este proyecto
 
-| App | Uso comprobado en el código |
-|---|---|
-| MacFirewallGuard | Solo tipos de `NetworkExtension` (`NEFilterSocketFlow`) como **puente de traducción** (adaptadores de traducción de flujos). **No existe** ninguna extensión del sistema ni ningún proveedor en ejecución; no hay archivos de entitlements en el árbol principal {{ev:EV-EC-63}} |
-| Los demás | No usan Network Extension; Installer Auditor no importa NetworkExtension en su código |
+### MacFirewallGuard
 
-El proyecto clasifica su situación como "el permiso está ausente y se puede solicitar" (documento de decisión del entitlement). **No verificado** si la solicitud ya se presentó o respondió {{ev:EV-EC-60}}.
+- **Uso comprobado en el código:** solo tipos de `NetworkExtension` (`NEFilterSocketFlow`) como **puente de traducción**.
+- **No existe** ninguna extensión del sistema ni ningún proveedor en ejecución.
+- No se ha demostrado la autorización operativa (el entitlement) {{ev:EV-EC-63}}.
+
+### Las demás aplicaciones
+
+- **Uso comprobado en el código:** ninguno. No usan Network Extension; Installer Auditor no importa NetworkExtension en su código.
+
+Ningún permiso consta como utilizable para este proyecto. **No verificado** si se solicitó alguno ni cuál fue la respuesta {{ev:EV-EC-60}}.
 
 ## Límites
 
-- Sin el permiso, ninguna decisión BLOCK se aplica: acaba como `UNAVAILABLE(ENTITLEMENT_MISSING)` {{ev:EV-EC-60}}.
+- Sin un permiso utilizable, ninguna decisión de bloqueo se aplica: acaba como "acción no disponible: falta el permiso" {{ev:EV-EC-60}}.
 - Activar el filtro de este producto puede desactivar otros filtros de contenido activos; la coexistencia es un bloqueo documentado sin resolver {{ev:EV-EC-60}}.
 - Un filtro de red no sustituye a la identidad de proceso ni a la revisión de instaladores.
 

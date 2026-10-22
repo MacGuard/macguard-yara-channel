@@ -4,7 +4,11 @@
 
 ## In 30 seconds
 
-Endpoint Security is an Apple technology that lets a security program **receive notices of what happens on the system** (opening a program, touching a file, using a device) and, in some cases, **answer "yes" or "no" before it happens**. It is like a guard the system asks "may I let this through?". Apple offers it as a documented framework {{ev:EV-EC-35}}; to use it a developer needs a restricted permission (entitlement) that Apple grants case by case, according to MacUSBGuard's README {{ev:EV-EC-21}}.
+Endpoint Security is an Apple feature that tells a security program what happens on the Mac, such as opening a program or using a device {{ev:EV-EC-35}}. In some cases, the program can answer "yes" or "no" before it happens. Using it requires a special permission (entitlement) that Apple grants case by case {{ev:EV-EC-21}}.
+
+## An everyday example
+
+It is like a doorman who, for certain visitors, phones the security office and waits for its answer before opening the door. For other visitors, the doorman only notes who came in (a notify event). If the office does not answer in time, the building acts against it. And only an office holding a credential from management may pick up that line.
 
 ## In more detail
 
@@ -14,12 +18,12 @@ Events come in two kinds: **notify** (they only inform) and **authorization or A
 
 Only **MacUSBGuard**, and only like this {{ev:EV-EC-21}}:
 
-- Subscribed event: `ES_EVENT_TYPE_AUTH_IOKIT_OPEN` (someone opens an IOKit device; used to decide on USB keyboards and mice while the Mac is locked).
-- Documented implementation: an Endpoint Security event adapter and a separate decision engine. It uses `es_new_client`, `es_subscribe` and `es_respond_auth_result`.
+- Subscribed event: `ES_EVENT_TYPE_AUTH_IOKIT_OPEN` (someone opens a device in IOKit, the macOS layer that manages devices; used to decide on USB keyboards and mice while the Mac is locked).
+- Documented implementation: an Endpoint Security event adapter and a separate decision engine, using the three calls above.
 - The build separates the SDK-dependent adapter from the rest of the decision engine.
-- A decision without reliable device identity (ES message older than version 10) refuses to act on a guess.
+- A decision without reliable device identity refuses to act on a guess.
 
-**What is verified and what is not.** It compiles and links against the Xcode 26.3 SDK per the README. **Live enforcement is unverified**: Apple's restricted entitlement is missing (and the system extension and Full Disk Access approvals), so the overall state shows as observe only and the HID hardware checks remain unverified {{ev:EV-EC-02}}. There is also no proof the system delivers all keyboard events to this client (event coverage requires testing on a real system).
+**What is verified and what is not.** It compiles and links against a recent Xcode SDK. **Live enforcement is unverified**: no Apple restricted entitlement is confirmed as usable (nor the system extension and Full Disk Access approvals), so the overall state shows as observe only and the HID hardware checks remain unverified {{ev:EV-EC-02}}. There is also no proof the system delivers all keyboard events to this client (event coverage requires testing on a real system).
 
 No other MacGuard application uses it today; MacFirewallGuard uses the sibling network technology, not covered here.
 
@@ -40,7 +44,7 @@ No further examples are added because no official source for them could be opene
 
 | Capability | State |
 |---|---|
-| ES client with IOKit AUTH events in MacUSBGuard | Compiles; live use unverified (Apple permission missing) |
+| ES client with IOKit AUTH events in MacUSBGuard | Compiles; live use unverified (no entitlement confirmed as usable) |
 | Live enforcement of blocks | Not verified |
 
 ## Further reading

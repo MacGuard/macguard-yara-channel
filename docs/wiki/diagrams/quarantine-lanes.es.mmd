@@ -1,0 +1,16 @@
+flowchart TB
+  F["archivo de reglas examinado"]:::src --> S{"comprobaciones estáticas<br/>y dinámicas"}:::gate
+  S -->|"sin hallazgos"| A["aceptado: VALIDATED"]:::ok
+  S -->|"criterios duros"| R["rechazado: REJECTED"]:::bad
+  S -->|"hallazgo técnico"| B["bloqueado: QUARANTINED,<br/>no aprobable"]:::bad
+  S -->|"solo hallazgo de criterio"| P["pendiente de revisión:<br/>QUARANTINED, aprobable"]:::warn
+  P -->|"una persona aprueba"| V["se repiten las<br/>comprobaciones"]:::gate
+  V -->|"sigue limpio"| A
+  V -->|"queda un hallazgo"| B
+  P -->|"una persona rechaza"| R
+  A --> PUB["publicado en un release"]:::ok
+  classDef src fill:#cfe3ff,stroke:#2f6df0,color:#0b1b33
+  classDef gate fill:#e8e0ff,stroke:#6b4fd8,color:#1a1033
+  classDef ok fill:#d6f5dd,stroke:#2e8b4a,color:#0c2a16
+  classDef warn fill:#fff0c2,stroke:#b8860b,color:#33280a
+  classDef bad fill:#ffd9d9,stroke:#c0392b,color:#3a0d0d

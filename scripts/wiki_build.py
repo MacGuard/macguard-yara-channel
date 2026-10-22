@@ -3,7 +3,7 @@
 
 docs/wiki/pages.json              ordered pages: id, section, title {es,en}, summary {es,en}
 docs/wiki/es/<id>.md, en/<id>.md  the text (same id in both languages); {{diagram:name}}, {{ev:EV-ID}}
-docs/wiki/diagrams/<name>.mmd|json  wiki-only diagrams; otherwise docs-src/diagrams/ (the diagrams of the public docs site are reused, never copied)
+docs/wiki/diagrams/<name>.mmd|json  wiki-only diagrams (+ <name>.es.mmd, the Spanish labels of the same diagram, also for the ones reused from docs-src/diagrams/, whose English source is never copied)
 docs/wiki/provenance.json         the evidence matrix; every {{ev:ID}} must exist there
 
 Output (a directory you choose): ES-<Name>.md / EN-<Name>.md, _Sidebar.md, _Footer.md, ES-Evidence.md / EN-Evidence.md (rendered from provenance.json).
@@ -14,8 +14,8 @@ ROOT = pathlib.Path(__file__).resolve().parents[1]
 WIKI = ROOT / 'docs' / 'wiki'
 LANGS = ('es', 'en')
 PREFIX = {'es': 'ES', 'en': 'EN'}
-LABEL = {'es': {'switch': 'Idioma', 'diagram': 'Diagrama', 'alt': 'Descripción textual', 'ev': 'Evidencia', 'home': 'Inicio', 'labels': ' (Las etiquetas dentro del diagrama están en inglés.)', 'footer': 'MacGuard: documentación pública. Cada afirmación de estado enlaza con su evidencia; lo que no está probado se dice.'},
-         'en': {'switch': 'Language', 'diagram': 'Diagram', 'alt': 'Text description', 'ev': 'Evidence', 'home': 'Home', 'labels': '', 'footer': 'MacGuard public documentation. Every status claim links to its evidence; what is not proven is said so.'}}
+LABEL = {'es': {'switch': 'Idioma', 'diagram': 'Diagrama', 'legend': 'Leyenda', 'alt': 'Descripción textual', 'ev': 'Evidencia', 'home': 'Inicio', 'labels': ' (Las etiquetas dentro del diagrama están en inglés.)', 'footer': 'MacGuard: documentación pública. Cada afirmación de estado enlaza con su evidencia; lo que no está probado se dice.'},
+         'en': {'switch': 'Language', 'diagram': 'Diagram', 'legend': 'Legend', 'alt': 'Text description', 'ev': 'Evidence', 'home': 'Home', 'labels': '', 'footer': 'MacGuard public documentation. Every status claim links to its evidence; what is not proven is said so.'}}
 EV_HEAD = {'es': ('ID', 'Afirmación', 'Fuente', 'Fecha', 'Versión/SHA', 'Confianza', 'Validación', 'Estado'), 'en': ('ID', 'Claim', 'Source', 'Date', 'Version/SHA', 'Confidence', 'Validation', 'State')}
 
 
@@ -28,15 +28,24 @@ def load(name): return json.loads((WIKI / name).read_text())
 def wiki_name(pid, lang): return f'{PREFIX[lang]}-{pid}'
 
 
-def diagram_block(name, lang):
+def diagram_source(name, lang):
+    """(mmd path, localized?, json path) for a diagram. <name>.<lang>.mmd in docs/wiki/diagrams is the localized variant of a wiki-owned diagram or of one reused from docs-src (the English source and the .json stay where they are)."""
     for base in (WIKI / 'diagrams', ROOT / 'docs-src' / 'diagrams'):
         mmd, meta = base / f'{name}.mmd', base / f'{name}.json'
         if mmd.exists() and meta.exists():
-            m = json.loads(meta.read_text())
-            if not all(isinstance(m.get(k), dict) and m[k].get(lang) for k in ('title', 'alt')): raise BuildError(f'diagram {name!r} needs title and alt in {lang}')
-            return (f'**{LABEL[lang]["diagram"]}: {m["title"][lang]}**\n\n```mermaid\n{mmd.read_text().rstrip()}\n```\n\n'
-                    f'<details><summary>{LABEL[lang]["alt"]}</summary>\n\n{m["alt"][lang]}{LABEL[lang]["labels"]}\n\n</details>\n')
+            loc = WIKI / 'diagrams' / f'{name}.{lang}.mmd'
+            return (loc, True, meta) if lang != 'en' and loc.exists() else (mmd, False, meta)
     raise BuildError(f'diagram {name!r} has no .mmd and .json in docs/wiki/diagrams or docs-src/diagrams')
+
+
+def diagram_block(name, lang):
+    mmd, localized, meta = diagram_source(name, lang)
+    m = json.loads(meta.read_text())
+    if not all(isinstance(m.get(k), dict) and m[k].get(lang) for k in ('title', 'alt')): raise BuildError(f'diagram {name!r} needs title and alt in {lang}')
+    note = '' if localized else LABEL[lang]['labels']
+    legend = f'\n*{LABEL[lang]["legend"]}: {m["legend"][lang]}*\n' if isinstance(m.get('legend'), dict) and m['legend'].get(lang) else ''
+    return (f'**{LABEL[lang]["diagram"]}: {m["title"][lang]}**\n\n```mermaid\n{mmd.read_text().rstrip()}\n```\n{legend}\n'
+            f'<details><summary>{LABEL[lang]["alt"]}</summary>\n\n{m["alt"][lang]}{note}\n\n</details>\n')
 
 
 RM_HEAD = {'es': ('Hito', 'Abiertos', 'Cerrados'), 'en': ('Milestone', 'Open', 'Closed')}
@@ -74,8 +83,8 @@ EV_WORDS = {'es': {'high': 'alta', 'medium': 'media', 'low': 'baja', 'concept': 
 
 def evidence_page(lang, prov):
     L, W = EV_LABEL[lang], EV_WORDS[lang]
-    intro = {'es': 'Matriz de evidencias: cada afirmación de estado enlaza aquí con su fuente. Estados posibles: concepto, diseño documentado, prototipo, en desarrollo, en validación, candidato a release, publicado, mantenido, bloqueado, operativo, implementado (no desplegado) y planificado. Se genera desde .',
-             'en': 'Evidence matrix: every status claim links here to its source. Possible states: concept, documented design, prototype, development, validation, release candidate, published, maintained, blocked, operational, implemented (not deployed) and planned. It is generated from .'}[lang]
+    intro = {'es': 'Matriz de evidencias: cada afirmación de estado enlaza aquí con su fuente. Estados posibles: concepto, diseño documentado, prototipo, en desarrollo, en validación, candidato a release, publicado, mantenido, bloqueado, operativo, implementado (no desplegado) y planificado. Se genera desde el archivo provenance.json del repositorio.',
+             'en': 'Evidence matrix: every status claim links here to its source. Possible states: concept, documented design, prototype, development, validation, release candidate, published, maintained, blocked, operational, implemented (not deployed) and planned. It is generated from provenance.json in the repository.'}[lang]
     out = [f'# {"Matriz de evidencias" if lang == "es" else "Evidence matrix"}', '', intro, '']
     for e in prov['entries']:
         ref = e.get('ref', '')

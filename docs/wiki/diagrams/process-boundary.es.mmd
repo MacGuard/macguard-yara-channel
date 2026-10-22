@@ -1,0 +1,9 @@
+flowchart TB
+  FW["MacFirewallGuard<br/>desarrollo"]:::dev
+  KEY["referencia de<br/>identidad de proceso<br/>clave: pid + versión<br/>proveedor: ausente"]:::ok
+  PG["MacProcessGuard<br/>concepto: sin repo,<br/>sin código, sin spec"]:::con
+  FW --> KEY
+  KEY -. "hueco reservado,<br/>no implementado" .-> PG
+  classDef dev fill:#fff3cd,stroke:#8a6d00,color:#3d2f00
+  classDef ok fill:#d6e4ff,stroke:#1a3d8f,color:#0d1f4d
+  classDef con fill:#e8e8e8,stroke:#555555,color:#111111
