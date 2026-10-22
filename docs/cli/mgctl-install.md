@@ -39,9 +39,19 @@ sudo dpkg -i dist/macguard-mgctl_0.1.0_all.deb
 
 The package contains `/usr/bin/mgctl` (a link) and `/usr/lib/mgctl/`; it has no maintainer scripts and does not ship `mg`. **Not verified on a real Debian/Ubuntu system** (no `dpkg` on the build machine): run `dpkg-deb --info`, `dpkg-deb --contents` and `lintian` there first. On Linux only the `hash` check and `evidence verify` work today; the Installer Auditor engine is macOS-only.
 
+## 2b. Fedora / RHEL (RPM)
+
+`pkg/rpm/macguard-mgctl.spec` is a **template** (same layout as the DEB, no `mg`). `rpmbuild` is not available on the build machine, so it has not been built or tested: do `rpmbuild -ba` and `rpm -qlp` on a real Fedora/RHEL system, and decide the licence field.
+
 ## 3. Homebrew (macOS and Linux)
 
 `pkg/homebrew/macguard-mgctl.rb` is a **template** for a tap: it needs a published source archive URL and its SHA-256 from `SHA256SUMS`, and a licence decision. It installs only `mgctl`. Not submitted anywhere and not audited with `brew audit` (that needs a tap).
+
+Homebrew also works on Linux, and DEB/RPM are not alternatives to it: they can coexist, but each installs a command called `mgctl`, so the first one on `PATH` wins. `mgctl doctor` lists every `mgctl` it finds and warns when there are several different installs. Pick one per machine.
+
+## 3b. Standalone signed binaries
+
+Not built. `mgctl` is Python (3.9+, standard library only); a self-contained, signed binary would need a packaging tool and a signing identity, and the first one is not chosen. Until then the verifiable forms are the deterministic archive plus its `SHA256SUMS` (section 1) and, once the owner authorises a publishing workflow, a Sigstore signature over `SHA256SUMS`.
 
 ## 4. The Installer Auditor engine
 

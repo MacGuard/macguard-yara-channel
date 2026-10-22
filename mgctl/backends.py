@@ -36,6 +36,13 @@ def verifier_script() -> Optional[str]:
     return cand if os.path.isfile(cand) else None
 
 
+def intel_root() -> Optional[str]:
+    """The folder that contains the `intel` package: MGCTL_INTEL_DIR, or the folder that contains the mgctl package."""
+    env = os.environ.get("MGCTL_INTEL_DIR")
+    cand = env if env else os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    return cand if os.path.isfile(os.path.join(cand, "intel", "__main__.py")) else None
+
+
 def is_macos() -> bool:
     return platform.system() == "Darwin"
 
@@ -63,11 +70,11 @@ def terminate_all() -> None:
                 pass
 
 
-def run(argv: List[str], timeout: int, stdin_null: bool = True, capture: bool = True) -> Tuple[int, str, str, bool]:
+def run(argv: List[str], timeout: int, stdin_null: bool = True, capture: bool = True, env: Optional[dict] = None) -> Tuple[int, str, str, bool]:
     """Returns (returncode, stdout, stderr, timed_out). Never raises for a failing child; a missing executable is returncode 127."""
     try:
         p = subprocess.Popen(argv, shell=False, stdin=subprocess.DEVNULL if stdin_null else None,
-                             stdout=subprocess.PIPE if capture else None, stderr=subprocess.PIPE if capture else None, text=True, errors="replace")
+                             stdout=subprocess.PIPE if capture else None, stderr=subprocess.PIPE if capture else None, text=True, errors="replace", env=env)
     except FileNotFoundError:
         return 127, "", "executable not found", False
     except PermissionError:
