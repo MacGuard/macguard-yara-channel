@@ -1,0 +1,403 @@
+{
+ "schema": "macguard.kanban/1",
+ "note": "Estado real, sin fechas ni porcentajes. Cada tarjeta cita ficheros del repositorio. El tablero de GitHub Projects no se puede leer ni escribir con el token actual (falta el permiso read:project): este fichero es la fuente y se puede importar.",
+ "columns": [
+  {
+   "id": "done",
+   "es": "Hecho (en una rama, probado)",
+   "en": "Done (on a branch, tested)"
+  },
+  {
+   "id": "review",
+   "es": "En revisión (PR en borrador)",
+   "en": "In review (draft PR)"
+  },
+  {
+   "id": "blocked",
+   "es": "Bloqueado: decide el propietario o falta algo externo",
+   "en": "Blocked: the owner decides or something external is missing"
+  },
+  {
+   "id": "backlog",
+   "es": "Pendiente (sin empezar)",
+   "en": "Backlog (not started)"
+  }
+ ],
+ "cards": [
+  {
+   "column": "done",
+   "es": "Contratos, verificador y catálogo global (P0)",
+   "en": "Contracts, verifier and global catalog (P0)",
+   "evidence": [
+    "intel/catalog.py",
+    "intel/verify.py",
+    "tests/test_intel.py"
+   ],
+   "pr": "#35",
+   "note": null
+  },
+  {
+   "column": "done",
+   "es": "Canales IOC y KEV con fuentes reales (P1)",
+   "en": "IOC and KEV channels with real sources (P1)",
+   "evidence": [
+    "intel/live.py",
+    "tests/test_intel_live.py",
+    "docs/intelligence/SOURCES-STATUS.md"
+   ],
+   "pr": "#36",
+   "note": null
+  },
+  {
+   "column": "done",
+   "es": "Procedencia de archivos v1 (P2, experimental)",
+   "en": "File provenance v1 (P2, experimental)",
+   "evidence": [
+    "intel/provenance/engine.py",
+    "tests/test_provenance.py"
+   ],
+   "pr": "#36",
+   "note": null
+  },
+  {
+   "column": "done",
+   "es": "Fuentes europeas: ENISA EUVD, lista de explotadas, CERT-EU",
+   "en": "European sources: ENISA EUVD, exploited list, CERT-EU",
+   "evidence": [
+    "intel/vulns/euvd.py",
+    "intel/vulns/certeu.py",
+    "tests/test_vulns_eu.py",
+    "docs/intelligence/EU-VULNERABILITIES.md"
+   ],
+   "pr": "#37",
+   "note": null
+  },
+  {
+   "column": "done",
+   "es": "Evaluación de paquetes Linux solo con datos de la distribución",
+   "en": "Linux package assessment from distribution data only",
+   "evidence": [
+    "intel/vulns/assess.py",
+    "tests/test_vulns_eu.py"
+   ],
+   "pr": "#37",
+   "note": null
+  },
+  {
+   "column": "done",
+   "es": "Motor de alertas: modelo, filtros cerrados, coincidencia incremental",
+   "en": "Alert engine: model, closed filters, incremental matching",
+   "evidence": [
+    "alerts/model.py",
+    "alerts/filters.py",
+    "alerts/engine.py",
+    "tests/test_alerts_engine.py",
+    "tests/test_alerts_filters.py"
+   ],
+   "pr": "#38",
+   "note": null
+  },
+  {
+   "column": "done",
+   "es": "Evaluador de filtros en el navegador, probado con los mismos vectores",
+   "en": "Browser filter evaluator tested with the same vectors",
+   "evidence": [
+    "web/intelligence/alerts/filter.js",
+    "tests/fixtures/alerts/filter-vectors.json"
+   ],
+   "pr": "#38",
+   "note": null
+  },
+  {
+   "column": "done",
+   "es": "RSS público verificable (SHA-256) con datos propios",
+   "en": "Verifiable public RSS (SHA-256) from first-party data",
+   "evidence": [
+    "alerts/rss.py",
+    "web/feeds/index.json",
+    "scripts/gen_alerts_site.py"
+   ],
+   "pr": "#38",
+   "note": null
+  },
+  {
+   "column": "done",
+   "es": "Servidor de referencia: cuentas, suscripciones, tokens RSS privados, historial",
+   "en": "Reference backend: accounts, subscriptions, private RSS tokens, history",
+   "evidence": [
+    "alerts/api.py",
+    "alerts/subs.py",
+    "tests/test_alerts_api.py"
+   ],
+   "pr": "#38",
+   "note": "No desplegado / not deployed"
+  },
+  {
+   "column": "done",
+   "es": "Multi-tenant y roles: organizaciones, unidades, grupos, MSP, auditoría",
+   "en": "Multi-tenant and roles: organisations, units, groups, MSP, audit",
+   "evidence": [
+    "alerts/authz.py",
+    "alerts/tenancy.py",
+    "tests/test_alerts_tenancy.py"
+   ],
+   "pr": "#38",
+   "note": "Sin proveedor de identidad externo / no external IdP"
+  },
+  {
+   "column": "done",
+   "es": "Correo (doble confirmación, ES/EN, resúmenes) y webhooks (SSRF, HMAC, reintentos)",
+   "en": "E-mail (double opt-in, ES/EN, digests) and webhooks (SSRF, HMAC, retries)",
+   "evidence": [
+    "alerts/mail.py",
+    "alerts/webhook.py",
+    "tests/test_alerts_delivery.py"
+   ],
+   "pr": "#38",
+   "note": null
+  },
+  {
+   "column": "done",
+   "es": "Secciones web ES/EN con prueba de extremo a extremo y WCAG 2.2 AA",
+   "en": "Web section ES/EN with end-to-end test and WCAG 2.2 AA",
+   "evidence": [
+    "web/intelligence/alerts/index.html",
+    "tests/test_alerts_e2e.py"
+   ],
+   "pr": "#38",
+   "note": null
+  },
+  {
+   "column": "done",
+   "es": "Contrato AssetExposureMatch v1 y comparador de referencia",
+   "en": "AssetExposureMatch v1 contract and reference matcher",
+   "evidence": [
+    "alerts/exposure.py",
+    "tests/test_alerts_exposure.py"
+   ],
+   "pr": "#38",
+   "note": null
+  },
+  {
+   "column": "review",
+   "es": "mgctl, la orden canónica",
+   "en": "mgctl, the canonical command",
+   "evidence": [
+    "mgctl/cli.py",
+    "tests/test_mgctl.py"
+   ],
+   "pr": "#34",
+   "note": null
+  },
+  {
+   "column": "review",
+   "es": "Fuentes reales, procedencia y web de Intelligence",
+   "en": "Real sources, provenance and the Intelligence web",
+   "evidence": [
+    "web/intelligence/index.html"
+   ],
+   "pr": "#36",
+   "note": null
+  },
+  {
+   "column": "review",
+   "es": "Fuentes europeas de vulnerabilidades",
+   "en": "European vulnerability sources",
+   "evidence": [
+    "intel/vulns/live_eu.py"
+   ],
+   "pr": "#37",
+   "note": null
+  },
+  {
+   "column": "review",
+   "es": "Suscripciones y alertas",
+   "en": "Subscriptions and alerts",
+   "evidence": [
+    "docs/alerts/ARCHITECTURE.md"
+   ],
+   "pr": "#38",
+   "note": null
+  },
+  {
+   "column": "review",
+   "es": "Wiki bilingüe (4 entregas) y correcciones de documentación antigua",
+   "en": "Bilingual wiki (4 deliveries) and stale documentation fixes",
+   "evidence": [
+    "docs/intelligence/ROADMAP.md"
+   ],
+   "pr": "#29-#33",
+   "note": "Sin publicar / not published"
+  },
+  {
+   "column": "blocked",
+   "es": "Confirmar la redistribución de CISA KEV y CERT-EU (owner_confirmed)",
+   "en": "Confirm redistribution of CISA KEV and CERT-EU (owner_confirmed)",
+   "evidence": [
+    "config/intel/sources.registry.json"
+   ],
+   "pr": null,
+   "note": "Sin esto el feed público no lleva datos de terceros / without it the public feed has no third-party data"
+  },
+  {
+   "column": "blocked",
+   "es": "Términos de reutilización de ENISA EUVD (no encontrados)",
+   "en": "ENISA EUVD reuse terms (not found)",
+   "evidence": [
+    "docs/intelligence/LICENSE-MATRIX.md"
+   ],
+   "pr": null,
+   "note": null
+  },
+  {
+   "column": "blocked",
+   "es": "Flujo de firma y publicación de los canales nuevos",
+   "en": "Signing and publication workflow for the new channels",
+   "evidence": [
+    "docs/intelligence/SOURCES-STATUS.md"
+   ],
+   "pr": null,
+   "note": "Cambiar un workflow requiere autorización / changing a workflow needs authorisation"
+  },
+  {
+   "column": "blocked",
+   "es": "Credenciales de abuse.ch o descartar esas fuentes",
+   "en": "abuse.ch credentials, or drop those sources",
+   "evidence": [
+    "docs/intelligence/LICENSE-MATRIX.md"
+   ],
+   "pr": null,
+   "note": null
+  },
+  {
+   "column": "blocked",
+   "es": "Respuesta legal: DRL-1.1 + GPL-2.0 y ClamAV",
+   "en": "Legal answers: DRL-1.1 + GPL-2.0 and ClamAV",
+   "evidence": [
+    "docs/intelligence/LICENSE-MATRIX.md"
+   ],
+   "pr": null,
+   "note": null
+  },
+  {
+   "column": "blocked",
+   "es": "Estrategia para el historial con nombres internos y datos de cuenta en main",
+   "en": "Strategy for history with internal names and account data in main",
+   "evidence": [
+    "docs/intelligence/STATE-2026-10-22.md"
+   ],
+   "pr": null,
+   "note": null
+  },
+  {
+   "column": "blocked",
+   "es": "Servicio alojado, relé de correo, proveedor de identidad y TLS para las suscripciones",
+   "en": "Hosted service, mail relay, identity provider and TLS for subscriptions",
+   "evidence": [
+    "docs/alerts/ADMIN-MANUAL.md"
+   ],
+   "pr": null,
+   "note": null
+  },
+  {
+   "column": "blocked",
+   "es": "Fusionar a main: despliega la web (site.yml se dispara con web/**)",
+   "en": "Merge to main: it deploys the web (site.yml fires on web/**)",
+   "evidence": [
+    ".github/workflows/site.yml"
+   ],
+   "pr": null,
+   "note": "Requiere autorización expresa / needs explicit authorisation"
+  },
+  {
+   "column": "blocked",
+   "es": "6 entornos con 2 llaves: no inspeccionados ni tocados; indica qué quieres preparar (rotación, inventario, documentación)",
+   "en": "6 environments with 2 keys each: not inspected or touched; say what to prepare (rotation, inventory, documentation)",
+   "evidence": [
+    "docs/OPERATIONS.md"
+   ],
+   "pr": null,
+   "note": "Las credenciales no se tocan sin instrucción expresa / credentials are not touched without an explicit instruction"
+  },
+  {
+   "column": "backlog",
+   "es": "Adaptadores NVD y OSV (GHSA)",
+   "en": "NVD and OSV (GHSA) adapters",
+   "evidence": [
+    "config/intel/sources.registry.json"
+   ],
+   "pr": null,
+   "note": null
+  },
+  {
+   "column": "backlog",
+   "es": "Datos de avisos de Debian, Ubuntu y Red Hat para `assess`",
+   "en": "Debian, Ubuntu and Red Hat advisory data for `assess`",
+   "evidence": [
+    "intel/vulns/assess.py"
+   ],
+   "pr": null,
+   "note": null
+  },
+  {
+   "column": "backlog",
+   "es": "Orden de versiones rpm",
+   "en": "rpm version order",
+   "evidence": [
+    "intel/vulns/versions.py"
+   ],
+   "pr": null,
+   "note": null
+  },
+  {
+   "column": "backlog",
+   "es": "Prueba de procedencia en un host Linux real (dpkg)",
+   "en": "Provenance test on a real Linux host (dpkg)",
+   "evidence": [
+    "tests/test_provenance.py"
+   ],
+   "pr": null,
+   "note": null
+  },
+  {
+   "column": "backlog",
+   "es": "Sigma: alertas de reglas nuevas o modificadas (diff de git)",
+   "en": "Sigma: new or modified rule alerts (git diff)",
+   "evidence": [
+    "config/intel/sources.registry.json"
+   ],
+   "pr": null,
+   "note": null
+  },
+  {
+   "column": "backlog",
+   "es": "Adaptadores Telegram, Teams, Slack y SIEM",
+   "en": "Telegram, Teams, Slack and SIEM adapters",
+   "evidence": [
+    "alerts/delivery.py"
+   ],
+   "pr": null,
+   "note": null
+  },
+  {
+   "column": "backlog",
+   "es": "P3: inventario, grupos de equipos, exposición y alertas de flota (MacGuard Cloud)",
+   "en": "P3: inventory, device groups, exposure and fleet alerts (MacGuard Cloud)",
+   "evidence": [
+    "docs/alerts/CLOUD-ROADMAP.md"
+   ],
+   "pr": null,
+   "note": null
+  },
+  {
+   "column": "backlog",
+   "es": "Limitador de peticiones compartido y almacén de secretos",
+   "en": "Shared rate limiter and secret store",
+   "evidence": [
+    "docs/alerts/SECURITY.md"
+   ],
+   "pr": null,
+   "note": null
+  }
+ ]
+}

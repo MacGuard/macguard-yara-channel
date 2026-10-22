@@ -28,6 +28,22 @@
       "status_basis": "intel/provenance/ and tests/test_provenance.py exist and tests/fixtures/mgctl/command-tree.json lists \"provenance file\" as experimental"
     },
     {
+      "done": "adapters and validators run against the real APIs (2928 + 1770 + 10 records, 0 merge conflicts); identifiers CVE/EUVD/GHSA; per-source exploitation; distribution-aware Linux assessment; independent channels pinned by the catalog; PR #37 (EU-VULNERABILITIES.md)",
+      "missing": "EUVD reuse terms (pending-legal); owner confirmation; signing workflow; NVD, OSV, CCN-CERT and distribution feeds have no adapter",
+      "phase": "EU-Vuln",
+      "scope": "European and Spanish vulnerability sources next to CISA KEV (ENISA EUVD, EU exploited list, CERT-EU; INCIBE-CERT and CCN-CERT recorded as blocked)",
+      "status": "experimental",
+      "status_basis": "best status of vulns-euvd, vulns-eukev, vulns-certeu, vulns-merged in intel/status.py"
+    },
+    {
+      "done": "P0 static pages and public feeds with first-party data (docs/alerts/ARCHITECTURE.md); reference backend for accounts, subscriptions, tokens, delivery, tenancy and RBAC with tests and a real-browser end-to-end including WCAG 2.2 AA; AssetExposureMatch v1 contract and reference matcher",
+      "missing": "no hosted service, mail relay or identity provider; no third-party vulnerability data is published (sources not cleared); inventory-based correlation (P3) needs MacGuard Cloud",
+      "phase": "Alerts",
+      "scope": "Subscriptions and Alerts: alert model, closed filter language, matching engine, public and private RSS, e-mail, webhooks, organisations and roles, web section ES/EN",
+      "status": "experimental",
+      "status_basis": "all these files exist: alerts/engine.py, alerts/api.py, web/intelligence/alerts/index.html, docs/alerts/ARCHITECTURE.md"
+    },
+    {
       "done": "validation design only",
       "missing": "pySigma bench; licence decision",
       "phase": "P3",
@@ -92,6 +108,8 @@
         "P0",
         "P1",
         "P2",
+        "EU-Vuln",
+        "Alerts",
         "P3",
         "P4",
         "P5",

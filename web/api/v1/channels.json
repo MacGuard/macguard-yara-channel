@@ -67,14 +67,18 @@
       "family": "sigma",
       "id": "sigma",
       "kind": "detection rules",
-      "licenses": [],
+      "licenses": [
+        "DRL-1.1"
+      ],
       "os": [],
       "os_basis": "not stated in the data",
       "publication": {
         "published": false,
         "text": "not published: no artifact exists"
       },
-      "sources": [],
+      "sources": [
+        "sigmahq"
+      ],
       "status": "planned",
       "status_source": "intel/status.py"
     },

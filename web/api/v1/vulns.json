@@ -225,6 +225,25 @@
     },
     {
       "blocking_reasons": [
+        "debian-security-tracker: redistribution status is 'not-evaluated'"
+      ],
+      "cards": [],
+      "exploitation_field": "none",
+      "id": "debian-security-tracker",
+      "integration": "registered-only",
+      "license_key": "no-spdx-terms-text",
+      "license_name": "not read",
+      "max_snapshot_age_days": 3,
+      "name": "Debian Security Tracker (JSON)",
+      "owner_confirmed": false,
+      "publishable": false,
+      "redistribution_status": "not-evaluated",
+      "region": "global",
+      "status_note": "Endpoint answers HTTP 200 (application/json) on 2026-10-23; terms of reuse not read; no adapter. It is the data `intel vulns assess` needs for Debian (per-release fixed versions).",
+      "upstream_url": "https://security-tracker.debian.org/tracker/data/json"
+    },
+    {
+      "blocking_reasons": [
         "enisa-euvd: redistribution status is 'pending-legal'"
       ],
       "cards": [
@@ -321,6 +340,44 @@
       "region": "global",
       "status_note": "Registered only. GHSA identifiers are normalised by intel.vulns.ids so that OSV and EUVD can be joined once an OSV adapter exists.",
       "upstream_url": "https://osv.dev/"
+    },
+    {
+      "blocking_reasons": [
+        "redhat-security-data: redistribution status is 'not-evaluated'"
+      ],
+      "cards": [],
+      "exploitation_field": "none",
+      "id": "redhat-security-data",
+      "integration": "registered-only",
+      "license_key": "no-spdx-terms-text",
+      "license_name": "not read",
+      "max_snapshot_age_days": 3,
+      "name": "Red Hat Security Data API",
+      "owner_confirmed": false,
+      "publishable": false,
+      "redistribution_status": "not-evaluated",
+      "region": "global",
+      "status_note": "Endpoint exists (HEAD answered 405, so the GET behaviour was not checked); terms not read; no adapter.",
+      "upstream_url": "https://access.redhat.com/hydra/rest/securitydata/cve.json"
+    },
+    {
+      "blocking_reasons": [
+        "ubuntu-security-notices: redistribution status is 'not-evaluated'"
+      ],
+      "cards": [],
+      "exploitation_field": "none",
+      "id": "ubuntu-security-notices",
+      "integration": "registered-only",
+      "license_key": "no-spdx-terms-text",
+      "license_name": "not read",
+      "max_snapshot_age_days": 3,
+      "name": "Ubuntu Security (CVE and notices JSON)",
+      "owner_confirmed": false,
+      "publishable": false,
+      "redistribution_status": "not-evaluated",
+      "region": "global",
+      "status_note": "Endpoint answers HTTP 200 on 2026-10-23; terms not read; no adapter.",
+      "upstream_url": "https://ubuntu.com/security/cves.json"
     }
   ],
   "what_is_real": "Which vulnerability sources exist, which were really downloaded and validated on 2026-10-22, and why none is published. Counts only: no third-party vulnerability record is hosted."

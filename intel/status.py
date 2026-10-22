@@ -9,7 +9,7 @@ planned      = a design only
 from __future__ import annotations
 
 CHANNELS = [
-    {"id": "yara", "family": "yara", "status": "operational", "engine": "classic YARA (yarac), not YARA-X",
+    {"id": "yara", "family": "yara", "status": "operational", "sources": ["nextron", "community"], "engine": "classic YARA (yarac), not YARA-X",
      "detail": "Daily validated release, Sigstore-signed, transparency log. This is the legacy channel; the catalog references it unchanged.",
      "evidence": "scripts/verify_public_release.py; mgctl evidence verify"},
     {"id": "yara-x", "family": "yara-x", "status": "planned", "engine": "YARA-X",

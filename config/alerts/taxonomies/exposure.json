@@ -1,0 +1,60 @@
+{
+  "schema": "macguard.taxonomy/1",
+  "name": "exposure",
+  "version": 1,
+  "note": "Set by hand in the MVP. It is never inferred from a port or a service. It only narrows by the attack vector the source states (CVSS AV); an alert with no stated vector is kept.",
+  "items": [
+    {
+      "id": "internet",
+      "es": "Accesible desde Internet",
+      "en": "Internet-facing",
+      "vectors": [
+        "network",
+        "unknown"
+      ]
+    },
+    {
+      "id": "vpn",
+      "es": "Acceso mediante VPN",
+      "en": "Reachable through a VPN",
+      "vectors": [
+        "network",
+        "adjacent",
+        "unknown"
+      ]
+    },
+    {
+      "id": "private-network",
+      "es": "Solo red privada",
+      "en": "Private network only",
+      "vectors": [
+        "network",
+        "adjacent",
+        "unknown"
+      ]
+    },
+    {
+      "id": "internal-service",
+      "es": "Servicio interno",
+      "en": "Internal service",
+      "vectors": [
+        "network",
+        "adjacent",
+        "local",
+        "unknown"
+      ]
+    },
+    {
+      "id": "unknown",
+      "es": "Exposición desconocida",
+      "en": "Exposure unknown",
+      "vectors": [
+        "network",
+        "adjacent",
+        "local",
+        "physical",
+        "unknown"
+      ]
+    }
+  ]
+}

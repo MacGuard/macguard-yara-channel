@@ -340,6 +340,7 @@ def build_roadmap(generated_at):
     text = (ROOT / 'docs/intelligence/ROADMAP.md').read_text(encoding='utf-8')
     chs = {c['id']: c['status'] for c in chstatus.CHANNELS}
     rules = {'P0': ('files', ['intel/channel.py', 'intel/catalog.py', 'intel/verify.py', 'tests/test_intel.py']), 'P1': ('channels', ['ioc', 'vulns']), 'P2': ('provenance', []),
+             'EU-Vuln': ('channels', ['vulns-euvd', 'vulns-eukev', 'vulns-certeu', 'vulns-merged']), 'Alerts': ('files', ['alerts/engine.py', 'alerts/api.py', 'web/intelligence/alerts/index.html', 'docs/alerts/ARCHITECTURE.md']),
              'P3': ('channels', ['sigma']), 'P4': ('channels', ['clamav']), 'P5': ('channels', ['heuristics', 'behavior']), 'P6': ('channels', ['sandbox', 'ml']),
              'Web': ('files', ['web/intelligence/index.html', 'scripts/gen_intel_web.py']), 'Cloud': ('files', ['cloud']), 'Install': ('files', ['docs/cli/mgctl-install.md', 'bin/mgctl'])}
     rows = []

@@ -1,0 +1,24 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.macguard.example/alerts/subscription-filter/1",
+  "title": "Subscription filter v1: a closed language, never code",
+  "type": "object",
+  "required": [
+    "schema",
+    "version",
+    "expr"
+  ],
+  "properties": {
+    "schema": {
+      "const": "macguard.subscription-filter/1"
+    },
+    "version": {
+      "const": 1
+    },
+    "expr": {
+      "type": "object",
+      "description": "{all:[..]} | {any:[..]} | {not:..} | a leaf {field, op, value[, option]}; at most 4 levels deep and 40 conditions. Fields and operators: alerts/filters.py LEAVES."
+    }
+  },
+  "additionalProperties": false
+}

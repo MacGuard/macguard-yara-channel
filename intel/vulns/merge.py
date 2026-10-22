@@ -23,18 +23,33 @@ def _tokens(rec: Dict[str, Any]) -> List[Tuple[str, str]]:
 
 
 class _Groups:
+    """Union-find over identifiers that also keeps, per group, its members and the CVE ids in it (so a join is checked in O(1), not by scanning every group)."""
+
     def __init__(self) -> None:
         self.parent: Dict[Tuple[str, str], Tuple[str, str]] = {}
+        self.cves: Dict[Tuple[str, str], set] = {}
+        self.items: Dict[Tuple[str, str], set] = {}
 
     def find(self, t: Tuple[str, str]) -> Tuple[str, str]:
-        self.parent.setdefault(t, t)
+        if t not in self.parent:
+            self.parent[t] = t
+            self.items[t] = {t}
+            self.cves[t] = {t[1]} if t[0] == "cve" else set()
         while self.parent[t] != t:
             self.parent[t] = self.parent[self.parent[t]]
             t = self.parent[t]
         return t
 
-    def members(self, root: Tuple[str, str]) -> List[Tuple[str, str]]:
-        return [t for t in self.parent if self.find(t) == root]
+    def union(self, a: Tuple[str, str], b: Tuple[str, str]) -> None:
+        ra, rb = self.find(a), self.find(b)
+        if ra == rb:
+            return
+        self.parent[rb] = ra
+        self.items[ra] |= self.items.pop(rb)
+        self.cves[ra] |= self.cves.pop(rb)
+
+    def members(self, root: Tuple[str, str]) -> set:
+        return self.items[self.find(root)]
 
 
 def merge(records: List[Dict[str, Any]], snapshots: Optional[Dict[str, Dict[str, Any]]] = None, now: Optional[datetime] = None,
@@ -74,7 +89,7 @@ def merge(records: List[Dict[str, Any]], snapshots: Optional[Dict[str, Dict[str,
             solo.append(i)
             continue
         roots = {g.find(t) for t in toks}
-        cve_in_roots = {t[1] for root in roots for t in g.members(root) if t[0] == "cve"} | {c[1] for c in cves}
+        cve_in_roots = {c for root in roots for c in g.cves[root]} | {c[1] for c in cves}
         if len(cve_in_roots) > 1:
             conflicts.append({"source": r["source"], "record": r["source_record_id"], "reason": "joining would put two different CVEs in one entry: not merged", "ids": sorted(cve_in_roots)})
             conflicted_tokens.update(t for t in toks)
@@ -82,9 +97,7 @@ def merge(records: List[Dict[str, Any]], snapshots: Optional[Dict[str, Dict[str,
             continue
         first = toks[0]
         for t in toks[1:]:
-            a, b = g.find(first), g.find(t)
-            if a != b:
-                g.parent[b] = a
+            g.union(first, t)
         placement[i] = g.find(first)
     by_root: Dict[Tuple[str, str], List[int]] = {}
     for i, root in placement.items():
@@ -111,7 +124,8 @@ def merge(records: List[Dict[str, Any]], snapshots: Optional[Dict[str, Dict[str,
                 flags.append(f"two-records-from-{sid}")
             sources.setdefault(sid, {"record": r["source_record_id"], "region": registry.get(sid, {}).get("region"), "evidence": r["evidence"],
                                      "severity": r.get("severity"), "epss": r.get("epss"), "dates": r["dates"], "affected": r["affected"], "fixes": r["fixes"],
-                                     "references": r["references"], "summary": r.get("summary")})
+                                     "references": r["references"], "summary": r.get("summary"), "title": r.get("title"),
+                                     "extra": r.get("kev"), "mentions": r.get("mentions") or [], "ids": r["ids"]})
             e = dict(r["exploitation"])
             if sid in stale:
                 e["stale"] = True

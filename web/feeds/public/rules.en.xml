@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0"><channel><title>MacGuard: New MacGuard YARA rule releases</title><link>https://macguard.github.io/macguard-yara-channel/intelligence/alerts/index.html</link><description>New MacGuard YARA rule releases · only sources cleared for redistribution</description><language>en</language><lastBuildDate>Wed, 21 Oct 2026 03:57:43 GMT</lastBuildDate><ttl>60</ttl><generator>MacGuard alerts 0.1</generator><item><title>YARA-rules-20261018-39103534527: YARA rules release rules-20261018-39103534527 published</title><link>https://macguard.github.io/macguard-yara-channel/intelligence/alerts/alert.html?id=MGA-b14a5900cbd1a862f14c</link><description>Signed release rules-20261018-39103534527 published on GitHub. The site deployment was requested.
+Severity: unknown (unknown)
+No source asserts exploitation
+Sources: macguard-yara-releases
+Source scope: GLOBAL
+Attribution: MacGuard YARA channel (the repository's own pipeline log)</description><guid isPermaLink="false">MGA-b14a5900cbd1a862f14c:1</guid><pubDate>Wed, 21 Oct 2026 03:57:43 GMT</pubDate><category>unknown</category><category>rule-release</category></item><item><title>YARA-rules-20261018-39150886414: YARA rules release rules-20261018-39150886414 published</title><link>https://macguard.github.io/macguard-yara-channel/intelligence/alerts/alert.html?id=MGA-8dd012e26a5e12d879ed</link><description>Signed release rules-20261018-39150886414 published on GitHub. The site deployment was requested.
+Severity: unknown (unknown)
+No source asserts exploitation
+Sources: macguard-yara-releases
+Source scope: GLOBAL
+Attribution: MacGuard YARA channel (the repository's own pipeline log)</description><guid isPermaLink="false">MGA-8dd012e26a5e12d879ed:1</guid><pubDate>Wed, 21 Oct 2026 03:57:43 GMT</pubDate><category>unknown</category><category>rule-release</category></item><item><title>YARA-rules-20261021-39541028283: YARA rules release rules-20261021-39541028283 published</title><link>https://macguard.github.io/macguard-yara-channel/intelligence/alerts/alert.html?id=MGA-6996e1d6bdc418e8073e</link><description>Signed release rules-20261021-39541028283 published on GitHub. The site deployment was requested.
+Severity: unknown (unknown)
+No source asserts exploitation
+Sources: macguard-yara-releases
+Source scope: GLOBAL
+Attribution: MacGuard YARA channel (the repository's own pipeline log)</description><guid isPermaLink="false">MGA-6996e1d6bdc418e8073e:1</guid><pubDate>Wed, 21 Oct 2026 03:57:43 GMT</pubDate><category>unknown</category><category>rule-release</category></item></channel></rss>

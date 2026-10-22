@@ -1,0 +1,13 @@
+{
+  "schema": "macguard.public-feeds/1",
+  "note": "Public feeds carry only the publish view of alerts: data of sources the registry clears AND the owner confirmed. A feed whose sources are not cleared is empty, not hidden: its page says why. One extra feed per cleared source is generated as source-<id>.xml.",
+  "feeds": [
+    {"id": "all", "es": "Todas las alertas", "en": "All alerts", "filter": {"all": []}},
+    {"id": "exploited", "es": "Explotación conocida según alguna fuente", "en": "Known exploitation according to at least one source", "filter": {"all": [{"field": "exploited", "op": "is", "value": true}]}},
+    {"id": "critical", "es": "Gravedad crítica (CVSS 9.0 o más)", "en": "Critical severity (CVSS 9.0 or more)", "filter": {"all": [{"field": "severity", "op": "gte", "value": "critical"}]}},
+    {"id": "region-es", "es": "Fuentes con ámbito España", "en": "Sources scoped to Spain", "filter": {"all": [{"field": "region", "op": "in", "value": ["ES"]}]}},
+    {"id": "region-eu", "es": "Fuentes con ámbito Unión Europea (incluye España)", "en": "Sources scoped to the European Union (includes Spain)", "filter": {"all": [{"field": "region", "op": "in", "value": ["EU"]}]}},
+    {"id": "region-other", "es": "Fuentes de otros países", "en": "Sources from other countries", "filter": {"all": [{"field": "region", "op": "in", "value": ["OTHER"]}]}},
+    {"id": "rules", "es": "Nuevas versiones de las reglas YARA de MacGuard", "en": "New MacGuard YARA rule releases", "filter": {"all": [{"field": "alert_type", "op": "in", "value": ["rule-release"]}]}}
+  ]
+}

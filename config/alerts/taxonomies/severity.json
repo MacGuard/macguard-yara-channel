@@ -1,0 +1,32 @@
+{
+  "schema": "macguard.taxonomy/1",
+  "name": "severity",
+  "version": 1,
+  "note": "Bands of the CVSS base score. No score means 'unknown', never a guess.",
+  "items": [
+    {
+      "id": "critical",
+      "min": 9.0
+    },
+    {
+      "id": "high",
+      "min": 7.0
+    },
+    {
+      "id": "medium",
+      "min": 4.0
+    },
+    {
+      "id": "low",
+      "min": 0.1
+    },
+    {
+      "id": "none",
+      "min": 0.0
+    },
+    {
+      "id": "unknown",
+      "min": null
+    }
+  ]
+}

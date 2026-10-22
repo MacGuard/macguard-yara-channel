@@ -210,6 +210,38 @@
         "credential_required": false,
         "method": "HTTPS GET, no key"
       },
+      "attribution": "credit the Debian Security Tracker",
+      "clearance": {
+        "blocking_reasons": [
+          "debian-security-tracker: redistribution status is 'not-evaluated'"
+        ],
+        "publishable": false
+      },
+      "default_ttl_days": 3650,
+      "families": [
+        "vulns"
+      ],
+      "id": "debian-security-tracker",
+      "license": {
+        "name": "not read"
+      },
+      "license_key": "no-spdx-terms-text",
+      "name": "Debian Security Tracker (JSON)",
+      "original_signature": {
+        "kind": "none"
+      },
+      "owner_confirmed": false,
+      "real_retrieval_cards": [],
+      "redistribution_status": "not-evaluated",
+      "status_note": "Endpoint answers HTTP 200 (application/json) on 2026-10-23; terms of reuse not read; no adapter. It is the data `intel vulns assess` needs for Debian (per-release fixed versions).",
+      "trust": 85,
+      "upstream_url": "https://security-tracker.debian.org/tracker/data/json"
+    },
+    {
+      "access": {
+        "credential_required": false,
+        "method": "HTTPS GET, no key"
+      },
       "attribution": "credit ENISA as the source and indicate changes (if CC BY 4.0 is confirmed to apply)",
       "clearance": {
         "blocking_reasons": [
@@ -308,6 +340,36 @@
     {
       "access": {
         "credential_required": false,
+        "method": "local file logs/log.jsonl, already public on the site (transparency page)"
+      },
+      "attribution": "MacGuard YARA channel (the repository's own pipeline log)",
+      "clearance": {
+        "blocking_reasons": [],
+        "publishable": true
+      },
+      "default_ttl_days": 3650,
+      "families": [
+        "yara"
+      ],
+      "id": "macguard-yara-releases",
+      "license": {
+        "name": "first-party metadata of this repository: release tag, time and run link. It contains no third-party rule text."
+      },
+      "license_key": "no-spdx-terms-text",
+      "name": "MacGuard YARA channel release log (first-party)",
+      "original_signature": {
+        "kind": "none (the signed releases themselves are verified separately)"
+      },
+      "owner_confirmed": true,
+      "real_retrieval_cards": [],
+      "redistribution_status": "allowed",
+      "status_note": "Added with the alerts section. owner_confirmed is true because the data is MacGuard's own pipeline log, already published; this is a decision of the maintainer to review (revert the flag to hide the feed).",
+      "trust": 100,
+      "upstream_url": "https://github.com/MacGuard/macguard-yara-channel/blob/main/logs/log.jsonl"
+    },
+    {
+      "access": {
+        "credential_required": false,
         "method": "git clone, public"
       },
       "attribution": "keep the rule author and the licence reference that each rule carries",
@@ -402,6 +464,103 @@
       "status_note": "Registered only. GHSA identifiers are normalised by intel.vulns.ids so that OSV and EUVD can be joined once an OSV adapter exists.",
       "trust": 80,
       "upstream_url": "https://osv.dev/"
+    },
+    {
+      "access": {
+        "credential_required": false,
+        "method": "HTTPS GET, no key"
+      },
+      "attribution": "credit Red Hat",
+      "clearance": {
+        "blocking_reasons": [
+          "redhat-security-data: redistribution status is 'not-evaluated'"
+        ],
+        "publishable": false
+      },
+      "default_ttl_days": 3650,
+      "families": [
+        "vulns"
+      ],
+      "id": "redhat-security-data",
+      "license": {
+        "name": "not read"
+      },
+      "license_key": "no-spdx-terms-text",
+      "name": "Red Hat Security Data API",
+      "original_signature": {
+        "kind": "none"
+      },
+      "owner_confirmed": false,
+      "real_retrieval_cards": [],
+      "redistribution_status": "not-evaluated",
+      "status_note": "Endpoint exists (HEAD answered 405, so the GET behaviour was not checked); terms not read; no adapter.",
+      "trust": 85,
+      "upstream_url": "https://access.redhat.com/hydra/rest/securitydata/cve.json"
+    },
+    {
+      "access": {
+        "credential_required": false,
+        "method": "git, public"
+      },
+      "attribution": "keep the rule author and the licence reference that each rule carries",
+      "clearance": {
+        "blocking_reasons": [
+          "sigmahq: the owner has not confirmed the redistribution decision (owner_confirmed is not true)"
+        ],
+        "publishable": false
+      },
+      "default_ttl_days": 3650,
+      "families": [
+        "sigma"
+      ],
+      "id": "sigmahq",
+      "license": {
+        "name": "Detection Rule License 1.1",
+        "spdx": "DRL-1.1"
+      },
+      "license_key": "DRL-1.1",
+      "name": "SigmaHQ/sigma rule repository (new and changed rules)",
+      "original_signature": {
+        "kind": "none"
+      },
+      "owner_confirmed": false,
+      "real_retrieval_cards": [],
+      "redistribution_status": "allowed-with-conditions",
+      "status_note": "No adapter: a rule-update alert needs a git diff job over the repository, which this delivery does not include.",
+      "trust": 70,
+      "upstream_url": "https://github.com/SigmaHQ/sigma"
+    },
+    {
+      "access": {
+        "credential_required": false,
+        "method": "HTTPS GET, no key"
+      },
+      "attribution": "credit Canonical / Ubuntu Security",
+      "clearance": {
+        "blocking_reasons": [
+          "ubuntu-security-notices: redistribution status is 'not-evaluated'"
+        ],
+        "publishable": false
+      },
+      "default_ttl_days": 3650,
+      "families": [
+        "vulns"
+      ],
+      "id": "ubuntu-security-notices",
+      "license": {
+        "name": "not read"
+      },
+      "license_key": "no-spdx-terms-text",
+      "name": "Ubuntu Security (CVE and notices JSON)",
+      "original_signature": {
+        "kind": "none"
+      },
+      "owner_confirmed": false,
+      "real_retrieval_cards": [],
+      "redistribution_status": "not-evaluated",
+      "status_note": "Endpoint answers HTTP 200 on 2026-10-23; terms not read; no adapter.",
+      "trust": 85,
+      "upstream_url": "https://ubuntu.com/security/cves.json"
     },
     {
       "access": {

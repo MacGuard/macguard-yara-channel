@@ -1,0 +1,408 @@
+{
+ "alerts": [
+  {
+   "affected": [],
+   "alert_id": "MGA-b14a5900cbd1a862f14c",
+   "alert_type": "rule-release",
+   "attack_techniques": [],
+   "attack_vector": "unknown",
+   "dates": {
+    "listed": {},
+    "published": "2026-10-18",
+    "updated": null
+   },
+   "description": "Signed release rules-20261018-39103534527 published on GitHub. The site deployment was requested.",
+   "description_source": "macguard-yara-releases",
+   "discrepancies": [],
+   "epss": null,
+   "exploitation": {
+    "asserted_by": [],
+    "earliest_since": null,
+    "independent_confirmation": "not-applicable",
+    "note": "a severity score is not evidence of exploitation; each source's statement is kept apart",
+    "per_source": {
+     "macguard-yara-releases": {
+      "asserted": false,
+      "basis": "not applicable: a release is not a vulnerability",
+      "since": null
+     }
+    },
+    "status": "not-asserted"
+   },
+   "first_ingested_utc": "2026-10-21T03:57:43Z",
+   "fix": {
+    "available": null,
+    "details": [],
+    "note": "vendor text; says nothing about a Linux distribution package"
+   },
+   "flags": [],
+   "ids": {
+    "cve": [],
+    "euvd": [],
+    "ghsa": []
+   },
+   "key": "YARA-rules-20261018-39103534527",
+   "last_changed_utc": "2026-10-21T03:57:43Z",
+   "license": {
+    "redistributable": true,
+    "sources": {
+     "macguard-yara-releases": {
+      "attribution": "MacGuard YARA channel (the repository's own pipeline log)",
+      "license": "first-party metadata of this repository: release tag, time and run link. It contains no third-party rule text.",
+      "owner_confirmed": true,
+      "publishable": true,
+      "redistribution_status": "allowed"
+     }
+    },
+    "withheld_sources": 0
+   },
+   "mitigation_basis": "no source of this alert states mitigations in a structured field",
+   "mitigations": [],
+   "observations": {
+    "macguard-yara-releases": {
+     "affected": [],
+     "dates": {
+      "published": "2026-10-18",
+      "updated": null
+     },
+     "epss": null,
+     "evidence": {
+      "file": "logs/log.jsonl",
+      "file_sha256": "d2a736b78d440e11063875017e609804539c28014dc2196cd08edf47a4b3a81f",
+      "item_sha256": "d2a736b78d440e11063875017e609804539c28014dc2196cd08edf47a4b3a81f",
+      "locator": "seq=20",
+      "retrieved_at": "2026-10-18T06:18:14Z"
+     },
+     "extra": null,
+     "fixes": [],
+     "ids": {
+      "cve": [],
+      "euvd": [],
+      "ghsa": []
+     },
+     "mentions": [],
+     "record": "rules-20261018-39103534527",
+     "references": [
+      "https://macguard.github.io/macguard-yara-channel/releases.html",
+      "https://github.com/MacGuard/macguard-yara-channel/actions/runs/39103534527"
+     ],
+     "severity": null,
+     "summary": "Signed release rules-20261018-39103534527 published on GitHub. The site deployment was requested.",
+     "title": "YARA rules release rules-20261018-39103534527 published"
+    }
+   },
+   "record_hash": "c15892be5cadaee4af57ea9fbe23232707649213573424eb0a8299f49f8e7ae3",
+   "record_version": 1,
+   "references": [
+    "https://macguard.github.io/macguard-yara-channel/releases.html",
+    "https://github.com/MacGuard/macguard-yara-channel/actions/runs/39103534527"
+   ],
+   "region_scope": [
+    {
+     "basis": "source-scope",
+     "region": "GLOBAL",
+     "source": "macguard-yara-releases"
+    }
+   ],
+   "schema": "macguard.intelligence-alert/1",
+   "sector_basis": "no source states a sector; sector filters only match what a source or the curated map states",
+   "sectors": [],
+   "severity": {
+    "all": {},
+    "band": "unknown",
+    "rated_by": [],
+    "score": null,
+    "vector": null,
+    "version": null
+   },
+   "taxonomies": {
+    "exposure": 1,
+    "os-families": 1,
+    "regions": 1,
+    "sectors": 1,
+    "severity": 1,
+    "technology-map": 1
+   },
+   "threat_families": [],
+   "title": "YARA-rules-20261018-39103534527: YARA rules release rules-20261018-39103534527 published",
+   "validation": {
+    "problems": [],
+    "state": "validated"
+   }
+  },
+  {
+   "affected": [],
+   "alert_id": "MGA-8dd012e26a5e12d879ed",
+   "alert_type": "rule-release",
+   "attack_techniques": [],
+   "attack_vector": "unknown",
+   "dates": {
+    "listed": {},
+    "published": "2026-10-18",
+    "updated": null
+   },
+   "description": "Signed release rules-20261018-39150886414 published on GitHub. The site deployment was requested.",
+   "description_source": "macguard-yara-releases",
+   "discrepancies": [],
+   "epss": null,
+   "exploitation": {
+    "asserted_by": [],
+    "earliest_since": null,
+    "independent_confirmation": "not-applicable",
+    "note": "a severity score is not evidence of exploitation; each source's statement is kept apart",
+    "per_source": {
+     "macguard-yara-releases": {
+      "asserted": false,
+      "basis": "not applicable: a release is not a vulnerability",
+      "since": null
+     }
+    },
+    "status": "not-asserted"
+   },
+   "first_ingested_utc": "2026-10-21T03:57:43Z",
+   "fix": {
+    "available": null,
+    "details": [],
+    "note": "vendor text; says nothing about a Linux distribution package"
+   },
+   "flags": [],
+   "ids": {
+    "cve": [],
+    "euvd": [],
+    "ghsa": []
+   },
+   "key": "YARA-rules-20261018-39150886414",
+   "last_changed_utc": "2026-10-21T03:57:43Z",
+   "license": {
+    "redistributable": true,
+    "sources": {
+     "macguard-yara-releases": {
+      "attribution": "MacGuard YARA channel (the repository's own pipeline log)",
+      "license": "first-party metadata of this repository: release tag, time and run link. It contains no third-party rule text.",
+      "owner_confirmed": true,
+      "publishable": true,
+      "redistribution_status": "allowed"
+     }
+    },
+    "withheld_sources": 0
+   },
+   "mitigation_basis": "no source of this alert states mitigations in a structured field",
+   "mitigations": [],
+   "observations": {
+    "macguard-yara-releases": {
+     "affected": [],
+     "dates": {
+      "published": "2026-10-18",
+      "updated": null
+     },
+     "epss": null,
+     "evidence": {
+      "file": "logs/log.jsonl",
+      "file_sha256": "26bfc7836d8c1d02e270d25665df1a8f07e229c1b207157d713d9b0da93c844f",
+      "item_sha256": "26bfc7836d8c1d02e270d25665df1a8f07e229c1b207157d713d9b0da93c844f",
+      "locator": "seq=75",
+      "retrieved_at": "2026-10-18T17:44:25Z"
+     },
+     "extra": null,
+     "fixes": [],
+     "ids": {
+      "cve": [],
+      "euvd": [],
+      "ghsa": []
+     },
+     "mentions": [],
+     "record": "rules-20261018-39150886414",
+     "references": [
+      "https://macguard.github.io/macguard-yara-channel/releases.html",
+      "https://github.com/MacGuard/macguard-yara-channel/actions/runs/39150886414"
+     ],
+     "severity": null,
+     "summary": "Signed release rules-20261018-39150886414 published on GitHub. The site deployment was requested.",
+     "title": "YARA rules release rules-20261018-39150886414 published"
+    }
+   },
+   "record_hash": "8d4845308452ec11e3dcebb7105ed1f319f2ca808af14de4016ec2cc5ecd03ea",
+   "record_version": 1,
+   "references": [
+    "https://macguard.github.io/macguard-yara-channel/releases.html",
+    "https://github.com/MacGuard/macguard-yara-channel/actions/runs/39150886414"
+   ],
+   "region_scope": [
+    {
+     "basis": "source-scope",
+     "region": "GLOBAL",
+     "source": "macguard-yara-releases"
+    }
+   ],
+   "schema": "macguard.intelligence-alert/1",
+   "sector_basis": "no source states a sector; sector filters only match what a source or the curated map states",
+   "sectors": [],
+   "severity": {
+    "all": {},
+    "band": "unknown",
+    "rated_by": [],
+    "score": null,
+    "vector": null,
+    "version": null
+   },
+   "taxonomies": {
+    "exposure": 1,
+    "os-families": 1,
+    "regions": 1,
+    "sectors": 1,
+    "severity": 1,
+    "technology-map": 1
+   },
+   "threat_families": [],
+   "title": "YARA-rules-20261018-39150886414: YARA rules release rules-20261018-39150886414 published",
+   "validation": {
+    "problems": [],
+    "state": "validated"
+   }
+  },
+  {
+   "affected": [],
+   "alert_id": "MGA-6996e1d6bdc418e8073e",
+   "alert_type": "rule-release",
+   "attack_techniques": [],
+   "attack_vector": "unknown",
+   "dates": {
+    "listed": {},
+    "published": "2026-10-21",
+    "updated": null
+   },
+   "description": "Signed release rules-20261021-39541028283 published on GitHub. The site deployment was requested.",
+   "description_source": "macguard-yara-releases",
+   "discrepancies": [],
+   "epss": null,
+   "exploitation": {
+    "asserted_by": [],
+    "earliest_since": null,
+    "independent_confirmation": "not-applicable",
+    "note": "a severity score is not evidence of exploitation; each source's statement is kept apart",
+    "per_source": {
+     "macguard-yara-releases": {
+      "asserted": false,
+      "basis": "not applicable: a release is not a vulnerability",
+      "since": null
+     }
+    },
+    "status": "not-asserted"
+   },
+   "first_ingested_utc": "2026-10-21T03:57:43Z",
+   "fix": {
+    "available": null,
+    "details": [],
+    "note": "vendor text; says nothing about a Linux distribution package"
+   },
+   "flags": [],
+   "ids": {
+    "cve": [],
+    "euvd": [],
+    "ghsa": []
+   },
+   "key": "YARA-rules-20261021-39541028283",
+   "last_changed_utc": "2026-10-21T03:57:43Z",
+   "license": {
+    "redistributable": true,
+    "sources": {
+     "macguard-yara-releases": {
+      "attribution": "MacGuard YARA channel (the repository's own pipeline log)",
+      "license": "first-party metadata of this repository: release tag, time and run link. It contains no third-party rule text.",
+      "owner_confirmed": true,
+      "publishable": true,
+      "redistribution_status": "allowed"
+     }
+    },
+    "withheld_sources": 0
+   },
+   "mitigation_basis": "no source of this alert states mitigations in a structured field",
+   "mitigations": [],
+   "observations": {
+    "macguard-yara-releases": {
+     "affected": [],
+     "dates": {
+      "published": "2026-10-21",
+      "updated": null
+     },
+     "epss": null,
+     "evidence": {
+      "file": "logs/log.jsonl",
+      "file_sha256": "7c8402b7245187acfdffded2d997dc58bf8efdeb1ff2bb94caad0ca5142fe651",
+      "item_sha256": "7c8402b7245187acfdffded2d997dc58bf8efdeb1ff2bb94caad0ca5142fe651",
+      "locator": "seq=180",
+      "retrieved_at": "2026-10-21T03:57:43Z"
+     },
+     "extra": null,
+     "fixes": [],
+     "ids": {
+      "cve": [],
+      "euvd": [],
+      "ghsa": []
+     },
+     "mentions": [],
+     "record": "rules-20261021-39541028283",
+     "references": [
+      "https://macguard.github.io/macguard-yara-channel/releases.html",
+      "https://github.com/MacGuard/macguard-yara-channel/actions/runs/39541028283"
+     ],
+     "severity": null,
+     "summary": "Signed release rules-20261021-39541028283 published on GitHub. The site deployment was requested.",
+     "title": "YARA rules release rules-20261021-39541028283 published"
+    }
+   },
+   "record_hash": "f8d1e96f98d51221e57ad9a430aa64e49ebe05fb719b7805bf317dcd369c2a19",
+   "record_version": 1,
+   "references": [
+    "https://macguard.github.io/macguard-yara-channel/releases.html",
+    "https://github.com/MacGuard/macguard-yara-channel/actions/runs/39541028283"
+   ],
+   "region_scope": [
+    {
+     "basis": "source-scope",
+     "region": "GLOBAL",
+     "source": "macguard-yara-releases"
+    }
+   ],
+   "schema": "macguard.intelligence-alert/1",
+   "sector_basis": "no source states a sector; sector filters only match what a source or the curated map states",
+   "sectors": [],
+   "severity": {
+    "all": {},
+    "band": "unknown",
+    "rated_by": [],
+    "score": null,
+    "vector": null,
+    "version": null
+   },
+   "taxonomies": {
+    "exposure": 1,
+    "os-families": 1,
+    "regions": 1,
+    "sectors": 1,
+    "severity": 1,
+    "technology-map": 1
+   },
+   "threat_families": [],
+   "title": "YARA-rules-20261021-39541028283: YARA rules release rules-20261021-39541028283 published",
+   "validation": {
+    "problems": [],
+    "state": "validated"
+   }
+  }
+ ],
+ "count": 3,
+ "data_origin": "alert store, publish views only: sources cleared by the registry and confirmed by the owner",
+ "generated_at": "2026-10-21T03:57:43Z",
+ "schema": "macguard.alerts-snapshot/1",
+ "taxonomies": {
+  "exposure": 1,
+  "os-families": 1,
+  "regions": 1,
+  "sectors": 1,
+  "severity": 1,
+  "technology-map": 1
+ },
+ "truncated": false,
+ "what_is_real": "Real alerts built from sources that may be redistributed. Empty or small when few sources are cleared; never padded with examples."
+}

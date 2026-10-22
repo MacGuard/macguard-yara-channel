@@ -1,0 +1,341 @@
+{
+ "generated_at": "2026-10-21T03:57:43Z",
+ "sources": [
+  {
+   "adapter": "vulnerability channel",
+   "blocking_reasons": [
+    "cisa-kev: the owner has not confirmed the redistribution decision (owner_confirmed is not true)"
+   ],
+   "endpoint": "https://www.cisa.gov/known-exploited-vulnerabilities-catalog",
+   "format": "JSON API / RSS",
+   "freshness": {
+    "age_days": null,
+    "alerts": 0,
+    "failed_runs_since_last_ok": 0,
+    "last_ok_retrieved_utc": null,
+    "state": "never-imported"
+   },
+   "id": "cisa-kev",
+   "license": "CC0 (as stated by CISA/the project's matrix); US Government work",
+   "name": "CISA Known Exploited Vulnerabilities catalog",
+   "note": "LICENSE-MATRIX.md verdict ALLOWED-WITH-CONDITIONS. Publication blocked until the owner confirms.",
+   "operational_state": "implemented-no-data",
+   "owner_confirmed": false,
+   "publishable": false,
+   "redistribution_status": "allowed-with-conditions",
+   "region": "US",
+   "update_expectation_days": 7
+  },
+  {
+   "adapter": "vulnerability channel",
+   "blocking_reasons": [
+    "enisa-euvd: redistribution status is 'pending-legal'"
+   ],
+   "endpoint": "https://euvd.enisa.europa.eu/",
+   "format": "JSON API / RSS",
+   "freshness": {
+    "age_days": null,
+    "alerts": 0,
+    "failed_runs_since_last_ok": 0,
+    "last_ok_retrieved_utc": null,
+    "state": "never-imported"
+   },
+   "id": "enisa-euvd",
+   "license": "no EUVD-specific terms found; ENISA's IPR policy states CC BY 4.0 for ENISA publications, and that this covers the EUVD data is NOT confirmed",
+   "name": "ENISA European Vulnerability Database (EUVD): recent window",
+   "note": "API https://euvdservices.enisa.europa.eu/api/search read on 2026-10-22: no key, 100 items per page. No licence or terms page for the API or the data was found (the site is a single-page app that serves no legal text to a plain request). Publication stays blocked until the terms are confirmed in writing.",
+   "operational_state": "implemented-no-data",
+   "owner_confirmed": false,
+   "publishable": false,
+   "redistribution_status": "pending-legal",
+   "region": "EU",
+   "update_expectation_days": 3
+  },
+  {
+   "adapter": "vulnerability channel",
+   "blocking_reasons": [
+    "enisa-euvd-exploited: redistribution status is 'pending-legal'"
+   ],
+   "endpoint": "https://euvd.enisa.europa.eu/",
+   "format": "JSON API / RSS",
+   "freshness": {
+    "age_days": null,
+    "alerts": 0,
+    "failed_runs_since_last_ok": 0,
+    "last_ok_retrieved_utc": null,
+    "state": "never-imported"
+   },
+   "id": "enisa-euvd-exploited",
+   "license": "same open question as enisa-euvd; the list is reported to be largely fed by CISA KEV, which is a US Government work",
+   "name": "ENISA EUVD exploited list ('EU KEV')",
+   "note": "'EU KEV' is not a separate catalogue: it is the EUVD search with exploited=true (records carrying exploitedSince). The API does not say who observed the exploitation.",
+   "operational_state": "implemented-no-data",
+   "owner_confirmed": false,
+   "publishable": false,
+   "redistribution_status": "pending-legal",
+   "region": "EU",
+   "update_expectation_days": 3
+  },
+  {
+   "adapter": null,
+   "blocking_reasons": [
+    "osv: redistribution status is 'not-evaluated'"
+   ],
+   "endpoint": "https://osv.dev/",
+   "format": "not integrated",
+   "freshness": {
+    "age_days": null,
+    "alerts": 0,
+    "failed_runs_since_last_ok": 0,
+    "last_ok_retrieved_utc": null,
+    "state": "never-imported"
+   },
+   "id": "osv",
+   "license": "per-record licences (some records originate from CC BY-SA sources); not evaluated here",
+   "name": "OSV (Open Source Vulnerabilities) and GitHub advisories",
+   "note": "Registered only. GHSA identifiers are normalised by intel.vulns.ids so that OSV and EUVD can be joined once an OSV adapter exists.",
+   "operational_state": "pending",
+   "owner_confirmed": false,
+   "publishable": false,
+   "redistribution_status": "not-evaluated",
+   "region": "global",
+   "update_expectation_days": 3
+  },
+  {
+   "adapter": null,
+   "blocking_reasons": [
+    "nvd: redistribution status is 'not-evaluated'"
+   ],
+   "endpoint": "https://nvd.nist.gov/developers/vulnerabilities",
+   "format": "not integrated",
+   "freshness": {
+    "age_days": null,
+    "alerts": 0,
+    "failed_runs_since_last_ok": 0,
+    "last_ok_retrieved_utc": null,
+    "state": "never-imported"
+   },
+   "id": "nvd",
+   "license": "US Government work; API terms and rate limits not evaluated here",
+   "name": "NIST National Vulnerability Database (CVE API 2.0)",
+   "note": "Registered only. No adapter in this delivery: NVD supplies severity and affected ranges (CPE), not an exploitation statement.",
+   "operational_state": "pending",
+   "owner_confirmed": false,
+   "publishable": false,
+   "redistribution_status": "not-evaluated",
+   "region": "US",
+   "update_expectation_days": 3
+  },
+  {
+   "adapter": "vulnerability channel",
+   "blocking_reasons": [
+    "cert-eu-advisories: the owner has not confirmed the redistribution decision (owner_confirmed is not true)"
+   ],
+   "endpoint": "https://cert.europa.eu/publications/security-advisories/",
+   "format": "JSON API / RSS",
+   "freshness": {
+    "age_days": null,
+    "alerts": 0,
+    "failed_runs_since_last_ok": 0,
+    "last_ok_retrieved_utc": null,
+    "state": "never-imported"
+   },
+   "id": "cert-eu-advisories",
+   "license": "CC BY 4.0 per the CERT-EU legal notice (Commission Decision 2011/833/EU), 'unless otherwise noted'; third-party content excluded",
+   "name": "CERT-EU security advisories (RSS)",
+   "note": "Read on 2026-10-22: https://cert.europa.eu/legal-notice. The RSS carries the latest 10 advisories with no structured identifiers or exploitation field.",
+   "operational_state": "implemented-no-data",
+   "owner_confirmed": false,
+   "publishable": false,
+   "redistribution_status": "allowed-with-conditions",
+   "region": "EU",
+   "update_expectation_days": 3
+  },
+  {
+   "adapter": null,
+   "blocking_reasons": [
+    "ccn-cert: redistribution status is 'blocked'"
+   ],
+   "endpoint": "https://www.ccn-cert.cni.es/",
+   "format": "not integrated",
+   "freshness": {
+    "age_days": null,
+    "alerts": 0,
+    "failed_runs_since_last_ok": 0,
+    "last_ok_retrieved_utc": null,
+    "state": "never-imported"
+   },
+   "id": "ccn-cert",
+   "license": "not read: the site answers plain requests with an HTTP 403 bot challenge",
+   "name": "CCN-CERT alerts and bulletins",
+   "note": "Not integrated: the public pages could not be read without defeating a bot check, which this project does not do, so neither a machine-readable feed nor the reuse terms were verified. Needs a written agreement or an official feed from CCN-CERT.",
+   "operational_state": "blocked",
+   "owner_confirmed": false,
+   "publishable": false,
+   "redistribution_status": "blocked",
+   "region": "ES",
+   "update_expectation_days": 3
+  },
+  {
+   "adapter": null,
+   "blocking_reasons": [
+    "debian-security-tracker: redistribution status is 'not-evaluated'"
+   ],
+   "endpoint": "https://security-tracker.debian.org/tracker/data/json",
+   "format": "not integrated",
+   "freshness": {
+    "age_days": null,
+    "alerts": 0,
+    "failed_runs_since_last_ok": 0,
+    "last_ok_retrieved_utc": null,
+    "state": "never-imported"
+   },
+   "id": "debian-security-tracker",
+   "license": "not read",
+   "name": "Debian Security Tracker (JSON)",
+   "note": "Endpoint answers HTTP 200 (application/json) on 2026-10-23; terms of reuse not read; no adapter. It is the data `intel vulns assess` needs for Debian (per-release fixed versions).",
+   "operational_state": "pending",
+   "owner_confirmed": false,
+   "publishable": false,
+   "redistribution_status": "not-evaluated",
+   "region": "global",
+   "update_expectation_days": 3
+  },
+  {
+   "adapter": null,
+   "blocking_reasons": [
+    "ubuntu-security-notices: redistribution status is 'not-evaluated'"
+   ],
+   "endpoint": "https://ubuntu.com/security/cves.json",
+   "format": "not integrated",
+   "freshness": {
+    "age_days": null,
+    "alerts": 0,
+    "failed_runs_since_last_ok": 0,
+    "last_ok_retrieved_utc": null,
+    "state": "never-imported"
+   },
+   "id": "ubuntu-security-notices",
+   "license": "not read",
+   "name": "Ubuntu Security (CVE and notices JSON)",
+   "note": "Endpoint answers HTTP 200 on 2026-10-23; terms not read; no adapter.",
+   "operational_state": "pending",
+   "owner_confirmed": false,
+   "publishable": false,
+   "redistribution_status": "not-evaluated",
+   "region": "global",
+   "update_expectation_days": 3
+  },
+  {
+   "adapter": null,
+   "blocking_reasons": [
+    "redhat-security-data: redistribution status is 'not-evaluated'"
+   ],
+   "endpoint": "https://access.redhat.com/hydra/rest/securitydata/cve.json",
+   "format": "not integrated",
+   "freshness": {
+    "age_days": null,
+    "alerts": 0,
+    "failed_runs_since_last_ok": 0,
+    "last_ok_retrieved_utc": null,
+    "state": "never-imported"
+   },
+   "id": "redhat-security-data",
+   "license": "not read",
+   "name": "Red Hat Security Data API",
+   "note": "Endpoint exists (HEAD answered 405, so the GET behaviour was not checked); terms not read; no adapter.",
+   "operational_state": "pending",
+   "owner_confirmed": false,
+   "publishable": false,
+   "redistribution_status": "not-evaluated",
+   "region": "global",
+   "update_expectation_days": 3
+  },
+  {
+   "adapter": null,
+   "blocking_reasons": [
+    "abusech-bulk: redistribution status is 'blocked'"
+   ],
+   "endpoint": "https://abuse.ch/",
+   "format": "not integrated",
+   "freshness": null,
+   "id": "abusech-bulk",
+   "license": "abuse.ch Terms of Use (no licence grant for redistribution of these feeds)",
+   "name": "abuse.ch indicator feeds (MalwareBazaar, URLhaus, ThreatFox)",
+   "note": "LICENSE-MATRIX.md (read 2026-10-22): MalwareBazaar, URLhaus and ThreatFox need an Auth-Key and the terms bar derivative works without consent; the old unauthenticated bulk exports return HTTP 410. Feodo Tracker and SSL Blacklist are listed separately in the matrix.",
+   "operational_state": "blocked",
+   "owner_confirmed": false,
+   "publishable": false,
+   "redistribution_status": "blocked",
+   "region": null,
+   "update_expectation_days": null
+  },
+  {
+   "adapter": null,
+   "blocking_reasons": [
+    "sigmahq: the owner has not confirmed the redistribution decision (owner_confirmed is not true)"
+   ],
+   "endpoint": "https://github.com/SigmaHQ/sigma",
+   "format": "not integrated",
+   "freshness": null,
+   "id": "sigmahq",
+   "license": "Detection Rule License 1.1",
+   "name": "SigmaHQ/sigma rule repository (new and changed rules)",
+   "note": "No adapter: a rule-update alert needs a git diff job over the repository, which this delivery does not include.",
+   "operational_state": "pending",
+   "owner_confirmed": false,
+   "publishable": false,
+   "redistribution_status": "allowed-with-conditions",
+   "region": "global",
+   "update_expectation_days": 7
+  },
+  {
+   "adapter": "release log",
+   "blocking_reasons": [],
+   "endpoint": "https://github.com/MacGuard/macguard-yara-channel/blob/main/logs/log.jsonl",
+   "format": "JSON lines",
+   "freshness": {
+    "age_days": 0.0,
+    "alerts": 3,
+    "failed_runs_since_last_ok": 0,
+    "last_ok_retrieved_utc": "2026-10-21T03:57:43Z",
+    "state": "fresh"
+   },
+   "id": "macguard-yara-releases",
+   "license": "first-party metadata of this repository: release tag, time and run link. It contains no third-party rule text.",
+   "name": "MacGuard YARA channel release log (first-party)",
+   "note": "Added with the alerts section. owner_confirmed is true because the data is MacGuard's own pipeline log, already published; this is a decision of the maintainer to review (revert the flag to hide the feed).",
+   "operational_state": "active",
+   "owner_confirmed": true,
+   "publishable": true,
+   "redistribution_status": "allowed",
+   "region": "global",
+   "update_expectation_days": 7
+  },
+  {
+   "adapter": null,
+   "blocking_reasons": [
+    "incibe-cert: redistribution status is 'blocked'"
+   ],
+   "endpoint": "https://www.incibe.es/incibe-cert/alerta-temprana",
+   "format": "not integrated",
+   "freshness": {
+    "age_days": null,
+    "alerts": 0,
+    "failed_runs_since_last_ok": 0,
+    "last_ok_retrieved_utc": null,
+    "state": "never-imported"
+   },
+   "id": "incibe-cert",
+   "license": "INCIBE legal notice: reproduction allowed with integrity, attribution and compatible purpose; NO commercial use; distribution, public communication and transformation expressly prohibited",
+   "name": "INCIBE-CERT early warning (RSS avisos / vulnerabilidades)",
+   "note": "Read on 2026-10-22: https://www.incibe.es/aviso-legal. The vulnerability feed mostly mirrors NVD records ('Pendiente de análisis'). No adapter is written: MacGuard may not republish or transform it without INCIBE's prior written authorisation.",
+   "operational_state": "blocked",
+   "owner_confirmed": false,
+   "publishable": false,
+   "redistribution_status": "blocked",
+   "region": "ES",
+   "update_expectation_days": 3
+  }
+ ]
+}

@@ -1,0 +1,221 @@
+{
+ "feeds": [
+  {
+   "empty_reason": null,
+   "file": "feeds/public/all.xml",
+   "id": "all",
+   "items": 3,
+   "lang": "es",
+   "sha256": "5995b9698a9039a7e91d4b1da5e943eeb894086dd6c23bcb6686fb6001239eac",
+   "title": "Todas las alertas"
+  },
+  {
+   "empty_reason": null,
+   "file": "feeds/public/all.en.xml",
+   "id": "all",
+   "items": 3,
+   "lang": "en",
+   "sha256": "43920d8025a69578f401c662d34a0199d8bcf0d1c3fa795b1e92b7e992ca2c79",
+   "title": "All alerts"
+  },
+  {
+   "empty_reason": "no alert matches, or no source feeding it is cleared for redistribution (see intelligence/alerts/data/sources.json)",
+   "file": "feeds/public/exploited.xml",
+   "id": "exploited",
+   "items": 0,
+   "lang": "es",
+   "sha256": "0361aab91c4662187010564992b507f8702f004b58f556857c1e2849289b1b8e",
+   "title": "Explotación conocida según alguna fuente"
+  },
+  {
+   "empty_reason": "no alert matches, or no source feeding it is cleared for redistribution (see intelligence/alerts/data/sources.json)",
+   "file": "feeds/public/exploited.en.xml",
+   "id": "exploited",
+   "items": 0,
+   "lang": "en",
+   "sha256": "855318df9c156e03c22d4a805572c6fe7813d5de8cc40d154a642dc630da4544",
+   "title": "Known exploitation according to at least one source"
+  },
+  {
+   "empty_reason": "no alert matches, or no source feeding it is cleared for redistribution (see intelligence/alerts/data/sources.json)",
+   "file": "feeds/public/critical.xml",
+   "id": "critical",
+   "items": 0,
+   "lang": "es",
+   "sha256": "b6f576dc3c9fc6a1c328432ea01fe04ae549d617377bdd21ae967462938ef523",
+   "title": "Gravedad crítica (CVSS 9.0 o más)"
+  },
+  {
+   "empty_reason": "no alert matches, or no source feeding it is cleared for redistribution (see intelligence/alerts/data/sources.json)",
+   "file": "feeds/public/critical.en.xml",
+   "id": "critical",
+   "items": 0,
+   "lang": "en",
+   "sha256": "ed68be2ca61769977f78637a81960aa4240001a2059659f7aa73a1bae688fdf3",
+   "title": "Critical severity (CVSS 9.0 or more)"
+  },
+  {
+   "empty_reason": "no alert matches, or no source feeding it is cleared for redistribution (see intelligence/alerts/data/sources.json)",
+   "file": "feeds/public/region-es.xml",
+   "id": "region-es",
+   "items": 0,
+   "lang": "es",
+   "sha256": "aed3e934ac488a4572aadee7155010e92f6cb0a387df4353f5b103d423a96411",
+   "title": "Fuentes con ámbito España"
+  },
+  {
+   "empty_reason": "no alert matches, or no source feeding it is cleared for redistribution (see intelligence/alerts/data/sources.json)",
+   "file": "feeds/public/region-es.en.xml",
+   "id": "region-es",
+   "items": 0,
+   "lang": "en",
+   "sha256": "7039e9f56c5fdd34f491048f0207457b5540a2a9c1a29b32b12c146a00b1ade2",
+   "title": "Sources scoped to Spain"
+  },
+  {
+   "empty_reason": "no alert matches, or no source feeding it is cleared for redistribution (see intelligence/alerts/data/sources.json)",
+   "file": "feeds/public/region-eu.xml",
+   "id": "region-eu",
+   "items": 0,
+   "lang": "es",
+   "sha256": "367f2721739888d71567fe23e20e767acdc2cb8c2a2e5c69cce10ce23f2a3844",
+   "title": "Fuentes con ámbito Unión Europea (incluye España)"
+  },
+  {
+   "empty_reason": "no alert matches, or no source feeding it is cleared for redistribution (see intelligence/alerts/data/sources.json)",
+   "file": "feeds/public/region-eu.en.xml",
+   "id": "region-eu",
+   "items": 0,
+   "lang": "en",
+   "sha256": "0825005a827de0bc575f216e0babea2a02f75a0a34658554e560e5d9ce80fa01",
+   "title": "Sources scoped to the European Union (includes Spain)"
+  },
+  {
+   "empty_reason": "no alert matches, or no source feeding it is cleared for redistribution (see intelligence/alerts/data/sources.json)",
+   "file": "feeds/public/region-other.xml",
+   "id": "region-other",
+   "items": 0,
+   "lang": "es",
+   "sha256": "d1da4e6cd088cf6163051c02d5e1798387e80a74711ff11cd23e591d93f102e6",
+   "title": "Fuentes de otros países"
+  },
+  {
+   "empty_reason": "no alert matches, or no source feeding it is cleared for redistribution (see intelligence/alerts/data/sources.json)",
+   "file": "feeds/public/region-other.en.xml",
+   "id": "region-other",
+   "items": 0,
+   "lang": "en",
+   "sha256": "1b57d913a8580ad409a945871249a96cdd30e721451a8ee585cd3b935d651789",
+   "title": "Sources from other countries"
+  },
+  {
+   "empty_reason": null,
+   "file": "feeds/public/rules.xml",
+   "id": "rules",
+   "items": 3,
+   "lang": "es",
+   "sha256": "36109ef215bfeecb60644dcda8b1aab7744fe9f5933e611ec3d6709a3bcfffd3",
+   "title": "Nuevas versiones de las reglas YARA de MacGuard"
+  },
+  {
+   "empty_reason": null,
+   "file": "feeds/public/rules.en.xml",
+   "id": "rules",
+   "items": 3,
+   "lang": "en",
+   "sha256": "30416901376d5574489d04c923c8a5519aedeb59cfab5a7ddeef6dac8e9aa3f6",
+   "title": "New MacGuard YARA rule releases"
+  },
+  {
+   "empty_reason": "no alert matches, or no source feeding it is cleared for redistribution (see intelligence/alerts/data/sources.json)",
+   "file": "feeds/public/source-cisa-kev.xml",
+   "id": "source-cisa-kev",
+   "items": 0,
+   "lang": "es",
+   "sha256": "17e49f454926a882fd665a250e8c6a913b3d86e468b913f0074afeac368894ae",
+   "title": "Alertas de la fuente cisa-kev"
+  },
+  {
+   "empty_reason": "no alert matches, or no source feeding it is cleared for redistribution (see intelligence/alerts/data/sources.json)",
+   "file": "feeds/public/source-cisa-kev.en.xml",
+   "id": "source-cisa-kev",
+   "items": 0,
+   "lang": "en",
+   "sha256": "538265a5ef155535af74e1b5a375a451bdba5eb0c79bce6500eb4625a7b58db6",
+   "title": "Alerts from source cisa-kev"
+  },
+  {
+   "empty_reason": "no alert matches, or no source feeding it is cleared for redistribution (see intelligence/alerts/data/sources.json)",
+   "file": "feeds/public/source-enisa-euvd.xml",
+   "id": "source-enisa-euvd",
+   "items": 0,
+   "lang": "es",
+   "sha256": "df321cfe9c92fb705998e66692b4c6c09c54eea7dfd5d19af4610249bf28052b",
+   "title": "Alertas de la fuente enisa-euvd"
+  },
+  {
+   "empty_reason": "no alert matches, or no source feeding it is cleared for redistribution (see intelligence/alerts/data/sources.json)",
+   "file": "feeds/public/source-enisa-euvd.en.xml",
+   "id": "source-enisa-euvd",
+   "items": 0,
+   "lang": "en",
+   "sha256": "ca34ba15b703d2432880a183ca18d6b194d0b0f43df7596d1f7bd0f6c2b8e743",
+   "title": "Alerts from source enisa-euvd"
+  },
+  {
+   "empty_reason": "no alert matches, or no source feeding it is cleared for redistribution (see intelligence/alerts/data/sources.json)",
+   "file": "feeds/public/source-enisa-euvd-exploited.xml",
+   "id": "source-enisa-euvd-exploited",
+   "items": 0,
+   "lang": "es",
+   "sha256": "96423eae22fd125cada37dd625074c72cadaa0f1b022847cd355364c8b13c6f5",
+   "title": "Alertas de la fuente enisa-euvd-exploited"
+  },
+  {
+   "empty_reason": "no alert matches, or no source feeding it is cleared for redistribution (see intelligence/alerts/data/sources.json)",
+   "file": "feeds/public/source-enisa-euvd-exploited.en.xml",
+   "id": "source-enisa-euvd-exploited",
+   "items": 0,
+   "lang": "en",
+   "sha256": "d95cc7679ea82f990312b0f4d3fdc2c2c76c2aa977172a5de2f09ea93505cd3a",
+   "title": "Alerts from source enisa-euvd-exploited"
+  },
+  {
+   "empty_reason": "no alert matches, or no source feeding it is cleared for redistribution (see intelligence/alerts/data/sources.json)",
+   "file": "feeds/public/source-cert-eu-advisories.xml",
+   "id": "source-cert-eu-advisories",
+   "items": 0,
+   "lang": "es",
+   "sha256": "ee76116a384599cb121004fb44bed9c52136d0084b375293df31381680b435a4",
+   "title": "Alertas de la fuente cert-eu-advisories"
+  },
+  {
+   "empty_reason": "no alert matches, or no source feeding it is cleared for redistribution (see intelligence/alerts/data/sources.json)",
+   "file": "feeds/public/source-cert-eu-advisories.en.xml",
+   "id": "source-cert-eu-advisories",
+   "items": 0,
+   "lang": "en",
+   "sha256": "2854b6580a0ce6cb4af0a09696816ab085f8b60732b0df5ce70dc97cfce6dc32",
+   "title": "Alerts from source cert-eu-advisories"
+  },
+  {
+   "empty_reason": null,
+   "file": "feeds/public/source-macguard-yara-releases.xml",
+   "id": "source-macguard-yara-releases",
+   "items": 3,
+   "lang": "es",
+   "sha256": "a2fbe59a81a82f1df769cb1b8f92eb3b2dc72c183c67a7c932d89d06756cd597",
+   "title": "Alertas de la fuente macguard-yara-releases"
+  },
+  {
+   "empty_reason": null,
+   "file": "feeds/public/source-macguard-yara-releases.en.xml",
+   "id": "source-macguard-yara-releases",
+   "items": 3,
+   "lang": "en",
+   "sha256": "95de304d1476e93319f7e1e8ce2bb016b99af69b48083e19a124407a4d5631da",
+   "title": "Alerts from source macguard-yara-releases"
+  }
+ ],
+ "generated_at": "2026-10-21T03:57:43Z"
+}

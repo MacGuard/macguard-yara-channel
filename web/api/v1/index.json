@@ -34,12 +34,12 @@
     {
       "description": "status of every channel family (intel/status.py)",
       "path": "channels.json",
-      "sha256": "641933bb8e814b6fac3d6c92d388e35d1542aff2982f8b99d026824f67adfcaa"
+      "sha256": "4f19f85568d446a3c0ed5ba5bc88a9463fe3c8a6fdc56b1752c8e2a9c8ec21ae"
     },
     {
       "description": "licence verdicts (evidence, not legal advice)",
       "path": "licenses.json",
-      "sha256": "aaef2d90e137a4f1bf8d0e9c9402dbb72e10c65f3ec39441e893c2b69843bb4b"
+      "sha256": "508a93a3d38ed6b38e43203ed75858ec50a3c1757d525bf8514432c75d5850ce"
     },
     {
       "description": "software provenance design, rules and coverage",
@@ -49,17 +49,17 @@
     {
       "description": "roadmap rows and tracks",
       "path": "roadmap.json",
-      "sha256": "cfbb509b0c0f74e5cdd21f532c1228dee6ccabb8801f89530b6999f0fd9a2b66"
+      "sha256": "dae96f9323c10cff802f9c6b43b39b72c3fc0552305f20f450a6eeca1b093787"
     },
     {
       "description": "source registry with clearance",
       "path": "sources.json",
-      "sha256": "2d27429d5a00ccefaa31386b76b4ec316d152b14c09e90146501bf54828cc99f"
+      "sha256": "498571d15658b654e42f5d2f19a4356d1ce027e042a48b6052c9862f154589e0"
     },
     {
       "description": "vulnerability sources by region, real builds, merge counts and rules",
       "path": "vulns.json",
-      "sha256": "4d79d1f618d258e7dd54d6fe6b99137cfd10f76baba2523d9bac7a4f20b6975b"
+      "sha256": "de666212dc6c9ed30b7d02220b55897a7172f54472e47831e6c72ef775b12d45"
     }
   ],
   "generated_at": "2026-10-22T21:30:00Z",
