@@ -1,6 +1,6 @@
 {
   "data_origin": "docs/intelligence/LICENSE-MATRIX.md (verdict table), config/intel/sources.registry.json",
-  "generated_at": "2026-10-22T18:00:00Z",
+  "generated_at": "2026-10-22T21:30:00Z",
   "generated_by": "scripts/gen_intel_web.py",
   "matrix": [
     {
@@ -260,6 +260,51 @@
       "verdict_classes": [
         "NOT-VERIFIED"
       ]
+    },
+    {
+      "license_as_stated": "no EUVD-specific terms found (2026-10-22); ENISA's IPR policy says CC BY 4.0 for ENISA publications, and that this covers the EUVD data is NOT confirmed",
+      "n": 29,
+      "source": "ENISA EUVD (database and public API)",
+      "verdict": "PENDING-LEGAL",
+      "verdict_classes": [
+        "PENDING-LEGAL"
+      ]
+    },
+    {
+      "license_as_stated": "same as 29; the list is reported to be largely fed by CISA KEV",
+      "n": 30,
+      "source": "ENISA EUVD exploited list (\"EU KEV\")",
+      "verdict": "PENDING-LEGAL",
+      "verdict_classes": [
+        "PENDING-LEGAL"
+      ]
+    },
+    {
+      "license_as_stated": "CC BY 4.0 per cert.europa.eu/legal-notice (Commission Decision 2011/833/EU), \"unless otherwise noted\"; third-party content excluded",
+      "n": 31,
+      "source": "CERT-EU security advisories (RSS)",
+      "verdict": "ALLOWED-WITH-CONDITIONS",
+      "verdict_classes": [
+        "ALLOWED-WITH-CONDITIONS"
+      ]
+    },
+    {
+      "license_as_stated": "INCIBE legal notice: no commercial use; distribution, public communication and transformation expressly prohibited",
+      "n": 32,
+      "source": "INCIBE-CERT early-warning feeds (Spain)",
+      "verdict": "BLOCKED",
+      "verdict_classes": [
+        "BLOCKED"
+      ]
+    },
+    {
+      "license_as_stated": "not read: plain requests get an HTTP 403 browser challenge, which this project does not defeat",
+      "n": 33,
+      "source": "CCN-CERT alerts and bulletins (Spain)",
+      "verdict": "NOT-VERIFIED (access blocker)",
+      "verdict_classes": [
+        "NOT-VERIFIED"
+      ]
     }
   ],
   "matrix_status": "DRAFT for owner and legal review. Read date: 2026-10-22 (all sources below were read on that date unless stated). This document is information, not legal advice and not an authorization to publish. MacGuard does not own, and must not claim to own or relicense, any third-party content listed here.",
@@ -281,6 +326,22 @@
       "spdx": null
     },
     {
+      "id": "ccn-cert",
+      "license_name": "not read: the site answers plain requests with an HTTP 403 bot challenge",
+      "name": "CCN-CERT alerts and bulletins",
+      "owner_confirmed": false,
+      "redistribution_status": "blocked",
+      "spdx": null
+    },
+    {
+      "id": "cert-eu-advisories",
+      "license_name": "CC BY 4.0 per the CERT-EU legal notice (Commission Decision 2011/833/EU), 'unless otherwise noted'; third-party content excluded",
+      "name": "CERT-EU security advisories (RSS)",
+      "owner_confirmed": false,
+      "redistribution_status": "allowed-with-conditions",
+      "spdx": "CC-BY-4.0"
+    },
+    {
       "id": "cisa-kev",
       "license_name": "CC0 (as stated by CISA/the project's matrix); US Government work",
       "name": "CISA Known Exploited Vulnerabilities catalog",
@@ -297,12 +358,52 @@
       "spdx": "GPL-2.0"
     },
     {
+      "id": "enisa-euvd",
+      "license_name": "no EUVD-specific terms found; ENISA's IPR policy states CC BY 4.0 for ENISA publications, and that this covers the EUVD data is NOT confirmed",
+      "name": "ENISA European Vulnerability Database (EUVD): recent window",
+      "owner_confirmed": false,
+      "redistribution_status": "pending-legal",
+      "spdx": null
+    },
+    {
+      "id": "enisa-euvd-exploited",
+      "license_name": "same open question as enisa-euvd; the list is reported to be largely fed by CISA KEV, which is a US Government work",
+      "name": "ENISA EUVD exploited list ('EU KEV')",
+      "owner_confirmed": false,
+      "redistribution_status": "pending-legal",
+      "spdx": null
+    },
+    {
+      "id": "incibe-cert",
+      "license_name": "INCIBE legal notice: reproduction allowed with integrity, attribution and compatible purpose; NO commercial use; distribution, public communication and transformation expressly prohibited",
+      "name": "INCIBE-CERT early warning (RSS avisos / vulnerabilidades)",
+      "owner_confirmed": false,
+      "redistribution_status": "blocked",
+      "spdx": null
+    },
+    {
       "id": "nextron",
       "license_name": "Detection Rule License 1.1",
       "name": "Neo23x0/signature-base (Nextron Systems)",
       "owner_confirmed": false,
       "redistribution_status": "pending-legal",
       "spdx": "DRL-1.1"
+    },
+    {
+      "id": "nvd",
+      "license_name": "US Government work; API terms and rate limits not evaluated here",
+      "name": "NIST National Vulnerability Database (CVE API 2.0)",
+      "owner_confirmed": false,
+      "redistribution_status": "not-evaluated",
+      "spdx": null
+    },
+    {
+      "id": "osv",
+      "license_name": "per-record licences (some records originate from CC BY-SA sources); not evaluated here",
+      "name": "OSV (Open Source Vulnerabilities) and GitHub advisories",
+      "owner_confirmed": false,
+      "redistribution_status": "not-evaluated",
+      "spdx": null
     },
     {
       "id": "yara-x",
@@ -314,10 +415,10 @@
     }
   ],
   "rows_by_verdict_class": {
-    "ALLOWED-WITH-CONDITIONS": 13,
-    "BLOCKED": 4,
-    "NOT-VERIFIED": 6,
-    "PENDING-LEGAL": 11
+    "ALLOWED-WITH-CONDITIONS": 14,
+    "BLOCKED": 5,
+    "NOT-VERIFIED": 7,
+    "PENDING-LEGAL": 13
   },
   "schema": "macguard.web-data/1",
   "verdict_legend": [

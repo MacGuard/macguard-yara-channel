@@ -218,7 +218,7 @@ class SpanishAndEnglish(unittest.TestCase):
                 self.assertEqual(H.unescape(txt), d[k], f'{p.name}: {k}')
             navs.add(tuple(re.findall(r'<nav[^>]*>(.*?)</nav>', re.sub(r' aria-current="page"', '', s), re.S)))
         self.assertEqual(len(navs), 1, 'the navigation differs between pages')
-        self.assertEqual(len(PAGE_FILES), 9)
+        self.assertEqual(len(PAGE_FILES), 10)
 
 
 class NoClaimBeyondTheData(unittest.TestCase):
@@ -297,6 +297,17 @@ class NoClaimBeyondTheData(unittest.TestCase):
                 for k, v in d[l].items(): self.assertNotRegex(v, r'(?i)(no engine code|no hay código de motor|motor no está implementado|engine is not implemented)', f'{l}.{k}')
 
 
+def wait_for_port(port, seconds=20):
+    """The test server is a child process: under load it can need more than a fixed sleep before it accepts connections."""
+    end = time.time() + seconds
+    while time.time() < end:
+        try:
+            socket.create_connection(('127.0.0.1', port), timeout=1).close(); return
+        except OSError:
+            time.sleep(0.2)
+    raise AssertionError(f'the test server did not start on port {port} within {seconds} s')
+
+
 @unittest.skipUnless(os.path.exists('/Applications/Google Chrome.app/Contents/MacOS/Google Chrome') or shutil.which('google-chrome') or shutil.which('chromium'), 'no Chrome: the filter test is skipped')
 class FiltersInARealBrowser(unittest.TestCase):
     """Loads the Explorer in headless Chrome (one process, own server, own temp copy), drives the filters and reads the DOM."""
@@ -331,7 +342,7 @@ var out={};function sleep(ms){return new Promise(function(r){setTimeout(r,ms)})}
  d.getElementById('lang').value='en';
  document.getElementById('r').textContent='DONE'+JSON.stringify(out)})();""")
             s = socket.socket(); s.bind(('127.0.0.1', 0)); port = s.getsockname()[1]; s.close()
-            srv = subprocess.Popen([sys.executable, '-m', 'http.server', str(port), '--bind', '127.0.0.1', '--directory', str(site)], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL); time.sleep(1)
+            srv = subprocess.Popen([sys.executable, '-m', 'http.server', str(port), '--bind', '127.0.0.1', '--directory', str(site)], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL); wait_for_port(port)
             p = subprocess.Popen([chrome, '--headless=new', '--disable-gpu', '--no-sandbox', '--virtual-time-budget=30000', '--dump-dom', f'http://127.0.0.1:{port}/__t.html'], stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, text=True, start_new_session=True)
             try: o, _ = p.communicate(timeout=90)
             finally:
@@ -345,12 +356,65 @@ var out={};function sleep(ms){return new Promise(function(r){setTimeout(r,ms)})}
             if srv: srv.terminate(); srv.wait(timeout=10)
             shutil.rmtree(tmp, ignore_errors=True)
         ch = jload(API / 'channels.json')['channels']
-        self.assertEqual(r['all'], len(ch)); self.assertEqual(r['operational'], 'yara'); self.assertEqual(r['experimental'].split(','), [c['family'] for c in ch if c['status'] == 'experimental'])
-        self.assertEqual(r['src'], 'vulns'); self.assertEqual(r['fam'], 'sigma'); self.assertEqual(r['lic'].split(','), [c['family'] for c in ch if 'GPL-2.0' in c['licenses']])
-        self.assertEqual(r['os'].split(','), [c['family'] for c in ch if 'linux' in c['os']]); self.assertEqual(r['osnone'], len([c for c in ch if not c['os']]))
+        self.assertEqual(r['all'], len(ch)); self.assertEqual(r['operational'], 'yara'); self.assertEqual(r['experimental'].split(','), [c['id'] for c in ch if c['status'] == 'experimental'])
+        self.assertEqual(r['src'].split(','), [c['id'] for c in ch if 'cisa-kev' in c['sources']]); self.assertEqual(r['fam'], 'sigma'); self.assertEqual(r['lic'].split(','), [c['id'] for c in ch if 'GPL-2.0' in c['licenses']])
+        self.assertEqual(r['os'].split(','), [c['id'] for c in ch if 'linux' in c['os']]); self.assertEqual(r['osnone'], len([c for c in ch if not c['os']]))
         self.assertEqual(r['none'], 0); self.assertIn('No channel matches', r['noneMsg']); self.assertEqual(r['reset'], len(ch)); self.assertEqual(r['q'], 'ioc')
         self.assertEqual(r['es'], f'{len(ch)} de {len(ch)} canales'); self.assertEqual(r['live'], 'polite'); self.assertTrue(r['labels'])
         self.assertTrue(r['opCount'].startswith('1 of'))
+
+
+@unittest.skipUnless(os.path.exists('/Applications/Google Chrome.app/Contents/MacOS/Google Chrome') or shutil.which('google-chrome') or shutil.which('chromium'), 'no Chrome: the vulnerabilities page test is skipped')
+class VulnerabilitiesPageInARealBrowser(unittest.TestCase):
+    """Loads the vulnerabilities page in headless Chrome (own server, own temp copy), drives the filters and the card lookup, reads the DOM."""
+    def test_filters_and_lookup(self):
+        chrome = next(c for c in ('/Applications/Google Chrome.app/Contents/MacOS/Google Chrome', shutil.which('google-chrome') or '', shutil.which('chromium') or '') if c and os.path.exists(c))
+        tmp = pathlib.Path(tempfile.mkdtemp(prefix='intel-vulns-')); srv = None
+        try:
+            site = tmp / 'site'; shutil.copytree(WEB, site, ignore=shutil.ignore_patterns('vendor')); csp.inject(site)
+            (site / '__t.html').write_text('<!doctype html><meta charset=utf-8><pre id=r>RUN</pre><script src="__t.js"></script>')
+            (site / '__t.js').write_text(r"""
+var out={};function sleep(ms){return new Promise(function(r){setTimeout(r,ms)})}
+(async function(){
+ var f=document.createElement('iframe');f.style.cssText='width:1280px;height:900px';f.src='intelligence/vulns.html?lang=en';document.body.appendChild(f);
+ await new Promise(function(r){f.onload=r});var d=f.contentDocument,w=f.contentWindow;
+ for(var i=0;i<50&&!/of/.test(d.getElementById('vn-count').textContent);i++)await sleep(100);
+ function rows(){return d.querySelectorAll('#vn-sources tbody tr').length}
+ function set(id,v){var e=d.getElementById(id);e.value=v;e.dispatchEvent(new w.Event(e.tagName==='INPUT'?'input':'change',{bubbles:true}))}
+ out.all=rows();out.count=d.getElementById('vn-count').textContent;
+ set('vn-region','ES');out.es=rows();set('vn-region','');
+ set('vn-region','EU');out.eu=rows();set('vn-region','');
+ set('vn-integ','built-and-run');out.built=rows();set('vn-integ','');
+ set('vn-q','cert-eu');out.q=rows();set('vn-q','');
+ set('vn-region','US');set('vn-q','zzzz');out.none=rows();set('vn-region','');set('vn-q','');
+ out.observed=d.querySelectorAll('#vn-observed tbody tr').length;out.merge=d.querySelectorAll('#vn-merge tbody tr').length;out.rules=d.querySelectorAll('#vn-rules li').length;
+ d.getElementById('vn-id').value='nonsense';d.getElementById('vn-go').click();await sleep(300);out.bad=d.getElementById('vn-card').textContent;
+ d.getElementById('vn-id').value='cve-2026-0001';d.getElementById('vn-go').click();await sleep(800);out.nocard=d.getElementById('vn-card').textContent;
+ d.getElementById('vn-id').value='../../x';d.getElementById('vn-go').click();await sleep(300);out.traversal=d.getElementById('vn-card').textContent;
+ d.getElementById('lang').value='es';d.getElementById('lang').dispatchEvent(new w.Event('change',{bubbles:true}));await sleep(300);out.es_count=d.getElementById('vn-count').textContent;
+ out.labels=Array.prototype.every.call(d.querySelectorAll('select,input'),function(e){return e.closest('label')||e.getAttribute('aria-label')});
+ document.getElementById('r').textContent='DONE'+JSON.stringify(out)})();""")
+            s = socket.socket(); s.bind(('127.0.0.1', 0)); port = s.getsockname()[1]; s.close()
+            srv = subprocess.Popen([sys.executable, '-m', 'http.server', str(port), '--bind', '127.0.0.1', '--directory', str(site)], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL); wait_for_port(port)
+            p = subprocess.Popen([chrome, '--headless=new', '--disable-gpu', '--no-sandbox', '--virtual-time-budget=30000', '--dump-dom', f'http://127.0.0.1:{port}/__t.html'], stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, text=True, start_new_session=True)
+            try: o, _ = p.communicate(timeout=90)
+            finally:
+                try: os.killpg(p.pid, signal.SIGKILL)
+                except (ProcessLookupError, PermissionError): pass
+                p.wait()
+            import html as H
+            m = re.search(r'<pre id="r">DONE(.*?)</pre>', o, re.S); self.assertTrue(m, o[-300:])
+            r = json.loads(H.unescape(m.group(1)))
+        finally:
+            if srv: srv.terminate(); srv.wait(timeout=10)
+            shutil.rmtree(tmp, ignore_errors=True)
+        d = jload(API / 'vulns.json'); src = d['sources']
+        self.assertEqual(r['all'], len(src)); self.assertEqual(r['es'], len([x for x in src if x['region'] == 'ES'])); self.assertEqual(r['eu'], len([x for x in src if x['region'] == 'EU']))
+        self.assertEqual(r['built'], len([x for x in src if x['integration'] == 'built-and-run'])); self.assertEqual(r['q'], 1); self.assertEqual(r['none'], 0)
+        self.assertEqual(r['observed'], len(d['observed'])); self.assertEqual(r['merge'], len(d['merge']['entries_by_source_combination'])); self.assertEqual(r['rules'], len(d['rules']))
+        self.assertIn('Not a valid', r['bad']); self.assertIn('No card is published', r['nocard']); self.assertIn('Not a valid', r['traversal'])      # a path-like input never reaches a request
+        self.assertEqual(r['es_count'], f"{len(src)} de {len(src)}"); self.assertTrue(r['labels'])
+        self.assertEqual(r['count'], f"{len(src)} of {len(src)}")
 
 
 if __name__ == '__main__': unittest.main()

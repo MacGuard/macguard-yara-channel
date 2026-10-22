@@ -149,6 +149,139 @@
       "status_source": "intel/status.py"
     },
     {
+      "cards": [
+        "vulns-euvd-1"
+      ],
+      "detail": "ENISA EUVD (recent window): adapter, validator and unified records are built and were run against the real API on 2026-10-22. Nothing is published: no EUVD terms of reuse were found (pending legal), the owner has not confirmed, and there is no signing workflow.",
+      "evidence": "intel/vulns/euvd.py; intel/vulns/live_eu.py; tests/test_vulns_eu.py",
+      "evidence_files_found": [
+        "intel/vulns/euvd.py",
+        "intel/vulns/live_eu.py",
+        "tests/test_vulns_eu.py"
+      ],
+      "family": "vulns",
+      "id": "vulns-euvd",
+      "kind": "vulnerability catalog",
+      "licenses": [
+        "no-spdx-terms-text"
+      ],
+      "os": [
+        "linux",
+        "macos"
+      ],
+      "os_basis": "compatibility.platforms in the channel manifests",
+      "publication": {
+        "blocking_reasons": [
+          "enisa-euvd: redistribution status is 'pending-legal'"
+        ],
+        "published": false,
+        "text": "not published: publication is blocked"
+      },
+      "sources": [
+        "enisa-euvd"
+      ],
+      "status": "experimental",
+      "status_source": "intel/status.py"
+    },
+    {
+      "cards": [
+        "vulns-eukev-1"
+      ],
+      "detail": "EUVD exploited list ('EU KEV'): the EUVD records that carry an exploitedSince date. It is not a separate catalogue and the API does not say who observed the exploitation. Same blocks as vulns-euvd.",
+      "evidence": "intel/vulns/euvd.py; tests/test_vulns_eu.py",
+      "evidence_files_found": [
+        "intel/vulns/euvd.py",
+        "tests/test_vulns_eu.py"
+      ],
+      "family": "vulns",
+      "id": "vulns-eukev",
+      "kind": "vulnerability catalog",
+      "licenses": [
+        "no-spdx-terms-text"
+      ],
+      "os": [
+        "linux",
+        "macos"
+      ],
+      "os_basis": "compatibility.platforms in the channel manifests",
+      "publication": {
+        "blocking_reasons": [
+          "enisa-euvd-exploited: redistribution status is 'pending-legal'"
+        ],
+        "published": false,
+        "text": "not published: publication is blocked"
+      },
+      "sources": [
+        "enisa-euvd-exploited"
+      ],
+      "status": "experimental",
+      "status_source": "intel/status.py"
+    },
+    {
+      "cards": [
+        "vulns-certeu-1"
+      ],
+      "detail": "CERT-EU security advisories (RSS, latest 10): kept as references that mention CVEs; the feed has no structured exploitation field, so none is asserted. Licence is CC BY 4.0 per its legal notice; the owner has not confirmed.",
+      "evidence": "intel/vulns/certeu.py; tests/test_vulns_eu.py",
+      "evidence_files_found": [
+        "intel/vulns/certeu.py",
+        "tests/test_vulns_eu.py"
+      ],
+      "family": "vulns",
+      "id": "vulns-certeu",
+      "kind": "vulnerability catalog",
+      "licenses": [
+        "CC-BY-4.0"
+      ],
+      "os": [
+        "linux",
+        "macos"
+      ],
+      "os_basis": "compatibility.platforms in the channel manifests",
+      "publication": {
+        "blocking_reasons": [
+          "cert-eu-advisories: the owner has not confirmed the redistribution decision (owner_confirmed is not true)"
+        ],
+        "published": false,
+        "text": "not published: publication is blocked"
+      },
+      "sources": [
+        "cert-eu-advisories"
+      ],
+      "status": "experimental",
+      "status_source": "intel/status.py"
+    },
+    {
+      "cards": [],
+      "detail": "Cross-source view: one entry per vulnerability, each source's statement kept apart, exploitation per source, pins the exact input versions. Derived; never more publishable than its inputs.",
+      "evidence": "intel/vulns/merge.py; tests/test_vulns_eu.py",
+      "evidence_files_found": [
+        "intel/vulns/merge.py",
+        "tests/test_vulns_eu.py"
+      ],
+      "family": "vulns",
+      "id": "vulns-merged",
+      "kind": "vulnerability catalog",
+      "licenses": [
+        "CC-BY-4.0",
+        "no-spdx-terms-text"
+      ],
+      "os": [],
+      "os_basis": "not stated in the data",
+      "publication": {
+        "published": false,
+        "text": "not published"
+      },
+      "sources": [
+        "cert-eu-advisories",
+        "cisa-kev",
+        "enisa-euvd",
+        "enisa-euvd-exploited"
+      ],
+      "status": "experimental",
+      "status_source": "intel/status.py"
+    },
+    {
       "cards": [],
       "detail": "Blocked until the redistribution terms of the signature databases are reviewed.",
       "evidence": "docs/intelligence/LICENSE-MATRIX.md",
@@ -255,12 +388,12 @@
     }
   ],
   "counts_by_status": {
-    "experimental": 2,
+    "experimental": 6,
     "operational": 1,
     "planned": 7
   },
   "data_origin": "intel/status.py (CHANNELS), config/intel/sources.registry.json, cards/*.json",
-  "generated_at": "2026-10-22T18:00:00Z",
+  "generated_at": "2026-10-22T21:30:00Z",
   "generated_by": "scripts/gen_intel_web.py",
   "schema": "macguard.web-data/1",
   "what_is_real": "Status of each family exactly as intel/status.py declares it; a badge is never set anywhere else."

@@ -1,0 +1,327 @@
+{
+  "cards": {
+    "card_schema": "docs/intelligence/schemas/vuln-card.schema.json",
+    "generator": "scripts/gen_intel_vulns.py",
+    "ids": [],
+    "published": 0,
+    "reason": "no vulnerability card is published: no source is both cleared by the registry and confirmed by the owner"
+  },
+  "data_origin": "config/intel/sources.registry.json (sources, regions, clearance), the cards of the real builds, docs/intelligence/live-evidence/2026-10-22/vulns-merged-1.json",
+  "generated_at": "2026-10-22T21:30:00Z",
+  "generated_by": "scripts/gen_intel_web.py",
+  "merge": {
+    "approval": {
+      "approved_at": null,
+      "approved_by": [],
+      "blocking_reasons": [
+        "cert-eu-advisories: the owner has not confirmed the redistribution decision (owner_confirmed is not true)",
+        "cisa-kev: the owner has not confirmed the redistribution decision (owner_confirmed is not true)",
+        "enisa-euvd: redistribution status is 'pending-legal'",
+        "enisa-euvd-exploited: redistribution status is 'pending-legal'",
+        "input channels that are not publishable: vulns, vulns-certeu, vulns-eukev, vulns-euvd"
+      ],
+      "publishable": false,
+      "state": "draft"
+    },
+    "conflicts": 0,
+    "entries_by_source_combination": {
+      "cert-eu-advisories": 10,
+      "cisa-kev+enisa-euvd-exploited": 1754,
+      "enisa-euvd": 2928,
+      "enisa-euvd-exploited": 16
+    },
+    "flags": {
+      "no-identifier": 10
+    },
+    "inputs": [
+      {
+        "artifacts_root": "f7d9218c2c3c925f716350d77427aea52a35b61ca25f39b56051f57a27e22b20",
+        "channel": "vulns",
+        "manifest_sha256": "4c9486681b577c1ef2562d9a8133dc3552f654453ee82b82d379452909568f83",
+        "publishable": false,
+        "version": 1
+      },
+      {
+        "artifacts_root": "d721ee0209066687a119389a329d6cb08a0d63465282b955b3109b02b30c0a64",
+        "channel": "vulns-certeu",
+        "manifest_sha256": "319adb1a2a62c985168a1fe758d1d76dbd6c93ceb5442aa604e414c7f0e101d4",
+        "publishable": false,
+        "version": 1
+      },
+      {
+        "artifacts_root": "371b882b2d460f837c3de686df8ad69cacfdbc3873849de168c04f36fd368618",
+        "channel": "vulns-eukev",
+        "manifest_sha256": "41681556ea0da2b67518a5d5ca43eef2945b82bd20ae40c42bdb7127f65c5c70",
+        "publishable": false,
+        "version": 1
+      },
+      {
+        "artifacts_root": "42cf9153bd12d3b085abcbbb49abad6713f5b632f34bff736b2775850c0b9dce",
+        "channel": "vulns-euvd",
+        "manifest_sha256": "14be52153796d404a584f69affdf37577a7badce6793025ea04e521ae2cf4f96",
+        "publishable": false,
+        "version": 1
+      }
+    ],
+    "merge_channel": {
+      "created_at": "2026-10-22T20:40:41Z",
+      "family": "vulns",
+      "id": "vulns-merged",
+      "version": 1
+    },
+    "reading": "All CISA KEV CVE ids also appear in the EUVD exploited list, plus a few more. That is overlap, not proof of derivation, and EUVD does not say who observed the exploitation: the two are not counted as independent confirmation.",
+    "schema": "macguard.vuln-merge-summary/1",
+    "stale_sources": {},
+    "stats": {
+      "entries": 4708,
+      "exploited_by_any_source": 1770,
+      "exploited_by_current_source": 1770,
+      "multi_source": 1754,
+      "records_in": 6462
+    },
+    "what_is_real": "Counts from one real merge of the four European/US vulnerability channels built on 2026-10-22. No third-party record is included."
+  },
+  "observed": [
+    {
+      "accepted": 1754,
+      "card": "vulns-1",
+      "channel": "vulns",
+      "complete": true,
+      "exploitation_asserted": null,
+      "pages": 1,
+      "publishable": false,
+      "rejected": 0,
+      "retrieved_at": "2026-10-22T12:00:00Z",
+      "source": "cisa-kev"
+    },
+    {
+      "accepted": 10,
+      "card": "vulns-certeu-1",
+      "channel": "vulns-certeu",
+      "complete": true,
+      "exploitation_asserted": 0,
+      "pages": 1,
+      "publishable": false,
+      "rejected": 0,
+      "retrieved_at": "2026-10-22T20:35:25Z",
+      "source": "cert-eu-advisories"
+    },
+    {
+      "accepted": 1770,
+      "card": "vulns-eukev-1",
+      "channel": "vulns-eukev",
+      "complete": true,
+      "exploitation_asserted": 1770,
+      "pages": 18,
+      "publishable": false,
+      "rejected": 0,
+      "retrieved_at": "2026-10-22T20:35:26Z",
+      "source": "enisa-euvd-exploited"
+    },
+    {
+      "accepted": 2928,
+      "card": "vulns-euvd-1",
+      "channel": "vulns-euvd",
+      "complete": true,
+      "exploitation_asserted": 0,
+      "pages": 30,
+      "publishable": false,
+      "rejected": 0,
+      "retrieved_at": "2026-10-22T20:35:58Z",
+      "source": "enisa-euvd"
+    }
+  ],
+  "regions": {
+    "ES": "Spain",
+    "EU": "European Union",
+    "US": "United States",
+    "global": "Global",
+    "unknown": "Not stated"
+  },
+  "rules": [
+    {
+      "id": "V1",
+      "rule": "Exploitation is what a source asserts in a structured field. A critical score, a high EPSS value or the word \"critical\" is severity and never makes a vulnerability \"exploited\"."
+    },
+    {
+      "id": "V2",
+      "rule": "Each source keeps its own statement. Two sources asserting exploitation are not called independent confirmation unless the registry says they are independent."
+    },
+    {
+      "id": "V3",
+      "rule": "A Linux package is never called vulnerable from upstream version ranges: a distribution backports fixes. Only a distribution advisory for that release and package can say so; otherwise the verdict is NOT_ASSESSED."
+    },
+    {
+      "id": "V4",
+      "rule": "Identifiers (CVE, EUVD, GHSA) join records only when a source declares them as its own. Text mentions, reference URLs and similar product names never join records."
+    },
+    {
+      "id": "V5",
+      "rule": "Nothing is redistributed until the registry says the licence allows it AND the owner confirmed it. Today no vulnerability source passes both."
+    }
+  ],
+  "schema": "macguard.web-data/1",
+  "sources": [
+    {
+      "blocking_reasons": [
+        "ccn-cert: redistribution status is 'blocked'"
+      ],
+      "cards": [],
+      "exploitation_field": "unknown",
+      "id": "ccn-cert",
+      "integration": "blocked-no-adapter",
+      "license_key": "no-spdx-terms-text",
+      "license_name": "not read: the site answers plain requests with an HTTP 403 bot challenge",
+      "max_snapshot_age_days": 3,
+      "name": "CCN-CERT alerts and bulletins",
+      "owner_confirmed": false,
+      "publishable": false,
+      "redistribution_status": "blocked",
+      "region": "ES",
+      "status_note": "Not integrated: the public pages could not be read without defeating a bot check, which this project does not do, so neither a machine-readable feed nor the reuse terms were verified. Needs a written agreement or an official feed from CCN-CERT.",
+      "upstream_url": "https://www.ccn-cert.cni.es/"
+    },
+    {
+      "blocking_reasons": [
+        "cert-eu-advisories: the owner has not confirmed the redistribution decision (owner_confirmed is not true)"
+      ],
+      "cards": [
+        "vulns-certeu-1"
+      ],
+      "exploitation_field": "none (prose only)",
+      "id": "cert-eu-advisories",
+      "integration": "built-and-run",
+      "license_key": "CC-BY-4.0",
+      "license_name": "CC BY 4.0 per the CERT-EU legal notice (Commission Decision 2011/833/EU), 'unless otherwise noted'; third-party content excluded",
+      "max_snapshot_age_days": 3,
+      "name": "CERT-EU security advisories (RSS)",
+      "owner_confirmed": false,
+      "publishable": false,
+      "redistribution_status": "allowed-with-conditions",
+      "region": "EU",
+      "status_note": "Read on 2026-10-22: https://cert.europa.eu/legal-notice. The RSS carries the latest 10 advisories with no structured identifiers or exploitation field.",
+      "upstream_url": "https://cert.europa.eu/publications/security-advisories/"
+    },
+    {
+      "blocking_reasons": [
+        "cisa-kev: the owner has not confirmed the redistribution decision (owner_confirmed is not true)"
+      ],
+      "cards": [
+        "vulns-1"
+      ],
+      "exploitation_field": "knownExploited (catalog membership)",
+      "id": "cisa-kev",
+      "integration": "built-and-run",
+      "license_key": "no-spdx-terms-text",
+      "license_name": "CC0 (as stated by CISA/the project's matrix); US Government work",
+      "max_snapshot_age_days": 7,
+      "name": "CISA Known Exploited Vulnerabilities catalog",
+      "owner_confirmed": false,
+      "publishable": false,
+      "redistribution_status": "allowed-with-conditions",
+      "region": "US",
+      "status_note": "LICENSE-MATRIX.md verdict ALLOWED-WITH-CONDITIONS. Publication blocked until the owner confirms.",
+      "upstream_url": "https://www.cisa.gov/known-exploited-vulnerabilities-catalog"
+    },
+    {
+      "blocking_reasons": [
+        "enisa-euvd: redistribution status is 'pending-legal'"
+      ],
+      "cards": [
+        "vulns-euvd-1"
+      ],
+      "exploitation_field": "exploitedSince",
+      "id": "enisa-euvd",
+      "integration": "built-and-run",
+      "license_key": "no-spdx-terms-text",
+      "license_name": "no EUVD-specific terms found; ENISA's IPR policy states CC BY 4.0 for ENISA publications, and that this covers the EUVD data is NOT confirmed",
+      "max_snapshot_age_days": 3,
+      "name": "ENISA European Vulnerability Database (EUVD): recent window",
+      "owner_confirmed": false,
+      "publishable": false,
+      "redistribution_status": "pending-legal",
+      "region": "EU",
+      "status_note": "API https://euvdservices.enisa.europa.eu/api/search read on 2026-10-22: no key, 100 items per page. No licence or terms page for the API or the data was found (the site is a single-page app that serves no legal text to a plain request). Publication stays blocked until the terms are confirmed in writing.",
+      "upstream_url": "https://euvd.enisa.europa.eu/"
+    },
+    {
+      "blocking_reasons": [
+        "enisa-euvd-exploited: redistribution status is 'pending-legal'"
+      ],
+      "cards": [
+        "vulns-eukev-1"
+      ],
+      "exploitation_field": "exploitedSince",
+      "id": "enisa-euvd-exploited",
+      "integration": "built-and-run",
+      "license_key": "no-spdx-terms-text",
+      "license_name": "same open question as enisa-euvd; the list is reported to be largely fed by CISA KEV, which is a US Government work",
+      "max_snapshot_age_days": 3,
+      "name": "ENISA EUVD exploited list ('EU KEV')",
+      "owner_confirmed": false,
+      "publishable": false,
+      "redistribution_status": "pending-legal",
+      "region": "EU",
+      "status_note": "'EU KEV' is not a separate catalogue: it is the EUVD search with exploited=true (records carrying exploitedSince). The API does not say who observed the exploitation.",
+      "upstream_url": "https://euvd.enisa.europa.eu/"
+    },
+    {
+      "blocking_reasons": [
+        "incibe-cert: redistribution status is 'blocked'"
+      ],
+      "cards": [],
+      "exploitation_field": "none",
+      "id": "incibe-cert",
+      "integration": "blocked-no-adapter",
+      "license_key": "no-spdx-terms-text",
+      "license_name": "INCIBE legal notice: reproduction allowed with integrity, attribution and compatible purpose; NO commercial use; distribution, public communication and transformation expressly prohibited",
+      "max_snapshot_age_days": 3,
+      "name": "INCIBE-CERT early warning (RSS avisos / vulnerabilidades)",
+      "owner_confirmed": false,
+      "publishable": false,
+      "redistribution_status": "blocked",
+      "region": "ES",
+      "status_note": "Read on 2026-10-22: https://www.incibe.es/aviso-legal. The vulnerability feed mostly mirrors NVD records ('Pendiente de análisis'). No adapter is written: MacGuard may not republish or transform it without INCIBE's prior written authorisation.",
+      "upstream_url": "https://www.incibe.es/incibe-cert/alerta-temprana"
+    },
+    {
+      "blocking_reasons": [
+        "nvd: redistribution status is 'not-evaluated'"
+      ],
+      "cards": [],
+      "exploitation_field": "none",
+      "id": "nvd",
+      "integration": "registered-only",
+      "license_key": "no-spdx-terms-text",
+      "license_name": "US Government work; API terms and rate limits not evaluated here",
+      "max_snapshot_age_days": 3,
+      "name": "NIST National Vulnerability Database (CVE API 2.0)",
+      "owner_confirmed": false,
+      "publishable": false,
+      "redistribution_status": "not-evaluated",
+      "region": "US",
+      "status_note": "Registered only. No adapter in this delivery: NVD supplies severity and affected ranges (CPE), not an exploitation statement.",
+      "upstream_url": "https://nvd.nist.gov/developers/vulnerabilities"
+    },
+    {
+      "blocking_reasons": [
+        "osv: redistribution status is 'not-evaluated'"
+      ],
+      "cards": [],
+      "exploitation_field": "none",
+      "id": "osv",
+      "integration": "registered-only",
+      "license_key": "no-spdx-terms-text",
+      "license_name": "per-record licences (some records originate from CC BY-SA sources); not evaluated here",
+      "max_snapshot_age_days": 3,
+      "name": "OSV (Open Source Vulnerabilities) and GitHub advisories",
+      "owner_confirmed": false,
+      "publishable": false,
+      "redistribution_status": "not-evaluated",
+      "region": "global",
+      "status_note": "Registered only. GHSA identifiers are normalised by intel.vulns.ids so that OSV and EUVD can be joined once an OSV adapter exists.",
+      "upstream_url": "https://osv.dev/"
+    }
+  ],
+  "what_is_real": "Which vulnerability sources exist, which were really downloaded and validated on 2026-10-22, and why none is published. Counts only: no third-party vulnerability record is hosted."
+}

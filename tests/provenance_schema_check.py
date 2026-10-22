@@ -11,6 +11,10 @@ DATE_TIME = re.compile(r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?(Z|[+-]\d{2
 
 
 def _is_type(inst, t):
+    if isinstance(t, list):                      # a union of type names, e.g. ["string", "null"]
+        return any(_is_type(inst, x) for x in t)
+    if t == "null":
+        return inst is None
     if t == "integer":
         return isinstance(inst, int) and not isinstance(inst, bool)
     if t == "number":

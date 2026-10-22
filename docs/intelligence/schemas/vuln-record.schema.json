@@ -1,0 +1,238 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.macguard.example/intelligence/vuln-record/1",
+  "title": "What ONE source says about one advisory (one JSON object per line of vuln-records.jsonl)",
+  "type": "object",
+  "required": [
+    "schema",
+    "source",
+    "source_record_id",
+    "ids",
+    "mentions",
+    "dates",
+    "severity",
+    "exploitation",
+    "affected",
+    "fixes",
+    "references",
+    "evidence"
+  ],
+  "properties": {
+    "schema": {
+      "const": "macguard.vuln-record/1"
+    },
+    "source": {
+      "type": "string"
+    },
+    "source_record_id": {
+      "type": "string"
+    },
+    "ids": {
+      "type": "object",
+      "required": [
+        "cve",
+        "euvd",
+        "ghsa"
+      ],
+      "properties": {
+        "cve": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^CVE-[0-9]{4}-[0-9]{4,}$"
+          }
+        },
+        "euvd": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^EUVD-[0-9]{4}-[0-9]{4,}$"
+          }
+        },
+        "ghsa": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^GHSA(-[23456789cfghjmpqrvwx]{4}){3}$"
+          }
+        }
+      }
+    },
+    "mentions": {
+      "type": "array",
+      "description": "identifiers found in free text: NOT aliases, never used to join records",
+      "items": {
+        "type": "object",
+        "required": [
+          "kind",
+          "id"
+        ],
+        "properties": {
+          "kind": {
+            "enum": [
+              "cve",
+              "euvd",
+              "ghsa"
+            ]
+          },
+          "id": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "dates": {
+      "type": "object"
+    },
+    "severity": {
+      "type": [
+        "object",
+        "null"
+      ],
+      "description": "how bad the source rates it; never evidence of exploitation",
+      "properties": {
+        "scheme": {
+          "const": "cvss"
+        },
+        "score": {
+          "type": "string"
+        },
+        "version": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "vector": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "rated_by": {
+          "type": "string"
+        },
+        "note": {
+          "type": "string"
+        }
+      }
+    },
+    "epss": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "description": "decimal text: canonical JSON has no floats"
+    },
+    "exploitation": {
+      "type": "object",
+      "required": [
+        "asserted",
+        "since",
+        "basis"
+      ],
+      "properties": {
+        "asserted": {
+          "type": "boolean",
+          "description": "true only when a STRUCTURED field of this source says the vulnerability is exploited; severity, criticality and prose never set it"
+        },
+        "since": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$"
+        },
+        "basis": {
+          "type": "string"
+        }
+      }
+    },
+    "affected": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "vendor",
+          "product",
+          "version"
+        ],
+        "properties": {
+          "vendor": {
+            "type": "string"
+          },
+          "product": {
+            "type": "string"
+          },
+          "version": {
+            "type": "object",
+            "required": [
+              "kind",
+              "raw"
+            ],
+            "properties": {
+              "kind": {
+                "enum": [
+                  "range",
+                  "fixed-marker",
+                  "single",
+                  "unspecified",
+                  "unparsed"
+                ]
+              },
+              "raw": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    "fixes": {
+      "type": "array",
+      "description": "vendor text only; says nothing about a Linux distribution package",
+      "items": {
+        "type": "object"
+      }
+    },
+    "references": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "pattern": "^https?://"
+      }
+    },
+    "evidence": {
+      "type": "object",
+      "required": [
+        "file",
+        "file_sha256",
+        "locator",
+        "item_sha256",
+        "retrieved_at"
+      ],
+      "properties": {
+        "file": {
+          "type": "string"
+        },
+        "file_sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "locator": {
+          "type": "string"
+        },
+        "item_sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "retrieved_at": {
+          "type": "string"
+        }
+      }
+    }
+  }
+}

@@ -714,6 +714,38 @@ class IntelligenceTests(Tmp):
         self.assertEqual(run_main(["intelligence", "catalog", "verify", cat], self.env)[0], 3)
         self.assertEqual(run_main(["intelligence", "catalog", "verify", os.path.join(self.d, "none.json"), "--root", root], self.env)[0], 3)
 
+    def test_vulnerability_sources_are_listed_with_region_and_none_is_publishable(self):
+        code, out, _e = run_main(["--json", "intelligence", "vulns", "sources"], self.env)
+        rows = {r["id"]: r for r in json.loads(out)["sources"]}
+        self.assertEqual(code, 0)
+        self.assertEqual((rows["cisa-kev"]["region"], rows["enisa-euvd"]["region"], rows["incibe-cert"]["region"]), ("US", "EU", "ES"))
+        self.assertTrue(rows["enisa-euvd-exploited"]["adapter"] and not rows["incibe-cert"]["adapter"] and not rows["ccn-cert"]["adapter"])
+        self.assertFalse(any(r["publishable"] for r in rows.values()))
+
+    def test_assess_answers_only_from_distribution_data_and_maps_its_exit_codes(self):
+        rows = os.path.join(self.d, "rows.json")
+        with open(rows, "w") as fh:
+            json.dump({"schema": "macguard.distro-fixes/1", "rows": [{"distro": "debian", "release": "bookworm", "package": "apache2", "cve": "CVE-2026-5001", "status": "fixed", "fixed_version": "2.4.52-1+deb12u2"}]}, fh)
+        base = ["--json", "intelligence", "vulns", "assess", "CVE-2026-5001", "--package", "apache2", "--distro", "debian", "--release", "bookworm"]
+        code, out, _e = run_main(base + ["--installed", "2.4.52-1+deb12u3", "--rows", rows], self.env)
+        self.assertEqual((code, json.loads(out)["result"]["verdict"]), (0, "PATCHED"))
+        code, out, _e = run_main(base + ["--installed", "2.4.52-1+deb12u1", "--rows", rows], self.env)
+        self.assertEqual((code, json.loads(out)["result"]["verdict"]), (2, "AFFECTED_UNPATCHED"))
+        code, out, _e = run_main(base + ["--installed", "2.4.50-1"], self.env)                         # no distribution data: never "safe", never "vulnerable"
+        self.assertEqual((code, json.loads(out)["result"]["verdict"]), (4, "NOT_ASSESSED"))
+        self.assertEqual(run_main(["intelligence", "vulns", "assess", "CVE-2026-5001", "--installed", "1"], self.env)[0], 3)       # required options
+        self.assertEqual(run_main(base + ["--installed", "1", "--rows", os.path.join(self.d, "none.json")], self.env)[0], 3)
+
+    def test_lookup_finds_an_identifier_and_rejects_nonsense(self):
+        merged = os.path.join(self.d, "merged.json")
+        with open(merged, "w") as fh:
+            json.dump({"entries": [{"key": "CVE-2026-5001", "ids": {"cve": ["CVE-2026-5001"], "euvd": [], "ghsa": []}}]}, fh)
+        code, out, _e = run_main(["--json", "intelligence", "vulns", "lookup", "cve-2026-5001", "--merged", merged], self.env)
+        self.assertEqual((code, json.loads(out)["found"]), (0, True))
+        self.assertEqual(run_main(["intelligence", "vulns", "lookup", "CVE-2099-0001", "--merged", merged], self.env)[0], 2)
+        self.assertEqual(run_main(["intelligence", "vulns", "lookup", "nonsense", "--merged", merged], self.env)[0], 3)
+        self.assertEqual(run_main(["intelligence", "vulns", "lookup", "CVE-2026-5001"], self.env)[0], 3)
+
     def test_missing_intel_package_is_unavailable(self):
         with mock.patch.object(backends, "intel_root", return_value=None):
             out, err = io.StringIO(), io.StringIO()

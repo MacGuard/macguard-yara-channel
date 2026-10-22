@@ -1,0 +1,75 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.macguard.example/intelligence/vuln-card/1",
+  "title": "Public vulnerability card: only data of sources the registry clears AND the owner confirmed",
+  "type": "object",
+  "required": [
+    "schema",
+    "key",
+    "ids",
+    "sources",
+    "exploitation",
+    "exploitation_summary",
+    "attribution",
+    "withheld_sources",
+    "note"
+  ],
+  "properties": {
+    "schema": {
+      "const": "macguard.vuln-card/1"
+    },
+    "key": {
+      "type": "string"
+    },
+    "ids": {
+      "type": "object",
+      "required": [
+        "cve",
+        "euvd",
+        "ghsa"
+      ],
+      "properties": {
+        "cve": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^CVE-[0-9]{4}-[0-9]{4,}$"
+          }
+        },
+        "euvd": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^EUVD-[0-9]{4}-[0-9]{4,}$"
+          }
+        },
+        "ghsa": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^GHSA(-[23456789cfghjmpqrvwx]{4}){3}$"
+          }
+        }
+      }
+    },
+    "sources": {
+      "type": "object"
+    },
+    "exploitation": {
+      "type": "object"
+    },
+    "exploitation_summary": {
+      "type": "object"
+    },
+    "attribution": {
+      "type": "object"
+    },
+    "withheld_sources": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "note": {
+      "type": "string"
+    }
+  }
+}

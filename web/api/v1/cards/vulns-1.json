@@ -95,7 +95,7 @@
     "upstream_note": "To compare, fetch the upstream file yourself and hash it. The upstream changes: a different hash later does not mean tampering."
   },
   "family": "vulns",
-  "generated_at": "2026-10-22T18:00:00Z",
+  "generated_at": "2026-10-22T21:30:00Z",
   "generated_by": "scripts/gen_intel_web.py",
   "id": "vulns-1",
   "identity": {
@@ -169,12 +169,17 @@
       "file": "tests/test_intel_live.py",
       "test_functions": 12,
       "what_it_says": "Tests for the download layer and the two wired real sources."
+    },
+    {
+      "file": "tests/test_vulns_eu.py",
+      "test_functions": 58,
+      "what_it_says": "Tests for the European/US vulnerability sources: identifiers, versions, the EUVD and CERT-EU parsers, the unified KEV record, the cross-source merge, distribution-aware assessment, the channel builders (against a LOCAL HTTP server: no network) and the CLI."
     }
   ],
   "tests_note": "Tests run against local test doubles; the live download was done once by hand. No test result is attested.",
   "verify_independently": [
     {
-      "command": "python3 -m intel live cisa-kev --out ROOT --version 1",
+      "command": "python3 -m intel vulns build cisa-kev --out ROOT --version 1",
       "step": "Rebuild the channel from the upstream feed (needs the network; writes only under ROOT)"
     },
     {

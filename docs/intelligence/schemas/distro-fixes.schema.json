@@ -1,0 +1,64 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.macguard.example/intelligence/distro-fixes/1",
+  "title": "What a Linux distribution says about a package and a CVE (input of `intel vulns assess`)",
+  "type": "object",
+  "required": [
+    "schema",
+    "rows"
+  ],
+  "properties": {
+    "schema": {
+      "const": "macguard.distro-fixes/1"
+    },
+    "rows": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "distro",
+          "release",
+          "package",
+          "cve",
+          "status"
+        ],
+        "properties": {
+          "distro": {
+            "type": "string"
+          },
+          "release": {
+            "type": "string"
+          },
+          "package": {
+            "type": "string"
+          },
+          "cve": {
+            "type": "string",
+            "pattern": "^CVE-[0-9]{4}-[0-9]{4,}$"
+          },
+          "status": {
+            "enum": [
+              "fixed",
+              "vulnerable",
+              "not-affected",
+              "under-investigation"
+            ]
+          },
+          "fixed_version": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "evidence": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "URL of the distribution advisory"
+          }
+        }
+      }
+    }
+  }
+}

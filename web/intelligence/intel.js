@@ -119,7 +119,7 @@ R.explorer = function () {
   var out = ch.filter(function (c) { return matches(c, f); }), ul = mount('results');
   out.forEach(function (c) {
     var li = el('li', { class: 'panel result' });
-    var h = el('h3'); h.appendChild(txt(c.family + ' ')); h.appendChild(badge(c.status)); li.appendChild(h);
+    var h = el('h3'); h.appendChild(txt(c.id + ' ')); h.appendChild(badge(c.status)); li.appendChild(h);
     li.appendChild(el('p', { class: 'muted', text: c.kind + (c.engine ? ' · ' + c.engine : '') }));
     li.appendChild(el('p', { text: c.detail }));
     li.appendChild(dl([
@@ -272,6 +272,55 @@ R.licenses = function () {
   MG.$('lic-count').textContent = fmt(rows.length) + ' ' + t('count_of') + ' ' + fmt(d.matrix.length);
 };
 
+/* ---------------------------------------------------------------- vulnerability sources */
+var VN_ID = /^(CVE-(19|20)\d{2}-\d{4,}|EUVD-\d{4}-\d{4,}|GHSA(-[23456789cfghjmpqrvwx]{4}){3})$/;
+function vnNorm(raw) { var s = String(raw || '').trim(); var u = s.toUpperCase(); if (/^GHSA-/.test(u)) u = 'GHSA' + s.slice(4).toLowerCase(); return VN_ID.test(u) ? u : null; }
+function vnCard(c) {
+  var m = mount('vn-card');
+  m.appendChild(el('h3', { text: c.key }));
+  m.appendChild(dl([['CVE', c.ids.cve.join(', ') || na()], ['EUVD', c.ids.euvd.join(', ') || na()], ['GHSA', c.ids.ghsa.join(', ') || na()]]));
+  var rows = Object.keys(c.sources).sort().map(function (sid) {
+    var s = c.sources[sid], e = c.exploitation[sid] || { asserted: false };
+    var fixes = (s.fixes || []).map(function (f) { return f.product + ' ' + f.fixed_in; }).join('; ');
+    return [sid + (s.region ? ' (' + s.region + ')' : ''), s.severity ? s.severity.score + ' ' + (s.severity.version || '') : na(),
+      e.asserted ? t('yes') + (e.since ? ' \u00b7 ' + e.since : '') + ' \u2014 ' + e.basis : t('no'), fixes || na(), s.evidence ? s.evidence.file + ' ' + s.evidence.locator : na()];
+  });
+  m.appendChild(table(c.key, [t('vn_card_src'), t('vn_card_sev'), t('vn_card_expl'), t('vn_card_fix'), t('vn_card_ev')], rows));
+}
+function vnLookup() {
+  var m = mount('vn-card'), id = vnNorm(MG.$('vn-id').value);
+  if (!id) { m.appendChild(el('p', { class: 'badmsg', text: t('vn_bad_id') })); return; }
+  get('vulns/' + id + '.json').then(function (c) { vnCard(c); }, function () { mount('vn-card').appendChild(el('p', { class: 'notice', text: t('vn_no_card') })); });
+}
+R.vulns = function () {
+  var d = data.vulns, s = d.sources;
+  once('vulns', function () {
+    fill(MG.$('vn-region'), uniq(s.map(function (x) { return x.region; })), function (v) { return t('reg_' + v); });
+    fill(MG.$('vn-integ'), uniq(s.map(function (x) { return x.integration; })), function (v) { return t('integ_' + v.replace(/-/g, '_')); });
+  });
+  var r = MG.$('vn-region').value, g = MG.$('vn-integ').value, q = MG.$('vn-q').value.trim().toLowerCase();
+  var rows = s.filter(function (x) { return (!r || x.region === r) && (!g || x.integration === g) && (!q || (x.id + ' ' + x.name + ' ' + x.license_name).toLowerCase().indexOf(q) >= 0); });
+  var m = mount('vn-sources');
+  m.appendChild(stamp(d)); m.appendChild(real(d));
+  m.appendChild(table(t('h_vn_sources'), [t('c_sources'), t('vn_region'), t('vn_integration'), t('k_license'), t('k_redistribution'), t('k_owner_confirmed'), t('lic_publishable'), t('vn_field'), t('vn_age')],
+    rows.map(function (x) { return [x.id + ' \u2014 ' + x.name, t('reg_' + x.region), t('integ_' + x.integration.replace(/-/g, '_')), x.license_name, x.redistribution_status, x.owner_confirmed,
+      x.publishable ? t('yes') : t('no') + ': ' + x.blocking_reasons.join('; '), x.exploitation_field, x.max_snapshot_age_days === null || x.max_snapshot_age_days === undefined ? na() : x.max_snapshot_age_days]; })));
+  MG.$('vn-count').textContent = fmt(rows.length) + ' ' + t('count_of') + ' ' + fmt(s.length);
+  var o = mount('vn-observed');
+  o.appendChild(table(t('h_vn_observed'), [t('c_sources'), t('vn_retrieved'), t('vn_accepted'), t('vn_rejected'), t('vn_pages'), t('vn_complete'), t('vn_asserted'), t('c_pub')],
+    d.observed.map(function (x) { return [x.source + ' \u2192 ' + x.channel, x.retrieved_at, x.accepted, x.rejected, x.pages, x.complete, x.exploitation_asserted === null || x.exploitation_asserted === undefined ? na() : x.exploitation_asserted, x.publishable ? t('yes') : t('no')]; })));
+  var mm = mount('vn-merge');
+  if (d.merge) {
+    mm.appendChild(table(t('h_vn_merge'), [t('vn_combo'), t('vn_entries')], Object.keys(d.merge.entries_by_source_combination).sort().map(function (k) { return [k.replace(/\+/g, ' + '), d.merge.entries_by_source_combination[k]]; })));
+    mm.appendChild(dl([[t('vn_conflicts'), d.merge.conflicts], [t('vn_reading'), d.merge.reading]]));
+  } else mm.appendChild(na());
+  var ru = mount('vn-rules'); ru.appendChild(list(d.rules.map(function (x) { return x.id + ': ' + x.rule; })));
+  if (!MG.$('vn-card').firstChild) {
+    var p = new URLSearchParams(location.search).get('id');
+    if (p) { MG.$('vn-id').value = p; vnLookup(); } else mount('vn-card').appendChild(el('p', { class: 'muted', text: d.cards.published + ' ' + (d.cards.reason || '') }));
+  }
+};
+
 /* ---------------------------------------------------------------- security */
 R.security = function () {
   var m = mount('sec-sig');
@@ -320,16 +369,17 @@ function init() {
   if (params.get('theme') === 'dark') document.body.classList.add('dark'); else if (params.get('theme') === 'light') document.body.classList.remove('dark');
   var th = MG.$('theme'); if (th) th.addEventListener('click', function () { document.body.classList.toggle('dark'); try { localStorage.setItem('theme', document.body.classList.contains('dark') ? 'dark' : 'light'); } catch (e) { /* ignore */ } });
   var need = { overview: ['channels'], explorer: ['channels'], channels: ['channels'], artifacts: ['cards'], downloads: ['cards', 'channels', 'index'], provenance: ['provenance'],
-    licenses: ['licenses', 'sources'], security: ['cards'], roadmap: ['roadmap'] }[page] || [];
-  var files = { channels: 'channels.json', index: 'index.json', provenance: 'provenance.json', licenses: 'licenses.json', sources: 'sources.json', roadmap: 'roadmap.json' };
+    licenses: ['licenses', 'sources'], vulns: ['vulns'], security: ['cards'], roadmap: ['roadmap'] }[page] || [];
+  var files = { channels: 'channels.json', index: 'index.json', provenance: 'provenance.json', licenses: 'licenses.json', sources: 'sources.json', vulns: 'vulns.json', roadmap: 'roadmap.json' };
   var jobs = need.map(function (k) {
     if (k === 'cards') return get('index.json').then(function (idx) { data.index = idx; return Promise.all(idx.files.filter(function (f) { return f.path.indexOf('cards/') === 0; }).map(function (f) { return get(f.path); })); }).then(function (c) { data.cards = c; });
     return get(files[k]).then(function (v) { data[k] = v; });
   });
   Promise.all(jobs).then(function () { data.ready = true; applyLang(); }, function (e) { applyLang(); failure(e); });
-  ['f-q', 'f-src', 'f-fam', 'f-lic', 'f-os', 'f-st', 'pv-grp', 'pv-cov', 'lic-v', 'lic-q'].forEach(function (id) {
+  ['f-q', 'f-src', 'f-fam', 'f-lic', 'f-os', 'f-st', 'pv-grp', 'pv-cov', 'lic-v', 'lic-q', 'vn-region', 'vn-integ', 'vn-q'].forEach(function (id) {
     var e = MG.$(id); if (e) e.addEventListener(e.tagName === 'INPUT' ? 'input' : 'change', function () { if (data.ready) R[page](); });
   });
+  var vg = MG.$('vn-go'); if (vg) vg.addEventListener('click', function () { vnLookup(); });
   var rs = MG.$('f-reset'); if (rs) rs.addEventListener('click', function () { MG.$('f-q').value = ''; F.forEach(function (k) { sel(k).value = ''; }); R.explorer(); MG.$('f-q').focus(); });
   applyLang();
 }

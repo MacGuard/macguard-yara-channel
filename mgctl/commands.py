@@ -295,6 +295,64 @@ def intelligence_sources(ctx: Ctx, cmd: Cmd, args: Dict[str, Any]) -> int:
     return OK
 
 
+def intelligence_vulns_sources(ctx: Ctx, cmd: Cmd, args: Dict[str, Any]) -> int:
+    res, rc = _intel(ctx, "intelligence vulns sources", ["vulns", "sources"] + (["--json"] if ctx.json else []))
+    if res is None:
+        return rc
+    code, out, err, timed_out = res
+    if code != 0 or timed_out:
+        return _engine_unavailable(ctx, "intelligence vulns sources", (err or "the intel package failed").strip())
+    ctx.stdout.write(out)
+    return OK
+
+
+def intelligence_vulns_lookup(ctx: Ctx, cmd: Cmd, args: Dict[str, Any]) -> int:
+    if not args.get("merged"):
+        raise UsageError("--merged FILE is required")
+    validate_path(args["merged"])
+    res, rc = _intel(ctx, "intelligence vulns lookup", ["vulns", "lookup", args["id"], "--merged", os.path.abspath(args["merged"])])
+    if res is None:
+        return rc
+    code, out, err, timed_out = res
+    if timed_out:
+        return _engine_unavailable(ctx, "intelligence vulns lookup", f"the lookup did not finish within {ctx.timeout} s")
+    if code == 3:
+        raise UsageError((err or "not a CVE, EUVD or GHSA identifier").replace("error: ", "").strip())
+    if code not in (0, 1):
+        return _engine_unavailable(ctx, "intelligence vulns lookup", (err or "the intel package failed").strip()[:200])
+    ctx.stdout.write(out)
+    return OK if code == 0 else FAILED
+
+
+def intelligence_vulns_assess(ctx: Ctx, cmd: Cmd, args: Dict[str, Any]) -> int:
+    for need in ("package", "installed", "distro", "release"):
+        if not args.get(need):
+            raise UsageError(f"--{need} is required")
+    argv = ["vulns", "assess", args["cve"], "--package", args["package"], "--installed", args["installed"], "--distro", args["distro"], "--release", args["release"]]
+    if args.get("rows"):
+        validate_path(args["rows"])
+        argv += ["--rows", os.path.abspath(args["rows"])]
+    if args.get("scheme"):
+        argv += ["--scheme", args["scheme"]]
+    res, rc = _intel(ctx, "intelligence vulns assess", argv)
+    if res is None:
+        return rc
+    code, out, err, timed_out = res
+    if timed_out or code not in (0, 1, 5):
+        return _engine_unavailable(ctx, "intelligence vulns assess", (err or "the intel package failed").strip()[:200])
+    doc = json.loads(out)
+    mapped = {0: OK, 1: FAILED, 5: UNAVAILABLE}[code]
+    if ctx.json:
+        ctx.emit_json({"schemaVersion": 1, "command": "intelligence vulns assess", "exitCode": mapped, "intelExitCode": code, "result": doc})
+    else:
+        ctx.out(f"{doc['verdict']}: {doc['package']} {doc['installed']} on {doc['distro']} {doc['release']} for {doc['cve']}")
+        if doc.get("reason"):
+            ctx.out(doc["reason"])
+        if doc["verdict"] == "NOT_ASSESSED":
+            ctx.out(ctx.t("Not assessed is not 'safe': only distribution data can say. Upstream version ranges are not used for Linux packages.", "No evaluado no significa 'seguro': solo los datos de la distribución pueden decirlo. Los rangos de versión del proveedor no se usan para paquetes Linux."))
+    return mapped
+
+
 def intelligence_catalog_verify(ctx: Ctx, cmd: Cmd, args: Dict[str, Any]) -> int:
     validate_path(args["catalog"])
     if not args.get("root"):

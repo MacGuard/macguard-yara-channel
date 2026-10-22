@@ -1,6 +1,6 @@
 {
   "data_origin": "config/intel/sources.registry.json, clearance computed by intel/registry.py",
-  "generated_at": "2026-10-22T18:00:00Z",
+  "generated_at": "2026-10-22T21:30:00Z",
   "generated_by": "scripts/gen_intel_web.py",
   "schema": "macguard.web-data/1",
   "sources": [
@@ -74,6 +74,73 @@
     {
       "access": {
         "credential_required": false,
+        "method": "none verified: HTTP 403 browser challenge; the CCN-CERT portal is also account-gated for its detailed services"
+      },
+      "attribution": "n/a",
+      "clearance": {
+        "blocking_reasons": [
+          "ccn-cert: redistribution status is 'blocked'"
+        ],
+        "publishable": false
+      },
+      "default_ttl_days": 3650,
+      "families": [
+        "vulns"
+      ],
+      "id": "ccn-cert",
+      "license": {
+        "name": "not read: the site answers plain requests with an HTTP 403 bot challenge"
+      },
+      "license_key": "no-spdx-terms-text",
+      "name": "CCN-CERT alerts and bulletins",
+      "original_signature": {
+        "kind": "none"
+      },
+      "owner_confirmed": false,
+      "real_retrieval_cards": [],
+      "redistribution_status": "blocked",
+      "status_note": "Not integrated: the public pages could not be read without defeating a bot check, which this project does not do, so neither a machine-readable feed nor the reuse terms were verified. Needs a written agreement or an official feed from CCN-CERT.",
+      "trust": 70,
+      "upstream_url": "https://www.ccn-cert.cni.es/"
+    },
+    {
+      "access": {
+        "credential_required": false,
+        "method": "HTTPS GET, no key"
+      },
+      "attribution": "credit CERT-EU, link the advisory, indicate changes; do not republish third-party material quoted inside advisories",
+      "clearance": {
+        "blocking_reasons": [
+          "cert-eu-advisories: the owner has not confirmed the redistribution decision (owner_confirmed is not true)"
+        ],
+        "publishable": false
+      },
+      "default_ttl_days": 3650,
+      "families": [
+        "vulns"
+      ],
+      "id": "cert-eu-advisories",
+      "license": {
+        "name": "CC BY 4.0 per the CERT-EU legal notice (Commission Decision 2011/833/EU), 'unless otherwise noted'; third-party content excluded",
+        "spdx": "CC-BY-4.0"
+      },
+      "license_key": "CC-BY-4.0",
+      "name": "CERT-EU security advisories (RSS)",
+      "original_signature": {
+        "kind": "none"
+      },
+      "owner_confirmed": false,
+      "real_retrieval_cards": [
+        "vulns-certeu-1"
+      ],
+      "redistribution_status": "allowed-with-conditions",
+      "status_note": "Read on 2026-10-22: https://cert.europa.eu/legal-notice. The RSS carries the latest 10 advisories with no structured identifiers or exploitation field.",
+      "trust": 85,
+      "upstream_url": "https://cert.europa.eu/publications/security-advisories/"
+    },
+    {
+      "access": {
+        "credential_required": false,
         "method": "HTTPS GET, no key"
       },
       "attribution": "credit CISA and link the catalog",
@@ -141,6 +208,106 @@
     {
       "access": {
         "credential_required": false,
+        "method": "HTTPS GET, no key"
+      },
+      "attribution": "credit ENISA as the source and indicate changes (if CC BY 4.0 is confirmed to apply)",
+      "clearance": {
+        "blocking_reasons": [
+          "enisa-euvd: redistribution status is 'pending-legal'"
+        ],
+        "publishable": false
+      },
+      "default_ttl_days": 3650,
+      "families": [
+        "vulns"
+      ],
+      "id": "enisa-euvd",
+      "license": {
+        "name": "no EUVD-specific terms found; ENISA's IPR policy states CC BY 4.0 for ENISA publications, and that this covers the EUVD data is NOT confirmed"
+      },
+      "license_key": "no-spdx-terms-text",
+      "name": "ENISA European Vulnerability Database (EUVD): recent window",
+      "original_signature": {
+        "kind": "none"
+      },
+      "owner_confirmed": false,
+      "real_retrieval_cards": [
+        "vulns-euvd-1"
+      ],
+      "redistribution_status": "pending-legal",
+      "status_note": "API https://euvdservices.enisa.europa.eu/api/search read on 2026-10-22: no key, 100 items per page. No licence or terms page for the API or the data was found (the site is a single-page app that serves no legal text to a plain request). Publication stays blocked until the terms are confirmed in writing.",
+      "trust": 80,
+      "upstream_url": "https://euvd.enisa.europa.eu/"
+    },
+    {
+      "access": {
+        "credential_required": false,
+        "method": "HTTPS GET, no key"
+      },
+      "attribution": "credit ENISA; do not present the list as independent of CISA KEV",
+      "clearance": {
+        "blocking_reasons": [
+          "enisa-euvd-exploited: redistribution status is 'pending-legal'"
+        ],
+        "publishable": false
+      },
+      "default_ttl_days": 3650,
+      "families": [
+        "vulns"
+      ],
+      "id": "enisa-euvd-exploited",
+      "license": {
+        "name": "same open question as enisa-euvd; the list is reported to be largely fed by CISA KEV, which is a US Government work"
+      },
+      "license_key": "no-spdx-terms-text",
+      "name": "ENISA EUVD exploited list ('EU KEV')",
+      "original_signature": {
+        "kind": "none"
+      },
+      "owner_confirmed": false,
+      "real_retrieval_cards": [
+        "vulns-eukev-1"
+      ],
+      "redistribution_status": "pending-legal",
+      "status_note": "'EU KEV' is not a separate catalogue: it is the EUVD search with exploited=true (records carrying exploitedSince). The API does not say who observed the exploitation.",
+      "trust": 75,
+      "upstream_url": "https://euvd.enisa.europa.eu/"
+    },
+    {
+      "access": {
+        "credential_required": false,
+        "method": "HTTPS GET, no key"
+      },
+      "attribution": "n/a: redistribution and derivative use are prohibited by the legal notice",
+      "clearance": {
+        "blocking_reasons": [
+          "incibe-cert: redistribution status is 'blocked'"
+        ],
+        "publishable": false
+      },
+      "default_ttl_days": 3650,
+      "families": [
+        "vulns"
+      ],
+      "id": "incibe-cert",
+      "license": {
+        "name": "INCIBE legal notice: reproduction allowed with integrity, attribution and compatible purpose; NO commercial use; distribution, public communication and transformation expressly prohibited"
+      },
+      "license_key": "no-spdx-terms-text",
+      "name": "INCIBE-CERT early warning (RSS avisos / vulnerabilidades)",
+      "original_signature": {
+        "kind": "none"
+      },
+      "owner_confirmed": false,
+      "real_retrieval_cards": [],
+      "redistribution_status": "blocked",
+      "status_note": "Read on 2026-10-22: https://www.incibe.es/aviso-legal. The vulnerability feed mostly mirrors NVD records ('Pendiente de análisis'). No adapter is written: MacGuard may not republish or transform it without INCIBE's prior written authorisation.",
+      "trust": 60,
+      "upstream_url": "https://www.incibe.es/incibe-cert/alerta-temprana"
+    },
+    {
+      "access": {
+        "credential_required": false,
         "method": "git clone, public"
       },
       "attribution": "keep the rule author and the licence reference that each rule carries",
@@ -171,6 +338,70 @@
       "status_note": "LICENSE-MATRIX.md: the repository default is DRL-1.1 but individual rule files carry other licences (some non-commercial); the licence must be resolved per rule, not per repository.",
       "trust": 70,
       "upstream_url": "https://github.com/Neo23x0/signature-base"
+    },
+    {
+      "access": {
+        "credential_required": false,
+        "method": "HTTPS GET, no key"
+      },
+      "attribution": "credit NIST NVD",
+      "clearance": {
+        "blocking_reasons": [
+          "nvd: redistribution status is 'not-evaluated'"
+        ],
+        "publishable": false
+      },
+      "default_ttl_days": 3650,
+      "families": [
+        "vulns"
+      ],
+      "id": "nvd",
+      "license": {
+        "name": "US Government work; API terms and rate limits not evaluated here"
+      },
+      "license_key": "no-spdx-terms-text",
+      "name": "NIST National Vulnerability Database (CVE API 2.0)",
+      "original_signature": {
+        "kind": "none"
+      },
+      "owner_confirmed": false,
+      "real_retrieval_cards": [],
+      "redistribution_status": "not-evaluated",
+      "status_note": "Registered only. No adapter in this delivery: NVD supplies severity and affected ranges (CPE), not an exploitation statement.",
+      "trust": 90,
+      "upstream_url": "https://nvd.nist.gov/developers/vulnerabilities"
+    },
+    {
+      "access": {
+        "credential_required": false,
+        "method": "HTTPS GET, no key"
+      },
+      "attribution": "keep the per-record credit",
+      "clearance": {
+        "blocking_reasons": [
+          "osv: redistribution status is 'not-evaluated'"
+        ],
+        "publishable": false
+      },
+      "default_ttl_days": 3650,
+      "families": [
+        "vulns"
+      ],
+      "id": "osv",
+      "license": {
+        "name": "per-record licences (some records originate from CC BY-SA sources); not evaluated here"
+      },
+      "license_key": "no-spdx-terms-text",
+      "name": "OSV (Open Source Vulnerabilities) and GitHub advisories",
+      "original_signature": {
+        "kind": "none"
+      },
+      "owner_confirmed": false,
+      "real_retrieval_cards": [],
+      "redistribution_status": "not-evaluated",
+      "status_note": "Registered only. GHSA identifiers are normalised by intel.vulns.ids so that OSV and EUVD can be joined once an OSV adapter exists.",
+      "trust": 80,
+      "upstream_url": "https://osv.dev/"
     },
     {
       "access": {

@@ -19,7 +19,7 @@ add(skip=('Saltar al contenido', 'Skip to content'),
     nav_h_intel=('Inteligencia', 'Intelligence'), nav_h_yara=('Canal YARA existente', 'Existing YARA channel'),
     nav_home=('Inicio', 'Home'), nav_intel=('Visión general', 'Overview'), nav_explorer=('Explorador', 'Explorer'), nav_channels=('Estado de canales', 'Channel status'),
     nav_artifacts=('Fichas de artefactos', 'Artifact cards'), nav_downloads=('Descargas', 'Downloads'), nav_provenance=('Procedencia del software', 'Software provenance'),
-    nav_licenses=('Registro de licencias', 'License registry'), nav_security=('Seguridad y confianza', 'Security & trust'), nav_roadmap=('Hoja de ruta', 'Roadmap'),
+    nav_licenses=('Registro de licencias', 'License registry'), nav_vulns=('Vulnerabilidades', 'Vulnerabilities'), nav_security=('Seguridad y confianza', 'Security & trust'), nav_roadmap=('Hoja de ruta', 'Roadmap'),
     nav_rules=('Reglas YARA', 'YARA rules'), nav_releases=('Releases', 'Releases'), nav_transparency=('Transparencia', 'Transparency'), nav_docs=('Documentación', 'Documentation'),
     disclaimer=('Proyecto independiente. Sin afiliación ni aval de las fuentes.', 'Independent project. No affiliation with or endorsement by the sources.'),
     loading=('Cargando datos…', 'Loading data…'), loaded=('Datos cargados.', 'Data loaded.'),
@@ -76,6 +76,7 @@ PAGES = {
  'provenance': ('provenance', 'Procedencia del software', 'Software provenance'),
  'licenses': ('licenses', 'Registro de licencias', 'License registry'),
  'security': ('security', 'Seguridad y confianza', 'Security & trust'),
+ 'vulns': ('vulns', 'Vulnerabilidades: EE. UU., UE y España', 'Vulnerabilities: US, EU and Spain'),
  'roadmap': ('roadmap', 'Hoja de ruta', 'Roadmap'),
 }
 for f, (page, es, en) in PAGES.items():
@@ -93,6 +94,7 @@ add(p_overview=('Un lugar para ver, con datos reales, qué canales de inteligenc
     go_downloads=('Descargas', 'Downloads'), d_downloads=('Qué se puede descargar y qué no se publica.', 'What can be downloaded and what is not published.'),
     go_provenance=('Procedencia del software', 'Software provenance'), d_provenance=('Seis hechos separados y cobertura real frente a diseñada.', 'Six separate facts, and real coverage versus designed.'),
     go_licenses=('Registro de licencias', 'License registry'), d_licenses=('Veredictos de licencia como evidencia, no como asesoría legal.', 'Licence verdicts as evidence, not legal advice.'),
+    go_vulns=('Vulnerabilidades', 'Vulnerabilities'), d_vulns=('Fuentes de EE. UU., la UE y España: qué se descargó, qué se validó y por qué no se publica.', 'Sources from the US, the EU and Spain: what was downloaded, what was validated and why nothing is published.'),
     go_security=('Seguridad y confianza', 'Security & trust'), d_security=('Qué garantiza la cadena existente y qué no.', 'What the existing chain guarantees and what it does not.'),
     go_roadmap=('Hoja de ruta', 'Roadmap'), d_roadmap=('Fases sin fechas ni porcentajes.', 'Phases without dates or percentages.'))
 
@@ -150,9 +152,25 @@ add(p_security=('Qué garantiza la cadena que ya existe, qué no garantiza y có
 add(p_roadmap=('Sin fechas ni porcentajes. Cada fila dice qué está hecho (con evidencia), qué falta y qué necesita autorización. «Planificado» significa que solo existe un diseño o que no existe nada.',
                'No dates and no percentages. Each row says what is done (with evidence), what is missing and what needs authorisation. "Planned" means only a design exists, or nothing exists.'))
 
+add(p_vulns=('Fuentes de vulnerabilidades de EE. UU., la UE y España. Se muestra qué se descargó y validó de verdad, qué está solo registrado y qué está bloqueado. «Explotada» significa que la fuente lo afirma en un campo estructurado; una puntuación crítica no lo es. No se publica ninguna ficha de vulnerabilidad todavía.',
+                 'Vulnerability sources from the US, the EU and Spain. It shows what was really downloaded and validated, what is only registered and what is blocked. "Exploited" means the source says so in a structured field; a critical score is not that. No vulnerability card is published yet.'),
+    h_vn_sources=('Fuentes por región', 'Sources by region'), h_vn_observed=('Lo que se descargó y validó (2026-10-22)', 'What was downloaded and validated (2026-10-22)'),
+    h_vn_merge=('Solapamiento entre fuentes', 'Overlap between sources'), h_vn_rules=('Reglas que se aplican', 'Rules that apply'), h_vn_lookup=('Ficha de una vulnerabilidad', 'Vulnerability card'),
+    f_vn_region=('Región', 'Region'), f_vn_integ=('Integración', 'Integration'), f_vn_q=('Buscar', 'Search'),
+    vn_id=('Identificador (CVE, EUVD o GHSA)', 'Identifier (CVE, EUVD or GHSA)'), vn_go=('Buscar ficha', 'Find card'),
+    vn_bad_id=('No es un identificador CVE, EUVD o GHSA válido.', 'Not a valid CVE, EUVD or GHSA identifier.'),
+    vn_no_card=('No hay ficha publicada para este identificador. Ninguna fuente de vulnerabilidades está autorizada para redistribuir y confirmada por el propietario.', 'No card is published for this identifier. No vulnerability source is both cleared for redistribution and confirmed by the owner.'),
+    vn_region=('Región', 'Region'), vn_integration=('Integración', 'Integration'), vn_field=('Campo de explotación', 'Exploitation field'), vn_age=('Antigüedad máxima de la instantánea (días)', 'Maximum snapshot age (days)'),
+    vn_accepted=('Aceptados', 'Accepted'), vn_rejected=('Rechazados', 'Rejected'), vn_pages=('Páginas', 'Pages'), vn_complete=('Completo', 'Complete'), vn_asserted=('Afirman explotación', 'Assert exploitation'),
+    vn_retrieved=('Obtenido el', 'Retrieved at'), vn_combo=('Fuentes que coinciden', 'Sources that match'), vn_entries=('Entradas', 'Entries'), vn_conflicts=('Conflictos de identificadores', 'Identifier conflicts'),
+    vn_reading=('Lectura', 'Reading'), vn_card_src=('Fuente', 'Source'), vn_card_sev=('Severidad', 'Severity'), vn_card_expl=('Explotación según la fuente', 'Exploitation according to the source'),
+    vn_card_fix=('Versiones corregidas (texto del proveedor)', 'Fixed versions (vendor text)'), vn_card_ev=('Evidencia', 'Evidence'),
+    integ_built_and_run=('construida y ejecutada', 'built and run'), integ_registered_only=('solo registrada', 'registered only'), integ_blocked_no_adapter=('bloqueada, sin adaptador', 'blocked, no adapter'),
+    reg_US=('Estados Unidos', 'United States'), reg_EU=('Unión Europea', 'European Union'), reg_ES=('España', 'Spain'), reg_global=('Global', 'Global'), reg_unknown=('No indicada', 'Not stated'))
+
 NAV = [('index.html', 'nav_intel', 'index'), ('explorer.html', 'nav_explorer', 'explorer'), ('channels.html', 'nav_channels', 'channels'), ('artifacts.html', 'nav_artifacts', 'artifacts'),
        ('downloads.html', 'nav_downloads', 'downloads'), ('provenance.html', 'nav_provenance', 'provenance'), ('licenses.html', 'nav_licenses', 'licenses'),
-       ('security.html', 'nav_security', 'security'), ('roadmap.html', 'nav_roadmap', 'roadmap')]
+       ('vulns.html', 'nav_vulns', 'vulns'), ('security.html', 'nav_security', 'security'), ('roadmap.html', 'nav_roadmap', 'roadmap')]
 LEGACY = [('../index.html', 'nav_home'), ('../rules.html', 'nav_rules'), ('../releases.html', 'nav_releases'), ('../transparency.html', 'nav_transparency'), ('../docs/index.html', 'nav_docs')]
 
 def e(s): return html.escape(s, quote=True)
@@ -190,7 +208,7 @@ def body(page):
     if page == 'overview':
         go = ''.join(f'<article class="panel"><h3><a href="{h}" data-t="go_{k}">{e(S["go_" + k][0])}</a></h3>{T("p", "d_" + k)}</article>'
                      for h, k in (('explorer.html', 'explorer'), ('channels.html', 'channels'), ('artifacts.html', 'artifacts'), ('downloads.html', 'downloads'), ('provenance.html', 'provenance'),
-                                  ('licenses.html', 'licenses'), ('security.html', 'security'), ('roadmap.html', 'roadmap')))
+                                  ('licenses.html', 'licenses'), ('vulns.html', 'vulns'), ('security.html', 'security'), ('roadmap.html', 'roadmap')))
         yara = ''.join(f'<li><a href="{h}" data-t="{k}">{e(S[k][0])}</a></li>' for h, k in LEGACY[1:])
         return (section('ov-h', 'h_ov_state', '<div id="ov"></div>') + section('lg-h', 'h_ov_legend', '<div id="legend"></div>') +
                 f'<section aria-labelledby="go-h"><h2 id="go-h" data-t="h_ov_go">{e(S["h_ov_go"][0])}</h2><div class="grid3 gofour">{go}</div></section>\n' +
@@ -222,6 +240,16 @@ def body(page):
                f'<label>{T("span", "f_lic_q")} <input id="lic-q" type="search" autocomplete="off"></label></div><p id="lic-count" role="status" aria-live="polite"></p>')
         return ('<section class="panel"><div id="lic-top"></div></section>\n' + section('lc-h', 'h_lic_counts', '<div class="tiles" id="lic-counts"></div>') +
                 section('lr-h', 'h_lic_registry', '<div id="lic-registry"></div>') + section('lm-h', 'h_lic_matrix', f'{flt}<div id="lic-matrix"></div>') + noscript('licenses.json', 'sources.json'))
+    if page == 'vulns':
+        opt = f'<option value="">{e(S["all"][0])}</option>'
+        flt = (f'<div class="toolbar" role="search" aria-label="{e(S["f_vn_q"][0])}"><label>{T("span", "f_vn_region")} <select id="vn-region">{opt}</select></label>'
+               f'<label>{T("span", "f_vn_integ")} <select id="vn-integ">{opt}</select></label>'
+               f'<label>{T("span", "f_vn_q")} <input id="vn-q" type="search" autocomplete="off"></label></div><p id="vn-count" role="status" aria-live="polite"></p>')
+        look = (f'<div class="toolbar"><label>{T("span", "vn_id")} <input id="vn-id" type="text" autocomplete="off" maxlength="40"></label>'
+                f'<button id="vn-go" type="button" data-t="vn_go">{e(S["vn_go"][0])}</button></div><div id="vn-card" role="status" aria-live="polite"></div>')
+        return (section('vns-h', 'h_vn_sources', f'{flt}<div id="vn-sources"></div>') + section('vno-h', 'h_vn_observed', '<div id="vn-observed"></div>') +
+                section('vnm-h', 'h_vn_merge', '<div id="vn-merge"></div>') + section('vnr-h', 'h_vn_rules', '<div id="vn-rules"></div>') +
+                section('vnl-h', 'h_vn_lookup', look) + noscript('vulns.json'))
     if page == 'security':
         chain = '<ul class="dl">' + ''.join(T('li', k) for k in ('sec_c1', 'sec_c2', 'sec_c3')) + '</ul>'
         notg = '<ul class="dl">' + ''.join(T('li', k) for k in ('sec_n1', 'sec_n2', 'sec_n3', 'sec_n4')) + '</ul>'

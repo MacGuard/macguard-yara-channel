@@ -29,9 +29,11 @@ ORDER = {'operational': 0, 'experimental': 1, 'planned': 2}
 KIND = {'yara': 'detection rules', 'yara-x': 'detection rules', 'sigma': 'detection rules', 'ioc': 'indicators', 'vulns': 'vulnerability catalog',
         'clamav': 'antivirus signatures', 'heuristics': 'heuristics', 'behavior': 'behaviour detections', 'ml': 'ML models', 'sandbox': 'sandbox profiles'}
 # card id -> (channel directory under live-evidence, retrieval record file name)
-LIVE_CARDS = {'ioc-1': ('ioc-1', 'feodo-ipblocklist.json.retrieval.json'), 'vulns-1': ('vulns-1', 'known_exploited_vulnerabilities.json.retrieval.json')}
+LIVE_CARDS = {'ioc-1': ('ioc-1', 'feodo-ipblocklist.json.retrieval.json'), 'vulns-1': ('vulns-1', 'known_exploited_vulnerabilities.json.retrieval.json'),
+              'vulns-euvd-1': ('vulns-euvd-1', 'euvd-page-0000.json.retrieval.json'), 'vulns-eukev-1': ('vulns-eukev-1', 'euvd-page-0000.json.retrieval.json'),
+              'vulns-certeu-1': ('vulns-certeu-1', 'security-advisories.rss.xml.retrieval.json')}
 GROUPS = {'4.1': 'Linux system package managers', '4.2': 'Linux self-contained formats', '4.3': 'macOS', '4.4': 'Language ecosystems', '4.5': 'Other methods'}
-FEED_TESTS = ('tests/test_intel.py', 'tests/test_intel_live.py')
+FEED_TESTS = ('tests/test_intel.py', 'tests/test_intel_live.py', 'tests/test_vulns_eu.py')
 
 
 def rel(p):
@@ -142,7 +144,7 @@ def feed_card(cid, live, registry, generated_at):
         'source': {'id': sid, 'name': s['name'], 'upstream_url': s['upstream_url'], 'license': s['license'], 'redistribution_status': s['redistribution_status'],
                    'owner_confirmed': s.get('owner_confirmed', False), 'attribution': s['attribution'], 'registry_status_note': s.get('status_note'),
                    'registry_clearance_blocking_reasons': why},
-        'retrieval': ret,
+        'retrieval': dict(ret, **({'pages': rep['pages'], 'note': f"this is the first of {rep['pages']} paged requests; every page is an original file listed in the artifacts"} if rep.get('pages', 1) > 1 else {})),
         'build': {'report': rep, 'key_numbers': key_numbers},
         'approval': {'state': approval['state'], 'publishable': approval['publishable'], 'approved_by': approval['approved_by'], 'approved_at': approval['approved_at'],
                      'blocking_reasons': approval['blocking_reasons']},
@@ -155,7 +157,7 @@ def feed_card(cid, live, registry, generated_at):
                      'metadata_offered': [f'api/v1/cards/{cid}.json'],
                      'upstream_data_url': ret['url'], 'upstream_note': 'To compare, fetch the upstream file yourself and hash it. The upstream changes: a different hash later does not mean tampering.'},
         'verify_independently': [
-            {'step': 'Rebuild the channel from the upstream feed (needs the network; writes only under ROOT)', 'command': f'python3 -m intel live {sid} --out ROOT --version {ch["version"]}'},
+            {'step': 'Rebuild the channel from the upstream feed (needs the network; writes only under ROOT)', 'command': f'python3 -m intel vulns build {sid} --out ROOT --version {ch["version"]}'},
             {'step': 'Compare the sha256 of the retrieved file with the card', 'command': f'shasum -a 256 ROOT/{ch["id"]}/{ch["version"]}/{ret["file"]}', 'expect': ret['sha256'], 'caveat': 'equal only if the upstream file did not change since the retrieval'},
             {'step': 'Build a catalog that pins the channel (drafts are included only on request)', 'command': f'python3 -m intel catalog build --channel ROOT/{ch["id"]}/{ch["version"]}/manifest.json --version 1 --out OUT --include-draft --rel-to ROOT'},
             {'step': 'Verify hashes, Merkle root, state and unlisted files', 'command': 'python3 -m intel catalog verify OUT/catalog.json --root ROOT --allow-draft', 'expect': 'exit 5 = CONSISTENT, SIGNATURE NOT CHECKED (there is no signature to check)'},
@@ -212,7 +214,7 @@ def legacy_card(registry, generated_at):
 def build_channels(registry, cards, generated_at):
     out = []
     for c in chstatus.CHANNELS:
-        srcs = sorted(sid for sid, s in registry.items() if c['family'] in s.get('families', []))
+        srcs = sorted(c['sources']) if 'sources' in c else sorted(sid for sid, s in registry.items() if c['family'] in s.get('families', []))
         lic = sorted({license_key(registry[i]) for i in srcs})
         mycards = sorted(k for k, v in cards.items() if v['channel'] == c['id'])
         oses = set()
@@ -229,7 +231,7 @@ def build_channels(registry, cards, generated_at):
         ev = [x.strip() for x in re.split(r'[;,]', c['evidence']) if (ROOT / x.strip()).exists()]
         if c['status'] != 'planned' and not ev:
             raise SystemExit(f"{c['id']}: status '{c['status']}' without evidence: none of {c['evidence']!r} is a file of this repository")
-        row = {'id': c['id'], 'family': c['family'], 'status': c['status'], 'status_source': 'intel/status.py', 'kind': KIND[c['id']], 'detail': c['detail'], 'evidence': c['evidence'], 'evidence_files_found': ev,
+        row = {'id': c['id'], 'family': c['family'], 'status': c['status'], 'status_source': 'intel/status.py', 'kind': KIND.get(c['id']) or KIND[c['family']], 'detail': c['detail'], 'evidence': c['evidence'], 'evidence_files_found': ev,
                'sources': srcs, 'licenses': lic, 'os': sorted(oses), 'os_basis': ('compatibility.platforms in the channel manifests' if oses else 'not stated in the data'),
                'cards': mycards, 'publication': pub}
         if 'engine' in c:
@@ -269,6 +271,45 @@ def build_licenses(registry, generated_at):
             'matrix_status': status_line, 'verdict_legend': ['ALLOWED-WITH-CONDITIONS', 'PENDING-LEGAL', 'BLOCKED', 'NOT-VERIFIED'], 'rows_by_verdict_class': classes, 'matrix': rows,
             'registry': [{'id': i, 'name': s['name'], 'spdx': s['license'].get('spdx'), 'license_name': s['license']['name'], 'redistribution_status': s['redistribution_status'],
                           'owner_confirmed': s.get('owner_confirmed', False)} for i, s in sorted(registry.items())]}
+
+
+# ---------------------------------------------------------------- vulnerability sources (US / EU / ES), built from the registry and the real builds
+VULN_RULES = [
+    {'id': 'V1', 'rule': 'Exploitation is what a source asserts in a structured field. A critical score, a high EPSS value or the word "critical" is severity and never makes a vulnerability "exploited".'},
+    {'id': 'V2', 'rule': 'Each source keeps its own statement. Two sources asserting exploitation are not called independent confirmation unless the registry says they are independent.'},
+    {'id': 'V3', 'rule': 'A Linux package is never called vulnerable from upstream version ranges: a distribution backports fixes. Only a distribution advisory for that release and package can say so; otherwise the verdict is NOT_ASSESSED.'},
+    {'id': 'V4', 'rule': 'Identifiers (CVE, EUVD, GHSA) join records only when a source declares them as its own. Text mentions, reference URLs and similar product names never join records.'},
+    {'id': 'V5', 'rule': 'Nothing is redistributed until the registry says the licence allows it AND the owner confirmed it. Today no vulnerability source passes both.'}]
+
+
+def build_vulns(registry, cards, generated_at):
+    rows = []
+    for sid, s in sorted(registry.items()):
+        if 'vulns' not in s.get('families', []):
+            continue
+        ok, why = reg.clearance(registry, [sid])
+        mine = sorted(k for k, v in cards.items() if v.get('source', {}).get('id') == sid)
+        integ = 'built-and-run' if mine else 'blocked-no-adapter' if s['redistribution_status'] == 'blocked' else 'registered-only'
+        rows.append({'id': sid, 'name': s['name'], 'region': s.get('region', 'unknown'), 'upstream_url': s['upstream_url'], 'license_name': s['license']['name'], 'license_key': license_key(s),
+                     'redistribution_status': s['redistribution_status'], 'owner_confirmed': s.get('owner_confirmed', False), 'publishable': ok, 'blocking_reasons': why,
+                     'exploitation_field': s.get('exploitation_field', 'unknown'), 'max_snapshot_age_days': s.get('max_snapshot_age_days'), 'integration': integ,
+                     'cards': mine, 'status_note': s.get('status_note')})
+    observed = []
+    for cid, c in sorted(cards.items()):
+        if c.get('family') != 'vulns':
+            continue
+        r = c['build']['report']
+        observed.append({'card': cid, 'channel': c['channel'], 'source': c['source']['id'], 'retrieved_at': c['retrieval']['retrieved_at'], 'accepted': r['accepted'], 'rejected': r['rejected'],
+                         'pages': r.get('pages', 1), 'complete': r.get('complete', True), 'exploitation_asserted': r.get('exploitation_asserted'), 'publishable': c['approval']['publishable']})
+    mpath = EVIDENCE / 'vulns-merged-1.json'
+    merge = jload(mpath) if mpath.exists() else None
+    cards_dir = API / 'vulns'
+    published = sorted(p.stem for p in cards_dir.glob('*.json') if p.name != 'index.json') if cards_dir.is_dir() else []
+    return {**meta(generated_at, 'config/intel/sources.registry.json (sources, regions, clearance), the cards of the real builds, docs/intelligence/live-evidence/2026-10-22/vulns-merged-1.json',
+                   'Which vulnerability sources exist, which were really downloaded and validated on 2026-10-22, and why none is published. Counts only: no third-party vulnerability record is hosted.'),
+            'regions': {'US': 'United States', 'EU': 'European Union', 'ES': 'Spain', 'global': 'Global', 'unknown': 'Not stated'}, 'sources': rows, 'observed': observed, 'merge': merge,
+            'rules': VULN_RULES, 'cards': {'published': len(published), 'ids': published, 'reason': 'no vulnerability card is published: no source is both cleared by the registry and confirmed by the owner' if not published else None,
+                                          'card_schema': 'docs/intelligence/schemas/vuln-card.schema.json', 'generator': 'scripts/gen_intel_vulns.py'}}
 
 
 # ---------------------------------------------------------------- provenance engine (derived from the repository, never typed)
@@ -391,11 +432,12 @@ def build(generated_at):
     cards = {cid: feed_card(cid, v, registry, generated_at) for cid, v in live.items()}
     cards['yara-legacy'] = legacy_card(registry, generated_at)
     files = {'channels.json': build_channels(registry, cards, generated_at), 'sources.json': build_sources(registry, cards, generated_at),
-             'licenses.json': build_licenses(registry, generated_at), 'roadmap.json': build_roadmap(generated_at), 'provenance.json': build_provenance(generated_at)}
+             'licenses.json': build_licenses(registry, generated_at), 'roadmap.json': build_roadmap(generated_at), 'provenance.json': build_provenance(generated_at),
+             'vulns.json': build_vulns(registry, cards, generated_at)}
     for cid, c in cards.items():
         files[f'cards/{cid}.json'] = c
     desc = {'channels.json': 'status of every channel family (intel/status.py)', 'sources.json': 'source registry with clearance', 'licenses.json': 'licence verdicts (evidence, not legal advice)',
-            'roadmap.json': 'roadmap rows and tracks', 'provenance.json': 'software provenance design, rules and coverage'}
+            'roadmap.json': 'roadmap rows and tracks', 'provenance.json': 'software provenance design, rules and coverage', 'vulns.json': 'vulnerability sources by region, real builds, merge counts and rules'}
     idx = {**meta(generated_at, 'the files listed here', 'An index of the static data files with their SHA-256. There is no server: these are plain files.'),
            'files': [{'path': p, 'sha256': hashlib.sha256(serialise(d).encode()).hexdigest(), 'description': desc.get(p, 'artifact card ' + p[6:-5])} for p, d in sorted(files.items())]}
     files['index.json'] = idx

@@ -140,7 +140,200 @@
       "original_signature": {
         "kind": "none"
       },
-      "status_note": "LICENSE-MATRIX.md verdict ALLOWED-WITH-CONDITIONS. Publication blocked until the owner confirms."
+      "status_note": "LICENSE-MATRIX.md verdict ALLOWED-WITH-CONDITIONS. Publication blocked until the owner confirms.",
+      "region": "US",
+      "max_snapshot_age_days": 7,
+      "exploitation_field": "knownExploited (catalog membership)"
+    },
+    {
+      "families": [
+        "vulns"
+      ],
+      "access": {
+        "method": "HTTPS GET, no key",
+        "credential_required": false
+      },
+      "original_signature": {
+        "kind": "none"
+      },
+      "owner_confirmed": false,
+      "id": "enisa-euvd",
+      "name": "ENISA European Vulnerability Database (EUVD): recent window",
+      "upstream_url": "https://euvd.enisa.europa.eu/",
+      "license": {
+        "name": "no EUVD-specific terms found; ENISA's IPR policy states CC BY 4.0 for ENISA publications, and that this covers the EUVD data is NOT confirmed"
+      },
+      "redistribution_status": "pending-legal",
+      "attribution": "credit ENISA as the source and indicate changes (if CC BY 4.0 is confirmed to apply)",
+      "trust": 80,
+      "default_ttl_days": 3650,
+      "region": "EU",
+      "max_snapshot_age_days": 3,
+      "exploitation_field": "exploitedSince",
+      "status_note": "API https://euvdservices.enisa.europa.eu/api/search read on 2026-10-22: no key, 100 items per page. No licence or terms page for the API or the data was found (the site is a single-page app that serves no legal text to a plain request). Publication stays blocked until the terms are confirmed in writing."
+    },
+    {
+      "families": [
+        "vulns"
+      ],
+      "access": {
+        "method": "HTTPS GET, no key",
+        "credential_required": false
+      },
+      "original_signature": {
+        "kind": "none"
+      },
+      "owner_confirmed": false,
+      "id": "enisa-euvd-exploited",
+      "name": "ENISA EUVD exploited list ('EU KEV')",
+      "upstream_url": "https://euvd.enisa.europa.eu/",
+      "license": {
+        "name": "same open question as enisa-euvd; the list is reported to be largely fed by CISA KEV, which is a US Government work"
+      },
+      "redistribution_status": "pending-legal",
+      "attribution": "credit ENISA; do not present the list as independent of CISA KEV",
+      "trust": 75,
+      "default_ttl_days": 3650,
+      "region": "EU",
+      "max_snapshot_age_days": 3,
+      "exploitation_field": "exploitedSince",
+      "status_note": "'EU KEV' is not a separate catalogue: it is the EUVD search with exploited=true (records carrying exploitedSince). The API does not say who observed the exploitation."
+    },
+    {
+      "families": [
+        "vulns"
+      ],
+      "access": {
+        "method": "HTTPS GET, no key",
+        "credential_required": false
+      },
+      "original_signature": {
+        "kind": "none"
+      },
+      "owner_confirmed": false,
+      "id": "cert-eu-advisories",
+      "name": "CERT-EU security advisories (RSS)",
+      "upstream_url": "https://cert.europa.eu/publications/security-advisories/",
+      "license": {
+        "name": "CC BY 4.0 per the CERT-EU legal notice (Commission Decision 2011/833/EU), 'unless otherwise noted'; third-party content excluded",
+        "spdx": "CC-BY-4.0"
+      },
+      "redistribution_status": "allowed-with-conditions",
+      "attribution": "credit CERT-EU, link the advisory, indicate changes; do not republish third-party material quoted inside advisories",
+      "trust": 85,
+      "default_ttl_days": 3650,
+      "region": "EU",
+      "max_snapshot_age_days": 3,
+      "exploitation_field": "none (prose only)",
+      "status_note": "Read on 2026-10-22: https://cert.europa.eu/legal-notice. The RSS carries the latest 10 advisories with no structured identifiers or exploitation field."
+    },
+    {
+      "families": [
+        "vulns"
+      ],
+      "access": {
+        "method": "HTTPS GET, no key",
+        "credential_required": false
+      },
+      "original_signature": {
+        "kind": "none"
+      },
+      "owner_confirmed": false,
+      "id": "incibe-cert",
+      "name": "INCIBE-CERT early warning (RSS avisos / vulnerabilidades)",
+      "upstream_url": "https://www.incibe.es/incibe-cert/alerta-temprana",
+      "license": {
+        "name": "INCIBE legal notice: reproduction allowed with integrity, attribution and compatible purpose; NO commercial use; distribution, public communication and transformation expressly prohibited"
+      },
+      "redistribution_status": "blocked",
+      "attribution": "n/a: redistribution and derivative use are prohibited by the legal notice",
+      "trust": 60,
+      "default_ttl_days": 3650,
+      "region": "ES",
+      "max_snapshot_age_days": 3,
+      "exploitation_field": "none",
+      "status_note": "Read on 2026-10-22: https://www.incibe.es/aviso-legal. The vulnerability feed mostly mirrors NVD records ('Pendiente de análisis'). No adapter is written: MacGuard may not republish or transform it without INCIBE's prior written authorisation."
+    },
+    {
+      "families": [
+        "vulns"
+      ],
+      "access": {
+        "method": "none verified: HTTP 403 browser challenge; the CCN-CERT portal is also account-gated for its detailed services",
+        "credential_required": false
+      },
+      "original_signature": {
+        "kind": "none"
+      },
+      "owner_confirmed": false,
+      "id": "ccn-cert",
+      "name": "CCN-CERT alerts and bulletins",
+      "upstream_url": "https://www.ccn-cert.cni.es/",
+      "license": {
+        "name": "not read: the site answers plain requests with an HTTP 403 bot challenge"
+      },
+      "redistribution_status": "blocked",
+      "attribution": "n/a",
+      "trust": 70,
+      "default_ttl_days": 3650,
+      "region": "ES",
+      "max_snapshot_age_days": 3,
+      "exploitation_field": "unknown",
+      "status_note": "Not integrated: the public pages could not be read without defeating a bot check, which this project does not do, so neither a machine-readable feed nor the reuse terms were verified. Needs a written agreement or an official feed from CCN-CERT."
+    },
+    {
+      "families": [
+        "vulns"
+      ],
+      "access": {
+        "method": "HTTPS GET, no key",
+        "credential_required": false
+      },
+      "original_signature": {
+        "kind": "none"
+      },
+      "owner_confirmed": false,
+      "id": "nvd",
+      "name": "NIST National Vulnerability Database (CVE API 2.0)",
+      "upstream_url": "https://nvd.nist.gov/developers/vulnerabilities",
+      "license": {
+        "name": "US Government work; API terms and rate limits not evaluated here"
+      },
+      "redistribution_status": "not-evaluated",
+      "attribution": "credit NIST NVD",
+      "trust": 90,
+      "default_ttl_days": 3650,
+      "region": "US",
+      "max_snapshot_age_days": 3,
+      "exploitation_field": "none",
+      "status_note": "Registered only. No adapter in this delivery: NVD supplies severity and affected ranges (CPE), not an exploitation statement."
+    },
+    {
+      "families": [
+        "vulns"
+      ],
+      "access": {
+        "method": "HTTPS GET, no key",
+        "credential_required": false
+      },
+      "original_signature": {
+        "kind": "none"
+      },
+      "owner_confirmed": false,
+      "id": "osv",
+      "name": "OSV (Open Source Vulnerabilities) and GitHub advisories",
+      "upstream_url": "https://osv.dev/",
+      "license": {
+        "name": "per-record licences (some records originate from CC BY-SA sources); not evaluated here"
+      },
+      "redistribution_status": "not-evaluated",
+      "attribution": "keep the per-record credit",
+      "trust": 80,
+      "default_ttl_days": 3650,
+      "region": "global",
+      "max_snapshot_age_days": 3,
+      "exploitation_field": "none",
+      "status_note": "Registered only. GHSA identifiers are normalised by intel.vulns.ids so that OSV and EUVD can be joined once an OSV adapter exists."
     }
   ]
 }
