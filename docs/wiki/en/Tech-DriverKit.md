@@ -8,14 +8,14 @@ DriverKit is Apple's technology for writing **hardware drivers that run outside 
 
 ## In this project: planned and outside the product
 
-**MacUSBGuard does not use DriverKit in its current code.** Its documentation says DriverKit "is not part of this product"; per the project documentation, such an entitlement is not requested, and the code records it as deliberately unrequested, which a test checks {{ev:EV-EC-22}}.
+**MacUSBGuard does not use DriverKit in its current code.** Its documentation says DriverKit "is not part of this product"; per the project documentation, such an entitlement is not requested {{ev:EV-EC-22}}.
 
-Even so, driver code exists only on unreleased development lines outside the product, with contract tests. Their documentation describes them as frozen milestones; verification with Apple's entitlement is pending. On the current integration line there is no DriverKit code in the application sources; only comments, the recorded entitlement decision and tests.
+DriverKit is not part of the current product; it is an explored option and is not verified.
 
 | Question | Verified answer |
 |---|---|
 | In the current product? | No |
-| Does code exist? | Yes, only on unreleased development lines |
+| Is it verified? | No: an explored option only |
 | Does it work on a real Mac with Apple's permission? | Not verified |
 | Is it a deployed defence? | No: only an explored option |
 
@@ -23,7 +23,7 @@ Even so, driver code exists only on unreleased development lines outside the pro
 
 - A driver is not a firewall or an antivirus: it only looks at devices.
 - Apple's approval does not depend on the code, and is unresolved for this use.
-- More recent development lines may exist that this review did not examine.
+- Nothing about DriverKit was run or verified for this review.
 
 ## Who else uses it
 
@@ -35,7 +35,7 @@ No further examples are included because no other official source could be opene
 
 | Capability | State |
 |---|---|
-| DriverKit driver for USB | Planned, unreleased development lines only, outside the product |
+| DriverKit driver for USB | Explored option, not verified, outside the product |
 | DriverKit dependency in the current product | None |
 
 ## Further reading

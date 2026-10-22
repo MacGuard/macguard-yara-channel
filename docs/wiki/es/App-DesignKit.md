@@ -27,11 +27,11 @@ En el mapa está entre los "bloques de construcción compartidos": una pieza de 
 1. Una aplicación declara el paquete como dependencia SwiftPM.
 2. Construye sus pantallas con los componentes ya hechos de la biblioteca (tarjetas, insignias de estado, tablas...).
 3. Los componentes aplican los colores, la tipografía y el espaciado del sistema de diseño.
-4. Un script de comprobación heurístico puede revisar el código de la aplicación en busca de colores o tamaños de letra escritos a mano que se salten el sistema.
+4. Una comprobación heurística puede revisar el código de la aplicación en busca de colores o tamaños de letra escritos a mano que se salten el sistema.
 
 ## Arquitectura
 
-Una biblioteca más sus pruebas, para macOS 13 o superior, **sin dependencias externas** {{ev:EV-EC-31}}. Se organiza por temas (colores, espaciado, tipografía, componentes, tablas, búsqueda, estados, estilo de gráficos). Importa solo los marcos de interfaz y gráficos de Apple y **no usa el marco Charts**; los gráficos son solo estilo.
+Una biblioteca más sus pruebas, para macOS 13 o superior, **sin dependencias externas** {{ev:EV-EC-31}}. Es una única biblioteca de bloques de interfaz compartidos. Importa solo los marcos de interfaz y gráficos de Apple y **no usa el marco Charts**.
 
 **Restricción dura** (documentada y comprobable): no debe depender de tecnologías de seguridad de nivel de sistema ni de ningún módulo interno de las aplicaciones. Por eso no necesita permisos especiales ni perfiles de aprovisionamiento.
 
@@ -45,11 +45,11 @@ Una biblioteca más sus pruebas, para macOS 13 o superior, **sin dependencias ex
 | Botón destructivo y diálogo de confirmación | Acciones destructivas sin confirmación | La confirmación no se puede omitir | Ver la [matriz de evidencias](ES-Evidence) |
 | Tabla ordenable | Tablas ordenables coherentes | Tabla genérica sobre datos identificables, con agrupación accesible de filas | Ver la [matriz de evidencias](ES-Evidence) |
 
-Lo que **no** garantiza: que una aplicación que la usa sea accesible (depende de cómo se use), ni sustituye la validación humana con VoiceOver. El script anti-deriva es heurístico y puede dar falsos positivos y negativos.
+Lo que **no** garantiza: que una aplicación que la usa sea accesible (depende de cómo se use), ni sustituye la validación humana con VoiceOver. La comprobación de coherencia de diseño es heurística y puede dar falsos positivos y negativos.
 
 ## Pruebas
 
-La biblioteca tiene un pequeño objetivo de pruebas (lectura estática, **no ejecutado**); no hay resultados de ejecución documentados en el repositorio {{ev:EV-EC-32}}. El README reconoce algunos hallazgos de deriva de diseño en sus propias fuentes que quedaron sin marcar.
+La biblioteca tiene un pequeño objetivo de pruebas (lectura estática, **no ejecutado**); no hay resultados de ejecución documentados en el repositorio {{ev:EV-EC-32}}. El README reconoce algunos hallazgos de coherencia de diseño en sus propias fuentes que quedaron sin marcar.
 
 ## Cómo comprobarlo tú
 

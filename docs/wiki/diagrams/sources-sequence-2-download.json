@@ -4,8 +4,8 @@
   "es": "Secuencia de recolección, parte 2 de 3: el tarball de ese commit"
  },
  "alt": {
-  "en": "prepare.py asks the GitHub API for the tarball at the pinned sha. The API takes a snapshot of exactly that commit from the upstream repository, and the upstream returns a tar.gz of at most 90 MB.",
-  "es": "prepare.py pide a la API de GitHub el tarball en el sha fijado. La API toma una instantánea de ese commit exacto del repositorio origen y el origen devuelve un tar.gz de 90 MB como máximo."
+  "en": "prepare.py asks the GitHub API for the tarball at the pinned sha. The API takes a snapshot of exactly that commit from the upstream repository, and the upstream returns a compressed archive (size capped).",
+  "es": "prepare.py pide a la API de GitHub el tarball en el sha fijado. La API toma una instantánea de ese commit exacto del repositorio origen y el origen devuelve un archivo comprimido (con el tamaño acotado)."
  },
  "legend": {
   "en": "blue: step of prepare.py; purple: reply from the GitHub API or the upstream repository.",

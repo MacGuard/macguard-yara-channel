@@ -4,11 +4,11 @@
   "en": "The only boundary that exists for MacProcessGuard: a reserved slot"
  },
  "alt": {
-  "es": "MacFirewallGuard (desarrollo) guarda una referencia, una referencia de identidad de proceso, con clave pid + versión y proveedor ausente. Una flecha discontinua apunta a MacProcessGuard, que es solo un concepto: sin repositorio, sin código y sin especificación. El hueco está reservado pero no implementado. Leyenda: amarillo, MacFirewallGuard; azul, la referencia reservada; gris, MacProcessGuard (concepto); flecha discontinua, reservado y no implementado.",
-  "en": "MacFirewallGuard (development) keeps a reference, a process-identity reference, with key pid + version and an absent provider. A dashed arrow points to MacProcessGuard, which is only a concept: no repository, no code and no specification. The slot is reserved but not implemented. Legend: yellow, MacFirewallGuard; blue, the reserved reference; grey, MacProcessGuard (concept); dashed arrow, reserved and not implemented."
+  "es": "MacFirewallGuard (desarrollo) guarda un hueco reservado para la identidad de proceso, no implementado. Una flecha discontinua apunta a MacProcessGuard, que es solo un concepto: sin repositorio, sin código y sin especificación. El hueco está reservado pero no implementado. Leyenda: amarillo, MacFirewallGuard; azul, el hueco reservado; gris, MacProcessGuard (concepto); flecha discontinua, reservado y no implementado.",
+  "en": "MacFirewallGuard (development) keeps a reserved slot for process identity, not implemented. A dashed arrow points to MacProcessGuard, which is only a concept: no repository, no code and no specification. The slot is reserved but not implemented. Legend: yellow, MacFirewallGuard; blue, the reserved slot; grey, MacProcessGuard (concept); dashed arrow, reserved and not implemented."
  },
  "legend": {
-  "es": "amarillo, MacFirewallGuard; azul, la referencia reservada; gris, MacProcessGuard (concepto); flecha discontinua, reservado y no implementado.",
-  "en": "yellow, MacFirewallGuard; blue, the reserved reference; grey, MacProcessGuard (concept); dashed arrow, reserved and not implemented."
+  "es": "amarillo, MacFirewallGuard; azul, el hueco reservado; gris, MacProcessGuard (concepto); flecha discontinua, reservado y no implementado.",
+  "en": "yellow, MacFirewallGuard; blue, the reserved slot; grey, MacProcessGuard (concept); dashed arrow, reserved and not implemented."
  }
 }

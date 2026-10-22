@@ -1,11 +1,11 @@
 flowchart TB
-  A["Observed flow<br/>(synthetic or test input)"]:::inp --> B["CodeSignatureResolver<br/>real signature, not the name"]:::ok
-  B --> C["PolicyEngine<br/>match, no match<br/>or indeterminate"]:::ok
-  C --> D["EnforcementResolver"]:::ok
+  A["Observed flow<br/>(synthetic or test input)"]:::inp --> B["Signature resolver<br/>real signature, not the name"]:::ok
+  B --> C["Policy engine<br/>match, no match<br/>or indeterminate"]:::ok
+  C --> D["Enforcement step"]:::ok
   D --> E{"Network Extension<br/>entitlement?"}:::ok
-  E -- "missing today" --> F["ACTION = UNAVAILABLE<br/>ENTITLEMENT_MISSING"]:::blocked
+  E -- "missing today" --> F["Action unavailable:<br/>entitlement missing"]:::blocked
   E -. "would be needed" .-> G["Block or allow<br/>(not possible today)"]:::plan
-  C --> H["Audit event and spool<br/>(MacCore client, mock only)"]:::ok
+  C --> H["Audit event and spool<br/>(MacCore client,<br/>test double only)"]:::ok
   classDef inp fill:#e8e8e8,stroke:#555555,color:#111111
   classDef ok fill:#d6e4ff,stroke:#1a3d8f,color:#0d1f4d
   classDef blocked fill:#f8d7da,stroke:#842029,color:#3b0a10

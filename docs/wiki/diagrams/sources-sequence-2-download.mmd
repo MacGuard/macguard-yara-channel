@@ -2,7 +2,7 @@
 flowchart TB
   e1["6 prepare.py: GET tarball at<br/>that sha"]:::act
   e2["7 The API takes a snapshot<br/>of that commit from the<br/>upstream repository"]:::ext
-  e3["8 The upstream returns a<br/>tar.gz (max 90 MB)"]:::ext
+  e3["8 The upstream returns a<br/>compressed archive<br/>(size capped)"]:::ext
   e1 --> e2
   e2 --> e3
   classDef act fill:#cfe3ff,stroke:#2f6df0,color:#0b1b33

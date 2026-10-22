@@ -41,8 +41,8 @@ Stages used: concept, prototype, development, validation, release candidate and 
 
 ### MacUSBGuard
 
-- **Phase:** validation (a release candidate exists on one of two development lines).
-- **Done:** a release-candidate milestone and audit reports {{ev:EV-EC-01}}.
+- **Phase:** validation (a release candidate has been prepared).
+- **Done:** a prepared release candidate and audit reports {{ev:EV-EC-01}}.
 - **Blockers:** no Endpoint Security entitlement is confirmed as usable {{ev:EV-EC-02}}.
 - **Next:** V1 candidate; the next workstream is not chosen yet.
 
@@ -58,7 +58,7 @@ Stages used: concept, prototype, development, validation, release candidate and 
 - **Phase:** prototype.
 - **Done:** protocol and cryptography layer with their own tests {{ev:EV-EC-06}}.
 - **Blockers:** ledger, signing and ingest are placeholders.
-- **Next:** staged work waves, no dates.
+- **Next:** planned work, no dates.
 
 ### MacGuardDesignKit
 
@@ -93,4 +93,4 @@ The numbers are what GitHub reports on the date shown (refreshed with `python3 s
 ## What we do not know yet
 
 - Delivery dates: they are not defined or backed.
-- The state of the private projects beyond the commits reviewed: each row names its reference commit in the [evidence matrix](EN-Evidence).
+- The state of the private projects beyond what was reviewed: each row names the state and the review date in the [evidence matrix](EN-Evidence).

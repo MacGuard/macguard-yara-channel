@@ -32,13 +32,11 @@ It is like a building doorman with a tenant list: at night (Mac locked) he is me
 
 ## Architecture
 
-A Swift package for macOS 13 or later with no external dependencies {{ev:EV-EC-26}}, split into layers:
+A Swift package for macOS 13 or later with no external dependencies {{ev:EV-EC-26}}, organized in layers:
 
-- a pure policy and model layer, with no system calls;
-- a storage layer (DiskArbitration and device inventory);
-- a platform layer (session, smart cards and Endpoint Security);
-- a privileged background service, built from only the policy and storage layers;
-- a command-line tool, a SwiftUI app and an internal test harness.
+- decision logic that makes no system calls;
+- platform adapters;
+- an interface: an app, a command-line tool and a privileged background service, plus an internal test harness.
 
 Trust boundary: the app and command-line tool talk to the service over XPC and the service verifies the caller's code signature.
 
@@ -53,20 +51,13 @@ Trust boundary: the app and command-line tool talk to the service over XPC and t
 | Storage admission policy | Approves or rejects mounts via DiskArbitration | Whether the system honors the dissent: unproven | See the [evidence matrix](EN-Evidence) |
 | PIV challenge | Cryptographic proof of a key (signed nonce) instead of a mere fingerprint | Physical theft of the key and its PIN | See the [evidence matrix](EN-Evidence) |
 
-Technologies proven in code: Endpoint Security, DiskArbitration, IOKit, XPC, Security.framework, CryptoTokenKit, LocalAuthentication, SMAppService {{ev:EV-EC-23}}. **Planned or rejected only:** DriverKit (only on unreleased development lines, see below), NetworkExtension (studied and rejected because it would disable other content filters), CGEventTap (documented as not chosen) {{ev:EV-EC-22}}.
+Technologies proven in code: Endpoint Security, DiskArbitration, IOKit, XPC, Security.framework, CryptoTokenKit, LocalAuthentication, SMAppService {{ev:EV-EC-23}}. **Planned or rejected only:** DriverKit (an explored option, not part of the product, see below), NetworkExtension (studied and rejected because it would disable other content filters), CGEventTap (documented as not chosen) {{ev:EV-EC-22}}.
 
 ## Tests
 
 The figures are self-reported and **this review did not run them**. There is a single in-house test harness with thousands of checks (a static count; loops multiply real runs) {{ev:EV-EC-25}}.
 
-There are two **diverging** development lines and their figures are neither added nor compared:
-
-| Line | Declared figure | Source |
-|---|---|---|
-| Release-candidate line | Over ten thousand verifications, no failures | its readiness report |
-| Current integration line | Several hundred checks, no failures, a few unverified | its README (predates later work) |
-
-Which line is "the" V1 candidate is unresolved in what was reviewed {{ev:EV-EC-20}}. Documented pending items: HID and storage hardware gates, VoiceOver validation, visual audit and install validation.
+Two sets of self-reported test figures exist and they are not comparable; nothing was re-run {{ev:EV-EC-20}}. Which build is "the" V1 candidate is unresolved in what was reviewed. Documented pending items: HID and storage hardware gates, VoiceOver validation, visual audit and install validation.
 
 ## Check it yourself
 
@@ -76,7 +67,7 @@ The code is private, so verification belongs to the owner. Nothing was run to wr
 
 - On the test machine HID is partial: the restricted Endpoint Security entitlement is not confirmed as usable {{ev:EV-EC-02}}.
 - USB network: detection only.
-- A local beta installer has notes saying the notarization check passed, but that is a self-declared note: **notarization and publication are not verified** {{ev:EV-EC-24}}. The release-candidate report says it was not notarized. The documentation states ad hoc signing.
+- A local beta installer has notes saying the notarization check passed, but that is a self-declared note: **notarization and publication are not verified** {{ev:EV-EC-24}}. Another report says it was not notarized. The documentation states ad hoc signing.
 - No other MacGuard application uses it and it uses none: there are no dependencies between them {{ev:EV-EC-01}}.
 
 ## State
@@ -87,7 +78,7 @@ The code is private, so verification belongs to the owner. Nothing was run to wr
 | Storage admission | Implemented; real effect unverified |
 | HID blocking via Endpoint Security | Client compiles; live use unverified (no entitlement confirmed as usable) |
 | USB network blocking | Not implemented |
-| DriverKit | Planned, unreleased development lines only, outside the product |
+| DriverKit | Explored option, not verified, outside the product |
 | Installer notarization / publication | Not verified |
 
 Documented next objective: create the V1 candidate; the next workstream is unselected {{ev:EV-EC-01}}.

@@ -1,8 +1,8 @@
 %%{init: {"flowchart": {"wrappingWidth": 300}}}%%
 flowchart TB
   d["decide.py<br/>PUBLISH GATE:<br/>not approved"]:::gate
-  q["Private quarantine<br/>store<br/>admin/worker D1"]:::bad
-  api["Admin API and panel"]:::bad
+  q["Private quarantine<br/>store"]:::bad
+  api["Private review<br/>service and panel"]:::bad
   hr["Human review<br/>approve, delete<br/>or keep"]:::bad
   r["decision: back to<br/>rulecheck.py"]:::chk
   d --> q

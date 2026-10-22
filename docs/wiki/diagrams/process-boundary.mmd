@@ -1,6 +1,6 @@
 flowchart TB
   FW["MacFirewallGuard<br/>development"]:::dev
-  KEY["process-identity reference<br/>key: pid + version<br/>provider: absent"]:::ok
+  KEY["reserved slot for<br/>process identity<br/>not implemented"]:::ok
   PG["MacProcessGuard<br/>concept: no repo,<br/>no code, no spec"]:::con
   FW --> KEY
   KEY -. "reserved slot, not implemented" .-> PG

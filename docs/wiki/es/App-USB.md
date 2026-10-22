@@ -32,13 +32,11 @@ Es como el portero de un edificio con una lista de inquilinos: de noche (Mac blo
 
 ## Arquitectura
 
-Paquete Swift para macOS 13 o superior, sin dependencias externas {{ev:EV-EC-26}}, dividido en capas:
+Paquete Swift para macOS 13 o superior, sin dependencias externas {{ev:EV-EC-26}}, organizado en capas:
 
-- una capa pura de política y modelo, sin llamadas al sistema;
-- una capa de almacenamiento (DiskArbitration e inventario de dispositivos);
-- una capa de plataforma (sesión, tarjetas inteligentes y Endpoint Security);
-- un servicio privilegiado en segundo plano, construido solo con las capas de política y almacenamiento;
-- una herramienta de línea de comandos, una app SwiftUI y un arnés de pruebas interno.
+- lógica de decisión que no hace llamadas al sistema;
+- adaptadores de plataforma;
+- una interfaz: una app, una herramienta de línea de comandos y un servicio privilegiado en segundo plano, además de un arnés de pruebas interno.
 
 Frontera de confianza: app y herramienta de línea de comandos hablan con el servicio por XPC y este verifica la firma de código del llamante.
 
@@ -53,20 +51,13 @@ Frontera de confianza: app y herramienta de línea de comandos hablan con el ser
 | Política de admisión de almacenamiento | Aprueba o rechaza montajes con DiskArbitration | Que el sistema respete la denegación: sin probar | Ver la [matriz de evidencias](ES-Evidence) |
 | Desafío PIV | Prueba criptográfica de una llave (nonce firmado) frente a mera huella | Robo físico de la llave y su PIN | Ver la [matriz de evidencias](ES-Evidence) |
 
-Tecnologías con prueba en el código: Endpoint Security, DiskArbitration, IOKit, XPC, Security.framework, CryptoTokenKit, LocalAuthentication, SMAppService {{ev:EV-EC-23}}. **Solo planeadas o descartadas:** DriverKit (solo en líneas de desarrollo no publicadas, ver más abajo), NetworkExtension (estudiada y descartada porque desactivaría otros filtros de contenido), CGEventTap (documentado como no elegido) {{ev:EV-EC-22}}.
+Tecnologías con prueba en el código: Endpoint Security, DiskArbitration, IOKit, XPC, Security.framework, CryptoTokenKit, LocalAuthentication, SMAppService {{ev:EV-EC-23}}. **Solo planeadas o descartadas:** DriverKit (opción explorada, fuera del producto, ver más abajo), NetworkExtension (estudiada y descartada porque desactivaría otros filtros de contenido), CGEventTap (documentado como no elegido) {{ev:EV-EC-22}}.
 
 ## Pruebas
 
 Las cifras son autoinformadas y **no se han ejecutado para esta revisión**. Hay un solo arnés de pruebas propio con miles de comprobaciones (recuento estático; los bucles multiplican las ejecuciones reales) {{ev:EV-EC-25}}.
 
-Hay dos líneas de desarrollo **divergentes** y sus cifras no se suman ni se comparan:
-
-| Línea | Cifra declarada | Fuente |
-|---|---|---|
-| Línea candidata a release | Más de diez mil verificaciones, sin fallos | su informe de preparación |
-| Línea de integración actual | Varios cientos de comprobaciones, sin fallos, unas pocas sin verificar | su README (anterior a trabajo posterior) |
-
-Cuál es "la" candidata a V1 no está resuelto en lo revisado {{ev:EV-EC-20}}. Pendientes documentados: pruebas de hardware HID y almacenamiento, validación con VoiceOver, auditoría visual y validación de instalación.
+Existen dos conjuntos de cifras de pruebas autoinformadas y no son comparables; no se volvió a ejecutar nada {{ev:EV-EC-20}}. Cuál es "la" candidata a V1 no está resuelto en lo revisado. Pendientes documentados: pruebas de hardware HID y almacenamiento, validación con VoiceOver, auditoría visual y validación de instalación.
 
 ## Cómo comprobarlo tú
 
@@ -76,7 +67,7 @@ El código es privado: la comprobación corresponde al propietario. No se ejecut
 
 - Con el Mac de pruebas, HID está en estado parcial: el permiso restringido de Endpoint Security no consta como utilizable {{ev:EV-EC-02}}.
 - Red USB: solo detección.
-- Hay un instalador beta local cuyas notas dicen que la comprobación de notarización pasó, pero es una nota propia: **no está verificada la notarización ni que se haya publicado** {{ev:EV-EC-24}}. El informe de la candidata a release dice que no estaba notarizado. La documentación declara firma ad hoc.
+- Hay un instalador beta local cuyas notas dicen que la comprobación de notarización pasó, pero es una nota propia: **no está verificada la notarización ni que se haya publicado** {{ev:EV-EC-24}}. Otro informe dice que no estaba notarizado. La documentación declara firma ad hoc.
 - Ninguna otra aplicación MacGuard lo usa ni él usa otra: sin dependencias entre ellas {{ev:EV-EC-01}}.
 
 ## Estado
@@ -87,7 +78,7 @@ El código es privado: la comprobación corresponde al propietario. No se ejecut
 | Admisión de almacenamiento | Implementada; efecto real sin verificar |
 | Bloqueo HID por Endpoint Security | El cliente compila; en vivo sin verificar (sin permiso confirmado como utilizable) |
 | Bloqueo de red USB | No implementado |
-| DriverKit | Planificado, solo en líneas de desarrollo no publicadas, fuera del producto |
+| DriverKit | Opción explorada, no verificada, fuera del producto |
 | Notarización / publicación del instalador | No verificadas |
 
 Siguiente objetivo documentado: crear el candidato V1; el próximo frente de trabajo está sin elegir {{ev:EV-EC-01}}.

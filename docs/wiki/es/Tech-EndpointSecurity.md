@@ -19,8 +19,7 @@ Los eventos son de dos clases: de **notificación** (solo avisan) y de **autoriz
 Solo **MacUSBGuard**, y solo así {{ev:EV-EC-21}}:
 
 - Evento suscrito: `ES_EVENT_TYPE_AUTH_IOKIT_OPEN` (alguien abre un dispositivo en IOKit, la capa de macOS que gestiona dispositivos; sirve para decidir sobre teclados y ratones USB con el Mac bloqueado).
-- Implementación documentada: un adaptador de eventos de Endpoint Security y un motor de decisión separado, que usan las tres llamadas anteriores.
-- La compilación separa el adaptador que requiere el SDK del resto del motor.
+- Implementación documentada: un adaptador de eventos de Endpoint Security y un paso de decisión, que usan las tres llamadas anteriores.
 - La decisión sin identidad fiable del dispositivo se niega a actuar sobre una conjetura.
 
 **Qué está verificado y qué no.** Compila y enlaza con un SDK reciente de Xcode. **La aplicación en vivo no está verificada**: ningún permiso restringido de Apple consta como utilizable (ni la aprobación de la extensión de sistema y de Acceso total al disco), así que el estado global se muestra como solo observación y las pruebas de hardware HID siguen sin verificar {{ev:EV-EC-02}}. Tampoco hay prueba de que el sistema entregue a este cliente todos los eventos de teclado (el alcance de los eventos disponibles requiere pruebas con el sistema real).

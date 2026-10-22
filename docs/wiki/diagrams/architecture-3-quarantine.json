@@ -4,8 +4,8 @@
   "es": "Arquitectura de extremo a extremo, parte 3 de 3: ficheros que no pasan"
  },
  "alt": {
-  "en": "Files that do not pass go to the private quarantine store (admin/worker D1). A person reviews them through the admin API and panel and approves, deletes or keeps them. The decision goes back to rulecheck.py, so the next daily run re-validates them.",
-  "es": "Los ficheros que no pasan van al almacén privado de cuarentena (admin/worker D1). Una persona los revisa con la API y el panel de administración y los aprueba, borra o conserva. La decisión vuelve a rulecheck.py, y la siguiente ejecución diaria los revalida."
+  "en": "Files that do not pass go to the private quarantine store. A person reviews them through a private review service and panel and approves, deletes or keeps them. The decision goes back to rulecheck.py, so the next daily run re-validates them.",
+  "es": "Los ficheros que no pasan van al almacén privado de cuarentena. Una persona los revisa con un servicio privado de revisión y su panel y los aprueba, borra o conserva. La decisión vuelve a rulecheck.py, y la siguiente ejecución diaria los revalida."
  },
  "legend": {
   "en": "blue: sources and preparation; amber: classification and measurement; white with a thick border: publish gate; green: sealing and signing; purple: publication; red: quarantine path.",

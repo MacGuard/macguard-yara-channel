@@ -46,7 +46,7 @@ Piensa en el control de calidad de una panadería. El pan bueno sale a la tienda
 
 **Qué puede decidir una persona.** En el servicio privado de revisión, una persona revisora autorizada puede aprobar, rechazar, retener o enviar un candidato a revisión. Cada decisión exige un motivo registrado, y las peticiones están protegidas contra repeticiones y contra actuar sobre una versión obsoleta. No existe ninguna acción humana que produzca `RELEASED`: solo lo escribe `publish.yml` tras ver el archivo en un manifiesto verificado. {{ev:EV-YC-42}}
 
-**Hallazgos que NO se pueden aprobar.** Solo una lista cerrada de hallazgos de criterio se puede aceptar a mano: `costly-regex`, `filesize-loop`, `many-loops`, `unknown-module`, `include`, `license-unchecked`, `matches-benign-corpus`, `dependency-not-validated`. Todo lo demás es un control técnico: el panel no deja aprobar y `decide.py` lo vuelve a aplicar al ejecutar las decisiones. Una prueba mantiene idénticas ambas listas. {{ev:EV-YC-41}}
+**Hallazgos que NO se pueden aprobar.** Una persona puede dispensar los hallazgos de criterio con un motivo registrado; los fallos duros no. Todo lo demás es un control técnico: el panel no deja aprobar y `decide.py` lo vuelve a aplicar al ejecutar las decisiones. Una prueba mantiene idénticas ambas listas. {{ev:EV-YC-41}}
 
 | Código real | Qué significa | Por qué no se aprueba |
 |---|---|---|

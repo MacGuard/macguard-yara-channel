@@ -2,7 +2,7 @@
 flowchart TB
   e1["6 prepare.py: GET tarball en<br/>ese sha"]:::act
   e2["7 La API toma una<br/>instantánea de ese commit<br/>del repositorio origen"]:::ext
-  e3["8 El origen devuelve un<br/>tar.gz (máx. 90 MB)"]:::ext
+  e3["8 El origen devuelve un<br/>archivo comprimido<br/>(tamaño acotado)"]:::ext
   e1 --> e2
   e2 --> e3
   classDef act fill:#cfe3ff,stroke:#2f6df0,color:#0b1b33

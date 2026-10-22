@@ -19,20 +19,11 @@ Un detector de metales del aeropuerto suena con unas llaves (falso positivo) y p
 ## Falsos positivos y negativos
 
 - **Falsos positivos.** La puerta dinámica ejecuta cada conjunto de reglas contra un **corpus benigno** y pone en cuarentena una regla que acierta en demasiados archivos limpios. El límite es una fracción del corpus fijada en el código (`scripts/decide.py`); es un valor de política que puede cambiar {{ev:EV-YC-65}}.
-- **Falsos negativos.** No hay medida de cuántas amenazas reales se escapan. La única comprobación de detección es un pequeño conjunto de archivos «canario» inofensivos que deben detectarse siempre; prueban que el motor funciona, no que las reglas cubran el malware real {{ev:EV-YC-64}}.
+- **Falsos negativos.** No hay medida de cuántas amenazas reales se escapan. La única comprobación de detección es una comprobación canario que debe acertar siempre; muestra que la medición puede detectar un acierto, no que las reglas cubran el malware real {{ev:EV-YC-64}}.
 
 ## Límites del corpus benigno
 
-El corpus de `build_corpus` en `scripts/bench.py` es **pequeño y sintético** {{ev:EV-YC-64}}:
-
-| Parte | Contenido |
-|---|---|
-| Binarios aleatorios | Archivos sintéticos de tamaños variados |
-| Texto | Unos pocos archivos de texto |
-| Binarios del sistema | Algunos binarios del sistema operativo del ejecutor, los que existan |
-| Canarios | Unos pocos archivos, aparte del cómputo de falsos positivos |
-
-Consecuencias: no contiene software real variado (documentos, instaladores, aplicaciones), así que una regla puede ser demasiado genérica y pasar. Y como incluye binarios del sistema del ejecutor, **cambiar la imagen del ejecutor puede cambiar qué archivos coinciden** {{ev:EV-YC-65}}. Un defecto real: un archivo benigno se contaba una vez por copia de espacio de nombres y hacía superar el límite a reglas que no lo merecían; se corrigió contando archivos distintos, sin cambiar el límite {{ev:EV-YC-65}}.
+El corpus benigno es **pequeño y sintético**; mide genericidad grosera, no la tasa real de falsos positivos en el mundo {{ev:EV-YC-64}}. No contiene software real variado (documentos, instaladores, aplicaciones), así que una regla demasiado genérica puede pasar {{ev:EV-YC-65}}. Un defecto real: un archivo benigno se contaba una vez por copia de espacio de nombres y hacía superar el límite a reglas que no lo merecían; se corrigió contando archivos distintos, sin cambiar el límite {{ev:EV-YC-65}}.
 
 ## Coste de rendimiento
 

@@ -1,6 +1,6 @@
 {
  "schema": 1,
- "note": "Evidence matrix of the wiki. 'repo: self' entries are checked by CI (path and commit must exist). Entries about the private repositories are REQUIERE REVISION until the owner approves their publication; they carry commit ids and states only, never internal paths, identities or unpublished weaknesses.",
+ "note": "Evidence matrix of the wiki. 'repo: self' entries are checked by CI (path and commit must exist). Entries about the private repositories are REQUIERE REVISION until the owner approves their publication; they carry state and review date only, never internal paths, identities or unpublished weaknesses.",
  "entries": [
   {
    "id": "EV-YC-01",
@@ -169,8 +169,8 @@
    "state": "validation",
    "class": "REQUIERE REVISION",
    "claim": {
-    "es": "MacUSBGuard está en validación hacia una V1: su documentación lo describe como vista previa de desarrollo en modo solo observación; existen dos líneas de desarrollo divergentes. No importa otras aplicaciones MacGuard.",
-    "en": "MacUSBGuard is in validation towards a V1: its documentation describes it as a development preview in observe-only mode; two diverging development lines exist. It imports no other MacGuard application."
+    "es": "MacUSBGuard está en validación hacia una V1: su documentación lo describe como vista previa de desarrollo en modo solo observación; existen dos conjuntos de cifras de pruebas autoinformadas que no son comparables y no se volvió a ejecutar nada. No importa otras aplicaciones MacGuard.",
+    "en": "MacUSBGuard is in validation towards a V1: its documentation describes it as a development preview in observe-only mode; two sets of self-reported test figures exist, they are not comparable and nothing was re-run. It imports no other MacGuard application."
    }
   },
   {
@@ -215,7 +215,7 @@
    "class": "REQUIERE REVISION",
    "claim": {
     "es": "Fases de desarrollo de MacFirewallGuard: las iniciales están cerradas y una posterior está parcial. Bloqueos documentados: ningún permiso de Network Extension consta como utilizable y MacCoreGuard aún no existe como servicio. MacFirewallGuard tiene un cliente de MacCoreGuard probado solo contra un doble de prueba.",
-    "en": "MacFirewallGuard development phases: the early ones are closed and a later one is partial. Documented blockers: no Network Extension entitlement is confirmed as usable and MacCoreGuard does not yet exist as a service. MacFirewallGuard has a MacCoreGuard client tested only against a mock."
+    "en": "MacFirewallGuard development phases: the early ones are closed and a later one is partial. Documented blockers: no Network Extension entitlement is confirmed as usable and MacCoreGuard does not yet exist as a service. MacFirewallGuard has a MacCoreGuard client tested only against a test double."
    }
   },
   {
@@ -240,12 +240,12 @@
    "date": "2026-10-22",
    "source": "Private repository (MacCoreGuard), static review dated 2026-10-22",
    "confidence": "high",
-   "validation": "commit count and message read; static survey of the sources",
+   "validation": "static survey of the sources",
    "state": "prototype",
    "class": "REQUIERE REVISION",
    "claim": {
-    "es": "MacCoreGuard es un prototipo de un solo commit: implementa un protocolo y una capa criptográfica (cadena de hashes SHA-256 y árbol Merkle RFC 9162 con pruebas de inclusión y consistencia); registro, firma e ingesta son marcadores de posición.",
-    "en": "MacCoreGuard is a one-commit prototype: it implements a protocol and a cryptography layer (SHA-256 hash chain and an RFC 9162 Merkle tree with inclusion and consistency proofs); ledger, signing and ingest are placeholders."
+    "es": "MacCoreGuard es un prototipo sin publicar: implementa un protocolo y una capa criptográfica (una cadena de hashes que enlaza cada registro con el anterior y un árbol de Merkle según la RFC 9162, pública, con pruebas de inclusión y consistencia); registro, firma e ingesta son marcadores de posición.",
+    "en": "MacCoreGuard is an unpublished prototype: it implements a protocol and a cryptography layer (a hash chain that links each record to the previous one and a Merkle tree following RFC 9162, public, with inclusion and consistency proofs); ledger, signing and ingest are placeholders."
    }
   },
   {
@@ -355,8 +355,8 @@
    "state": "operational",
    "class": "PUBLICABLE",
    "claim": {
-    "es": "La política fija 1 000 000 bytes, 3000 reglas por archivo, módulos permitidos y bloqueados, puntuación de regex 7, hueco ancho 1000 y 3 bucles for.",
-    "en": "The policy sets 1,000,000 bytes, 3000 rules per file, allowed and blocked modules, regex score 7, wide gap 1000 and 3 for loops."
+    "es": "La política fija 1 000 000 bytes, 3000 reglas por archivo, módulos permitidos y bloqueados, puntuación de regex 7, hueco ancho 1000 y 3 bucles for; son puntos de partida de política que pueden cambiar.",
+    "en": "The policy sets 1,000,000 bytes, 3000 rules per file, allowed and blocked modules, regex score 7, wide gap 1000 and 3 for loops; these are policy starting points that can change."
    }
   },
   {
@@ -383,12 +383,12 @@
    "date": "2026-10-22",
    "source": "scripts/decide.py and tests/test_decide.py",
    "confidence": "high",
-   "validation": "file read at commit: closed set of waivable findings, corpus hit-rate limit, publishability conditions, anomaly gate from policy.json (0.15 removed, 0.4 changed)",
+   "validation": "file read at commit: waivable findings, publishability conditions, anomaly gate from policy.json (0.15 removed, 0.4 changed)",
    "state": "operational",
    "class": "PUBLICABLE",
    "claim": {
-    "es": "decide.py solo permite renunciar a hallazgos de juicio, exige que la medición dinámica corresponda al conjunto exacto, que se detecten los canarios y limita cambios masivos (15 % retirado, 40 % tocado).",
-    "en": "decide.py lets a human waive only judgment findings, requires the dynamic measurement to belong to the exact set, canaries to be detected, and limits mass changes (15 % removed, 40 % touched)."
+    "es": "decide.py solo permite renunciar a hallazgos de juicio, exige que la medición dinámica corresponda al conjunto exacto, que pase la comprobación canario y limita cambios masivos (15 % retirado, 40 % tocado).",
+    "en": "decide.py lets a human waive only judgment findings, requires the dynamic measurement to belong to the exact set, the canary check to pass, and limits mass changes (15 % removed, 40 % touched)."
    }
   },
   {
@@ -413,14 +413,14 @@
    "path": "scripts/bench.py",
    "ref": "d3236cf",
    "date": "2026-10-22",
-   "source": "scripts/bench.py build_corpus and CANARY_RULES",
+   "source": "scripts/bench.py",
    "confidence": "high",
-   "validation": "file read at commit; the root-cause document describes the clean corpus",
+   "validation": "file read at commit",
    "state": "operational",
    "class": "PUBLICABLE",
    "claim": {
-    "es": "El corpus benigno es determinista, pequeño y sintético, con un conjunto aparte de archivos canario.",
-    "en": "The benign corpus is deterministic, small and synthetic, with a separate set of canary files."
+    "es": "El corpus benigno es pequeño y sintético; mide genericidad grosera, no la tasa real de falsos positivos. Existe una comprobación canario que prueba que la medición puede detectar un acierto.",
+    "en": "The benign corpus is small and synthetic; it measures gross genericity, not the real-world false-positive rate. A canary check exists to prove the measurement can detect a match."
    }
   },
   {
@@ -499,8 +499,8 @@
    "state": "operational",
    "class": "PUBLICABLE",
    "claim": {
-    "es": "macguard_smoke.py ejecuta la CLI macguard-audit sobre el corpus seguro con las reglas candidatas e informa de caídas, cuelgues, percentiles y canarios; no decide la publicación.",
-    "en": "macguard_smoke.py runs the macguard-audit CLI over the safe corpus with the candidate rules and reports crashes, hangs, percentiles and canaries; it does not decide publication."
+    "es": "macguard_smoke.py ejecuta la CLI macguard-audit sobre el corpus benigno con las reglas candidatas e informa de caídas, cuelgues, percentiles y el resultado de la comprobación canario; no decide la publicación.",
+    "en": "macguard_smoke.py runs the macguard-audit CLI over the benign corpus with the candidate rules and reports crashes, hangs, percentiles and the canary check result; it does not decide publication."
    }
   },
   {
@@ -605,7 +605,7 @@
    "path": "docs/audit/historical-archive-triple-spec.md",
    "ref": "8423c75",
    "date": "2026-10-22",
-   "source": "spec section 14 and checkout listing of docs/",
+   "source": "spec section 14 and listing of docs/",
    "confidence": "high",
    "validation": "file read at commit; the setup guide is not yet in the repository",
    "state": "planned",
@@ -637,14 +637,14 @@
    "path": "scripts/bench.py",
    "ref": "d3236cf",
    "date": "2026-10-22",
-   "source": "scripts/bench.py build_corpus, CANARY_RULES",
+   "source": "scripts/bench.py",
    "confidence": "high",
-   "validation": "file read at commit (corpus builder)",
+   "validation": "file read at commit",
    "state": "operational",
    "class": "PUBLICABLE",
    "claim": {
-    "es": "El corpus benigno es sintético y pequeño, con un conjunto aparte de archivos canario.",
-    "en": "The benign corpus is synthetic and small, with a separate set of canary files."
+    "es": "El corpus benigno es pequeño y sintético; mide genericidad grosera, no la tasa real de falsos positivos. Existe una comprobación canario que prueba que la medición puede detectar un acierto.",
+    "en": "The benign corpus is small and synthetic; it measures gross genericity, not the real-world false-positive rate. A canary check exists to prove the measurement can detect a match."
    }
   },
   {
@@ -659,8 +659,8 @@
    "state": "operational",
    "class": "PUBLICABLE",
    "claim": {
-    "es": "La puerta dinámica pone en cuarentena una regla que coincide con una fracción demasiado grande del corpus benigno (un límite fijado en el código); un defecto de recuento por espacio de nombres se corrigió sin cambiar el límite y el resultado depende de los binarios de la imagen del ejecutor.",
-    "en": "The dynamic gate quarantines a rule that matches too large a share of the benign corpus (a limit set in the code); a per-namespace counting defect was fixed without changing the limit and the result depends on the runner image's binaries."
+    "es": "La puerta dinámica pone en cuarentena una regla que coincide con una fracción demasiado grande del corpus benigno (un límite fijado en el código, que puede cambiar); un defecto de recuento por espacio de nombres se corrigió sin cambiar el límite.",
+    "en": "The dynamic gate quarantines a rule that matches too large a share of the benign corpus (a limit set in the code, which can change); a per-namespace counting defect was fixed without changing the limit."
    }
   },
   {
@@ -899,14 +899,14 @@
    "path": "scripts/decide.py",
    "ref": "81981a7",
    "date": "2026-10-22",
-   "source": "scripts/decide.py, scripts/rulecheck.py finding codes and the review service code",
+   "source": "scripts/decide.py, scripts/rulecheck.py and the private review service",
    "confidence": "high",
    "validation": "file read at commit; tests.test_admission (waivable-list parity between the pipeline and the review service) and tests.test_decide run OK 2026-10-22",
    "state": "operational",
    "class": "PUBLICABLE",
    "claim": {
-    "es": "Solo una lista cerrada de hallazgos de criterio es aprobable a mano; truncado, corrupción, errores de compilación, módulo bloqueado, licencia cambiada, fallo dinámico y contenido rechazado antes no se pueden aprobar, y decide.py lo aplica de nuevo.",
-    "en": "Only a closed list of judgment findings can be approved by hand; truncation, corruption, compile errors, blocked module, changed license, dynamic failure and previously rejected content cannot be approved, and decide.py enforces it again."
+    "es": "Los hallazgos de criterio los puede dispensar una persona con un motivo registrado; los fallos duros no se pueden dispensar, y decide.py lo aplica de nuevo.",
+    "en": "Judgment findings can be waived by a person with a recorded reason; hard failures cannot be waived, and decide.py enforces it again."
    }
   },
   {
@@ -1204,12 +1204,12 @@
    "date": "2026-10-22",
    "source": "Private repository (MacUSBGuard), static review dated 2026-10-22",
    "confidence": "high",
-   "validation": "README and development history read statically; nothing executed.",
+   "validation": "README and project documents read statically; nothing executed.",
    "state": "validation",
    "class": "REQUIERE REVISION",
    "claim": {
-    "es": "MacUSBGuard separa cuatro dominios (HID, almacenamiento, red USB, llaves de acceso) y está diseñado para bloquear por defecto un dispositivo nuevo con el Mac bloqueado; hoy solo observa. Existen dos líneas de desarrollo divergentes cuyas cifras no se suman.",
-    "en": "MacUSBGuard separates four domains (HID, storage, USB network, access keys) and is designed to block a new device by default while the Mac is locked; today it only observes. Two diverging development lines exist and their figures are not added."
+    "es": "MacUSBGuard separa cuatro dominios (HID, almacenamiento, red USB, llaves de acceso) y está diseñado para bloquear por defecto un dispositivo nuevo con el Mac bloqueado; hoy solo observa. Existen dos conjuntos de cifras de pruebas autoinformadas que no son comparables y no se volvió a ejecutar nada.",
+    "en": "MacUSBGuard separates four domains (HID, storage, USB network, access keys) and is designed to block a new device by default while the Mac is locked; today it only observes. Two sets of self-reported test figures exist, they are not comparable and nothing was re-run."
    }
   },
   {
@@ -1238,8 +1238,8 @@
    "state": "planned",
    "class": "REQUIERE REVISION",
    "claim": {
-    "es": "DriverKit no forma parte del producto actual de MacUSBGuard; solo existe código de controlador en líneas de desarrollo no publicadas, fuera del producto, y su verificación con el permiso de Apple está pendiente.",
-    "en": "DriverKit is not part of the current MacUSBGuard product; driver code exists only on unreleased development lines outside the product, and verification with Apple's entitlement is pending."
+    "es": "DriverKit no forma parte del producto actual de MacUSBGuard; es una opción explorada y no está verificada.",
+    "en": "DriverKit is not part of the current MacUSBGuard product; it is an explored option and is not verified."
    }
   },
   {
@@ -1298,8 +1298,8 @@
    "state": "validation",
    "class": "REQUIERE REVISION",
    "claim": {
-    "es": "MacUSBGuard es un paquete Swift sin dependencias externas con un diseño por capas en el que el componente con privilegios no alcanza la interfaz de usuario ni Endpoint Security.",
-    "en": "MacUSBGuard is a Swift package with no external dependencies and a layered design in which the privileged component does not reach the user interface or Endpoint Security."
+    "es": "MacUSBGuard es un paquete Swift sin dependencias externas con un diseño por capas (lógica de decisión, adaptadores de plataforma e interfaz).",
+    "en": "MacUSBGuard is a Swift package with no external dependencies and a layered design (decision logic, platform adapters and interface)."
    }
   },
   {
@@ -1313,8 +1313,8 @@
    "state": "prototype",
    "class": "REQUIERE REVISION",
    "claim": {
-    "es": "MacCore implementa una cadena de hashes SHA-256 con separación de dominios y un árbol de Merkle según RFC 9162 con pruebas de inclusión y consistencia; sin ejecutar.",
-    "en": "MacCore implements a SHA-256 hash chain with domain separation and an RFC 9162 Merkle tree with inclusion and consistency proofs; not executed."
+    "es": "MacCore implementa una cadena de hashes que enlaza cada registro con el anterior y un árbol de Merkle según la RFC 9162 (pública) con pruebas de inclusión y consistencia; sin ejecutar.",
+    "en": "MacCore implements a hash chain that links each record to the previous one and a Merkle tree following RFC 9162 (public) with inclusion and consistency proofs; not executed."
    }
   },
   {
@@ -1504,8 +1504,8 @@
    "state": "development",
    "class": "REQUIERE REVISION",
    "claim": {
-    "es": "MacFirewallGuard tiene capas de lógica central, auditoría, plataforma, interfaz y línea de órdenes, con motor de políticas, resolución de firmas de código, analizadores de protocolos, un sensor de paquetes opcional y una app SwiftUI. Network Extension aparece solo como puente de traducción; no hay extensión del sistema ni archivo de entitlements. Endpoint Security y Rust no tienen código.",
-    "en": "MacFirewallGuard has layers for core logic, audit, platform, interface and command line, with a policy engine, code-signature resolution, protocol parsers, an optional packet sensor and a SwiftUI app. Network Extension appears only as a translation bridge; there is no system extension and no entitlement file. Endpoint Security and Rust have no code."
+    "es": "MacFirewallGuard tiene capas de lógica de dominio, adaptadores de plataforma e interfaz, con motor de políticas, resolución de firmas de código, analizadores de protocolos, un sensor de paquetes opcional y una app SwiftUI. Network Extension aparece solo como puente de traducción; no hay extensión del sistema ni archivo de entitlements. Endpoint Security y Rust no tienen código.",
+    "en": "MacFirewallGuard has layers for domain logic, platform adapters and interface, with a policy engine, code-signature resolution, protocol parsers, an optional packet sensor and a SwiftUI app. Network Extension appears only as a translation bridge; there is no system extension and no entitlement file. Endpoint Security and Rust have no code."
    }
   },
   {
@@ -1564,8 +1564,8 @@
    "state": "concept",
    "class": "REQUIERE REVISION",
    "claim": {
-    "es": "En el código de MacFirewallGuard solo hay huecos reservados para MacProcessGuard (una categoría de correlación no implementada y una referencia de identidad de proceso con proveedor ausente).",
-    "en": "In the MacFirewallGuard code there are only reserved slots for MacProcessGuard (a not-implemented correlation category and a process-identity reference with an absent provider)."
+    "es": "En el código de MacFirewallGuard solo hay un hueco reservado para la identidad de proceso (MacProcessGuard), no implementado.",
+    "en": "In the MacFirewallGuard code there is only a reserved slot for process identity (MacProcessGuard), not implemented."
    }
   },
   {
@@ -1794,7 +1794,7 @@
    "date": "2026-10-22",
    "source": "Repository tree at origin/main (find for LICENSE*, COPYING*) and GitHub repository metadata",
    "confidence": "high",
-   "validation": "git ls-tree of origin/main and find over the checkout found no LICENSE or COPYING file at the root (only web/vendor/mermaid-LICENSE.txt, a vendored third-party notice); gh api repos/MacGuard/macguard-yara-channel reports license null.",
+   "validation": "git ls-tree of origin/main and find over the repository tree found no LICENSE or COPYING file at the root (only web/vendor/mermaid-LICENSE.txt, a vendored third-party notice); gh api repos/MacGuard/macguard-yara-channel reports license null.",
    "state": "blocked",
    "class": "PUBLICABLE",
    "claim": {
@@ -1824,7 +1824,7 @@
    "path": ".github",
    "ref": "81981a7",
    "date": "2026-10-22",
-   "source": ".github directory at origin/main; brief from the owner's work plan",
+   "source": ".github directory at origin/main; not yet published",
    "confidence": "medium",
    "validation": "ls .github shows CODEOWNERS, dependabot.yml and workflows only; no ISSUE_TEMPLATE directory.",
    "state": "planned",

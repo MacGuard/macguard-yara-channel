@@ -22,20 +22,17 @@ Think of a doorman with a guest list who checks your ID card, not the visitor's 
 2. A signature resolver finds out the real code signature of the process.
 3. The policy engine evaluates the rules: match, no match or **indeterminate** when evidence is missing.
 4. An enforcement step turns the decision into an action. Without a usable entitlement, a block decision ends as "action unavailable: entitlement missing" {{ev:EV-EC-60}}.
-5. An audit event is created and kept in a local queue; sending it to MacCoreGuard has only been tested against a mock {{ev:EV-EC-04}}.
+5. An audit event is created and kept in a local queue; sending it to MacCoreGuard has only been tested against a test double {{ev:EV-EC-04}}.
 
 ## Under the hood
 
-Layered architecture (from the package manifest) {{ev:EV-EC-63}}:
+Layered architecture {{ev:EV-EC-63}}:
 
 | Layer | Role |
 |---|---|
-| Core domain | Pure domain (flows, policy, DNS, correlation, network) |
-| Audit | Canonical events and a durable local queue |
-| Platform | The only layer touching Apple frameworks (Security, Network, SystemConfiguration, NetworkExtension as a translation bridge) |
-| Packet-filter shim | Small C module with packet-filter constants |
-| User interface | SwiftUI app (uses the shared MacGuardDesignKit library, the only external dependency) |
-| Command line | Read-only tool to inspect capabilities, privileges and events |
+| Domain logic | Pure logic: flows, policy, DNS, correlation, network, audit events and a local queue |
+| Platform adapters | The only layer that talks to Apple frameworks |
+| Interface | A SwiftUI app (uses the shared MacGuardDesignKit library) and a read-only command-line tool |
 
 Algorithms with code behind them (problem, evidence):
 
@@ -45,9 +42,9 @@ Algorithms with code behind them (problem, evidence):
 - **Network integrity rules**: detect VPN, route or DNS changes; observe and alert modes only.
 - Optional **packet-capture sensor**: on the development machine access was denied for lack of permissions {{ev:EV-EC-64}}.
 
-### Transport to MacCoreGuard: XPC or socket
+### Channel to MacCoreGuard
 
-The architecture documentation speaks of "authenticated XPC" as the target design on the MacCore side. **The client code uses a local Unix socket** with length-prefixed JSON messages; a comment in the audit client mentions XPC as a future intention, but there is no XPC implementation in the production sources {{ev:EV-EC-61}}. The client checks, using the kernel credential of the socket peer, the signature of the process at the other end. That check and the server are exercised only with a test-only mock server.
+The architecture documentation describes an authenticated channel as the target design on the MacCore side. **The client uses a simpler local channel than the target design; the production sources do not contain the target implementation** {{ev:EV-EC-61}}. The client and its checks are exercised only against a test double.
 
 ## Check it yourself
 
@@ -71,7 +68,7 @@ Pending per its own closeout: no real packet capture, no thread-sanitizer run, n
 | Capability | State |
 |---|---|
 | Policy engine, flow model, signature resolution, SwiftUI app, command line | Implemented, not deployed |
-| MacCoreGuard client (local socket) | Implemented, tested only with a mock |
+| MacCoreGuard client (simple local channel) | Implemented, tested only against a test double |
 | Real observation and blocking (system extension) | Planned, no entitlement confirmed as usable |
 | Endpoint Security, packet tap, Rust | Planned or outside this repository; no code |
 

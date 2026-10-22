@@ -46,7 +46,7 @@ Think of quality control in a bakery. Good bread goes to the shop. Burnt or brok
 
 **What a person can decide.** In the private review service an authorized reviewer can approve, reject, hold or send a candidate to review. Each decision needs a recorded reason, and requests are protected against repeats and against acting on a stale version. No human action produces `RELEASED`: only `publish.yml` writes it, after seeing the file in a verified manifest. {{ev:EV-YC-42}}
 
-**Findings that can NOT be approved.** Only a closed list of judgment findings may be accepted by hand: `costly-regex`, `filesize-loop`, `many-loops`, `unknown-module`, `include`, `license-unchecked`, `matches-benign-corpus`, `dependency-not-validated`. Everything else is a technical control: the panel refuses to approve it and `decide.py` applies the rule again when it executes decisions. A test keeps both lists identical. {{ev:EV-YC-41}}
+**Findings that can NOT be approved.** Judgment findings can be waived by a person with a recorded reason; hard failures cannot. Everything else is a technical control: the panel refuses to approve it and `decide.py` applies the rule again when it executes decisions. A test keeps both lists identical. {{ev:EV-YC-41}}
 
 | Real code | What it means | Why it cannot be approved |
 |---|---|---|

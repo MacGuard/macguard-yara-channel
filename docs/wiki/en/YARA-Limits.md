@@ -19,20 +19,11 @@ An airport metal detector beeps for a set of keys (false positive) and may stay 
 ## False positives and false negatives
 
 - **False positives.** The dynamic gate runs each rule set against a **benign corpus** and quarantines a rule that hits too many clean files. The limit is a share of the corpus set in the code (`scripts/decide.py`); it is a policy value that can change {{ev:EV-YC-65}}.
-- **False negatives.** There is no measure of how many real threats slip through. The only detection check is a small set of harmless "canary" files that must always fire; they show the engine works, not that the rules cover real malware {{ev:EV-YC-64}}.
+- **False negatives.** There is no measure of how many real threats slip through. The only detection check is a canary check that must always fire; it shows the measurement can detect a match, not that the rules cover real malware {{ev:EV-YC-64}}.
 
 ## Limits of the benign corpus
 
-The corpus built by `build_corpus` in `scripts/bench.py` is **small and synthetic** {{ev:EV-YC-64}}:
-
-| Part | Content |
-|---|---|
-| Random binaries | Synthetic files of varied size |
-| Text | A few text files |
-| System binaries | Some binaries of the runner's operating system, whichever exist |
-| Canaries | A few files, kept apart from the false-positive count |
-
-Consequences: it holds no varied real-world software (documents, installers, applications), so an over-generic rule may still pass. And because it includes the runner's system binaries, **changing the runner image can change which files match** {{ev:EV-YC-65}}. A real defect: one benign file was counted once per namespace copy and pushed rules over the limit unfairly; it was fixed by counting distinct files, without changing the limit {{ev:EV-YC-65}}.
+The benign corpus is **small and synthetic**; it measures gross genericity, not the real-world false-positive rate {{ev:EV-YC-64}}. It holds no varied real-world software (documents, installers, applications), so an over-generic rule may still pass {{ev:EV-YC-65}}. A real defect: one benign file was counted once per namespace copy and pushed rules over the limit unfairly; it was fixed by counting distinct files, without changing the limit {{ev:EV-YC-65}}.
 
 ## Performance cost
 

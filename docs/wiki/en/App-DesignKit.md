@@ -27,11 +27,11 @@ On the map it sits among the "shared building blocks": a supporting piece that a
 1. An application declares the package as a SwiftPM dependency.
 2. It builds its screens with the library's ready-made components (cards, status badges, tables...).
 3. The components apply the design system's colors, typography and spacing.
-4. A heuristic check script can scan the application's code for hand-written colors or font sizes that bypass the system.
+4. A heuristic check can scan the application's code for hand-written colors or font sizes that bypass the system.
 
 ## Architecture
 
-One library plus its tests, for macOS 13 or later, **with no external dependencies** {{ev:EV-EC-31}}. It is organized by theme (colors, spacing, typography, components, tables, search, states, charts styling). It imports only Apple's UI and graphics frameworks and **does not use the Charts framework**; charts are styling only.
+One library plus its tests, for macOS 13 or later, **with no external dependencies** {{ev:EV-EC-31}}. It is a single library of shared interface building blocks. It imports only Apple's UI and graphics frameworks and **does not use the Charts framework**.
 
 **Hard constraint** (documented and checkable): it must not depend on system-level security technologies or on any internal module of the applications. That is why it needs no special permissions or provisioning profiles.
 
@@ -45,11 +45,11 @@ One library plus its tests, for macOS 13 or later, **with no external dependenci
 | Destructive button and confirmation dialog | Destructive actions without confirmation | The confirmation cannot be skipped | See the [evidence matrix](EN-Evidence) |
 | Sortable table | Consistent sortable tables | Generic table over identifiable data, with accessible grouping of rows | See the [evidence matrix](EN-Evidence) |
 
-What it does **not** guarantee: that an application using it is accessible (that depends on how it is used), nor does it replace human VoiceOver validation. The anti-drift script is heuristic and can give false positives and negatives.
+What it does **not** guarantee: that an application using it is accessible (that depends on how it is used), nor does it replace human VoiceOver validation. The design-consistency check is heuristic and can give false positives and negatives.
 
 ## Tests
 
-The library has a small test target (static reading, **not run**); no execution results are documented in the repository {{ev:EV-EC-32}}. The README acknowledges some anti-drift findings in its own sources that were left unmarked.
+The library has a small test target (static reading, **not run**); no execution results are documented in the repository {{ev:EV-EC-32}}. The README acknowledges some design-consistency findings in its own sources that were left unmarked.
 
 ## Check it yourself
 

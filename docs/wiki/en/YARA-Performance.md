@@ -16,7 +16,7 @@ It is like asking someone to compare every page of a book against a list of 1000
 
 ## Step by step
 
-1. A safe, deterministic corpus is built (`bench.build_corpus`).
+1. A small synthetic benign corpus is built.
 2. `yarac` compiles the set and the compile cost is measured.
 3. `yara -p 1` scans each file (10 s limit per file); wall time, CPU and peak memory of each process are recorded.
 4. This is repeated 5 times for the previous release and for the candidate, and the median is compared with the previous one's noise.
@@ -47,8 +47,8 @@ The static review (`analyse_text` in `rulecheck.py`) turns shapes like these int
 
 ### What the channel really measures
 
-- `scripts/bench.py`: compilation (time, CPU, RSS), scanning (p50, p95, p99, total CPU, peak RSS, errors, hangs, crashes), canaries and hits on the clean corpus. The corpus is small and synthetic (see [Limits](EN-YARA-Limits)). The report flags whether the percentiles have at least 50 samples (`min_samples_for_percentiles`, field `percentiles_reported`). Thresholds are on [Validation](EN-YARA-Validation). {{ev:EV-YC-28}}
-- `scripts/macguard_smoke.py`: runs the `macguard-audit` CLI over the same corpus plus a `.app` bundle, a `.tgz` and a `.zip` built with system tools, with the **candidate** rules installed in a private directory, and reports crashes, hangs, errors, p50/p95/p99, peak memory and canaries detected. It runs in the `app-compat` job of `daily.yml`, which **reports and does not decide** publication. {{ev:EV-YC-34}}
+- `scripts/bench.py`: compilation (time, CPU, RSS), scanning (p50, p95, p99, total CPU, peak RSS, errors, hangs, crashes), the canary check and hits on the clean corpus. The corpus is small and synthetic (see [Limits](EN-YARA-Limits)). The report flags whether the percentiles have at least 50 samples (`min_samples_for_percentiles`, field `percentiles_reported`). Thresholds are on [Validation](EN-YARA-Validation). {{ev:EV-YC-28}}
+- `scripts/macguard_smoke.py`: runs the `macguard-audit` CLI over the same corpus plus sample packages built with system tools, with the **candidate** rules installed in a private directory, and reports crashes, hangs, errors, p50/p95/p99, peak memory and the canary check result. It runs in the `app-compat` job of `daily.yml`, which **reports and does not decide** publication. {{ev:EV-YC-34}}
 - **Numbers stored in the repository:** the public log (`logs/log.jsonl`) stores, for every daily review with a measurement, `scan_p95_s`, `scan_rss_peak_mb` and `compile_rss_mb`. Across the 10 entries with a measurement (2026-10-18 to 2026-10-22, YARA engine 4.5.0): scan p95 between 0.1676 and 0.1988 s; scan peak RSS between 84.3 and 86.6 MB; compile RSS between 72.7 and 73.7 MB; gate duration between 81 and 174 s. These are measurements on a CI runner, not performance promises for a Mac. {{ev:EV-YC-33}}
 - `docs/audit/root-cause-benign-hit-count-2026-10-20.md` stores a comparison in a shared container: scan p95 0.54 s (baseline) and 0.46 s (candidate); compile 6.19 s and 4.94 s; absolute times were about five times worse than on the runner, according to the document itself. {{ev:EV-YC-33}}
 
@@ -81,7 +81,7 @@ The static review (`analyse_text` in `rulecheck.py`) turns shapes like these int
 
 | Capability | State |
 |---|---|
-| Rule measurement with the real engine (compile, scan, regression, canaries) | operational {{ev:EV-YC-28}} |
+| Rule measurement with the real engine (compile, scan, regression, canary check) | operational {{ev:EV-YC-28}} |
 | CLI smoke test with the candidate rules | operational (reports, does not decide) {{ev:EV-YC-34}} |
 | End-to-end performance test with Installer Auditor and the live channel | planned {{ev:EV-YC-10}} |
 | Concurrency tests between scanning and rule updates | planned {{ev:EV-YC-35}} |

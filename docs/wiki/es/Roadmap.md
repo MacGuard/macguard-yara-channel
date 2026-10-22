@@ -41,8 +41,8 @@ Etapas usadas: concepto, prototipo, desarrollo, validación, candidata a versió
 
 ### MacUSBGuard
 
-- **Fase:** validación (existe una candidata a versión en una de dos líneas de desarrollo).
-- **Hecho:** un hito de candidata a versión e informes de auditoría {{ev:EV-EC-01}}.
+- **Fase:** validación (se ha preparado una candidata a versión).
+- **Hecho:** una candidata a versión preparada e informes de auditoría {{ev:EV-EC-01}}.
 - **Bloqueos:** ningún permiso de Endpoint Security consta como utilizable {{ev:EV-EC-02}}.
 - **Siguiente:** candidata a V1; el siguiente frente de trabajo aún no está elegido.
 
@@ -58,7 +58,7 @@ Etapas usadas: concepto, prototipo, desarrollo, validación, candidata a versió
 - **Fase:** prototipo.
 - **Hecho:** protocolo y capa criptográfica con pruebas propias {{ev:EV-EC-06}}.
 - **Bloqueos:** registro, firma e ingesta son marcadores de posición.
-- **Siguiente:** oleadas de trabajo por etapas, sin fechas.
+- **Siguiente:** trabajo planificado, sin fechas.
 
 ### MacGuardDesignKit
 
@@ -93,4 +93,4 @@ Los números son los que informa GitHub en la fecha indicada (se refrescan con `
 ## Lo que todavía no sabemos
 
 - Las fechas de entrega: no están definidas ni respaldadas.
-- El estado de los proyectos privados más allá de los commits revisados: cada fila indica el commit de referencia en la [matriz de evidencias](ES-Evidence).
+- El estado de los proyectos privados más allá de lo revisado: cada fila indica el estado y la fecha de revisión en la [matriz de evidencias](ES-Evidence).

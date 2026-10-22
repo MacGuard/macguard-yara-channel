@@ -18,15 +18,14 @@ Es un hueco reservado en un plano: alguien dibujó una puerta con la etiqueta "a
 
 1. El README de MacFirewallGuard dice literalmente que MacProcessGuard "todavía no existe" {{ev:EV-EC-05}}.
 2. Sus documentos de arquitectura lo llaman producto hermano "separado, aún no iniciado"; una decisión registrada lo mantiene como producto separado {{ev:EV-EC-66}}.
-3. En el código de MacFirewallGuard solo hay **huecos reservados**: una categoría de correlación de marcador de posición marcada como "aún no implementada; reservada" y una referencia de identidad de proceso cuyo estado de proveedor es "ausente" {{ev:EV-EC-67}}.
-4. Hay marcadores de interfaz propuestos (una barra lateral "Actividad de procesos"); son maquetas de diseño, no funciones {{ev:EV-EC-66}}.
+3. En el código de MacFirewallGuard solo hay **un hueco reservado para la identidad de proceso, no implementado** {{ev:EV-EC-67}}.
+4. Hay maquetas de interfaz propuestas; son dibujos de diseño, no funciones {{ev:EV-EC-66}}.
 
 ## Cómo funciona por dentro
 
-No hay algoritmos que describir. Lo único con código es la **frontera** del lado de MacFirewallGuard, hecha de huecos reservados:
+No hay algoritmos que describir. Lo único con código es la **frontera** del lado de MacFirewallGuard, hecha de un único hueco reservado:
 
-- una referencia de identidad de proceso que identifica un proceso y lleva un estado de correlación; en producción ese estado queda siempre "ausente" {{ev:EV-EC-67}}.
-- una lista de productores externos reconocidos; un productor no reconocido se trata como no admisible.
+- un hueco reservado para la identidad de proceso, no implementado {{ev:EV-EC-67}}.
 
 Lo que MacFirewallGuard **dice** que haría MacProcessGuard (procedencia de ejecución, hash del ejecutable, linaje de procesos, persistencia, detección de inyección) es una **frontera trazada por otro proyecto**, no un compromiso ni una especificación {{ev:EV-EC-66}}. Se nombra Endpoint Security como la API adecuada, pero no hay código ni permiso de Apple utilizable para ella en este ecosistema. No se documenta el uso de XPC, YARA ni de ninguna otra tecnología.
 

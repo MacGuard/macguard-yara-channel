@@ -18,15 +18,14 @@ It is a reserved gap on a floor plan: someone drew a door labelled "process cont
 
 1. The MacFirewallGuard README literally says MacProcessGuard "does not exist yet" {{ev:EV-EC-05}}.
 2. Its architecture documents call it a "separate, not-yet-started" sibling product; a recorded decision keeps it as a separate product {{ev:EV-EC-66}}.
-3. In the MacFirewallGuard code there are only **reserved slots**: a placeholder correlation category marked "not implemented yet; reserved" and a process-identity reference whose provider state is "absent" {{ev:EV-EC-67}}.
-4. There are proposed interface placeholders (a "Process Activity" sidebar); they are design mock-ups, not functions {{ev:EV-EC-66}}.
+3. In the MacFirewallGuard code there is only **a reserved slot for process identity, not implemented** {{ev:EV-EC-67}}.
+4. There are proposed interface mock-ups; they are design drawings, not functions {{ev:EV-EC-66}}.
 
 ## Under the hood
 
-There are no algorithms to describe. The only thing with code is the **boundary** on the MacFirewallGuard side, made of reserved slots:
+There are no algorithms to describe. The only thing with code is the **boundary** on the MacFirewallGuard side, made of a single reserved slot:
 
-- a process-identity reference that identifies a process and carries a correlation state; in production that state always stays "absent" {{ev:EV-EC-67}}.
-- a list of recognized external producers; an unrecognized producer is treated as not admissible.
+- a reserved slot for process identity, not implemented {{ev:EV-EC-67}}.
 
 What MacFirewallGuard **says** MacProcessGuard would do (execution provenance, executable hash, process lineage, persistence, injection detection) is a **boundary drawn by another project**, not a commitment or a specification {{ev:EV-EC-66}}. Endpoint Security is named as the suitable API, but there is no code and no usable Apple permission for it in this ecosystem. No use of XPC, YARA or any other technology is documented.
 

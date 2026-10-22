@@ -1,7 +1,7 @@
 flowchart TB
   P["Producer proposes<br/>an event"]:::plan --> I["Ingest service<br/>placeholder"]:::plan
-  I --> C["Canonical JSON bytes<br/>implemented"]:::done
-  C --> H["chain hash: SHA-256 of<br/>previous hash, sequence<br/>and event bytes<br/>implemented"]:::done
+  I --> C["Canonical event form<br/>implemented"]:::done
+  C --> H["Hash chain linking each<br/>record to the previous<br/>one: implemented"]:::done
   H --> L["Durable ledger on disk<br/>placeholder"]:::plan
   H --> M["Merkle root per checkpoint<br/>RFC 9162, implemented"]:::done
   M --> S["Signed checkpoint<br/>placeholder"]:::plan

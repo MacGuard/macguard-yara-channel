@@ -1,8 +1,8 @@
 %%{init: {"flowchart": {"wrappingWidth": 300}}}%%
 flowchart TB
   d["decide.py<br/>PUERTA: no aprobado"]:::gate
-  q["Almacén privado de<br/>cuarentena<br/>admin/worker D1"]:::bad
-  api["API y panel de<br/>administración"]:::bad
+  q["Almacén privado de<br/>cuarentena"]:::bad
+  api["Servicio privado de<br/>revisión y panel"]:::bad
   hr["Revisión humana<br/>aprobar, borrar<br/>o conservar"]:::bad
   r["decisión: vuelta a<br/>rulecheck.py"]:::chk
   d --> q

@@ -1,7 +1,7 @@
 flowchart TB
   P["Un productor propone<br/>un evento"]:::plan --> I["Servicio de ingesta<br/>marcador"]:::plan
-  I --> C["Bytes de JSON canónico<br/>implementado"]:::done
-  C --> H["hash de cadena: SHA-256 de<br/>hash previo, secuencia<br/>y bytes del evento<br/>implementado"]:::done
+  I --> C["Forma canónica del evento<br/>implementado"]:::done
+  C --> H["Cadena de hashes que enlaza<br/>cada registro con el<br/>anterior: implementado"]:::done
   H --> L["Registro duradero en disco<br/>marcador"]:::plan
   H --> M["Raíz Merkle por punto de<br/>control, RFC 9162,<br/>implementado"]:::done
   M --> S["Punto de control firmado<br/>marcador"]:::plan

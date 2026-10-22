@@ -16,7 +16,7 @@ Es como pedir a alguien que compare cada página de un libro con una lista de 10
 
 ## Paso a paso
 
-1. Se construye un corpus seguro y determinista (`bench.build_corpus`).
+1. Se construye un corpus benigno pequeño y sintético.
 2. `yarac` compila el conjunto y se mide el coste de compilar.
 3. `yara -p 1` escanea cada archivo (límite de 10 s por archivo); se registran tiempo, CPU y memoria máxima de cada proceso.
 4. Se repite 5 veces para la release anterior y para la candidata, y se compara la mediana con el ruido de la anterior.
@@ -47,8 +47,8 @@ La revisión estática (`analyse_text` en `rulecheck.py`) convierte formas como 
 
 ### Qué mide realmente el canal
 
-- `scripts/bench.py`: compilación (tiempo, CPU, RSS), escaneo (p50, p95, p99, CPU total, RSS máximo, errores, cuelgues, caídas), canarios y aciertos en el corpus limpio. El corpus es pequeño y sintético (ver [Límites](ES-YARA-Limits)). El informe marca si los percentiles tienen al menos 50 muestras (`min_samples_for_percentiles`, campo `percentiles_reported`). Umbrales en [Validación](ES-YARA-Validation). {{ev:EV-YC-28}}
-- `scripts/macguard_smoke.py`: ejecuta la CLI `macguard-audit` sobre el mismo corpus más un paquete `.app`, un `.tgz` y un `.zip` creados con herramientas del sistema, con las reglas **candidatas** instaladas en un directorio privado, e informa de caídas, cuelgues, errores, p50/p95/p99, memoria máxima y canarios detectados. Se ejecuta en el trabajo `app-compat` de `daily.yml`, que **informa y no decide** la publicación. {{ev:EV-YC-34}}
+- `scripts/bench.py`: compilación (tiempo, CPU, RSS), escaneo (p50, p95, p99, CPU total, RSS máximo, errores, cuelgues, caídas), comprobación canario y aciertos en el corpus limpio. El corpus es pequeño y sintético (ver [Límites](ES-YARA-Limits)). El informe marca si los percentiles tienen al menos 50 muestras (`min_samples_for_percentiles`, campo `percentiles_reported`). Umbrales en [Validación](ES-YARA-Validation). {{ev:EV-YC-28}}
+- `scripts/macguard_smoke.py`: ejecuta la CLI `macguard-audit` sobre el mismo corpus más paquetes de muestra creados con herramientas del sistema, con las reglas **candidatas** instaladas en un directorio privado, e informa de caídas, cuelgues, errores, p50/p95/p99, memoria máxima y el resultado de la comprobación canario. Se ejecuta en el trabajo `app-compat` de `daily.yml`, que **informa y no decide** la publicación. {{ev:EV-YC-34}}
 - **Números guardados en el repositorio:** el registro público (`logs/log.jsonl`) guarda, por cada revisión diaria con medición, `scan_p95_s`, `scan_rss_peak_mb` y `compile_rss_mb`. En las 10 entradas con medición (2026-10-18 a 2026-10-22, motor YARA 4.5.0): p95 de escaneo entre 0,1676 y 0,1988 s; RSS máximo de escaneo entre 84,3 y 86,6 MB; RSS de compilación entre 72,7 y 73,7 MB; duración de la puerta entre 81 y 174 s. Son mediciones en un ejecutor de CI, no promesas de rendimiento en un Mac. {{ev:EV-YC-33}}
 - `docs/audit/root-cause-benign-hit-count-2026-10-20.md` guarda una comparación en un contenedor compartido: p95 de escaneo 0,54 s (base) y 0,46 s (candidata); compilación 6,19 s y 4,94 s; los tiempos absolutos eran unas cinco veces peores que en el ejecutor, según el propio documento. {{ev:EV-YC-33}}
 
@@ -81,7 +81,7 @@ La revisión estática (`analyse_text` en `rulecheck.py`) convierte formas como 
 
 | Capacidad | Estado |
 |---|---|
-| Medición de reglas con el motor real (compilación, escaneo, regresión, canarios) | operativo {{ev:EV-YC-28}} |
+| Medición de reglas con el motor real (compilación, escaneo, regresión, comprobación canario) | operativo {{ev:EV-YC-28}} |
 | Prueba de humo de la CLI con las reglas candidatas | operativo (informa, no decide) {{ev:EV-YC-34}} |
 | Prueba de rendimiento de extremo a extremo con Installer Auditor y el canal real | planificado {{ev:EV-YC-10}} |
 | Pruebas de concurrencia entre escaneo y actualización | planificado {{ev:EV-YC-35}} |

@@ -1,5 +1,5 @@
 flowchart TB
-  C["Safe corpus<br/>random, text, system files,<br/>canary files"]:::src
+  C["Small synthetic corpus<br/>and a canary check"]:::src
   K["yarac compiles the set<br/>time and memory measured"]:::val
   S["yara scans each file<br/>10 s limit per file"]:::val
   M["Per process: wall time,<br/>CPU, peak memory"]:::val

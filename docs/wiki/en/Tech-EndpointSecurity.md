@@ -19,8 +19,7 @@ Events come in two kinds: **notify** (they only inform) and **authorization or A
 Only **MacUSBGuard**, and only like this {{ev:EV-EC-21}}:
 
 - Subscribed event: `ES_EVENT_TYPE_AUTH_IOKIT_OPEN` (someone opens a device in IOKit, the macOS layer that manages devices; used to decide on USB keyboards and mice while the Mac is locked).
-- Documented implementation: an Endpoint Security event adapter and a separate decision engine, using the three calls above.
-- The build separates the SDK-dependent adapter from the rest of the decision engine.
+- Documented implementation: an adapter for Endpoint Security events and a decision step, using the three calls above.
 - A decision without reliable device identity refuses to act on a guess.
 
 **What is verified and what is not.** It compiles and links against a recent Xcode SDK. **Live enforcement is unverified**: no Apple restricted entitlement is confirmed as usable (nor the system extension and Full Disk Access approvals), so the overall state shows as observe only and the HID hardware checks remain unverified {{ev:EV-EC-02}}. There is also no proof the system delivers all keyboard events to this client (event coverage requires testing on a real system).

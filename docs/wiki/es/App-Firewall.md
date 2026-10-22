@@ -22,20 +22,17 @@ Es como un portero con una lista de invitados que comprueba el DNI y no la palab
 2. Un resolutor de firma averigua la firma de código real del proceso.
 3. El motor de políticas evalúa las reglas: coincide, no coincide o **indeterminado** si falta evidencia.
 4. Un paso de aplicación convierte la decisión en acción. Sin un permiso utilizable, una decisión de bloqueo acaba como "acción no disponible: falta el permiso" {{ev:EV-EC-60}}.
-5. Se crea un evento de auditoría y se guarda en una cola local; su envío a MacCoreGuard solo se ha probado contra un servidor simulado {{ev:EV-EC-04}}.
+5. Se crea un evento de auditoría y se guarda en una cola local; su envío a MacCoreGuard solo se ha probado contra un doble de prueba {{ev:EV-EC-04}}.
 
 ## Cómo funciona por dentro
 
-Arquitectura por capas (del manifiesto del paquete) {{ev:EV-EC-63}}:
+Arquitectura por capas {{ev:EV-EC-63}}:
 
 | Capa | Función |
 |---|---|
-| Dominio central | Dominio puro (flujos, políticas, DNS, correlación, red) |
-| Auditoría | Eventos canónicos y cola local duradera |
-| Plataforma | Única capa que toca marcos de Apple (Security, Network, SystemConfiguration, NetworkExtension como puente de traducción) |
-| Adaptador de filtro de paquetes | Pequeño módulo C con constantes de filtrado de paquetes |
-| Interfaz de usuario | App SwiftUI (usa la biblioteca compartida MacGuardDesignKit, única dependencia externa) |
-| Línea de comandos | Herramienta de solo lectura para inspeccionar capacidades, privilegios y eventos |
+| Lógica de dominio | Lógica pura: flujos, políticas, DNS, correlación, red, eventos de auditoría y una cola local |
+| Adaptadores de plataforma | Única capa que habla con marcos de Apple |
+| Interfaz | Una app SwiftUI (usa la biblioteca compartida MacGuardDesignKit) y una herramienta de línea de comandos de solo lectura |
 
 Algoritmos con código que los prueba (problema, evidencia):
 
@@ -45,9 +42,9 @@ Algoritmos con código que los prueba (problema, evidencia):
 - **Reglas de integridad de red**: detectan cambios de VPN, rutas o DNS; solo modos observar y alertar.
 - **Sensor de captura de paquetes** opcional: en la máquina de desarrollo el acceso se denegó por permisos {{ev:EV-EC-64}}.
 
-### Transporte hacia MacCoreGuard: XPC o socket
+### Canal hacia MacCoreGuard
 
-La documentación de arquitectura habla de "XPC autenticado" como diseño objetivo del lado de MacCore. **El código del cliente usa un socket Unix local** con mensajes JSON precedidos de su longitud; un comentario del cliente de auditoría menciona XPC como intención futura, pero no hay implementación XPC en las fuentes de producción {{ev:EV-EC-61}}. El cliente comprueba, con la credencial del kernel del otro extremo del socket, la firma del proceso al otro lado. Esa comprobación y el servidor se ejercitan solo con un servidor simulado de pruebas.
+La documentación de arquitectura describe un canal autenticado como diseño objetivo del lado de MacCore. **El cliente usa un canal local más simple que el diseño objetivo; las fuentes de producción no contienen la implementación objetivo** {{ev:EV-EC-61}}. El cliente y sus comprobaciones se ejercitan solo contra un doble de prueba.
 
 ## Cómo comprobarlo tú
 
@@ -71,7 +68,7 @@ Pendiente según su propio cierre: ninguna captura real de paquetes, ni ejecuci�
 | Capacidad | Estado |
 |---|---|
 | Motor de políticas, modelo de flujos, resolución de firma, app SwiftUI, línea de comandos | Implementado, no desplegado |
-| Cliente MacCoreGuard (socket local) | Implementado, probado solo con un servidor simulado |
+| Cliente MacCoreGuard (canal local simple) | Implementado, probado solo contra un doble de prueba |
 | Observación y bloqueo reales (extensión del sistema) | Planificado, sin permiso confirmado como utilizable |
 | Endpoint Security, captura de paquetes, Rust | Planificado o fuera de este repositorio; sin código |
 
