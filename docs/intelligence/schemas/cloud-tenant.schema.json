@@ -1,0 +1,56 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.macguard.example/cloud/tenant/1",
+  "title": "Organization and tenant (PLANNED, v1)",
+  "description": "DESIGN ONLY. MacGuard Cloud does not exist. An organization is the legal customer; a tenant is the isolation unit (keys, storage, queries). One organization may own several tenants. Cloud is opt-in and off by default.",
+  "allOf": [{ "$ref": "cloud-common.schema.json#/$defs/record_header" }],
+  "type": "object",
+  "properties": {
+    "organization": {
+      "type": "object",
+      "properties": {
+        "organization_id": { "$ref": "cloud-common.schema.json#/$defs/id" },
+        "display_name": { "type": "string", "maxLength": 200 },
+        "contact_role": { "type": "string", "description": "Role mailbox, not a person's name.", "maxLength": 200 }
+      },
+      "required": ["organization_id", "display_name"],
+      "additionalProperties": false
+    },
+    "tenant": {
+      "type": "object",
+      "properties": {
+        "tenant_id": { "$ref": "cloud-common.schema.json#/$defs/tenant_id" },
+        "display_name": { "type": "string", "maxLength": 200 },
+        "region": { "type": "string", "description": "Data residency region chosen at creation; not changeable without a migration record." },
+        "state": { "enum": ["pending_optin", "active", "suspended", "closing", "deleted"] },
+        "opt_in": {
+          "type": "object",
+          "description": "Explicit, recorded consent. Absent or revoked means no data is accepted.",
+          "properties": {
+            "granted_utc": { "$ref": "cloud-common.schema.json#/$defs/utc_datetime" },
+            "granted_by": { "$ref": "cloud-common.schema.json#/$defs/id" },
+            "terms_version": { "type": "string" },
+            "revoked_utc": { "$ref": "cloud-common.schema.json#/$defs/utc_datetime" }
+          },
+          "required": ["granted_utc", "granted_by", "terms_version"],
+          "additionalProperties": false
+        },
+        "data_policy": {
+          "type": "object",
+          "properties": {
+            "path_mode": { "enum": ["hashed", "encrypted", "clear"], "default": "hashed" },
+            "path_key_id": { "type": "string", "description": "Identifier of the per-tenant path key. The key itself never appears in a document." },
+            "retention_days": { "type": "integer", "minimum": 1, "maximum": 3650 },
+            "telemetry": { "const": false, "description": "No telemetry by default; there is no field to turn it on in v1." }
+          },
+          "required": ["path_mode", "retention_days"],
+          "additionalProperties": false
+        }
+      },
+      "required": ["tenant_id", "display_name", "state", "data_policy"],
+      "additionalProperties": false
+    }
+  },
+  "required": ["organization", "tenant"],
+  "unevaluatedProperties": false
+}

@@ -1,0 +1,128 @@
+{
+  "schema_version": "1.0.0",
+  "document_id": "fx-unowned-binary-hash-only",
+  "generated_at": "2026-10-22T13:32:00Z",
+  "engine": { "name": "macguard-provenance", "version": "0.0.0-design", "policy_version": "1.0.0", "network_used": false, "privileges": "ROOT" },
+  "host": { "os_family": "linux", "os_version": "12", "arch": "x86_64", "distro_id": "debian", "host_ref": "run-0002" },
+  "subject": {
+    "kind": "file",
+    "file": {
+      "path": "/usr/local/bin/tool-x",
+      "path_was_symlink": false,
+      "device": 2049,
+      "inode": 918274,
+      "size": 8123456,
+      "mode": "755",
+      "uid_class": "root",
+      "mtime_ns": 1747000000000000000,
+      "ctime_ns": 1747000000000000000,
+      "hashes": {
+        "sha256": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+        "computed_at": "2026-10-22T13:31:50Z",
+        "stable_during_read": true
+      },
+      "file_type": "elf",
+      "architecture": "x86_64"
+    }
+  },
+  "assessment": {
+    "content_origin": {
+      "value": "UNKNOWN",
+      "claim_basis": "NONE",
+      "missing": ["no package owner", "no signature", "no origin xattr", "no build or install manifest found"],
+      "reasons": ["Nothing in the evidence says where these bytes came from. The path /usr/local/bin is conventional for locally added files, but a path is not evidence."]
+    },
+    "installation_method": {
+      "value": "UNKNOWN",
+      "missing": ["no manager record", "no install_manifest.txt covering the path"],
+      "reasons": ["curl|sh, a manual cp and make install leave no record that the engine could find."]
+    },
+    "package_ownership": {
+      "value": "NOT_OWNED",
+      "queried_managers": ["dpkg"],
+      "unqueryable_managers": [],
+      "basis": ["ev-dpkg-no-owner"],
+      "reasons": ["dpkg database was read successfully and no package lists this path."]
+    },
+    "integrity_status": {
+      "value": "NO_REFERENCE",
+      "reference": { "kind": "NONE", "strength": "NONE" },
+      "basis": ["ev-hash"],
+      "reasons": ["A SHA-256 was computed. With no package checksum, signature, manifest or attestation to compare to, it only identifies the bytes (useful for later change detection and for lookups); it does not show them intact."]
+    },
+    "provenance_confidence": {
+      "value": "UNKNOWN",
+      "contradicted": false,
+      "independent_sources": 0,
+      "reasons": ["Unknown is not safe and not suspicious by itself: it means the engine cannot say."]
+    },
+    "detection_status": { "value": "NOT_SCANNED" }
+  },
+  "ownership_chain": [
+    { "level": "file", "resolution": "RESOLVED", "id": "/usr/local/bin/tool-x" },
+    { "level": "package", "resolution": "UNRESOLVED", "evidence_ids": ["ev-dpkg-no-owner"] },
+    { "level": "manager", "resolution": "UNRESOLVED" },
+    { "level": "repository", "resolution": "UNRESOLVED" },
+    { "level": "source", "resolution": "UNRESOLVED" }
+  ],
+  "evidence": [
+    {
+      "id": "ev-hash",
+      "kind": "HASH_ONLY",
+      "present": true,
+      "source": { "type": "COMPUTED", "command_or_api": "SHA-256/SHA-512 over an fd opened with O_NOFOLLOW; stat before/after" },
+      "observed_at": "2026-10-22T13:31:50Z",
+      "trust": "HEURISTIC",
+      "independence_group": "engine",
+      "summary": "identifies the bytes only"
+    },
+    {
+      "id": "ev-dpkg-no-owner",
+      "kind": "PACKAGE_DB_OWNER",
+      "present": false,
+      "source": { "type": "PACKAGE_DB", "command_or_api": "dpkg -S /usr/local/bin/tool-x", "exit_status": 1, "needs_root": false, "needs_network": false },
+      "observed_at": "2026-10-22T13:31:20Z",
+      "trust": "SYSTEM_AUTHORITATIVE",
+      "independence_group": "dpkg",
+      "summary": "no path found matching pattern"
+    },
+    {
+      "id": "ev-no-xattr",
+      "kind": "WHERE_FROMS_XATTR",
+      "present": false,
+      "source": { "type": "XATTR", "command_or_api": "listxattr (user.xdg.origin.url, user.xdg.referrer.url)" },
+      "observed_at": "2026-10-22T13:31:25Z",
+      "trust": "WRITABLE_METADATA",
+      "independence_group": "xattr-writer",
+      "summary": "No origin xattrs. Most Linux downloaders do not write them and many filesystems drop xattrs."
+    },
+    {
+      "id": "ev-path",
+      "kind": "PATH_LOCATION",
+      "present": true,
+      "source": { "type": "COMPUTED", "command_or_api": "path prefix" },
+      "observed_at": "2026-10-22T13:31:10Z",
+      "trust": "HEURISTIC",
+      "independence_group": "path",
+      "summary": "Under /usr/local/bin. Supports nothing."
+    },
+    {
+      "id": "ev-ts",
+      "kind": "TIMESTAMP_CORRELATION",
+      "present": true,
+      "source": { "type": "COMPUTED", "command_or_api": "compare mtime with dpkg.log / apt history entries" },
+      "observed_at": "2026-10-22T13:31:30Z",
+      "trust": "HEURISTIC",
+      "independence_group": "engine",
+      "summary": "No package transaction near mtime. Timestamps can be set by any process, so this is a note, not a conclusion."
+    }
+  ],
+  "history": [
+    { "at": "2026-10-22T13:31:50Z", "at_precision": "EXACT", "change": "FIRST_SEEN_BY_ENGINE", "known_via": "ENGINE_SNAPSHOT_DIFF", "reliability": "HIGH", "to_sha256": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef", "detail": "first observation; nothing is known about before this" }
+  ],
+  "attestations": [
+    { "kind": "OTHER", "availability": "NOT_FOUND" }
+  ],
+  "links": { "detections": [], "vulnerabilities": [] },
+  "coverage": { "manager_or_method": "unowned-file", "state": "IMPLEMENTED", "historical_reconstruction": "NONE", "limits": ["No installation record exists for script or manual installs"] }
+}

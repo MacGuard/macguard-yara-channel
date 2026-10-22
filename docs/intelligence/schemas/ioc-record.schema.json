@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.macguard.example/intelligence/ioc-record/1",
+  "title": "MacGuard IOC record (one JSON object per line)",
+  "type": "object",
+  "required": ["schema", "type", "value", "sources", "confidence", "first_seen", "last_seen", "expires_at", "tags", "family"],
+  "properties": {
+    "schema": {"const": "macguard.ioc-record/1"},
+    "type": {"enum": ["sha256", "sha1", "md5", "ipv4", "ipv6", "domain", "url"]},
+    "value": {"type": "string", "description": "normalised: lower-case hashes, global IPs in compressed form, IDNA ASCII domains without trailing dot, URLs without default port, fragment or credentials"},
+    "sources": {"type": "array", "minItems": 1, "items": {"type": "object", "required": ["id", "first_seen", "last_seen", "confidence", "ttl_days"], "properties": {
+      "id": {"type": "string"}, "first_seen": {"type": "string"}, "last_seen": {"type": "string"}, "confidence": {"type": "integer", "minimum": 0, "maximum": 100}, "ttl_days": {"type": "integer", "minimum": 1}, "ref": {"type": "string"}}}},
+    "confidence": {"type": "integer", "minimum": 0, "maximum": 100, "description": "max over sources of (source confidence x registry trust / 100), plus 10 per additional independent source, capped at 100"},
+    "first_seen": {"type": "string"}, "last_seen": {"type": "string"}, "expires_at": {"type": "string", "description": "max over sources of last_seen + ttl_days; expired records are not published"},
+    "tags": {"type": "array", "items": {"type": "string"}}, "family": {"type": ["string", "null"]}
+  }
+}
