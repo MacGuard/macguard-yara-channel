@@ -1,0 +1,32 @@
+{
+  "schema": "macguard.taxonomy/1",
+  "name": "os-families",
+  "version": 1,
+  "items": [
+    {
+      "id": "linux",
+      "es": "Linux",
+      "en": "Linux"
+    },
+    {
+      "id": "macos",
+      "es": "macOS",
+      "en": "macOS"
+    },
+    {
+      "id": "windows",
+      "es": "Windows",
+      "en": "Windows"
+    },
+    {
+      "id": "other-os",
+      "es": "Otros sistemas",
+      "en": "Other systems"
+    },
+    {
+      "id": "network-firmware",
+      "es": "Dispositivos de red y firmware",
+      "en": "Network devices and firmware"
+    }
+  ]
+}

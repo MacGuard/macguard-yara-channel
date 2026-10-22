@@ -1,0 +1,64 @@
+{
+  "schema": "macguard.taxonomy/1",
+  "name": "regions",
+  "version": 1,
+  "note": "A region is the geographic scope of the SOURCE (who published it and for whom), never a statement that a vulnerability affects only that territory. A source scoped to ES also matches a filter on EU, because Spain is a member state.",
+  "items": [
+    {
+      "id": "ES",
+      "es": "España",
+      "en": "Spain",
+      "within": [
+        "EU"
+      ]
+    },
+    {
+      "id": "EU",
+      "es": "Unión Europea",
+      "en": "European Union",
+      "within": []
+    },
+    {
+      "id": "OTHER",
+      "es": "Otros países",
+      "en": "Other countries",
+      "within": [],
+      "note": "use country:XX with an ISO 3166-1 alpha-2 code for a specific one"
+    },
+    {
+      "id": "GLOBAL",
+      "es": "Alertas globales",
+      "en": "Global alerts",
+      "within": []
+    }
+  ],
+  "eu_member_states": [
+    "AT",
+    "BE",
+    "BG",
+    "HR",
+    "CY",
+    "CZ",
+    "DK",
+    "EE",
+    "FI",
+    "FR",
+    "DE",
+    "GR",
+    "HU",
+    "IE",
+    "IT",
+    "LV",
+    "LT",
+    "LU",
+    "MT",
+    "NL",
+    "PL",
+    "PT",
+    "RO",
+    "SK",
+    "SI",
+    "ES",
+    "SE"
+  ]
+}

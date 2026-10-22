@@ -334,6 +334,142 @@
       "max_snapshot_age_days": 3,
       "exploitation_field": "none",
       "status_note": "Registered only. GHSA identifiers are normalised by intel.vulns.ids so that OSV and EUVD can be joined once an OSV adapter exists."
+    },
+    {
+      "access": {
+        "method": "local file logs/log.jsonl, already public on the site (transparency page)",
+        "credential_required": false
+      },
+      "original_signature": {
+        "kind": "none (the signed releases themselves are verified separately)"
+      },
+      "owner_confirmed": true,
+      "id": "macguard-yara-releases",
+      "name": "MacGuard YARA channel release log (first-party)",
+      "families": [
+        "yara"
+      ],
+      "upstream_url": "https://github.com/MacGuard/macguard-yara-channel/blob/main/logs/log.jsonl",
+      "license": {
+        "name": "first-party metadata of this repository: release tag, time and run link. It contains no third-party rule text."
+      },
+      "redistribution_status": "allowed",
+      "attribution": "MacGuard YARA channel (the repository's own pipeline log)",
+      "trust": 100,
+      "default_ttl_days": 3650,
+      "region": "global",
+      "max_snapshot_age_days": 7,
+      "exploitation_field": "none",
+      "status_note": "Added with the alerts section. owner_confirmed is true because the data is MacGuard's own pipeline log, already published; this is a decision of the maintainer to review (revert the flag to hide the feed)."
+    },
+    {
+      "access": {
+        "method": "HTTPS GET, no key",
+        "credential_required": false
+      },
+      "original_signature": {
+        "kind": "none"
+      },
+      "owner_confirmed": false,
+      "id": "debian-security-tracker",
+      "name": "Debian Security Tracker (JSON)",
+      "families": [
+        "vulns"
+      ],
+      "upstream_url": "https://security-tracker.debian.org/tracker/data/json",
+      "license": {
+        "name": "not read"
+      },
+      "redistribution_status": "not-evaluated",
+      "attribution": "credit the Debian Security Tracker",
+      "trust": 85,
+      "default_ttl_days": 3650,
+      "region": "global",
+      "max_snapshot_age_days": 3,
+      "exploitation_field": "none",
+      "status_note": "Endpoint answers HTTP 200 (application/json) on 2026-10-23; terms of reuse not read; no adapter. It is the data `intel vulns assess` needs for Debian (per-release fixed versions)."
+    },
+    {
+      "access": {
+        "method": "HTTPS GET, no key",
+        "credential_required": false
+      },
+      "original_signature": {
+        "kind": "none"
+      },
+      "owner_confirmed": false,
+      "id": "ubuntu-security-notices",
+      "name": "Ubuntu Security (CVE and notices JSON)",
+      "families": [
+        "vulns"
+      ],
+      "upstream_url": "https://ubuntu.com/security/cves.json",
+      "license": {
+        "name": "not read"
+      },
+      "redistribution_status": "not-evaluated",
+      "attribution": "credit Canonical / Ubuntu Security",
+      "trust": 85,
+      "default_ttl_days": 3650,
+      "region": "global",
+      "max_snapshot_age_days": 3,
+      "exploitation_field": "none",
+      "status_note": "Endpoint answers HTTP 200 on 2026-10-23; terms not read; no adapter."
+    },
+    {
+      "access": {
+        "method": "HTTPS GET, no key",
+        "credential_required": false
+      },
+      "original_signature": {
+        "kind": "none"
+      },
+      "owner_confirmed": false,
+      "id": "redhat-security-data",
+      "name": "Red Hat Security Data API",
+      "families": [
+        "vulns"
+      ],
+      "upstream_url": "https://access.redhat.com/hydra/rest/securitydata/cve.json",
+      "license": {
+        "name": "not read"
+      },
+      "redistribution_status": "not-evaluated",
+      "attribution": "credit Red Hat",
+      "trust": 85,
+      "default_ttl_days": 3650,
+      "region": "global",
+      "max_snapshot_age_days": 3,
+      "exploitation_field": "none",
+      "status_note": "Endpoint exists (HEAD answered 405, so the GET behaviour was not checked); terms not read; no adapter."
+    },
+    {
+      "access": {
+        "method": "git, public",
+        "credential_required": false
+      },
+      "original_signature": {
+        "kind": "none"
+      },
+      "owner_confirmed": false,
+      "id": "sigmahq",
+      "name": "SigmaHQ/sigma rule repository (new and changed rules)",
+      "families": [
+        "sigma"
+      ],
+      "upstream_url": "https://github.com/SigmaHQ/sigma",
+      "license": {
+        "name": "Detection Rule License 1.1",
+        "spdx": "DRL-1.1"
+      },
+      "redistribution_status": "allowed-with-conditions",
+      "attribution": "keep the rule author and the licence reference that each rule carries",
+      "trust": 70,
+      "default_ttl_days": 3650,
+      "region": "global",
+      "max_snapshot_age_days": 7,
+      "exploitation_field": "none",
+      "status_note": "No adapter: a rule-update alert needs a git diff job over the repository, which this delivery does not include."
     }
   ]
 }

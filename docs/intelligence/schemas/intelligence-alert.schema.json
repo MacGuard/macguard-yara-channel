@@ -1,0 +1,255 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.macguard.example/alerts/intelligence-alert/1",
+  "title": "IntelligenceAlert v1 (stored form: all observations; the public form carries only the cleared ones)",
+  "type": "object",
+  "required": [
+    "schema",
+    "key",
+    "alert_type",
+    "ids",
+    "title",
+    "description",
+    "severity",
+    "exploitation",
+    "affected",
+    "fix",
+    "region_scope",
+    "sectors",
+    "dates",
+    "references",
+    "observations",
+    "discrepancies",
+    "validation",
+    "license",
+    "taxonomies",
+    "flags"
+  ],
+  "properties": {
+    "schema": {
+      "const": "macguard.intelligence-alert/1"
+    },
+    "alert_id": {
+      "type": "string",
+      "pattern": "^MGA-[0-9a-f]{20}$",
+      "description": "immutable internal id (public form only: the stored row has it as a column)"
+    },
+    "record_version": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "record_hash": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$",
+      "description": "SHA-256 of the canonical normalised record; staleness is not part of it"
+    },
+    "key": {
+      "type": "string"
+    },
+    "alert_type": {
+      "enum": [
+        "vulnerability",
+        "advisory",
+        "rule-release"
+      ]
+    },
+    "ids": {
+      "type": "object",
+      "required": [
+        "cve",
+        "euvd",
+        "ghsa"
+      ],
+      "properties": {
+        "cve": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "euvd": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "ghsa": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "title": {
+      "type": "string"
+    },
+    "description": {
+      "type": "string"
+    },
+    "severity": {
+      "type": "object",
+      "required": [
+        "score",
+        "band",
+        "rated_by",
+        "all"
+      ],
+      "properties": {
+        "score": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "band": {
+          "enum": [
+            "critical",
+            "high",
+            "medium",
+            "low",
+            "none",
+            "unknown"
+          ]
+        },
+        "rated_by": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "all": {
+          "type": "object"
+        }
+      }
+    },
+    "exploitation": {
+      "type": "object",
+      "required": [
+        "status",
+        "asserted_by",
+        "per_source",
+        "independent_confirmation"
+      ],
+      "properties": {
+        "status": {
+          "enum": [
+            "exploited",
+            "not-asserted"
+          ]
+        },
+        "asserted_by": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "independent_confirmation": {
+          "enum": [
+            "unknown",
+            "not-applicable"
+          ]
+        }
+      }
+    },
+    "affected": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "vendor",
+          "product",
+          "vendor_slug",
+          "product_slug",
+          "versions",
+          "sources",
+          "os",
+          "categories",
+          "services"
+        ]
+      }
+    },
+    "fix": {
+      "type": "object",
+      "required": [
+        "available",
+        "details"
+      ],
+      "properties": {
+        "available": {
+          "type": [
+            "boolean",
+            "null"
+          ],
+          "description": "true or unknown; never false"
+        }
+      }
+    },
+    "region_scope": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "region",
+          "basis",
+          "source"
+        ],
+        "properties": {
+          "basis": {
+            "const": "source-scope"
+          }
+        }
+      }
+    },
+    "sectors": {
+      "type": "array"
+    },
+    "dates": {
+      "type": "object"
+    },
+    "references": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "pattern": "^https?://"
+      }
+    },
+    "observations": {
+      "type": "object",
+      "description": "everything each source said, with its evidence"
+    },
+    "discrepancies": {
+      "type": "array"
+    },
+    "validation": {
+      "type": "object",
+      "required": [
+        "state",
+        "problems"
+      ],
+      "properties": {
+        "state": {
+          "enum": [
+            "validated",
+            "partial"
+          ]
+        }
+      }
+    },
+    "license": {
+      "type": "object",
+      "required": [
+        "sources"
+      ]
+    },
+    "taxonomies": {
+      "type": "object"
+    },
+    "flags": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    }
+  }
+}

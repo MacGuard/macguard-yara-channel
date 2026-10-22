@@ -1,0 +1,161 @@
+{
+  "schema": "macguard.taxonomy/1",
+  "name": "sectors",
+  "version": 1,
+  "note": "MacGuard's own list. The 'nis2' link is informative (Directive (EU) 2022/2555, Annexes I and II) and is not a legal classification of any organisation. 'other' stands for sectors an organisation configures itself.",
+  "items": [
+    {
+      "id": "public-administration",
+      "es": "Administración pública",
+      "en": "Public administration",
+      "nis2": {
+        "annex": "I",
+        "sector": "Public administration"
+      }
+    },
+    {
+      "id": "health",
+      "es": "Sanidad",
+      "en": "Health",
+      "nis2": {
+        "annex": "I",
+        "sector": "Health"
+      }
+    },
+    {
+      "id": "finance",
+      "es": "Finanzas",
+      "en": "Finance",
+      "nis2": {
+        "annex": "I",
+        "sector": "Banking; Financial market infrastructures"
+      }
+    },
+    {
+      "id": "technology",
+      "es": "Tecnología",
+      "en": "Technology",
+      "nis2": {
+        "annex": "I",
+        "sector": "ICT service management (B2B)"
+      }
+    },
+    {
+      "id": "telecom",
+      "es": "Telecomunicaciones",
+      "en": "Telecommunications",
+      "nis2": {
+        "annex": "I",
+        "sector": "Digital infrastructure"
+      }
+    },
+    {
+      "id": "industry",
+      "es": "Industria",
+      "en": "Industry",
+      "nis2": {
+        "annex": "II",
+        "sector": "Manufacturing"
+      }
+    },
+    {
+      "id": "energy",
+      "es": "Energía",
+      "en": "Energy",
+      "nis2": {
+        "annex": "I",
+        "sector": "Energy"
+      }
+    },
+    {
+      "id": "transport",
+      "es": "Transporte",
+      "en": "Transport",
+      "nis2": {
+        "annex": "I",
+        "sector": "Transport"
+      }
+    },
+    {
+      "id": "education",
+      "es": "Educación",
+      "en": "Education",
+      "nis2": null
+    },
+    {
+      "id": "commerce",
+      "es": "Comercio",
+      "en": "Commerce",
+      "nis2": null
+    },
+    {
+      "id": "water",
+      "es": "Agua",
+      "en": "Water",
+      "nis2": {
+        "annex": "I",
+        "sector": "Drinking water; Waste water"
+      }
+    },
+    {
+      "id": "space",
+      "es": "Espacio",
+      "en": "Space",
+      "nis2": {
+        "annex": "I",
+        "sector": "Space"
+      }
+    },
+    {
+      "id": "food",
+      "es": "Alimentación",
+      "en": "Food",
+      "nis2": {
+        "annex": "II",
+        "sector": "Production, processing and distribution of food"
+      }
+    },
+    {
+      "id": "chemicals",
+      "es": "Química",
+      "en": "Chemicals",
+      "nis2": {
+        "annex": "II",
+        "sector": "Manufacture, production and distribution of chemicals"
+      }
+    },
+    {
+      "id": "postal",
+      "es": "Postal y mensajería",
+      "en": "Postal and courier",
+      "nis2": {
+        "annex": "II",
+        "sector": "Postal and courier services"
+      }
+    },
+    {
+      "id": "waste",
+      "es": "Residuos",
+      "en": "Waste management",
+      "nis2": {
+        "annex": "II",
+        "sector": "Waste management"
+      }
+    },
+    {
+      "id": "research",
+      "es": "Investigación",
+      "en": "Research",
+      "nis2": {
+        "annex": "II",
+        "sector": "Research"
+      }
+    },
+    {
+      "id": "other",
+      "es": "Otros (configurable)",
+      "en": "Other (configurable)",
+      "nis2": null
+    }
+  ]
+}

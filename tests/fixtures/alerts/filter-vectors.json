@@ -1,0 +1,1644 @@
+{
+ "now": "2026-10-22T12:00:00Z",
+ "base": {
+  "alert_id": "MGA-0001",
+  "record_version": 1,
+  "key": "CVE-2026-0001",
+  "alert_type": "vulnerability",
+  "ids": {
+   "cve": [
+    "CVE-2026-0001"
+   ],
+   "euvd": [
+    "EUVD-2026-0001"
+   ],
+   "ghsa": [
+    "GHSA-2g2v-9wf5-6m3g"
+   ]
+  },
+  "severity": {
+   "score": "8.1",
+   "version": "3.1",
+   "vector": "CVSS:3.1/AV:N/AC:L",
+   "band": "high",
+   "rated_by": [
+    "enisa-euvd"
+   ],
+   "all": {
+    "enisa-euvd": "8.1"
+   }
+  },
+  "epss": {
+   "by_source": {
+    "enisa-euvd": "0.5"
+   }
+  },
+  "attack_vector": "network",
+  "exploitation": {
+   "status": "exploited",
+   "asserted_by": [
+    "cisa-kev"
+   ],
+   "earliest_since": "2026-10-01",
+   "independent_confirmation": "not-applicable",
+   "per_source": {
+    "cisa-kev": {
+     "asserted": true,
+     "since": "2026-10-01",
+     "basis": "kev"
+    },
+    "enisa-euvd": {
+     "asserted": false,
+     "since": null,
+     "basis": null
+    }
+   }
+  },
+  "affected": [
+   {
+    "vendor": "Microsoft",
+    "product": "Windows Server 2012 R2",
+    "vendor_slug": "microsoft",
+    "product_slug": "windows server 2012 r2",
+    "versions": [
+     {
+      "raw": "6.3.9600.0 <6.3.9600.23470",
+      "kind": "range",
+      "introduced": "6.3.9600.0",
+      "fixed_in": "6.3.9600.23470"
+     }
+    ],
+    "sources": [
+     "enisa-euvd"
+    ],
+    "os": [
+     "windows"
+    ],
+    "categories": [],
+    "services": [],
+    "classification_basis": "curated-mapping:technology-map@1"
+   },
+   {
+    "vendor": "Cisco",
+    "product": "IOS XE",
+    "vendor_slug": "cisco",
+    "product_slug": "ios xe",
+    "versions": [
+     {
+      "raw": "17.3 ≤17.3.5",
+      "kind": "range",
+      "introduced": "17.3",
+      "last_affected": "17.3.5"
+     },
+     {
+      "raw": "16.12.1",
+      "kind": "single",
+      "version": "16.12.1"
+     }
+    ],
+    "sources": [
+     "cisa-kev"
+    ],
+    "os": [
+     "network-firmware"
+    ],
+    "categories": [
+     "network-device"
+    ],
+    "services": [],
+    "classification_basis": "curated-mapping:technology-map@1"
+   }
+  ],
+  "fix": {
+   "available": true,
+   "details": []
+  },
+  "mitigations": [],
+  "mitigation_basis": "none",
+  "region_scope": [
+   {
+    "region": "EU",
+    "basis": "source-scope",
+    "source": "enisa-euvd"
+   },
+   {
+    "region": "country:US",
+    "basis": "source-scope",
+    "source": "cisa-kev"
+   }
+  ],
+  "sectors": [],
+  "threat_families": [
+   {
+    "family": "ransomware",
+    "source": "cisa-kev",
+    "basis": "kev"
+   }
+  ],
+  "attack_techniques": [],
+  "dates": {
+   "published": "2026-09-20",
+   "updated": "2026-10-20",
+   "listed": {}
+  },
+  "first_ingested_utc": "2026-10-20T10:00:00Z",
+  "observations": {
+   "enisa-euvd": {},
+   "cisa-kev": {}
+  }
+ },
+ "vectors": [
+  {
+   "name": "region EU matches an EU-scoped source",
+   "expr": {
+    "field": "region",
+    "op": "in",
+    "value": [
+     "EU"
+    ]
+   },
+   "alert_overrides": {},
+   "stale": [],
+   "changes": null,
+   "expect": true
+  },
+  {
+   "name": "region ES does not match an EU-scoped source",
+   "expr": {
+    "field": "region",
+    "op": "in",
+    "value": [
+     "ES"
+    ]
+   },
+   "alert_overrides": {},
+   "stale": [],
+   "changes": null,
+   "expect": false
+  },
+  {
+   "name": "region ES-scoped source satisfies EU",
+   "expr": {
+    "field": "region",
+    "op": "in",
+    "value": [
+     "EU"
+    ]
+   },
+   "alert_overrides": {
+    "region_scope": [
+     {
+      "region": "ES",
+      "basis": "source-scope",
+      "source": "ccn"
+     }
+    ]
+   },
+   "stale": [],
+   "changes": null,
+   "expect": true
+  },
+  {
+   "name": "region ES-scoped source satisfies ES",
+   "expr": {
+    "field": "region",
+    "op": "in",
+    "value": [
+     "ES"
+    ]
+   },
+   "alert_overrides": {
+    "region_scope": [
+     {
+      "region": "ES",
+      "basis": "source-scope",
+      "source": "ccn"
+     }
+    ]
+   },
+   "stale": [],
+   "changes": null,
+   "expect": true
+  },
+  {
+   "name": "region country:US matches",
+   "expr": {
+    "field": "region",
+    "op": "in",
+    "value": [
+     "country:US"
+    ]
+   },
+   "alert_overrides": {},
+   "stale": [],
+   "changes": null,
+   "expect": true
+  },
+  {
+   "name": "region OTHER matches a non-EU country",
+   "expr": {
+    "field": "region",
+    "op": "in",
+    "value": [
+     "OTHER"
+    ]
+   },
+   "alert_overrides": {},
+   "stale": [],
+   "changes": null,
+   "expect": true
+  },
+  {
+   "name": "region OTHER does not match EU/ES only",
+   "expr": {
+    "field": "region",
+    "op": "in",
+    "value": [
+     "OTHER"
+    ]
+   },
+   "alert_overrides": {
+    "region_scope": [
+     {
+      "region": "EU",
+      "basis": "source-scope",
+      "source": "x"
+     }
+    ]
+   },
+   "stale": [],
+   "changes": null,
+   "expect": false
+  },
+  {
+   "name": "region GLOBAL needs a global scope",
+   "expr": {
+    "field": "region",
+    "op": "in",
+    "value": [
+     "GLOBAL"
+    ]
+   },
+   "alert_overrides": {},
+   "stale": [],
+   "changes": null,
+   "expect": false
+  },
+  {
+   "name": "region GLOBAL matches a global scope",
+   "expr": {
+    "field": "region",
+    "op": "in",
+    "value": [
+     "GLOBAL"
+    ]
+   },
+   "alert_overrides": {
+    "region_scope": [
+     {
+      "region": "GLOBAL",
+      "basis": "source-scope",
+      "source": "osv"
+     }
+    ]
+   },
+   "stale": [],
+   "changes": null,
+   "expect": true
+  },
+  {
+   "name": "region with no scope never matches",
+   "expr": {
+    "field": "region",
+    "op": "in",
+    "value": [
+     "EU",
+     "ES",
+     "GLOBAL"
+    ]
+   },
+   "alert_overrides": {
+    "region_scope": []
+   },
+   "stale": [],
+   "changes": null,
+   "expect": false
+  },
+  {
+   "name": "sector without information does not match",
+   "expr": {
+    "field": "sector",
+    "op": "in",
+    "value": [
+     "health"
+    ]
+   },
+   "alert_overrides": {},
+   "stale": [],
+   "changes": null,
+   "expect": false
+  },
+  {
+   "name": "sector without information matches when included",
+   "expr": {
+    "field": "sector",
+    "op": "in",
+    "value": [
+     "health"
+    ],
+    "include_unknown": true
+   },
+   "alert_overrides": {},
+   "stale": [],
+   "changes": null,
+   "expect": true
+  },
+  {
+   "name": "sector stated matches",
+   "expr": {
+    "field": "sector",
+    "op": "in",
+    "value": [
+     "health"
+    ]
+   },
+   "alert_overrides": {
+    "sectors": [
+     {
+      "sector": "health",
+      "basis": "source-stated"
+     }
+    ]
+   },
+   "stale": [],
+   "changes": null,
+   "expect": true
+  },
+  {
+   "name": "sector stated but different does not match even if unknown included",
+   "expr": {
+    "field": "sector",
+    "op": "in",
+    "value": [
+     "energy"
+    ],
+    "include_unknown": true
+   },
+   "alert_overrides": {
+    "sectors": [
+     {
+      "sector": "health",
+      "basis": "source-stated"
+     }
+    ]
+   },
+   "stale": [],
+   "changes": null,
+   "expect": false
+  },
+  {
+   "name": "vendor exact",
+   "expr": {
+    "field": "vendor",
+    "op": "in",
+    "value": [
+     "Microsoft"
+    ]
+   },
+   "alert_overrides": {},
+   "stale": [],
+   "changes": null,
+   "expect": true
+  },
+  {
+   "name": "vendor is not a substring match",
+   "expr": {
+    "field": "vendor",
+    "op": "in",
+    "value": [
+     "micro"
+    ]
+   },
+   "alert_overrides": {},
+   "stale": [],
+   "changes": null,
+   "expect": false
+  },
+  {
+   "name": "product exact (slugged)",
+   "expr": {
+    "field": "product",
+    "op": "in",
+    "value": [
+     "windows server 2012 r2"
+    ]
+   },
+   "alert_overrides": {},
+   "stale": [],
+   "changes": null,
+   "expect": true
+  },
+  {
+   "name": "product is not a prefix match",
+   "expr": {
+    "field": "product",
+    "op": "in",
+    "value": [
+     "windows"
+    ]
+   },
+   "alert_overrides": {},
+   "stale": [],
+   "changes": null,
+   "expect": false
+  },
+  {
+   "name": "product_family is a word prefix",
+   "expr": {
+    "field": "product_family",
+    "op": "in",
+    "value": [
+     "windows"
+    ]
+   },
+   "alert_overrides": {},
+   "stale": [],
+   "changes": null,
+   "expect": true
+  },
+  {
+   "name": "product_family respects word boundaries",
+   "expr": {
+    "field": "product_family",
+    "op": "in",
+    "value": [
+     "win"
+    ]
+   },
+   "alert_overrides": {},
+   "stale": [],
+   "changes": null,
+   "expect": false
+  },
+  {
+   "name": "os windows",
+   "expr": {
+    "field": "os",
+    "op": "in",
+    "value": [
+     "windows"
+    ]
+   },
+   "alert_overrides": {},
+   "stale": [],
+   "changes": null,
+   "expect": true
+  },
+  {
+   "name": "os linux does not match",
+   "expr": {
+    "field": "os",
+    "op": "in",
+    "value": [
+     "linux"
+    ]
+   },
+   "alert_overrides": {},
+   "stale": [],
+   "changes": null,
+   "expect": false
+  },
+  {
+   "name": "os unknown vendor never matches",
+   "expr": {
+    "field": "os",
+    "op": "in",
+    "value": [
+     "linux"
+    ]
+   },
+   "alert_overrides": {
+    "affected": []
+   },
+   "stale": [],
+   "changes": null,
+   "expect": false
+  },
+  {
+   "name": "category network-device",
+   "expr": {
+    "field": "technology_category",
+    "op": "in",
+    "value": [
+     "network-device"
+    ]
+   },
+   "alert_overrides": {},
+   "stale": [],
+   "changes": null,
+   "expect": true
+  },
+  {
+   "name": "category cloud does not match",
+   "expr": {
+    "field": "technology_category",
+    "op": "in",
+    "value": [
+     "cloud"
+    ]
+   },
+   "alert_overrides": {},
+   "stale": [],
+   "changes": null,
+   "expect": false
+  },
+  {
+   "name": "service from the curated map",
+   "expr": {
+    "field": "service",
+    "op": "in",
+    "value": [
+     "ssh"
+    ]
+   },
+   "alert_overrides": {
+    "affected": [
+     {
+      "vendor": "OpenBSD",
+      "product": "OpenSSH",
+      "vendor_slug": "openbsd",
+      "product_slug": "openssh",
+      "versions": [],
+      "sources": [
+       "x"
+      ],
+      "os": [],
+      "categories": [
+       "service-protocol"
+      ],
+      "services": [
+       "ssh"
+      ],
+      "classification_basis": "m"
+     }
+    ]
+   },
+   "stale": [],
+   "changes": null,
+   "expect": true
+  },
+  {
+   "name": "ecosystem is unknown without a source statement",
+   "expr": {
+    "field": "ecosystem",
+    "op": "in",
+    "value": [
+     "npm"
+    ]
+   },
+   "alert_overrides": {},
+   "stale": [],
+   "changes": null,
+   "expect": false
+  },
+  {
+   "name": "ecosystem stated by a source",
+   "expr": {
+    "field": "ecosystem",
+    "op": "in",
+    "value": [
+     "npm"
+    ]
+   },
+   "alert_overrides": {
+    "affected": [
+     {
+      "vendor": "x",
+      "product": "left-pad",
+      "vendor_slug": "x",
+      "product_slug": "left-pad",
+      "versions": [],
+      "sources": [
+       "osv"
+      ],
+      "os": [],
+      "categories": [],
+      "services": [],
+      "ecosystems": [
+       "npm"
+      ],
+      "classification_basis": null
+     }
+    ]
+   },
+   "stale": [],
+   "changes": null,
+   "expect": true
+  },
+  {
+   "name": "version inside a fixed-in range",
+   "expr": {
+    "field": "version",
+    "op": "affects",
+    "value": {
+     "vendor": "Microsoft",
+     "product": "Windows Server 2012 R2",
+     "version": "6.3.9600.20000"
+    }
+   },
+   "alert_overrides": {},
+   "stale": [],
+   "changes": null,
+   "expect": true
+  },
+  {
+   "name": "version equal to the fixed version is not affected",
+   "expr": {
+    "field": "version",
+    "op": "affects",
+    "value": {
+     "vendor": "Microsoft",
+     "product": "Windows Server 2012 R2",
+     "version": "6.3.9600.23470"
+    }
+   },
+   "alert_overrides": {},
+   "stale": [],
+   "changes": null,
+   "expect": false
+  },
+  {
+   "name": "version below the range start is not affected",
+   "expr": {
+    "field": "version",
+    "op": "affects",
+    "value": {
+     "vendor": "Microsoft",
+     "product": "Windows Server 2012 R2",
+     "version": "6.3.9000"
+    }
+   },
+   "alert_overrides": {},
+   "stale": [],
+   "changes": null,
+   "expect": false
+  },
+  {
+   "name": "version numeric, not text, order",
+   "expr": {
+    "field": "version",
+    "op": "affects",
+    "value": {
+     "vendor": "Cisco",
+     "product": "IOS XE",
+     "version": "17.3.10"
+    }
+   },
+   "alert_overrides": {},
+   "stale": [],
+   "changes": null,
+   "expect": false
+  },
+  {
+   "name": "version at last_affected is inside",
+   "expr": {
+    "field": "version",
+    "op": "affects",
+    "value": {
+     "vendor": "Cisco",
+     "product": "IOS XE",
+     "version": "17.3.5"
+    }
+   },
+   "alert_overrides": {},
+   "stale": [],
+   "changes": null,
+   "expect": true
+  },
+  {
+   "name": "single version is ambiguous: no match by default",
+   "expr": {
+    "field": "version",
+    "op": "affects",
+    "value": {
+     "vendor": "Cisco",
+     "product": "IOS XE",
+     "version": "16.12.1"
+    }
+   },
+   "alert_overrides": {},
+   "stale": [],
+   "changes": null,
+   "expect": false
+  },
+  {
+   "name": "single version matches when ambiguity is accepted",
+   "expr": {
+    "field": "version",
+    "op": "affects",
+    "value": {
+     "vendor": "Cisco",
+     "product": "IOS XE",
+     "version": "16.12.1"
+    },
+    "include_ambiguous": true
+   },
+   "alert_overrides": {},
+   "stale": [],
+   "changes": null,
+   "expect": true
+  },
+  {
+   "name": "version of another product never matches",
+   "expr": {
+    "field": "version",
+    "op": "affects",
+    "value": {
+     "vendor": "Microsoft",
+     "product": "Exchange",
+     "version": "1.0"
+    }
+   },
+   "alert_overrides": {},
+   "stale": [],
+   "changes": null,
+   "expect": false
+  },
+  {
+   "name": "id CVE any case",
+   "expr": {
+    "field": "id",
+    "op": "in",
+    "value": [
+     "cve-2026-0001"
+    ]
+   },
+   "alert_overrides": {},
+   "stale": [],
+   "changes": null,
+   "expect": true
+  },
+  {
+   "name": "id EUVD",
+   "expr": {
+    "field": "id",
+    "op": "in",
+    "value": [
+     "EUVD-2026-0001"
+    ]
+   },
+   "alert_overrides": {},
+   "stale": [],
+   "changes": null,
+   "expect": true
+  },
+  {
+   "name": "id GHSA any case",
+   "expr": {
+    "field": "id",
+    "op": "in",
+    "value": [
+     "ghsa-2G2V-9wf5-6m3g"
+    ]
+   },
+   "alert_overrides": {},
+   "stale": [],
+   "changes": null,
+   "expect": true
+  },
+  {
+   "name": "id other CVE does not match",
+   "expr": {
+    "field": "id",
+    "op": "in",
+    "value": [
+     "CVE-2026-0002"
+    ]
+   },
+   "alert_overrides": {},
+   "stale": [],
+   "changes": null,
+   "expect": false
+  },
+  {
+   "name": "cvss gte met",
+   "expr": {
+    "field": "cvss",
+    "op": "gte",
+    "value": 8.0
+   },
+   "alert_overrides": {},
+   "stale": [],
+   "changes": null,
+   "expect": true
+  },
+  {
+   "name": "cvss gte not met",
+   "expr": {
+    "field": "cvss",
+    "op": "gte",
+    "value": 8.2
+   },
+   "alert_overrides": {},
+   "stale": [],
+   "changes": null,
+   "expect": false
+  },
+  {
+   "name": "cvss lte",
+   "expr": {
+    "field": "cvss",
+    "op": "lte",
+    "value": 8.1
+   },
+   "alert_overrides": {},
+   "stale": [],
+   "changes": null,
+   "expect": true
+  },
+  {
+   "name": "cvss unknown never matches",
+   "expr": {
+    "field": "cvss",
+    "op": "gte",
+    "value": 0
+   },
+   "alert_overrides": {
+    "severity": {
+     "score": null,
+     "version": null,
+     "vector": null,
+     "band": "unknown",
+     "rated_by": [],
+     "all": {}
+    }
+   },
+   "stale": [],
+   "changes": null,
+   "expect": false
+  },
+  {
+   "name": "epss gte met",
+   "expr": {
+    "field": "epss",
+    "op": "gte",
+    "value": 0.4
+   },
+   "alert_overrides": {},
+   "stale": [],
+   "changes": null,
+   "expect": true
+  },
+  {
+   "name": "epss absent never matches",
+   "expr": {
+    "field": "epss",
+    "op": "gte",
+    "value": 0
+   },
+   "alert_overrides": {
+    "epss": null
+   },
+   "stale": [],
+   "changes": null,
+   "expect": false
+  },
+  {
+   "name": "severity high satisfies high",
+   "expr": {
+    "field": "severity",
+    "op": "gte",
+    "value": "high"
+   },
+   "alert_overrides": {},
+   "stale": [],
+   "changes": null,
+   "expect": true
+  },
+  {
+   "name": "severity high does not satisfy critical",
+   "expr": {
+    "field": "severity",
+    "op": "gte",
+    "value": "critical"
+   },
+   "alert_overrides": {},
+   "stale": [],
+   "changes": null,
+   "expect": false
+  },
+  {
+   "name": "severity unknown satisfies nothing",
+   "expr": {
+    "field": "severity",
+    "op": "gte",
+    "value": "low"
+   },
+   "alert_overrides": {
+    "severity": {
+     "score": null,
+     "version": null,
+     "vector": null,
+     "band": "unknown",
+     "rated_by": [],
+     "all": {}
+    }
+   },
+   "stale": [],
+   "changes": null,
+   "expect": false
+  },
+  {
+   "name": "exploited true",
+   "expr": {
+    "field": "exploited",
+    "op": "is",
+    "value": true
+   },
+   "alert_overrides": {},
+   "stale": [],
+   "changes": null,
+   "expect": true
+  },
+  {
+   "name": "exploited false does not match an exploited alert",
+   "expr": {
+    "field": "exploited",
+    "op": "is",
+    "value": false
+   },
+   "alert_overrides": {},
+   "stale": [],
+   "changes": null,
+   "expect": false
+  },
+  {
+   "name": "exploited false matches an alert no source asserts",
+   "expr": {
+    "field": "exploited",
+    "op": "is",
+    "value": false
+   },
+   "alert_overrides": {
+    "exploitation": {
+     "status": "not-asserted",
+     "asserted_by": [],
+     "earliest_since": null,
+     "independent_confirmation": "not-applicable",
+     "per_source": {}
+    }
+   },
+   "stale": [],
+   "changes": null,
+   "expect": true
+  },
+  {
+   "name": "exploited by a named source",
+   "expr": {
+    "field": "exploited",
+    "op": "is",
+    "value": true,
+    "source": "cisa-kev"
+   },
+   "alert_overrides": {},
+   "stale": [],
+   "changes": null,
+   "expect": true
+  },
+  {
+   "name": "exploited by another named source",
+   "expr": {
+    "field": "exploited",
+    "op": "is",
+    "value": true,
+    "source": "enisa-euvd-exploited"
+   },
+   "alert_overrides": {},
+   "stale": [],
+   "changes": null,
+   "expect": false
+  },
+  {
+   "name": "a stale source's exploitation is not counted",
+   "expr": {
+    "field": "exploited",
+    "op": "is",
+    "value": true
+   },
+   "alert_overrides": {},
+   "stale": [
+    "cisa-kev"
+   ],
+   "changes": null,
+   "expect": false
+  },
+  {
+   "name": "published gte",
+   "expr": {
+    "field": "published",
+    "op": "gte",
+    "value": "2026-09-01"
+   },
+   "alert_overrides": {},
+   "stale": [],
+   "changes": null,
+   "expect": true
+  },
+  {
+   "name": "published lte before",
+   "expr": {
+    "field": "published",
+    "op": "lte",
+    "value": "2026-09-01"
+   },
+   "alert_overrides": {},
+   "stale": [],
+   "changes": null,
+   "expect": false
+  },
+  {
+   "name": "updated gte",
+   "expr": {
+    "field": "updated",
+    "op": "gte",
+    "value": "2026-10-20"
+   },
+   "alert_overrides": {},
+   "stale": [],
+   "changes": null,
+   "expect": true
+  },
+  {
+   "name": "updated missing never matches",
+   "expr": {
+    "field": "updated",
+    "op": "gte",
+    "value": "2000-01-01"
+   },
+   "alert_overrides": {
+    "dates": {
+     "published": "2026-09-20",
+     "updated": null,
+     "listed": {}
+    }
+   },
+   "stale": [],
+   "changes": null,
+   "expect": false
+  },
+  {
+   "name": "ingested within 3 days",
+   "expr": {
+    "field": "ingested_within_days",
+    "op": "lte",
+    "value": 3
+   },
+   "alert_overrides": {},
+   "stale": [],
+   "changes": null,
+   "expect": true
+  },
+  {
+   "name": "ingested within 1 day is too recent a window",
+   "expr": {
+    "field": "ingested_within_days",
+    "op": "lte",
+    "value": 1
+   },
+   "alert_overrides": {},
+   "stale": [],
+   "changes": null,
+   "expect": false
+  },
+  {
+   "name": "has_fix true",
+   "expr": {
+    "field": "has_fix",
+    "op": "is",
+    "value": true
+   },
+   "alert_overrides": {},
+   "stale": [],
+   "changes": null,
+   "expect": true
+  },
+  {
+   "name": "has_fix false when unknown",
+   "expr": {
+    "field": "has_fix",
+    "op": "is",
+    "value": false
+   },
+   "alert_overrides": {
+    "fix": {
+     "available": null,
+     "details": []
+    }
+   },
+   "stale": [],
+   "changes": null,
+   "expect": true
+  },
+  {
+   "name": "has_fix true when unknown does not match",
+   "expr": {
+    "field": "has_fix",
+    "op": "is",
+    "value": true
+   },
+   "alert_overrides": {
+    "fix": {
+     "available": null,
+     "details": []
+    }
+   },
+   "stale": [],
+   "changes": null,
+   "expect": false
+  },
+  {
+   "name": "has_mitigation false",
+   "expr": {
+    "field": "has_mitigation",
+    "op": "is",
+    "value": false
+   },
+   "alert_overrides": {},
+   "stale": [],
+   "changes": null,
+   "expect": true
+  },
+  {
+   "name": "has_mitigation true",
+   "expr": {
+    "field": "has_mitigation",
+    "op": "is",
+    "value": true
+   },
+   "alert_overrides": {},
+   "stale": [],
+   "changes": null,
+   "expect": false
+  },
+  {
+   "name": "internet exposure keeps network vulnerabilities",
+   "expr": {
+    "field": "exposure",
+    "op": "in",
+    "value": [
+     "internet"
+    ]
+   },
+   "alert_overrides": {},
+   "stale": [],
+   "changes": null,
+   "expect": true
+  },
+  {
+   "name": "internet exposure drops local vulnerabilities",
+   "expr": {
+    "field": "exposure",
+    "op": "in",
+    "value": [
+     "internet"
+    ]
+   },
+   "alert_overrides": {
+    "attack_vector": "local"
+   },
+   "stale": [],
+   "changes": null,
+   "expect": false
+  },
+  {
+   "name": "internet exposure keeps an unknown vector",
+   "expr": {
+    "field": "exposure",
+    "op": "in",
+    "value": [
+     "internet"
+    ]
+   },
+   "alert_overrides": {
+    "attack_vector": "unknown"
+   },
+   "stale": [],
+   "changes": null,
+   "expect": true
+  },
+  {
+   "name": "internal-service keeps local",
+   "expr": {
+    "field": "exposure",
+    "op": "in",
+    "value": [
+     "internal-service"
+    ]
+   },
+   "alert_overrides": {
+    "attack_vector": "local"
+   },
+   "stale": [],
+   "changes": null,
+   "expect": true
+  },
+  {
+   "name": "private-network drops physical",
+   "expr": {
+    "field": "exposure",
+    "op": "in",
+    "value": [
+     "private-network"
+    ]
+   },
+   "alert_overrides": {
+    "attack_vector": "physical"
+   },
+   "stale": [],
+   "changes": null,
+   "expect": false
+  },
+  {
+   "name": "exposure unknown keeps everything",
+   "expr": {
+    "field": "exposure",
+    "op": "in",
+    "value": [
+     "unknown"
+    ]
+   },
+   "alert_overrides": {
+    "attack_vector": "physical"
+   },
+   "stale": [],
+   "changes": null,
+   "expect": true
+  },
+  {
+   "name": "source observed",
+   "expr": {
+    "field": "source",
+    "op": "in",
+    "value": [
+     "cisa-kev"
+    ]
+   },
+   "alert_overrides": {},
+   "stale": [],
+   "changes": null,
+   "expect": true
+  },
+  {
+   "name": "source not observed",
+   "expr": {
+    "field": "source",
+    "op": "in",
+    "value": [
+     "osv"
+    ]
+   },
+   "alert_overrides": {},
+   "stale": [],
+   "changes": null,
+   "expect": false
+  },
+  {
+   "name": "threat family ransomware",
+   "expr": {
+    "field": "threat_family",
+    "op": "in",
+    "value": [
+     "ransomware"
+    ]
+   },
+   "alert_overrides": {},
+   "stale": [],
+   "changes": null,
+   "expect": true
+  },
+  {
+   "name": "technique absent",
+   "expr": {
+    "field": "attack_technique",
+    "op": "in",
+    "value": [
+     "T1190"
+    ]
+   },
+   "alert_overrides": {},
+   "stale": [],
+   "changes": null,
+   "expect": false
+  },
+  {
+   "name": "technique stated",
+   "expr": {
+    "field": "attack_technique",
+    "op": "in",
+    "value": [
+     "T1190"
+    ]
+   },
+   "alert_overrides": {
+    "attack_techniques": [
+     "T1190",
+     "T1059.001"
+    ]
+   },
+   "stale": [],
+   "changes": null,
+   "expect": true
+  },
+  {
+   "name": "alert type",
+   "expr": {
+    "field": "alert_type",
+    "op": "in",
+    "value": [
+     "vulnerability",
+     "advisory"
+    ]
+   },
+   "alert_overrides": {},
+   "stale": [],
+   "changes": null,
+   "expect": true
+  },
+  {
+   "name": "alert type rule-release excluded",
+   "expr": {
+    "field": "alert_type",
+    "op": "in",
+    "value": [
+     "rule-release"
+    ]
+   },
+   "alert_overrides": {},
+   "stale": [],
+   "changes": null,
+   "expect": false
+  },
+  {
+   "name": "change without an event is not evaluated",
+   "expr": {
+    "field": "change",
+    "op": "any",
+    "value": [
+     "new"
+    ]
+   },
+   "alert_overrides": {},
+   "stale": [],
+   "changes": null,
+   "expect": false
+  },
+  {
+   "name": "change matches the event",
+   "expr": {
+    "field": "change",
+    "op": "any",
+    "value": [
+     "exploitation_added",
+     "fix_available"
+    ]
+   },
+   "alert_overrides": {},
+   "stale": [],
+   "changes": [
+    "exploitation_added"
+   ],
+   "expect": true
+  },
+  {
+   "name": "change does not match another event",
+   "expr": {
+    "field": "change",
+    "op": "any",
+    "value": [
+     "fix_available"
+    ]
+   },
+   "alert_overrides": {},
+   "stale": [],
+   "changes": [
+    "new"
+   ],
+   "expect": false
+  },
+  {
+   "name": "empty all matches everything",
+   "expr": {
+    "all": []
+   },
+   "alert_overrides": {},
+   "stale": [],
+   "changes": null,
+   "expect": true
+  },
+  {
+   "name": "empty any matches nothing",
+   "expr": {
+    "any": []
+   },
+   "alert_overrides": {},
+   "stale": [],
+   "changes": null,
+   "expect": false
+  },
+  {
+   "name": "all needs every branch",
+   "expr": {
+    "all": [
+     {
+      "field": "os",
+      "op": "in",
+      "value": [
+       "windows"
+      ]
+     },
+     {
+      "field": "severity",
+      "op": "gte",
+      "value": "critical"
+     }
+    ]
+   },
+   "alert_overrides": {},
+   "stale": [],
+   "changes": null,
+   "expect": false
+  },
+  {
+   "name": "all of true branches",
+   "expr": {
+    "all": [
+     {
+      "field": "os",
+      "op": "in",
+      "value": [
+       "windows"
+      ]
+     },
+     {
+      "field": "severity",
+      "op": "gte",
+      "value": "high"
+     },
+     {
+      "field": "exploited",
+      "op": "is",
+      "value": true
+     }
+    ]
+   },
+   "alert_overrides": {},
+   "stale": [],
+   "changes": null,
+   "expect": true
+  },
+  {
+   "name": "any needs one branch",
+   "expr": {
+    "any": [
+     {
+      "field": "os",
+      "op": "in",
+      "value": [
+       "linux"
+      ]
+     },
+     {
+      "field": "severity",
+      "op": "gte",
+      "value": "high"
+     }
+    ]
+   },
+   "alert_overrides": {},
+   "stale": [],
+   "changes": null,
+   "expect": true
+  },
+  {
+   "name": "any with no true branch",
+   "expr": {
+    "any": [
+     {
+      "field": "os",
+      "op": "in",
+      "value": [
+       "linux"
+      ]
+     },
+     {
+      "field": "severity",
+      "op": "gte",
+      "value": "critical"
+     }
+    ]
+   },
+   "alert_overrides": {},
+   "stale": [],
+   "changes": null,
+   "expect": false
+  },
+  {
+   "name": "not inverts",
+   "expr": {
+    "not": {
+     "field": "os",
+     "op": "in",
+     "value": [
+      "linux"
+     ]
+    }
+   },
+   "alert_overrides": {},
+   "stale": [],
+   "changes": null,
+   "expect": true
+  },
+  {
+   "name": "not of a true leaf",
+   "expr": {
+    "not": {
+     "field": "os",
+     "op": "in",
+     "value": [
+      "windows"
+     ]
+    }
+   },
+   "alert_overrides": {},
+   "stale": [],
+   "changes": null,
+   "expect": false
+  },
+  {
+   "name": "nested and/or/not",
+   "expr": {
+    "all": [
+     {
+      "any": [
+       {
+        "field": "region",
+        "op": "in",
+        "value": [
+         "ES"
+        ]
+       },
+       {
+        "field": "region",
+        "op": "in",
+        "value": [
+         "EU"
+        ]
+       }
+      ]
+     },
+     {
+      "not": {
+       "field": "alert_type",
+       "op": "in",
+       "value": [
+        "rule-release"
+       ]
+      }
+     },
+     {
+      "field": "cvss",
+      "op": "gte",
+      "value": 7
+     }
+    ]
+   },
+   "alert_overrides": {},
+   "stale": [],
+   "changes": null,
+   "expect": true
+  },
+  {
+   "name": "unknown data under not is still not a match of the inner leaf",
+   "expr": {
+    "not": {
+     "field": "cvss",
+     "op": "gte",
+     "value": 5
+    }
+   },
+   "alert_overrides": {
+    "severity": {
+     "score": null,
+     "version": null,
+     "vector": null,
+     "band": "unknown",
+     "rated_by": [],
+     "all": {}
+    }
+   },
+   "stale": [],
+   "changes": null,
+   "expect": true
+  }
+ ]
+}

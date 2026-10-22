@@ -1,0 +1,33 @@
+/* Subscriptions and alerts: extends ../intel.css and ../../style.css (same tokens, same dark switch: body.dark). No external fonts or images. */
+:root{--sev-crit-bg:#fbe0de;--sev-crit-fg:#8c1d18;--sev-high-bg:#fde6d3;--sev-high-fg:#7a3200;--sev-med-bg:#fdefc9;--sev-med-fg:#5f4000;--sev-low-bg:#dcf3e4;--sev-low-fg:#0f4d27;--sev-unk-bg:#e6ebf3;--sev-unk-fg:#33415a}
+body.dark{--sev-crit-bg:#4a1f1d;--sev-crit-fg:#ffb4ae;--sev-high-bg:#4a2a12;--sev-high-fg:#ffc999;--sev-med-bg:#463507;--sev-med-fg:#f6d38a;--sev-low-bg:#163d28;--sev-low-fg:#a6e8bf;--sev-unk-bg:#2a3646;--sev-unk-fg:#c3cfdf}
+.sev-critical{background:var(--sev-crit-bg);color:var(--sev-crit-fg)}.sev-high{background:var(--sev-high-bg);color:var(--sev-high-fg)}.sev-medium{background:var(--sev-med-bg);color:var(--sev-med-fg)}
+.sev-low,.sev-none{background:var(--sev-low-bg);color:var(--sev-low-fg)}.sev-unknown{background:var(--sev-unk-bg);color:var(--sev-unk-fg)}
+.expl-yes{background:var(--sev-crit-bg);color:var(--sev-crit-fg)}.expl-no{background:var(--sev-unk-bg);color:var(--sev-unk-fg)}
+.fields{display:flex;flex-wrap:wrap;gap:12px 18px;align-items:flex-end;margin:8px 0}
+.fields label,.field label{display:flex;flex-direction:column;gap:4px;font-size:14px}
+.fields input[type=text],.fields input[type=email],.fields input[type=url],.fields input[type=password],.fields input[type=number],.fields input[type=date],.fields select,.toolbar select{min-width:220px;max-width:100%;padding:8px 10px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--text);font:inherit}
+.field{display:flex;flex-direction:column;gap:2px}
+fieldset{border:1px solid var(--line);border-radius:10px;margin:12px 0;padding:10px 14px}
+legend{font-weight:600;padding:0 6px}
+.checks{display:flex;flex-wrap:wrap;gap:6px 18px}
+label.check{display:inline-flex;flex-direction:row;align-items:center;gap:6px;font-size:14px}
+.filtergrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:0 16px}
+.actions{display:flex;flex-wrap:wrap;gap:10px;margin:12px 0}
+button,.button{font:inherit;padding:8px 14px;border-radius:8px;border:1px solid var(--line);background:var(--card,var(--bg));color:var(--text);cursor:pointer;text-decoration:none;display:inline-block}
+button:hover,.button:hover{border-color:currentColor}
+button.danger{border-color:var(--sev-crit-fg);color:var(--sev-crit-fg)}
+:focus-visible{outline:3px solid #1a73e8;outline-offset:2px}
+body.dark :focus-visible{outline-color:#8ab4f8}
+.meta{display:flex;flex-wrap:wrap;gap:8px;margin:6px 0}
+.notice.ok{border-left-color:var(--st-ok-fg)}
+.badmsg{color:var(--st-bad-fg);font-weight:600}
+.result details{margin-top:8px}
+.result summary{cursor:pointer}
+@media (max-width:640px){.fields input[type=text],.fields input[type=email],.fields input[type=url],.fields input[type=password],.fields input[type=number],.fields input[type=date],.fields select,.toolbar select{min-width:0;width:100%}.filtergrid{grid-template-columns:1fr}.cardlist{grid-template-columns:1fr}}
+/* every text-like control and select, wherever it sits: at least 36px tall (WCAG 2.2 target size, 2.5.8) */
+main input:not([type=checkbox]):not([type=radio]),main select{box-sizing:border-box;min-height:36px;padding:6px 10px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--text);font:inherit;max-width:100%}
+main input[type=checkbox]{width:18px;height:18px;margin:0}
+main label.check{min-height:24px}
+fieldset{min-width:0}
+.checks label,.fields label,.field{min-width:0;overflow-wrap:anywhere}

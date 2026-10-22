@@ -1,0 +1,222 @@
+{
+  "schema": "macguard.taxonomy/1",
+  "name": "technology-map",
+  "version": 1,
+  "note": "A small, conservative, hand-written map from vendor/product to a category and an OS family. It exists because the sources give vendor and product names, not categories. Anything not listed stays 'unknown'; a match is always shown with its basis 'curated-mapping:technology-map@1'. Extend it with evidence, not with guesses.",
+  "rules": [
+    {
+      "match": {
+        "vendor": "microsoft",
+        "product_prefix": "windows"
+      },
+      "os": "windows"
+    },
+    {
+      "match": {
+        "vendor": "apple",
+        "product_prefix": "macos"
+      },
+      "os": "macos"
+    },
+    {
+      "match": {
+        "vendor": "apple",
+        "product_prefix": "mac os"
+      },
+      "os": "macos"
+    },
+    {
+      "match": {
+        "vendor": "linux",
+        "product_prefix": "linux"
+      },
+      "os": "linux"
+    },
+    {
+      "match": {
+        "vendor": "linux",
+        "product_prefix": "kernel"
+      },
+      "os": "linux"
+    },
+    {
+      "match": {
+        "vendor": "debian"
+      },
+      "os": "linux"
+    },
+    {
+      "match": {
+        "vendor": "canonical"
+      },
+      "os": "linux"
+    },
+    {
+      "match": {
+        "vendor": "ubuntu"
+      },
+      "os": "linux"
+    },
+    {
+      "match": {
+        "vendor": "red hat"
+      },
+      "os": "linux"
+    },
+    {
+      "match": {
+        "vendor": "redhat"
+      },
+      "os": "linux"
+    },
+    {
+      "match": {
+        "vendor": "suse"
+      },
+      "os": "linux"
+    },
+    {
+      "match": {
+        "vendor": "cisco",
+        "product_prefix": "ios"
+      },
+      "os": "network-firmware",
+      "category": "network-device"
+    },
+    {
+      "match": {
+        "vendor": "cisco"
+      },
+      "category": "network-device"
+    },
+    {
+      "match": {
+        "vendor": "fortinet"
+      },
+      "category": "network-device"
+    },
+    {
+      "match": {
+        "vendor": "juniper"
+      },
+      "category": "network-device"
+    },
+    {
+      "match": {
+        "vendor": "palo alto networks"
+      },
+      "category": "network-device"
+    },
+    {
+      "match": {
+        "vendor": "f5"
+      },
+      "category": "network-device"
+    },
+    {
+      "match": {
+        "vendor": "ubiquiti"
+      },
+      "category": "network-device"
+    },
+    {
+      "match": {
+        "vendor": "mikrotik"
+      },
+      "category": "network-device"
+    },
+    {
+      "match": {
+        "vendor": "tp-link"
+      },
+      "category": "network-device"
+    },
+    {
+      "match": {
+        "vendor": "d-link"
+      },
+      "category": "network-device"
+    },
+    {
+      "match": {
+        "product_prefix": "kubernetes"
+      },
+      "category": "container-platform"
+    },
+    {
+      "match": {
+        "product_prefix": "docker"
+      },
+      "category": "container-platform"
+    },
+    {
+      "match": {
+        "product_prefix": "containerd"
+      },
+      "category": "container-platform"
+    },
+    {
+      "match": {
+        "product_prefix": "runc"
+      },
+      "category": "container-platform"
+    },
+    {
+      "match": {
+        "product_prefix": "podman"
+      },
+      "category": "container-platform"
+    },
+    {
+      "match": {
+        "vendor": "amazon web services"
+      },
+      "category": "cloud"
+    },
+    {
+      "match": {
+        "vendor": "amazon"
+      },
+      "category": "cloud"
+    },
+    {
+      "match": {
+        "vendor": "google cloud"
+      },
+      "category": "cloud"
+    },
+    {
+      "match": {
+        "product_prefix": "azure"
+      },
+      "category": "cloud"
+    },
+    {
+      "match": {
+        "product_prefix": "openssh"
+      },
+      "category": "service-protocol",
+      "service": "ssh"
+    },
+    {
+      "match": {
+        "product_prefix": "openssl"
+      },
+      "category": "library"
+    },
+    {
+      "match": {
+        "product_prefix": "apache http server"
+      },
+      "category": "service-protocol",
+      "service": "http"
+    },
+    {
+      "match": {
+        "product_prefix": "nginx"
+      },
+      "category": "service-protocol",
+      "service": "http"
+    }
+  ]
+}

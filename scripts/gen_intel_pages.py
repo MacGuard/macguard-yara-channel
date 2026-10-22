@@ -19,7 +19,7 @@ add(skip=('Saltar al contenido', 'Skip to content'),
     nav_h_intel=('Inteligencia', 'Intelligence'), nav_h_yara=('Canal YARA existente', 'Existing YARA channel'),
     nav_home=('Inicio', 'Home'), nav_intel=('Visión general', 'Overview'), nav_explorer=('Explorador', 'Explorer'), nav_channels=('Estado de canales', 'Channel status'),
     nav_artifacts=('Fichas de artefactos', 'Artifact cards'), nav_downloads=('Descargas', 'Downloads'), nav_provenance=('Procedencia del software', 'Software provenance'),
-    nav_licenses=('Registro de licencias', 'License registry'), nav_vulns=('Vulnerabilidades', 'Vulnerabilities'), nav_security=('Seguridad y confianza', 'Security & trust'), nav_roadmap=('Hoja de ruta', 'Roadmap'),
+    nav_licenses=('Registro de licencias', 'License registry'), nav_alerts=('Suscripciones y alertas', 'Subscriptions and alerts'), nav_vulns=('Vulnerabilidades', 'Vulnerabilities'), nav_security=('Seguridad y confianza', 'Security & trust'), nav_roadmap=('Hoja de ruta', 'Roadmap'),
     nav_rules=('Reglas YARA', 'YARA rules'), nav_releases=('Releases', 'Releases'), nav_transparency=('Transparencia', 'Transparency'), nav_docs=('Documentación', 'Documentation'),
     disclaimer=('Proyecto independiente. Sin afiliación ni aval de las fuentes.', 'Independent project. No affiliation with or endorsement by the sources.'),
     loading=('Cargando datos…', 'Loading data…'), loaded=('Datos cargados.', 'Data loaded.'),
@@ -95,6 +95,7 @@ add(p_overview=('Un lugar para ver, con datos reales, qué canales de inteligenc
     go_provenance=('Procedencia del software', 'Software provenance'), d_provenance=('Seis hechos separados y cobertura real frente a diseñada.', 'Six separate facts, and real coverage versus designed.'),
     go_licenses=('Registro de licencias', 'License registry'), d_licenses=('Veredictos de licencia como evidencia, no como asesoría legal.', 'Licence verdicts as evidence, not legal advice.'),
     go_vulns=('Vulnerabilidades', 'Vulnerabilities'), d_vulns=('Fuentes de EE. UU., la UE y España: qué se descargó, qué se validó y por qué no se publica.', 'Sources from the US, the EU and Spain: what was downloaded, what was validated and why nothing is published.'),
+    go_alerts=('Suscripciones y alertas', 'Subscriptions and alerts'), d_alerts=('Explora alertas, crea suscripciones por país, sector y tecnología y recibe avisos por RSS, correo o webhook.', 'Explore alerts, create subscriptions by country, sector and technology and receive them by RSS, e-mail or webhook.'),
     go_security=('Seguridad y confianza', 'Security & trust'), d_security=('Qué garantiza la cadena existente y qué no.', 'What the existing chain guarantees and what it does not.'),
     go_roadmap=('Hoja de ruta', 'Roadmap'), d_roadmap=('Fases sin fechas ni porcentajes.', 'Phases without dates or percentages.'))
 
@@ -208,7 +209,7 @@ def body(page):
     if page == 'overview':
         go = ''.join(f'<article class="panel"><h3><a href="{h}" data-t="go_{k}">{e(S["go_" + k][0])}</a></h3>{T("p", "d_" + k)}</article>'
                      for h, k in (('explorer.html', 'explorer'), ('channels.html', 'channels'), ('artifacts.html', 'artifacts'), ('downloads.html', 'downloads'), ('provenance.html', 'provenance'),
-                                  ('licenses.html', 'licenses'), ('vulns.html', 'vulns'), ('security.html', 'security'), ('roadmap.html', 'roadmap')))
+                                  ('licenses.html', 'licenses'), ('vulns.html', 'vulns'), ('alerts/index.html', 'alerts'), ('security.html', 'security'), ('roadmap.html', 'roadmap')))
         yara = ''.join(f'<li><a href="{h}" data-t="{k}">{e(S[k][0])}</a></li>' for h, k in LEGACY[1:])
         return (section('ov-h', 'h_ov_state', '<div id="ov"></div>') + section('lg-h', 'h_ov_legend', '<div id="legend"></div>') +
                 f'<section aria-labelledby="go-h"><h2 id="go-h" data-t="h_ov_go">{e(S["h_ov_go"][0])}</h2><div class="grid3 gofour">{go}</div></section>\n' +

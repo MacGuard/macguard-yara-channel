@@ -358,6 +358,14 @@
       "spdx": "GPL-2.0"
     },
     {
+      "id": "debian-security-tracker",
+      "license_name": "not read",
+      "name": "Debian Security Tracker (JSON)",
+      "owner_confirmed": false,
+      "redistribution_status": "not-evaluated",
+      "spdx": null
+    },
+    {
       "id": "enisa-euvd",
       "license_name": "no EUVD-specific terms found; ENISA's IPR policy states CC BY 4.0 for ENISA publications, and that this covers the EUVD data is NOT confirmed",
       "name": "ENISA European Vulnerability Database (EUVD): recent window",
@@ -382,6 +390,14 @@
       "spdx": null
     },
     {
+      "id": "macguard-yara-releases",
+      "license_name": "first-party metadata of this repository: release tag, time and run link. It contains no third-party rule text.",
+      "name": "MacGuard YARA channel release log (first-party)",
+      "owner_confirmed": true,
+      "redistribution_status": "allowed",
+      "spdx": null
+    },
+    {
       "id": "nextron",
       "license_name": "Detection Rule License 1.1",
       "name": "Neo23x0/signature-base (Nextron Systems)",
@@ -401,6 +417,30 @@
       "id": "osv",
       "license_name": "per-record licences (some records originate from CC BY-SA sources); not evaluated here",
       "name": "OSV (Open Source Vulnerabilities) and GitHub advisories",
+      "owner_confirmed": false,
+      "redistribution_status": "not-evaluated",
+      "spdx": null
+    },
+    {
+      "id": "redhat-security-data",
+      "license_name": "not read",
+      "name": "Red Hat Security Data API",
+      "owner_confirmed": false,
+      "redistribution_status": "not-evaluated",
+      "spdx": null
+    },
+    {
+      "id": "sigmahq",
+      "license_name": "Detection Rule License 1.1",
+      "name": "SigmaHQ/sigma rule repository (new and changed rules)",
+      "owner_confirmed": false,
+      "redistribution_status": "allowed-with-conditions",
+      "spdx": "DRL-1.1"
+    },
+    {
+      "id": "ubuntu-security-notices",
+      "license_name": "not read",
+      "name": "Ubuntu Security (CVE and notices JSON)",
       "owner_confirmed": false,
       "redistribution_status": "not-evaluated",
       "spdx": null

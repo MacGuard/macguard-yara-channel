@@ -1,0 +1,66 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.macguard.example/alerts/asset-exposure-match/1",
+  "title": "AssetExposureMatch v1 (contract; MacGuard Cloud is PLANNED)",
+  "type": "object",
+  "required": [
+    "schema",
+    "alert_id",
+    "asset_id",
+    "state",
+    "evidence",
+    "reason"
+  ],
+  "properties": {
+    "schema": {
+      "const": "macguard.asset-exposure-match/1"
+    },
+    "alert_id": {
+      "type": "string"
+    },
+    "asset_id": {
+      "type": "string"
+    },
+    "cve": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "state": {
+      "enum": [
+        "CONFIRMED_AFFECTED",
+        "POTENTIALLY_AFFECTED",
+        "NOT_AFFECTED",
+        "UNKNOWN",
+        "NOT_EVALUATED"
+      ]
+    },
+    "evidence": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "kind"
+        ],
+        "properties": {
+          "kind": {
+            "enum": [
+              "distribution-advisory",
+              "vendor-version-range",
+              "vendor-single-version",
+              "open-ended-range",
+              "no-distribution-data",
+              "no-version",
+              "name-only",
+              "not-looked-at"
+            ]
+          }
+        }
+      }
+    },
+    "reason": {
+      "type": "string"
+    }
+  }
+}
