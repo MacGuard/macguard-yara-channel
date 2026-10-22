@@ -4,7 +4,7 @@
 
 ## En 30 segundos
 
-Network Extension es el marco de Apple que permite a un programa **ver y controlar el tráfico de red de otras apps** en el Mac (filtrar conexiones, hacer de proxy de DNS, crear una VPN). Apple no deja usarlo a cualquiera: hace falta un **permiso especial (entitlement)** concedido a la cuenta de desarrollador. Sin él, un programa no puede bloquear conexiones de otras apps.
+Network Extension es el marco de Apple que permite a un programa **ver y controlar el tráfico de red de otras apps** en el Mac (filtrar conexiones, hacer de proxy de DNS, crear una VPN). Apple no deja usarlo a cualquiera: hace falta un **permiso especial (entitlement)** concedido a la cuenta de desarrollador. Para el filtro previsto en MacFirewallGuard se necesita la autorización adecuada; otras tecnologías de red pueden tener requisitos distintos.
 
 ## Un ejemplo cotidiano
 
@@ -14,7 +14,7 @@ Es una garita en la salida de un edificio. Solo quien tiene una credencial emiti
 
 ## Cómo funciona (técnico)
 
-En el diseño de MacFirewallGuard, el bloqueo real iría con un **filtro de contenido por sockets** (`NEFilterDataProvider`) dentro de una **extensión del sistema**. Los documentos del proyecto mencionan además un proxy de DNS (`NEDNSProxyProvider`) y un proxy transparente (`NETransparentProxyProvider`) como alternativas, ninguna implementada {{ev:EV-EC-60}}. Los permisos que el proyecto da como necesarios son `com.apple.developer.networking.networkextension` (con el valor de filtro de contenido como extensión del sistema), que es el que **falta**, y `com.apple.developer.system-extension.install`, que su documento de decisión anota como concedido {{ev:EV-EC-60}}.
+En el diseño de MacFirewallGuard, el bloqueo real iría con un **filtro de contenido por sockets** (`NEFilterDataProvider`) dentro de una **extensión del sistema**. Los documentos del proyecto mencionan además un proxy de DNS (`NEDNSProxyProvider`) y un proxy transparente (`NETransparentProxyProvider`) como alternativas, ninguna implementada {{ev:EV-EC-60}}. La implementación prevista depende del entitlement de Network Extension apropiado, cuya disponibilidad operativa no está acreditada. La aprobación y configuración necesarias deben verificarse antes de afirmar que el bloqueo funciona {{ev:EV-EC-60}}.
 
 La documentación oficial de Apple sobre Network Extension no pudo leerse en su cuerpo desde esta herramienta; lo descrito aquí sobre los permisos procede de los documentos del proyecto, no de una cita de Apple {{ev:EV-EC-81}}.
 
@@ -22,7 +22,7 @@ La documentación oficial de Apple sobre Network Extension no pudo leerse en su 
 
 | App | Uso comprobado en el código |
 |---|---|
-| MacFirewallGuard | Solo tipos de `NetworkExtension` (`NEFilterSocketFlow`) como **puente de traducción** (`NEFilterSocketFlowBridge.swift`, `FilterFlowTranslation.swift`). **No existe** ninguna extensión del sistema ni ningún proveedor en ejecución; no hay archivos de entitlements en el árbol principal {{ev:EV-EC-63}} |
+| MacFirewallGuard | Solo tipos de `NetworkExtension` (`NEFilterSocketFlow`) como **puente de traducción** (adaptadores de traducción de flujos). **No existe** ninguna extensión del sistema ni ningún proveedor en ejecución; no hay archivos de entitlements en el árbol principal {{ev:EV-EC-63}} |
 | Los demás | No usan Network Extension; Installer Auditor no importa NetworkExtension en su código |
 
 El proyecto clasifica su situación como "el permiso está ausente y se puede solicitar" (documento de decisión del entitlement). **No verificado** si la solicitud ya se presentó o respondió {{ev:EV-EC-60}}.
