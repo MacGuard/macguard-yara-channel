@@ -49,6 +49,8 @@ def clearance(registry: Dict[str, Dict[str, Any]], source_ids: List[str]) -> Tup
             reasons.append(f"{sid}: not in the source registry")
         elif s["redistribution_status"] not in CLEARED:
             reasons.append(f"{sid}: redistribution status is '{s['redistribution_status']}'")
+        elif s.get("owner_confirmed") is not True:
+            reasons.append(f"{sid}: the owner has not confirmed the redistribution decision (owner_confirmed is not true)")
         elif s.get("access", {}).get("credential_required") and not s.get("access", {}).get("credential_terms_allow_redistribution", False):
             reasons.append(f"{sid}: access needs a credential and the registry does not record that its terms allow redistribution")
     return (not reasons), reasons
@@ -56,5 +58,5 @@ def clearance(registry: Dict[str, Dict[str, Any]], source_ids: List[str]) -> Tup
 
 def public_view(s: Dict[str, Any]) -> Dict[str, Any]:
     """The part of a registry record that goes into a published manifest (no internal notes)."""
-    keep = ("id", "name", "upstream_url", "license", "redistribution_status", "attribution", "original_signature")
+    keep = ("id", "name", "upstream_url", "license", "redistribution_status", "owner_confirmed", "attribution", "original_signature")
     return {k: s[k] for k in keep if k in s}

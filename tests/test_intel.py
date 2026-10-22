@@ -29,7 +29,7 @@ def test_registry(**over):
     """A registry in which 'feedA' and 'feedB' are cleared and 'blocked' is not (test double: real status is a human decision)."""
     def src(i, status, trust=50, ttl=30, **kw):
         d = {"id": i, "name": i, "upstream_url": "https://example.invalid/" + i, "license": {"name": "test"}, "redistribution_status": status, "trust": trust, "default_ttl_days": ttl,
-             "access": {"credential_required": False}, "original_signature": {"kind": "none"}}
+             "access": {"credential_required": False}, "original_signature": {"kind": "none"}, "owner_confirmed": status in ("allowed", "allowed-with-conditions")}
         d.update(kw)
         return d
     srcs = [src("feedA", "allowed", 80), src("feedB", "allowed-with-conditions", 50, 10), src("blocked", "pending-legal"), src("keyed", "allowed", access={"credential_required": True})]
@@ -508,9 +508,9 @@ class CliAndLegacyTests(Workspace):
         self.assertIn("cannot approve", r.stderr)
 
     def test_intel_never_touches_the_network_or_the_legacy_pipeline(self):
-        banned = re.compile(r"\b(urlopen|http\.client|requests|socket|ftplib|smtplib)\b")
+        banned = re.compile(r"\b(urlopen|http\.client|requests|socket|ftplib|smtplib)\b|urllib\.request")
         for fn in os.listdir(os.path.join(ROOT, "intel")):
-            if fn.endswith(".py"):
+            if fn.endswith(".py") and fn != "fetch.py":
                 self.assertIsNone(banned.search(slurp(os.path.join(ROOT, "intel", fn))), fn)
         for legacy in ("scripts/prepare.py", ".github/workflows/publish.yml", ".github/workflows/daily.yml"):
             self.assertNotIn("intel", slurp(os.path.join(ROOT, legacy)).lower().replace("intelligence", "").replace("intel_", ""), f"{legacy} must not depend on the new package yet")

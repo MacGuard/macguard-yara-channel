@@ -5,6 +5,7 @@
   catalog verify CATALOG --root DIR [--bundle F --identity ID --issuer URL | --key PUB --signature SIG] [--allow-draft] [--json]
   registry list [--registry FILE]
   channels [--json]                     honest status of every channel family
+  live SOURCE --out ROOT --version N    download a wired real source (abusech-feodo, cisa-kev), keep the original, validate, build the channel (never publishes)
 """
 from __future__ import annotations
 import argparse
@@ -13,7 +14,7 @@ import os
 import sys
 from datetime import datetime, timezone
 
-from . import VERSION, catalog, channel, ioc, registry as reg, status
+from . import VERSION, catalog, channel, ioc, live, registry as reg, status
 from .canonical import canonical_bytes
 
 
@@ -102,6 +103,19 @@ def cmd_registry_list(a) -> int:
     return 0
 
 
+def cmd_live(a) -> int:
+    from .fetch import FetchError
+    registry = reg.load(a.registry)
+    previous = json.load(open(a.previous)) if a.previous else None
+    try:
+        res = live.build_live(a.source, os.path.abspath(a.out), a.version, registry, _now(a.now), url=a.url, previous=previous, allow_http_localhost=a.allow_http_localhost)
+    except FetchError as e:
+        print(f"error: {e}", file=sys.stderr)
+        return 4
+    print(json.dumps(res, indent=2, sort_keys=True))
+    return 0
+
+
 def cmd_channels(a) -> int:
     if a.json:
         print(json.dumps({"schemaVersion": 1, "channels": status.CHANNELS}, indent=2, sort_keys=True))
@@ -129,6 +143,11 @@ def main(argv=None) -> int:
     v.add_argument("catalog"); v.add_argument("--root", required=True); v.add_argument("--bundle"); v.add_argument("--identity"); v.add_argument("--issuer")
     v.add_argument("--key"); v.add_argument("--signature"); v.add_argument("--previous"); v.add_argument("--min-version", type=int); v.add_argument("--allow-draft", action="store_true")
     v.add_argument("--json", action="store_true"); v.set_defaults(fn=cmd_catalog_verify)
+    lv = sub.add_parser("live", help="download a wired real source, keep the original, validate, build the channel")
+    lv.add_argument("source", choices=sorted(live.SOURCES)); lv.add_argument("--out", required=True); lv.add_argument("--version", type=int, required=True)
+    lv.add_argument("--now"); lv.add_argument("--previous"); lv.add_argument("--registry", default=reg.DEFAULT_PATH)
+    lv.add_argument("--url", help="TEST ONLY: replace the upstream URL (HTTPS, or http://127.0.0.1 with --allow-http-localhost)"); lv.add_argument("--allow-http-localhost", action="store_true", help="TEST ONLY")
+    lv.set_defaults(fn=cmd_live)
     ch = sub.add_parser("channels")
     ch.add_argument("--json", action="store_true"); ch.set_defaults(fn=cmd_channels)
     r = sub.add_parser("registry").add_subparsers(dest="sub", required=True).add_parser("list")
