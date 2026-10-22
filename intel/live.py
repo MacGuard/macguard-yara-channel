@@ -123,6 +123,10 @@ def build_live(source_id: str, root: str, version: int, registry: Dict[str, Dict
         with open(os.path.join(out, "kev-index.jsonl"), "wb") as f:
             for r in recs:
                 f.write(canonical_bytes(r) + b"\n")
+        from .vulns import kev as kev_unified   # additive: the same records in the unified per-source format, for the cross-source merge
+        with open(os.path.join(out, "vuln-records.jsonl"), "wb") as f:
+            for r in kev_unified.records(raw, spec["filename"], rec["sha256"], rec["retrieved_at"]):
+                f.write(canonical_bytes(r) + b"\n")
         stats = {"accepted": len(recs), "rejected": sum(rejected_by.values()), "rejected_by_reason": rejected_by, **meta,
                  "count_matches_declared": meta["declared_count"] == meta["input_items"]}
     with open(os.path.join(out, "build-report.json"), "wb") as f:

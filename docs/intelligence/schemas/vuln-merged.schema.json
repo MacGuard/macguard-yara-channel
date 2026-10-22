@@ -1,0 +1,125 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.macguard.example/intelligence/vuln-merged/1",
+  "title": "Cross-source view: one entry per vulnerability, every source kept apart",
+  "type": "object",
+  "required": [
+    "schema",
+    "entries",
+    "conflicts",
+    "stale_sources",
+    "stats"
+  ],
+  "properties": {
+    "schema": {
+      "const": "macguard.vuln-merged/1"
+    },
+    "conflicts": {
+      "type": "array",
+      "description": "records not merged because joining them would put two CVEs in one entry"
+    },
+    "stale_sources": {
+      "type": "object"
+    },
+    "stats": {
+      "type": "object"
+    },
+    "entries": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "key",
+          "ids",
+          "sources",
+          "exploitation",
+          "exploitation_summary",
+          "flags"
+        ],
+        "properties": {
+          "key": {
+            "type": "string"
+          },
+          "ids": {
+            "type": "object",
+            "required": [
+              "cve",
+              "euvd",
+              "ghsa"
+            ],
+            "properties": {
+              "cve": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "pattern": "^CVE-[0-9]{4}-[0-9]{4,}$"
+                }
+              },
+              "euvd": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "pattern": "^EUVD-[0-9]{4}-[0-9]{4,}$"
+                }
+              },
+              "ghsa": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "pattern": "^GHSA(-[23456789cfghjmpqrvwx]{4}){3}$"
+                }
+              }
+            }
+          },
+          "sources": {
+            "type": "object"
+          },
+          "exploitation": {
+            "type": "object",
+            "description": "per source"
+          },
+          "exploitation_summary": {
+            "type": "object",
+            "required": [
+              "asserted_by",
+              "asserted_by_current",
+              "independent_confirmation"
+            ],
+            "properties": {
+              "asserted_by": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "asserted_by_current": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "earliest_since": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "independent_confirmation": {
+                "enum": [
+                  "unknown",
+                  "not-applicable"
+                ]
+              }
+            }
+          },
+          "flags": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    }
+  }
+}

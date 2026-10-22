@@ -4,6 +4,7 @@ Status: DRAFT for owner and legal review. Read date: 2026-10-22 (all sources bel
 
 ## Resumen en espanol
 
+- Fuentes europeas añadidas el 2026-10-22: ENISA EUVD y su lista de explotadas (sin términos de reutilización encontrados: PENDING-LEGAL), CERT-EU (CC BY 4.0, con condiciones), INCIBE-CERT (BLOCKED: prohíbe distribución y transformación) y CCN-CERT (no se pudo leer: desafío anti-bot, no se elude).
 - Se revisaron 30+ fuentes candidatas (YARA, Sigma, IOC, ClamAV, MITRE ATT&CK, NVD/OSV/GHSA, ML). Ninguna publicacion esta autorizada por este documento; solo registra la evidencia.
 - Redistribuibles con condiciones (atribucion/aviso de licencia): Sigma (DRL 1.1), reglas DRL de signature-base, ReversingLabs (MIT), ESET malware-ioc (BSD-2), CISA KEV (CC0), Feodo Tracker y SSL Blacklist de abuse.ch (CC0 segun sus Terms), MITRE ATT&CK (copiar aviso + licencia), GHSA (CC BY 4.0).
 - Bloqueadas o pendientes: abuse.ch MalwareBazaar/URLhaus/ThreatFox (Auth-Key obligatoria; Terms prohiben obras derivadas sin consentimiento, uso comercial requiere suscripcion, prohibido entrenar IA), OpenPhish (sin redistribucion ni uso comercial), OTX y PhishTank (requieren credencial), Elastic (ELv2, limitacion de servicio gestionado), Yara-Rules y CAPE (copyleft GPL), ClamAV CVD (no hay licencia/termino publico de redistribucion de la base; solo mirror privado documentado), NVD (terminos no verificables en vivo).
@@ -51,6 +52,11 @@ Verdict legend: ALLOWED-WITH-CONDITIONS / PENDING-LEGAL / BLOCKED / NOT-VERIFIED
 | 26 | OSV (aggregate) | per upstream source; osv.dev code Apache-2.0 | ALLOWED-WITH-CONDITIONS per record origin; CC-BY-SA origins PENDING-LEGAL |
 | 27 | GitHub Advisory Database (GHSA) | CC-BY-4.0 | ALLOWED-WITH-CONDITIONS |
 | 28 | ML model sources | differ per model | NOT-VERIFIED (checklist only) |
+| 29 | ENISA EUVD (database and public API) | no EUVD-specific terms found (2026-10-22); ENISA's IPR policy says CC BY 4.0 for ENISA publications, and that this covers the EUVD data is NOT confirmed | PENDING-LEGAL |
+| 30 | ENISA EUVD exploited list ("EU KEV") | same as 29; the list is reported to be largely fed by CISA KEV | PENDING-LEGAL |
+| 31 | CERT-EU security advisories (RSS) | CC BY 4.0 per cert.europa.eu/legal-notice (Commission Decision 2011/833/EU), "unless otherwise noted"; third-party content excluded | ALLOWED-WITH-CONDITIONS |
+| 32 | INCIBE-CERT early-warning feeds (Spain) | INCIBE legal notice: no commercial use; distribution, public communication and transformation expressly prohibited | BLOCKED |
+| 33 | CCN-CERT alerts and bulletins (Spain) | not read: plain requests get an HTTP 403 browser challenge, which this project does not defeat | NOT-VERIFIED (access blocker) |
 
 ## 2. Detailed records
 
@@ -235,6 +241,7 @@ For each model or dataset, record and verify before any use: model licence (SPDX
 | ClamAV | engine as GPL-2.0 software | CVD redistribution PENDING-LEGAL (no public grant found; 403 to scripted fetch; only freshclam/cvdupdate supported) |
 | heuristics | MITRE ATT&CK (technique mapping, with notice); CISA KEV for prioritisation; GHSA/OSV (CC-BY, per record) | NVD NOT-VERIFIED |
 | behaviour | Sigma, ATT&CK mapping; Elastic behaviour rules would be ELv2 (PENDING-LEGAL) | CAPEv2 GPL PENDING-LEGAL |
+| vulnerabilities | CISA KEV (CC0); CERT-EU advisories (CC BY 4.0, with credit and change notes); GHSA (CC-BY-4.0) | ENISA EUVD and its exploited list PENDING-LEGAL (no terms found); INCIBE-CERT BLOCKED (no derivative or distribution); CCN-CERT NOT-VERIFIED; NVD NOT-VERIFIED; OSV per record origin |
 | ML | nothing verified | all NOT-VERIFIED; abuse.ch data cannot be used for AI training without consent |
 | sandbox | CAPEv2 as a tool/rules source only after legal review | same as above; sample feeds (MalwareBazaar) BLOCKED |
 
@@ -286,6 +293,9 @@ Legal questions (not answered here; no legal advice given)
 - Q8. CC BY-SA 4.0 (OSV/Ubuntu) and CC BY 4.0 (GHSA, CIRCL): attribution and indication-of-changes mechanics for aggregated data and the share-alike scope on a bundled channel.
 - Q9. Spamhaus DROP and blocklist.de: is republishing a copy permitted given the attribution/frequency limits and the absence of stated redistribution terms?
 - Q10. ML: licence and training-data conditions for any model, including whether data from sources that forbid AI training (abuse.ch) leaks into datasets.
+- Q12. ENISA EUVD: which terms govern reuse and redistribution of EUVD records through the public API, does the ENISA CC BY 4.0 policy for publications extend to the database, and how are the third-party records it aggregates (CVE, vendor text, CISA-derived flags) credited?
+- Q13. CERT-EU: does "unless otherwise noted" CC BY 4.0 cover the RSS advisory feed, and how are vendor texts quoted inside advisories excluded?
+- Q14. INCIBE and CCN-CERT: written authorisation (or an official machine-readable feed with reuse terms) is needed before any adapter or republication; INCIBE's notice prohibits distribution and transformation.
 - Q11. Data protection: indicators and rule metadata may include personal data (IPs, URLs, author names); GDPR basis for republication.
 
 ## 7. Follow-ups and caveats

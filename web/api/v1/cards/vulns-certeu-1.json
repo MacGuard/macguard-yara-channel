@@ -1,0 +1,209 @@
+{
+  "approval": {
+    "approved_at": null,
+    "approved_by": [],
+    "blocking_reasons": [
+      "cert-eu-advisories: the owner has not confirmed the redistribution decision (owner_confirmed is not true)"
+    ],
+    "publishable": false,
+    "state": "draft"
+  },
+  "artifacts": [
+    {
+      "bytes": 202,
+      "hosted_on_this_site": false,
+      "media_type": "application/json",
+      "metadata_embedded_in_card": true,
+      "origin": "derived",
+      "original_signature_present": false,
+      "path": "build-report.json",
+      "role": "MacGuard-generated metadata, embedded in this card",
+      "sha256": "b0ecf02ef6efa72dfb9e1d8183b6df8d609d9095c060717dbe1967753d397c95"
+    },
+    {
+      "bytes": 9832,
+      "hosted_on_this_site": false,
+      "media_type": "application/octet-stream",
+      "metadata_embedded_in_card": false,
+      "origin": "original",
+      "original_signature_present": false,
+      "path": "security-advisories.rss.xml",
+      "role": "original third-party file, kept byte for byte",
+      "sha256": "2d5312ac3f11f739eb134379fc7bcf497feb5f9ffdc0301c288c2c0be0f563ad"
+    },
+    {
+      "bytes": 450,
+      "hosted_on_this_site": false,
+      "media_type": "application/json",
+      "metadata_embedded_in_card": true,
+      "origin": "derived",
+      "original_signature_present": false,
+      "path": "security-advisories.rss.xml.retrieval.json",
+      "role": "MacGuard-generated metadata, embedded in this card",
+      "sha256": "6859c5f824b16b9b052b2b6e0718b248376e05845f9f20180d64b18d0727e38b"
+    },
+    {
+      "bytes": 11512,
+      "hosted_on_this_site": false,
+      "media_type": "application/x-ndjson",
+      "metadata_embedded_in_card": false,
+      "origin": "derived",
+      "original_signature_present": false,
+      "path": "vuln-records.jsonl",
+      "role": "MacGuard-generated, derived from third-party content; not hosted",
+      "sha256": "f17d0cb9dcf873f19df317414930eead7eb0c0bf7bad0bef9803160ba9e408ae"
+    }
+  ],
+  "attestation": {
+    "status": "none",
+    "text": "none: not produced",
+    "validation_attestation": null,
+    "validation_gates": []
+  },
+  "build": {
+    "key_numbers": {
+      "accepted": 10,
+      "input_items": 10,
+      "rejected": 0
+    },
+    "report": {
+      "accepted": 10,
+      "complete": true,
+      "declared_total": null,
+      "exploitation_asserted": 0,
+      "incomplete_reason": null,
+      "input_items": 10,
+      "pages": 1,
+      "rejected": 0,
+      "rejected_by_reason": {},
+      "warnings": {},
+      "window_days": null
+    }
+  },
+  "channel": "vulns-certeu",
+  "data_origin": "docs/intelligence/live-evidence/2026-10-22/vulns-certeu-1/ (byte copies of the manifest, build report and retrieval record of a real build made on 2026-10-22), intel/status.py, config/intel/sources.registry.json, tests/",
+  "download": {
+    "metadata_offered": [
+      "api/v1/cards/vulns-certeu-1.json"
+    ],
+    "published": false,
+    "reason": [
+      "cert-eu-advisories: the owner has not confirmed the redistribution decision (owner_confirmed is not true)"
+    ],
+    "text": "not published: publication is blocked",
+    "third_party_data_hosted": false,
+    "upstream_data_url": "https://cert.europa.eu/publications/security-advisories-rss",
+    "upstream_note": "To compare, fetch the upstream file yourself and hash it. The upstream changes: a different hash later does not mean tampering."
+  },
+  "family": "vulns",
+  "generated_at": "2026-10-22T21:30:00Z",
+  "generated_by": "scripts/gen_intel_web.py",
+  "id": "vulns-certeu-1",
+  "identity": {
+    "artifacts_root": "d721ee0209066687a119389a329d6cb08a0d63465282b955b3109b02b30c0a64",
+    "channel_manifest_schema": "macguard.channel-manifest/1",
+    "compatibility": {
+      "engines": [
+        {
+          "min_version": "0.1.0",
+          "name": "mgctl"
+        }
+      ],
+      "platforms": [
+        "macos",
+        "linux"
+      ]
+    },
+    "created_at": "2026-10-22T20:35:25Z",
+    "previous_version": null
+  },
+  "kind": "channel-artifact-set",
+  "metadata_files_sha256": {
+    "build-report.json": "b0ecf02ef6efa72dfb9e1d8183b6df8d609d9095c060717dbe1967753d397c95",
+    "manifest.json": "96cbf6a83d3ea1e280f450222cdafb8513f67c77dfa5985402f90baf2d56783b",
+    "security-advisories.rss.xml.retrieval.json": "6859c5f824b16b9b052b2b6e0718b248376e05845f9f20180d64b18d0727e38b"
+  },
+  "retrieval": {
+    "bytes": 9832,
+    "etag": null,
+    "file": "security-advisories.rss.xml",
+    "final_url": "https://cert.europa.eu/publications/security-advisories-rss",
+    "last_modified": null,
+    "redistribution_status_at_retrieval": "allowed-with-conditions",
+    "retrieved_at": "2026-10-22T20:35:25Z",
+    "sha256": "2d5312ac3f11f739eb134379fc7bcf497feb5f9ffdc0301c288c2c0be0f563ad",
+    "source_id": "cert-eu-advisories",
+    "status": 200,
+    "url": "https://cert.europa.eu/publications/security-advisories-rss"
+  },
+  "schema": "macguard.web-data/1",
+  "signature": {
+    "original_signature": "none (the upstream provides none; MacGuard never re-signs a third-party file)",
+    "status": "not_signed",
+    "text": "not signed: no signing workflow exists"
+  },
+  "source": {
+    "attribution": "credit CERT-EU, link the advisory, indicate changes; do not republish third-party material quoted inside advisories",
+    "id": "cert-eu-advisories",
+    "license": {
+      "name": "CC BY 4.0 per the CERT-EU legal notice (Commission Decision 2011/833/EU), 'unless otherwise noted'; third-party content excluded",
+      "spdx": "CC-BY-4.0"
+    },
+    "name": "CERT-EU security advisories (RSS)",
+    "owner_confirmed": false,
+    "redistribution_status": "allowed-with-conditions",
+    "registry_clearance_blocking_reasons": [
+      "cert-eu-advisories: the owner has not confirmed the redistribution decision (owner_confirmed is not true)"
+    ],
+    "registry_status_note": "Read on 2026-10-22: https://cert.europa.eu/legal-notice. The RSS carries the latest 10 advisories with no structured identifiers or exploitation field.",
+    "upstream_url": "https://cert.europa.eu/publications/security-advisories/"
+  },
+  "status": "experimental",
+  "status_detail": "CERT-EU security advisories (RSS, latest 10): kept as references that mention CVEs; the feed has no structured exploitation field, so none is asserted. Licence is CC BY 4.0 per its legal notice; the owner has not confirmed.",
+  "status_source": "intel/status.py",
+  "tests": [
+    {
+      "file": "tests/test_intel.py",
+      "test_functions": 45,
+      "what_it_says": "Tests for the intel package (P0/P1): canonical JSON, IOC normalisation and validation, channel manifests, the global catalog and the independent verifier, including real signatures made with a throwaway cosign key (skipped, and reported as skipped, if cosign is missing)."
+    },
+    {
+      "file": "tests/test_intel_live.py",
+      "test_functions": 12,
+      "what_it_says": "Tests for the download layer and the two wired real sources."
+    },
+    {
+      "file": "tests/test_vulns_eu.py",
+      "test_functions": 58,
+      "what_it_says": "Tests for the European/US vulnerability sources: identifiers, versions, the EUVD and CERT-EU parsers, the unified KEV record, the cross-source merge, distribution-aware assessment, the channel builders (against a LOCAL HTTP server: no network) and the CLI."
+    }
+  ],
+  "tests_note": "Tests run against local test doubles; the live download was done once by hand. No test result is attested.",
+  "verify_independently": [
+    {
+      "command": "python3 -m intel vulns build cert-eu-advisories --out ROOT --version 1",
+      "step": "Rebuild the channel from the upstream feed (needs the network; writes only under ROOT)"
+    },
+    {
+      "caveat": "equal only if the upstream file did not change since the retrieval",
+      "command": "shasum -a 256 ROOT/vulns-certeu/1/security-advisories.rss.xml",
+      "expect": "2d5312ac3f11f739eb134379fc7bcf497feb5f9ffdc0301c288c2c0be0f563ad",
+      "step": "Compare the sha256 of the retrieved file with the card"
+    },
+    {
+      "command": "python3 -m intel catalog build --channel ROOT/vulns-certeu/1/manifest.json --version 1 --out OUT --include-draft --rel-to ROOT",
+      "step": "Build a catalog that pins the channel (drafts are included only on request)"
+    },
+    {
+      "command": "python3 -m intel catalog verify OUT/catalog.json --root ROOT --allow-draft",
+      "expect": "exit 5 = CONSISTENT, SIGNATURE NOT CHECKED (there is no signature to check)",
+      "step": "Verify hashes, Merkle root, state and unlisted files"
+    },
+    {
+      "command": "mgctl intelligence catalog verify OUT/catalog.json --root ROOT --allow-draft",
+      "step": "Same check through the CLI front end"
+    }
+  ],
+  "version": 1,
+  "what_is_real": "A real download and build of one upstream feed. Every number below is copied from the build report or manifest. Nothing here is published: see approval and download."
+}

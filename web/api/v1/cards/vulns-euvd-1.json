@@ -1,0 +1,848 @@
+{
+  "approval": {
+    "approved_at": null,
+    "approved_by": [],
+    "blocking_reasons": [
+      "enisa-euvd: redistribution status is 'pending-legal'"
+    ],
+    "publishable": false,
+    "state": "draft"
+  },
+  "artifacts": [
+    {
+      "bytes": 204,
+      "hosted_on_this_site": false,
+      "media_type": "application/json",
+      "metadata_embedded_in_card": true,
+      "origin": "derived",
+      "original_signature_present": false,
+      "path": "build-report.json",
+      "role": "MacGuard-generated metadata, embedded in this card",
+      "sha256": "c9e5ca73107c279d5858e6dfa5f7834fbc33022068afd82bc3dc8607402c96c7"
+    },
+    {
+      "bytes": 597395,
+      "hosted_on_this_site": false,
+      "media_type": "application/json",
+      "metadata_embedded_in_card": false,
+      "origin": "original",
+      "original_signature_present": false,
+      "path": "euvd-page-0000.json",
+      "role": "original third-party file, kept byte for byte",
+      "sha256": "e1c8122f8b616ce68b2da5faa2d692d7fb8262c4880e59218db7edade7c772ea"
+    },
+    {
+      "bytes": 510,
+      "hosted_on_this_site": false,
+      "media_type": "application/json",
+      "metadata_embedded_in_card": true,
+      "origin": "derived",
+      "original_signature_present": false,
+      "path": "euvd-page-0000.json.retrieval.json",
+      "role": "MacGuard-generated metadata, embedded in this card",
+      "sha256": "17ef4a8b10fcda913d0bd0f188f7b1d988e610ad56f1aecf5693794d613f0561"
+    },
+    {
+      "bytes": 134888,
+      "hosted_on_this_site": false,
+      "media_type": "application/json",
+      "metadata_embedded_in_card": false,
+      "origin": "original",
+      "original_signature_present": false,
+      "path": "euvd-page-0001.json",
+      "role": "original third-party file, kept byte for byte",
+      "sha256": "5af488982561cf783a40a5f7842dde84426e770226fa4aba5efeab91e7b911ad"
+    },
+    {
+      "bytes": 510,
+      "hosted_on_this_site": false,
+      "media_type": "application/json",
+      "metadata_embedded_in_card": false,
+      "origin": "derived",
+      "original_signature_present": false,
+      "path": "euvd-page-0001.json.retrieval.json",
+      "role": "MacGuard-generated, derived from third-party content; not hosted",
+      "sha256": "49ca324f7f5aca129eee5594670d1bc20976efe2c61cea605f62f27152dc0d6a"
+    },
+    {
+      "bytes": 170170,
+      "hosted_on_this_site": false,
+      "media_type": "application/json",
+      "metadata_embedded_in_card": false,
+      "origin": "original",
+      "original_signature_present": false,
+      "path": "euvd-page-0002.json",
+      "role": "original third-party file, kept byte for byte",
+      "sha256": "22cd507e9c7cdca37c0a9c5be610a89082aed2d838b9f309b7ee456485c77b51"
+    },
+    {
+      "bytes": 510,
+      "hosted_on_this_site": false,
+      "media_type": "application/json",
+      "metadata_embedded_in_card": false,
+      "origin": "derived",
+      "original_signature_present": false,
+      "path": "euvd-page-0002.json.retrieval.json",
+      "role": "MacGuard-generated, derived from third-party content; not hosted",
+      "sha256": "1abc29d0747edb720a4ff2db13f4d2ec022f94f042907623e7554c53cf59cdbe"
+    },
+    {
+      "bytes": 145819,
+      "hosted_on_this_site": false,
+      "media_type": "application/json",
+      "metadata_embedded_in_card": false,
+      "origin": "original",
+      "original_signature_present": false,
+      "path": "euvd-page-0003.json",
+      "role": "original third-party file, kept byte for byte",
+      "sha256": "f0853b71d6d59c2067986c0c411fe76fc128107d8df73f7e53d5ae2adeec0d7b"
+    },
+    {
+      "bytes": 510,
+      "hosted_on_this_site": false,
+      "media_type": "application/json",
+      "metadata_embedded_in_card": false,
+      "origin": "derived",
+      "original_signature_present": false,
+      "path": "euvd-page-0003.json.retrieval.json",
+      "role": "MacGuard-generated, derived from third-party content; not hosted",
+      "sha256": "b859a0e12ae9ab8cdcd9cf1557f47ca23758f0f26f10c1eed92e4982af6d757e"
+    },
+    {
+      "bytes": 198386,
+      "hosted_on_this_site": false,
+      "media_type": "application/json",
+      "metadata_embedded_in_card": false,
+      "origin": "original",
+      "original_signature_present": false,
+      "path": "euvd-page-0004.json",
+      "role": "original third-party file, kept byte for byte",
+      "sha256": "886f1040b7b001ad8afe2d9a728b5717afd64f931ecfcdcdbcb0db7b549b8a17"
+    },
+    {
+      "bytes": 510,
+      "hosted_on_this_site": false,
+      "media_type": "application/json",
+      "metadata_embedded_in_card": false,
+      "origin": "derived",
+      "original_signature_present": false,
+      "path": "euvd-page-0004.json.retrieval.json",
+      "role": "MacGuard-generated, derived from third-party content; not hosted",
+      "sha256": "e951f1c90ae293b421c1c1d1a5907989ffc077a065caeebf7b0076e1bab652b6"
+    },
+    {
+      "bytes": 326591,
+      "hosted_on_this_site": false,
+      "media_type": "application/json",
+      "metadata_embedded_in_card": false,
+      "origin": "original",
+      "original_signature_present": false,
+      "path": "euvd-page-0005.json",
+      "role": "original third-party file, kept byte for byte",
+      "sha256": "bc18944571c05e9519a1eafe75fa89c4668ed566189893c807990da97414bc82"
+    },
+    {
+      "bytes": 510,
+      "hosted_on_this_site": false,
+      "media_type": "application/json",
+      "metadata_embedded_in_card": false,
+      "origin": "derived",
+      "original_signature_present": false,
+      "path": "euvd-page-0005.json.retrieval.json",
+      "role": "MacGuard-generated, derived from third-party content; not hosted",
+      "sha256": "df0d5b6bd6cc1699e442885197bf8c79fcddeddf884468dfca90d7df30c7f46a"
+    },
+    {
+      "bytes": 131666,
+      "hosted_on_this_site": false,
+      "media_type": "application/json",
+      "metadata_embedded_in_card": false,
+      "origin": "original",
+      "original_signature_present": false,
+      "path": "euvd-page-0006.json",
+      "role": "original third-party file, kept byte for byte",
+      "sha256": "027c2e6e61601d61ea97145ee097ea5d3eeed97db7c329acfa598554ad1e6eed"
+    },
+    {
+      "bytes": 510,
+      "hosted_on_this_site": false,
+      "media_type": "application/json",
+      "metadata_embedded_in_card": false,
+      "origin": "derived",
+      "original_signature_present": false,
+      "path": "euvd-page-0006.json.retrieval.json",
+      "role": "MacGuard-generated, derived from third-party content; not hosted",
+      "sha256": "d17d8f967bdde0cd41311aab6cb8b72c467fa26cee941ec5d1be3ebdcc36d194"
+    },
+    {
+      "bytes": 154114,
+      "hosted_on_this_site": false,
+      "media_type": "application/json",
+      "metadata_embedded_in_card": false,
+      "origin": "original",
+      "original_signature_present": false,
+      "path": "euvd-page-0007.json",
+      "role": "original third-party file, kept byte for byte",
+      "sha256": "30a251b4c88b1eec50b24024774f269701d627c53c6f9bb87a4cfbce0c45277f"
+    },
+    {
+      "bytes": 510,
+      "hosted_on_this_site": false,
+      "media_type": "application/json",
+      "metadata_embedded_in_card": false,
+      "origin": "derived",
+      "original_signature_present": false,
+      "path": "euvd-page-0007.json.retrieval.json",
+      "role": "MacGuard-generated, derived from third-party content; not hosted",
+      "sha256": "16c8e3e756f445c8790f58205c6fd26122f270c3b52176fa3af5cb290935b143"
+    },
+    {
+      "bytes": 150493,
+      "hosted_on_this_site": false,
+      "media_type": "application/json",
+      "metadata_embedded_in_card": false,
+      "origin": "original",
+      "original_signature_present": false,
+      "path": "euvd-page-0008.json",
+      "role": "original third-party file, kept byte for byte",
+      "sha256": "9ebb918ec601418698513ecd79b55dbae88ac1aa9da0a9cd063a0e9c2343c691"
+    },
+    {
+      "bytes": 510,
+      "hosted_on_this_site": false,
+      "media_type": "application/json",
+      "metadata_embedded_in_card": false,
+      "origin": "derived",
+      "original_signature_present": false,
+      "path": "euvd-page-0008.json.retrieval.json",
+      "role": "MacGuard-generated, derived from third-party content; not hosted",
+      "sha256": "c7449b18432da4d5dc7a27932fac1ca23bd76351da87bfee9e46110a68130fc2"
+    },
+    {
+      "bytes": 245014,
+      "hosted_on_this_site": false,
+      "media_type": "application/json",
+      "metadata_embedded_in_card": false,
+      "origin": "original",
+      "original_signature_present": false,
+      "path": "euvd-page-0009.json",
+      "role": "original third-party file, kept byte for byte",
+      "sha256": "d1c850de61417dab1a89bed69767e59d7c9a21b03188d612ce793ce539b74e84"
+    },
+    {
+      "bytes": 510,
+      "hosted_on_this_site": false,
+      "media_type": "application/json",
+      "metadata_embedded_in_card": false,
+      "origin": "derived",
+      "original_signature_present": false,
+      "path": "euvd-page-0009.json.retrieval.json",
+      "role": "MacGuard-generated, derived from third-party content; not hosted",
+      "sha256": "2ae2829ad812cdfa300527a269a2155e2a63d36b20b8ee7ea1a0df5f2e533c4c"
+    },
+    {
+      "bytes": 149593,
+      "hosted_on_this_site": false,
+      "media_type": "application/json",
+      "metadata_embedded_in_card": false,
+      "origin": "original",
+      "original_signature_present": false,
+      "path": "euvd-page-0010.json",
+      "role": "original third-party file, kept byte for byte",
+      "sha256": "cca38550a2f7a7b6eeedea007d91bed485874f7eb51bac922d8ea9858c1626f8"
+    },
+    {
+      "bytes": 512,
+      "hosted_on_this_site": false,
+      "media_type": "application/json",
+      "metadata_embedded_in_card": false,
+      "origin": "derived",
+      "original_signature_present": false,
+      "path": "euvd-page-0010.json.retrieval.json",
+      "role": "MacGuard-generated, derived from third-party content; not hosted",
+      "sha256": "df1ee4eea0012701888747042f5894520f99a7655fe3bb7f49a3c7b082fdf5cf"
+    },
+    {
+      "bytes": 140513,
+      "hosted_on_this_site": false,
+      "media_type": "application/json",
+      "metadata_embedded_in_card": false,
+      "origin": "original",
+      "original_signature_present": false,
+      "path": "euvd-page-0011.json",
+      "role": "original third-party file, kept byte for byte",
+      "sha256": "04b2c0da7f6be9482465e804a0f16cf4ee3e769950ebea28cf61a127923ef037"
+    },
+    {
+      "bytes": 512,
+      "hosted_on_this_site": false,
+      "media_type": "application/json",
+      "metadata_embedded_in_card": false,
+      "origin": "derived",
+      "original_signature_present": false,
+      "path": "euvd-page-0011.json.retrieval.json",
+      "role": "MacGuard-generated, derived from third-party content; not hosted",
+      "sha256": "c76a2cb9e4f78695345872b3ce28842b1bebd0bfeffc6228cac423a90bf92560"
+    },
+    {
+      "bytes": 179884,
+      "hosted_on_this_site": false,
+      "media_type": "application/json",
+      "metadata_embedded_in_card": false,
+      "origin": "original",
+      "original_signature_present": false,
+      "path": "euvd-page-0012.json",
+      "role": "original third-party file, kept byte for byte",
+      "sha256": "7c2bdafbec62b2ed8690de102a838f353af43d28cf456be790688400e90338da"
+    },
+    {
+      "bytes": 512,
+      "hosted_on_this_site": false,
+      "media_type": "application/json",
+      "metadata_embedded_in_card": false,
+      "origin": "derived",
+      "original_signature_present": false,
+      "path": "euvd-page-0012.json.retrieval.json",
+      "role": "MacGuard-generated, derived from third-party content; not hosted",
+      "sha256": "a257daf38f20048567dcef5b2e3a24afffdf8f2d86558225f02cc5c14c3a9d42"
+    },
+    {
+      "bytes": 118141,
+      "hosted_on_this_site": false,
+      "media_type": "application/json",
+      "metadata_embedded_in_card": false,
+      "origin": "original",
+      "original_signature_present": false,
+      "path": "euvd-page-0013.json",
+      "role": "original third-party file, kept byte for byte",
+      "sha256": "ee6b883b43bee5b67b94c66e4e06690307232a6ed729a415c958dcc387fa2128"
+    },
+    {
+      "bytes": 512,
+      "hosted_on_this_site": false,
+      "media_type": "application/json",
+      "metadata_embedded_in_card": false,
+      "origin": "derived",
+      "original_signature_present": false,
+      "path": "euvd-page-0013.json.retrieval.json",
+      "role": "MacGuard-generated, derived from third-party content; not hosted",
+      "sha256": "79b8effc90f4007cd21529290b6356add7f3858184617667867e9571f8308a04"
+    },
+    {
+      "bytes": 100260,
+      "hosted_on_this_site": false,
+      "media_type": "application/json",
+      "metadata_embedded_in_card": false,
+      "origin": "original",
+      "original_signature_present": false,
+      "path": "euvd-page-0014.json",
+      "role": "original third-party file, kept byte for byte",
+      "sha256": "c1ac97868a840a614b3158344eb871b46e2e68ad8876ff221e4eae8ef0e41e4e"
+    },
+    {
+      "bytes": 512,
+      "hosted_on_this_site": false,
+      "media_type": "application/json",
+      "metadata_embedded_in_card": false,
+      "origin": "derived",
+      "original_signature_present": false,
+      "path": "euvd-page-0014.json.retrieval.json",
+      "role": "MacGuard-generated, derived from third-party content; not hosted",
+      "sha256": "f3ec3365d3af84f38da58899758275a0b29782a94175e9c18cce0fa508ea5c46"
+    },
+    {
+      "bytes": 117331,
+      "hosted_on_this_site": false,
+      "media_type": "application/json",
+      "metadata_embedded_in_card": false,
+      "origin": "original",
+      "original_signature_present": false,
+      "path": "euvd-page-0015.json",
+      "role": "original third-party file, kept byte for byte",
+      "sha256": "13ae04b426d1ceda15318852088a4ce542666e71b67c3614522a6fc384c310ff"
+    },
+    {
+      "bytes": 512,
+      "hosted_on_this_site": false,
+      "media_type": "application/json",
+      "metadata_embedded_in_card": false,
+      "origin": "derived",
+      "original_signature_present": false,
+      "path": "euvd-page-0015.json.retrieval.json",
+      "role": "MacGuard-generated, derived from third-party content; not hosted",
+      "sha256": "f8e62eb1aaa582415b215d7a15dc798b1fa35c54bdeddfa93c2ca2758c63348e"
+    },
+    {
+      "bytes": 113720,
+      "hosted_on_this_site": false,
+      "media_type": "application/json",
+      "metadata_embedded_in_card": false,
+      "origin": "original",
+      "original_signature_present": false,
+      "path": "euvd-page-0016.json",
+      "role": "original third-party file, kept byte for byte",
+      "sha256": "9e05771988f216e1d5a96a591a599830689be8dc73c2d3650aec6d66be9cb821"
+    },
+    {
+      "bytes": 512,
+      "hosted_on_this_site": false,
+      "media_type": "application/json",
+      "metadata_embedded_in_card": false,
+      "origin": "derived",
+      "original_signature_present": false,
+      "path": "euvd-page-0016.json.retrieval.json",
+      "role": "MacGuard-generated, derived from third-party content; not hosted",
+      "sha256": "2bd2b6782e114142fc4f02d64d06602ad43495b6159789f27efabfd73b4b89de"
+    },
+    {
+      "bytes": 111498,
+      "hosted_on_this_site": false,
+      "media_type": "application/json",
+      "metadata_embedded_in_card": false,
+      "origin": "original",
+      "original_signature_present": false,
+      "path": "euvd-page-0017.json",
+      "role": "original third-party file, kept byte for byte",
+      "sha256": "60927ef197b18e214a43018fe5eddc1ff25d79bb9e0f07c6bafe84e891c20415"
+    },
+    {
+      "bytes": 512,
+      "hosted_on_this_site": false,
+      "media_type": "application/json",
+      "metadata_embedded_in_card": false,
+      "origin": "derived",
+      "original_signature_present": false,
+      "path": "euvd-page-0017.json.retrieval.json",
+      "role": "MacGuard-generated, derived from third-party content; not hosted",
+      "sha256": "9716422cffa6b9d7d8dc1f964de1a9903ad9f925d2b83f2b3284849cca7dbdba"
+    },
+    {
+      "bytes": 154228,
+      "hosted_on_this_site": false,
+      "media_type": "application/json",
+      "metadata_embedded_in_card": false,
+      "origin": "original",
+      "original_signature_present": false,
+      "path": "euvd-page-0018.json",
+      "role": "original third-party file, kept byte for byte",
+      "sha256": "4e6a0c6c8ae0fb01994a6155fe50198c94a82e82d65883c4a4e2b3de3b5401ba"
+    },
+    {
+      "bytes": 512,
+      "hosted_on_this_site": false,
+      "media_type": "application/json",
+      "metadata_embedded_in_card": false,
+      "origin": "derived",
+      "original_signature_present": false,
+      "path": "euvd-page-0018.json.retrieval.json",
+      "role": "MacGuard-generated, derived from third-party content; not hosted",
+      "sha256": "e519ca6a103a5a4245d22dd95d3136902fea430f6353b2f83fd2f43a595f7a2e"
+    },
+    {
+      "bytes": 168527,
+      "hosted_on_this_site": false,
+      "media_type": "application/json",
+      "metadata_embedded_in_card": false,
+      "origin": "original",
+      "original_signature_present": false,
+      "path": "euvd-page-0019.json",
+      "role": "original third-party file, kept byte for byte",
+      "sha256": "d4dcdc8fe8ef07bfda20e2ae3cfa3819f9b4aca08d00ac4c340baf6c47c22eef"
+    },
+    {
+      "bytes": 512,
+      "hosted_on_this_site": false,
+      "media_type": "application/json",
+      "metadata_embedded_in_card": false,
+      "origin": "derived",
+      "original_signature_present": false,
+      "path": "euvd-page-0019.json.retrieval.json",
+      "role": "MacGuard-generated, derived from third-party content; not hosted",
+      "sha256": "2591ff34f1f37803b267635f64ab222431315ca929b712dc93e9c0e1c53e89b7"
+    },
+    {
+      "bytes": 145360,
+      "hosted_on_this_site": false,
+      "media_type": "application/json",
+      "metadata_embedded_in_card": false,
+      "origin": "original",
+      "original_signature_present": false,
+      "path": "euvd-page-0020.json",
+      "role": "original third-party file, kept byte for byte",
+      "sha256": "f578b59f8b8bdead4b1193f774a2c0810610f269ca6d0013d879b5426600b77a"
+    },
+    {
+      "bytes": 512,
+      "hosted_on_this_site": false,
+      "media_type": "application/json",
+      "metadata_embedded_in_card": false,
+      "origin": "derived",
+      "original_signature_present": false,
+      "path": "euvd-page-0020.json.retrieval.json",
+      "role": "MacGuard-generated, derived from third-party content; not hosted",
+      "sha256": "18f87333abad7f7a75280ff9c93ee21c535cb7944baa5a3a413eb30ed431799d"
+    },
+    {
+      "bytes": 149059,
+      "hosted_on_this_site": false,
+      "media_type": "application/json",
+      "metadata_embedded_in_card": false,
+      "origin": "original",
+      "original_signature_present": false,
+      "path": "euvd-page-0021.json",
+      "role": "original third-party file, kept byte for byte",
+      "sha256": "3cca2d5a694b73e97c081d3f900ee585e085fd1b568fe43ca0b8980fb7512999"
+    },
+    {
+      "bytes": 512,
+      "hosted_on_this_site": false,
+      "media_type": "application/json",
+      "metadata_embedded_in_card": false,
+      "origin": "derived",
+      "original_signature_present": false,
+      "path": "euvd-page-0021.json.retrieval.json",
+      "role": "MacGuard-generated, derived from third-party content; not hosted",
+      "sha256": "8c1003a0e6b02f89b4766426dde44e4f58aa762f659e69b73e5ac57515cfefbb"
+    },
+    {
+      "bytes": 164062,
+      "hosted_on_this_site": false,
+      "media_type": "application/json",
+      "metadata_embedded_in_card": false,
+      "origin": "original",
+      "original_signature_present": false,
+      "path": "euvd-page-0022.json",
+      "role": "original third-party file, kept byte for byte",
+      "sha256": "6fc3e4b26b9176954cc54b63cbcf6f74e14c95e5fc7bdd7d629c2e902c8f1404"
+    },
+    {
+      "bytes": 512,
+      "hosted_on_this_site": false,
+      "media_type": "application/json",
+      "metadata_embedded_in_card": false,
+      "origin": "derived",
+      "original_signature_present": false,
+      "path": "euvd-page-0022.json.retrieval.json",
+      "role": "MacGuard-generated, derived from third-party content; not hosted",
+      "sha256": "cb29809ae4f3e0879a768aaa2467d26aae44db962ed24e3708afa231d9e68346"
+    },
+    {
+      "bytes": 157703,
+      "hosted_on_this_site": false,
+      "media_type": "application/json",
+      "metadata_embedded_in_card": false,
+      "origin": "original",
+      "original_signature_present": false,
+      "path": "euvd-page-0023.json",
+      "role": "original third-party file, kept byte for byte",
+      "sha256": "3ce263c7b3d7bfd50519cca66d5fd7bd43e79c8c251f28961933455e3a12d10d"
+    },
+    {
+      "bytes": 512,
+      "hosted_on_this_site": false,
+      "media_type": "application/json",
+      "metadata_embedded_in_card": false,
+      "origin": "derived",
+      "original_signature_present": false,
+      "path": "euvd-page-0023.json.retrieval.json",
+      "role": "MacGuard-generated, derived from third-party content; not hosted",
+      "sha256": "293c98925c1468d53d7cbeb56cc53976056dabc08cf1b7c0320e0e0f6ea23f46"
+    },
+    {
+      "bytes": 144206,
+      "hosted_on_this_site": false,
+      "media_type": "application/json",
+      "metadata_embedded_in_card": false,
+      "origin": "original",
+      "original_signature_present": false,
+      "path": "euvd-page-0024.json",
+      "role": "original third-party file, kept byte for byte",
+      "sha256": "151088dd6fd60a4fd2b752e70145636cb14b625a369fc750b5132e2b40d96cfb"
+    },
+    {
+      "bytes": 512,
+      "hosted_on_this_site": false,
+      "media_type": "application/json",
+      "metadata_embedded_in_card": false,
+      "origin": "derived",
+      "original_signature_present": false,
+      "path": "euvd-page-0024.json.retrieval.json",
+      "role": "MacGuard-generated, derived from third-party content; not hosted",
+      "sha256": "753882afbae76793dc8836e85616bd19d38df13648b7e295463d5f998a6766da"
+    },
+    {
+      "bytes": 276304,
+      "hosted_on_this_site": false,
+      "media_type": "application/json",
+      "metadata_embedded_in_card": false,
+      "origin": "original",
+      "original_signature_present": false,
+      "path": "euvd-page-0025.json",
+      "role": "original third-party file, kept byte for byte",
+      "sha256": "79794733b209ea90c191aa7b35e5d07326f206e6013fdadf4917e83f57f8b4d8"
+    },
+    {
+      "bytes": 512,
+      "hosted_on_this_site": false,
+      "media_type": "application/json",
+      "metadata_embedded_in_card": false,
+      "origin": "derived",
+      "original_signature_present": false,
+      "path": "euvd-page-0025.json.retrieval.json",
+      "role": "MacGuard-generated, derived from third-party content; not hosted",
+      "sha256": "9dccbc18e71650cb80525be3dcd45e17f568428c71d82b99f18bea8ed193ae1e"
+    },
+    {
+      "bytes": 169275,
+      "hosted_on_this_site": false,
+      "media_type": "application/json",
+      "metadata_embedded_in_card": false,
+      "origin": "original",
+      "original_signature_present": false,
+      "path": "euvd-page-0026.json",
+      "role": "original third-party file, kept byte for byte",
+      "sha256": "1db84004249dac54bef745e246e5294691573d8550a55b4fa73da677ae0419b5"
+    },
+    {
+      "bytes": 512,
+      "hosted_on_this_site": false,
+      "media_type": "application/json",
+      "metadata_embedded_in_card": false,
+      "origin": "derived",
+      "original_signature_present": false,
+      "path": "euvd-page-0026.json.retrieval.json",
+      "role": "MacGuard-generated, derived from third-party content; not hosted",
+      "sha256": "05dedb1dcecab46ecf0c03df50bcd07af051d0f6a1ed26a48d21c0fc6b64e22d"
+    },
+    {
+      "bytes": 138714,
+      "hosted_on_this_site": false,
+      "media_type": "application/json",
+      "metadata_embedded_in_card": false,
+      "origin": "original",
+      "original_signature_present": false,
+      "path": "euvd-page-0027.json",
+      "role": "original third-party file, kept byte for byte",
+      "sha256": "520fa5a0179536ee426661bc9298c4b62bc0c05b0481f7b94d947764b49f2c9e"
+    },
+    {
+      "bytes": 512,
+      "hosted_on_this_site": false,
+      "media_type": "application/json",
+      "metadata_embedded_in_card": false,
+      "origin": "derived",
+      "original_signature_present": false,
+      "path": "euvd-page-0027.json.retrieval.json",
+      "role": "MacGuard-generated, derived from third-party content; not hosted",
+      "sha256": "a1e7285b08d819704abfd23421df6bec17d578fd9370ffa582baa59788ba10b2"
+    },
+    {
+      "bytes": 143443,
+      "hosted_on_this_site": false,
+      "media_type": "application/json",
+      "metadata_embedded_in_card": false,
+      "origin": "original",
+      "original_signature_present": false,
+      "path": "euvd-page-0028.json",
+      "role": "original third-party file, kept byte for byte",
+      "sha256": "674db3973f5766f1c8e4e98c07074d55aa26471d7f67c2349a1a6b8512e96cab"
+    },
+    {
+      "bytes": 512,
+      "hosted_on_this_site": false,
+      "media_type": "application/json",
+      "metadata_embedded_in_card": false,
+      "origin": "derived",
+      "original_signature_present": false,
+      "path": "euvd-page-0028.json.retrieval.json",
+      "role": "MacGuard-generated, derived from third-party content; not hosted",
+      "sha256": "6442e376f39682e03afb33d4d604ac40a9ef9959f09790840740d194425536a4"
+    },
+    {
+      "bytes": 37060,
+      "hosted_on_this_site": false,
+      "media_type": "application/json",
+      "metadata_embedded_in_card": false,
+      "origin": "original",
+      "original_signature_present": false,
+      "path": "euvd-page-0029.json",
+      "role": "original third-party file, kept byte for byte",
+      "sha256": "172ce3227b9f19cf4f7eb74c67c07fdfa89241c93fd32aebe42959c89b10934c"
+    },
+    {
+      "bytes": 511,
+      "hosted_on_this_site": false,
+      "media_type": "application/json",
+      "metadata_embedded_in_card": false,
+      "origin": "derived",
+      "original_signature_present": false,
+      "path": "euvd-page-0029.json.retrieval.json",
+      "role": "MacGuard-generated, derived from third-party content; not hosted",
+      "sha256": "c96b9a13ab3441c342074b196167820fad804de2fe1049f41283dbf6db57e978"
+    },
+    {
+      "bytes": 5832068,
+      "hosted_on_this_site": false,
+      "media_type": "application/x-ndjson",
+      "metadata_embedded_in_card": false,
+      "origin": "derived",
+      "original_signature_present": false,
+      "path": "vuln-records.jsonl",
+      "role": "MacGuard-generated, derived from third-party content; not hosted",
+      "sha256": "36946aad37dc9b77cae1bf9a773a1fab70f8a4e369b86331137c83d5b93273cf"
+    }
+  ],
+  "attestation": {
+    "status": "none",
+    "text": "none: not produced",
+    "validation_attestation": null,
+    "validation_gates": []
+  },
+  "build": {
+    "key_numbers": {
+      "accepted": 2928,
+      "input_items": 2928,
+      "rejected": 0
+    },
+    "report": {
+      "accepted": 2928,
+      "complete": true,
+      "declared_total": 2928,
+      "exploitation_asserted": 0,
+      "incomplete_reason": null,
+      "input_items": 2928,
+      "pages": 30,
+      "rejected": 0,
+      "rejected_by_reason": {},
+      "warnings": {},
+      "window_days": 2
+    }
+  },
+  "channel": "vulns-euvd",
+  "data_origin": "docs/intelligence/live-evidence/2026-10-22/vulns-euvd-1/ (byte copies of the manifest, build report and retrieval record of a real build made on 2026-10-22), intel/status.py, config/intel/sources.registry.json, tests/",
+  "download": {
+    "metadata_offered": [
+      "api/v1/cards/vulns-euvd-1.json"
+    ],
+    "published": false,
+    "reason": [
+      "enisa-euvd: redistribution status is 'pending-legal'"
+    ],
+    "text": "not published: publication is blocked",
+    "third_party_data_hosted": false,
+    "upstream_data_url": "https://euvdservices.enisa.europa.eu/api/search?size=100&page=0&fromDate=2026-10-20&toDate=2026-10-22",
+    "upstream_note": "To compare, fetch the upstream file yourself and hash it. The upstream changes: a different hash later does not mean tampering."
+  },
+  "family": "vulns",
+  "generated_at": "2026-10-22T21:30:00Z",
+  "generated_by": "scripts/gen_intel_web.py",
+  "id": "vulns-euvd-1",
+  "identity": {
+    "artifacts_root": "42cf9153bd12d3b085abcbbb49abad6713f5b632f34bff736b2775850c0b9dce",
+    "channel_manifest_schema": "macguard.channel-manifest/1",
+    "compatibility": {
+      "engines": [
+        {
+          "min_version": "0.1.0",
+          "name": "mgctl"
+        }
+      ],
+      "platforms": [
+        "macos",
+        "linux"
+      ]
+    },
+    "created_at": "2026-10-22T20:35:58Z",
+    "previous_version": null
+  },
+  "kind": "channel-artifact-set",
+  "metadata_files_sha256": {
+    "build-report.json": "c9e5ca73107c279d5858e6dfa5f7834fbc33022068afd82bc3dc8607402c96c7",
+    "euvd-page-0000.json.retrieval.json": "17ef4a8b10fcda913d0bd0f188f7b1d988e610ad56f1aecf5693794d613f0561",
+    "manifest.json": "7aa2c6208b2d8f4670504f5bdbd095ff3c940242a287846b1bbbc4203aee0e1f"
+  },
+  "retrieval": {
+    "bytes": 597395,
+    "etag": null,
+    "file": "euvd-page-0000.json",
+    "final_url": "https://euvdservices.enisa.europa.eu/api/search?size=100&page=0&fromDate=2026-10-20&toDate=2026-10-22",
+    "last_modified": null,
+    "note": "this is the first of 30 paged requests; every page is an original file listed in the artifacts",
+    "pages": 30,
+    "redistribution_status_at_retrieval": "pending-legal",
+    "retrieved_at": "2026-10-22T20:35:58Z",
+    "sha256": "e1c8122f8b616ce68b2da5faa2d692d7fb8262c4880e59218db7edade7c772ea",
+    "source_id": "enisa-euvd",
+    "status": 200,
+    "url": "https://euvdservices.enisa.europa.eu/api/search?size=100&page=0&fromDate=2026-10-20&toDate=2026-10-22"
+  },
+  "schema": "macguard.web-data/1",
+  "signature": {
+    "original_signature": "none (the upstream provides none; MacGuard never re-signs a third-party file)",
+    "status": "not_signed",
+    "text": "not signed: no signing workflow exists"
+  },
+  "source": {
+    "attribution": "credit ENISA as the source and indicate changes (if CC BY 4.0 is confirmed to apply)",
+    "id": "enisa-euvd",
+    "license": {
+      "name": "no EUVD-specific terms found; ENISA's IPR policy states CC BY 4.0 for ENISA publications, and that this covers the EUVD data is NOT confirmed"
+    },
+    "name": "ENISA European Vulnerability Database (EUVD): recent window",
+    "owner_confirmed": false,
+    "redistribution_status": "pending-legal",
+    "registry_clearance_blocking_reasons": [
+      "enisa-euvd: redistribution status is 'pending-legal'"
+    ],
+    "registry_status_note": "API https://euvdservices.enisa.europa.eu/api/search read on 2026-10-22: no key, 100 items per page. No licence or terms page for the API or the data was found (the site is a single-page app that serves no legal text to a plain request). Publication stays blocked until the terms are confirmed in writing.",
+    "upstream_url": "https://euvd.enisa.europa.eu/"
+  },
+  "status": "experimental",
+  "status_detail": "ENISA EUVD (recent window): adapter, validator and unified records are built and were run against the real API on 2026-10-22. Nothing is published: no EUVD terms of reuse were found (pending legal), the owner has not confirmed, and there is no signing workflow.",
+  "status_source": "intel/status.py",
+  "tests": [
+    {
+      "file": "tests/test_intel.py",
+      "test_functions": 45,
+      "what_it_says": "Tests for the intel package (P0/P1): canonical JSON, IOC normalisation and validation, channel manifests, the global catalog and the independent verifier, including real signatures made with a throwaway cosign key (skipped, and reported as skipped, if cosign is missing)."
+    },
+    {
+      "file": "tests/test_intel_live.py",
+      "test_functions": 12,
+      "what_it_says": "Tests for the download layer and the two wired real sources."
+    },
+    {
+      "file": "tests/test_vulns_eu.py",
+      "test_functions": 58,
+      "what_it_says": "Tests for the European/US vulnerability sources: identifiers, versions, the EUVD and CERT-EU parsers, the unified KEV record, the cross-source merge, distribution-aware assessment, the channel builders (against a LOCAL HTTP server: no network) and the CLI."
+    }
+  ],
+  "tests_note": "Tests run against local test doubles; the live download was done once by hand. No test result is attested.",
+  "verify_independently": [
+    {
+      "command": "python3 -m intel vulns build enisa-euvd --out ROOT --version 1",
+      "step": "Rebuild the channel from the upstream feed (needs the network; writes only under ROOT)"
+    },
+    {
+      "caveat": "equal only if the upstream file did not change since the retrieval",
+      "command": "shasum -a 256 ROOT/vulns-euvd/1/euvd-page-0000.json",
+      "expect": "e1c8122f8b616ce68b2da5faa2d692d7fb8262c4880e59218db7edade7c772ea",
+      "step": "Compare the sha256 of the retrieved file with the card"
+    },
+    {
+      "command": "python3 -m intel catalog build --channel ROOT/vulns-euvd/1/manifest.json --version 1 --out OUT --include-draft --rel-to ROOT",
+      "step": "Build a catalog that pins the channel (drafts are included only on request)"
+    },
+    {
+      "command": "python3 -m intel catalog verify OUT/catalog.json --root ROOT --allow-draft",
+      "expect": "exit 5 = CONSISTENT, SIGNATURE NOT CHECKED (there is no signature to check)",
+      "step": "Verify hashes, Merkle root, state and unlisted files"
+    },
+    {
+      "command": "mgctl intelligence catalog verify OUT/catalog.json --root ROOT --allow-draft",
+      "step": "Same check through the CLI front end"
+    }
+  ],
+  "version": 1,
+  "what_is_real": "A real download and build of one upstream feed. Every number below is copied from the build report or manifest. Nothing here is published: see approval and download."
+}

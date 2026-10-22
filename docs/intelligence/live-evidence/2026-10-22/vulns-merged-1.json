@@ -1,0 +1,72 @@
+{
+ "approval": {
+  "approved_at": null,
+  "approved_by": [],
+  "blocking_reasons": [
+   "cert-eu-advisories: the owner has not confirmed the redistribution decision (owner_confirmed is not true)",
+   "cisa-kev: the owner has not confirmed the redistribution decision (owner_confirmed is not true)",
+   "enisa-euvd: redistribution status is 'pending-legal'",
+   "enisa-euvd-exploited: redistribution status is 'pending-legal'",
+   "input channels that are not publishable: vulns, vulns-certeu, vulns-eukev, vulns-euvd"
+  ],
+  "publishable": false,
+  "state": "draft"
+ },
+ "conflicts": 0,
+ "entries_by_source_combination": {
+  "cert-eu-advisories": 10,
+  "cisa-kev+enisa-euvd-exploited": 1754,
+  "enisa-euvd": 2928,
+  "enisa-euvd-exploited": 16
+ },
+ "flags": {
+  "no-identifier": 10
+ },
+ "inputs": [
+  {
+   "artifacts_root": "f7d9218c2c3c925f716350d77427aea52a35b61ca25f39b56051f57a27e22b20",
+   "channel": "vulns",
+   "manifest_sha256": "4c9486681b577c1ef2562d9a8133dc3552f654453ee82b82d379452909568f83",
+   "publishable": false,
+   "version": 1
+  },
+  {
+   "artifacts_root": "d721ee0209066687a119389a329d6cb08a0d63465282b955b3109b02b30c0a64",
+   "channel": "vulns-certeu",
+   "manifest_sha256": "319adb1a2a62c985168a1fe758d1d76dbd6c93ceb5442aa604e414c7f0e101d4",
+   "publishable": false,
+   "version": 1
+  },
+  {
+   "artifacts_root": "371b882b2d460f837c3de686df8ad69cacfdbc3873849de168c04f36fd368618",
+   "channel": "vulns-eukev",
+   "manifest_sha256": "41681556ea0da2b67518a5d5ca43eef2945b82bd20ae40c42bdb7127f65c5c70",
+   "publishable": false,
+   "version": 1
+  },
+  {
+   "artifacts_root": "42cf9153bd12d3b085abcbbb49abad6713f5b632f34bff736b2775850c0b9dce",
+   "channel": "vulns-euvd",
+   "manifest_sha256": "14be52153796d404a584f69affdf37577a7badce6793025ea04e521ae2cf4f96",
+   "publishable": false,
+   "version": 1
+  }
+ ],
+ "merge_channel": {
+  "created_at": "2026-10-22T20:40:41Z",
+  "family": "vulns",
+  "id": "vulns-merged",
+  "version": 1
+ },
+ "reading": "All CISA KEV CVE ids also appear in the EUVD exploited list, plus a few more. That is overlap, not proof of derivation, and EUVD does not say who observed the exploitation: the two are not counted as independent confirmation.",
+ "schema": "macguard.vuln-merge-summary/1",
+ "stale_sources": {},
+ "stats": {
+  "entries": 4708,
+  "exploited_by_any_source": 1770,
+  "exploited_by_current_source": 1770,
+  "multi_source": 1754,
+  "records_in": 6462
+ },
+ "what_is_real": "Counts from one real merge of the four European/US vulnerability channels built on 2026-10-22. No third-party record is included."
+}
