@@ -4,7 +4,7 @@
 
 ## En 30 segundos
 
-Sigstore es un proyecto abierto para firmar ficheros (releases, binarios, imágenes) y para que cualquiera pueda verificar la firma; los eventos de firma quedan en un registro público auditable {{ev:EV-YC-73}}. Aquí sirve para comprobar que un paquete de reglas lo firmó el flujo de trabajo `publish.yml` y no otro.
+Sigstore ofrece herramientas para firmar artefactos y verificar su integridad y la identidad declarada del firmante; sus comprobantes pueden incluir evidencia de un registro público auditable {{ev:EV-YC-73}}. En MacGuard permite verificar que la publicación se firmó bajo la identidad configurada del flujo de publicación. No acredita la autoría de cada regla, que puede proceder de terceros.
 
 ## Un ejemplo cotidiano
 
@@ -47,7 +47,7 @@ La segunda orden necesita `cosign` instalado y la identidad exacta del flujo.
 
 ## Límites
 
-La firma prueba origen e integridad, no calidad de las reglas. `manifest.evidence` es una declaración del flujo de publicación, no una atestación independiente {{ev:EV-YC-66}}. El verificador del navegador se sirve desde el mismo origen que el paquete (RR-07).
+La firma vincula el artefacto a una identidad de publicación y permite verificar su integridad; no prueba autoría de todas las reglas ni su calidad. `manifest.evidence` es una declaración del flujo de publicación, no una atestación independiente {{ev:EV-YC-66}}. El verificador del navegador se sirve desde el mismo origen que el paquete (RR-07).
 
 ## Estado
 
