@@ -138,9 +138,9 @@ R.channels = function () {
   var d = data.channels, m = mount('ch');
   legend();
   m.appendChild(stamp(d)); m.appendChild(real(d));
-  m.appendChild(table(t('ch_cap'), [t('c_family'), t('c_status'), t('c_type'), t('c_engine'), t('c_detail'), t('c_evidence'), t('c_sources'), t('c_pub')],
-    d.channels.map(function (c) { return [c.id, badge(c.status), c.kind, c.engine || na(), c.detail, c.evidence, c.sources.length ? c.sources.join(', ') : na(),
-      c.publication.text + (c.publication.blocking_reasons ? ' — ' + c.publication.blocking_reasons.join('; ') : '')]; })));
+  m.appendChild(table(t('ch_cap'), [t('c_family'), t('c_status'), t('c_type'), t('c_engine'), t('c_sources'), t('c_pub'), t('c_detail'), t('c_evidence')],
+    d.channels.map(function (c) { return [c.id, badge(c.status), c.kind, c.engine || na(), c.sources.length ? c.sources.join(', ') : na(),
+      c.publication.text + (c.publication.blocking_reasons ? ' \u2014 ' + c.publication.blocking_reasons.join('; ') : ''), c.detail, c.evidence]; })));
 };
 
 /* ---------------------------------------------------------------- artifact cards */
@@ -287,8 +287,8 @@ R.roadmap = function () {
     s.appendChild(el('p', { class: 'muted', text: t('source') + ': ' + tr.source }));
     if (tr.note) s.appendChild(el('p', { class: 'notice', text: tr.note }));
     if (tr.linux_provenance_phase) s.appendChild(dl([[tr.linux_provenance_phase.phase, tr.linux_provenance_phase.scope], [t('rm_why'), tr.linux_provenance_phase.justification]]));
-    s.appendChild(table(tr.name, [t('rm_phase'), t('rm_scope'), t('rm_done'), t('rm_missing'), t('c_status'), t('rm_basis')],
-      tr.items.map(function (i) { var r = byPhase[i]; return [r.phase, r.scope, r.done, r.missing, badge(r.status), r.status_basis]; })));
+    s.appendChild(table(tr.name, [t('rm_phase') + ' / ' + t('c_status'), t('rm_scope'), t('rm_done'), t('rm_missing'), t('rm_basis')],
+      tr.items.map(function (i) { var r = byPhase[i], c = el('div'); c.appendChild(txt(r.phase)); c.appendChild(el('br')); c.appendChild(badge(r.status)); return [c, r.scope, r.done, r.missing, r.status_basis]; })));
     m.appendChild(s);
   });
 };

@@ -25,7 +25,7 @@ section.panel>h2{margin-top:0;font-size:20px}
 .toolbar button{align-self:end}
 #load-state{font-size:13px;margin:6px 0}
 td,th{overflow-wrap:break-word}
-td:first-child{white-space:nowrap;overflow-wrap:normal}
+td:first-child{min-width:7em;overflow-wrap:normal}
 td:first-child .badge{white-space:nowrap}
 th{color:var(--muted);font-weight:600;font-size:12px}
 .tile strong{overflow-wrap:anywhere}
@@ -40,3 +40,7 @@ table .badge{white-space:nowrap}
  th,td{padding:7px 8px}
  h1{font-size:26px}
 }
+
+.facts dd{word-break:normal;overflow-wrap:anywhere}
+
+td .muted{white-space:nowrap;font-size:inherit}
