@@ -20,6 +20,8 @@ It is like a building-site board: it shows which floor is finished, which is sta
 
 {{diagram:roadmap-global-4-others}}
 
+{{diagram:intelligence-roadmap}}
+
 ## By application
 
 Stages used: concept, prototype, development, validation, release candidate and published. Each application is placed in the one its evidence supports.
@@ -73,6 +75,13 @@ Stages used: concept, prototype, development, validation, release candidate and 
 - **Done:** nothing beyond the boundary described in other projects {{ev:EV-EC-05}}.
 - **Blockers:** no repository or specification exists.
 - **Next:** decide whether to start it.
+
+### Security Intelligence
+
+- **Phase:** development (implemented in the repository, not deployed).
+- **Done:** real sources downloaded and validated, an alerts engine with filters, feeds, e-mail, webhooks, organisations and roles, and a bilingual web section, all with tests {{ev:EV-SI-02}} {{ev:EV-SI-03}} {{ev:EV-SI-07}}.
+- **Blockers:** the owner has not confirmed the reuse of any third-party vulnerability source, ENISA's reuse terms were not found, and there is no signing workflow, hosted service, mail relay or identity provider {{ev:EV-SI-01}}.
+- **Next:** owner decisions on licences and signing; then publish the cleared channels. Correlating alerts with customers' equipment waits for MacGuard Cloud {{ev:EV-SI-09}}. See [Security Intelligence](EN-Intelligence).
 
 ## Dependencies between projects
 

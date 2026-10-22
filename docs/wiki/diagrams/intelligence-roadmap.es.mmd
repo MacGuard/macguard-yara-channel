@@ -1,0 +1,16 @@
+%%{init: {"flowchart": {"wrappingWidth": 300}}}%%
+flowchart TB
+  S1["Fuentes reales<br/>validadas<br/>sin publicar"]:::doing
+  S2["Decisiones del<br/>propietario:<br/>licencias, firma"]:::wait
+  S3["Publicar los<br/>canales<br/>autorizados"]:::todo
+  S4["Motor de alertas<br/>y web<br/>sin desplegar"]:::doing
+  S5["Servicio alojado,<br/>relé de correo,<br/>identidad"]:::wait
+  S6["Correlación con<br/>inventario Cloud"]:::todo
+  S1 --> S2
+  S2 --> S3
+  S4 --> S5
+  S5 --> S6
+  S1 ~~~ S4
+  classDef doing fill:#ffe9b8,stroke:#b8860b,color:#2b1d00
+  classDef wait fill:#cfe3ff,stroke:#2f6df0,color:#0b1b33
+  classDef todo fill:#eeeeee,stroke:#555555,color:#222222

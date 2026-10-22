@@ -1,0 +1,14 @@
+{
+ "title": {
+  "en": "Security Intelligence roadmap: order of dependencies (no dates)",
+  "es": "Roadmap de inteligencia de seguridad: orden de dependencias (sin fechas)"
+ },
+ "alt": {
+  "en": "Security Intelligence, without dates: real sources validated but not published lead to owner decisions on licences and signing, then to publishing the cleared channels; separately, the alerts engine and web are not deployed and wait for a hosted service, a mail relay and an identity provider, then Cloud inventory correlation.",
+  "es": "Inteligencia de seguridad, sin fechas: las fuentes reales validadas pero sin publicar llevan a las decisiones del propietario sobre licencias y firma y después a publicar los canales autorizados; por separado, el motor de alertas y la web, sin desplegar, esperan un servicio alojado, un relé de correo y un proveedor de identidad y después la correlación con inventario Cloud."
+ },
+ "legend": {
+  "en": "amber: implemented, not deployed; blue: waiting for a decision or authorisation; grey: not started (the status is also written in each box).",
+  "es": "ámbar: implementado, sin desplegar; azul: a la espera de una decisión o autorización; gris: sin empezar (el estado figura también en cada caja)."
+ }
+}

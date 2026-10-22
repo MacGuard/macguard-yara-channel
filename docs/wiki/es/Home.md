@@ -45,6 +45,7 @@ No hay fechas comprometidas. El siguiente paso de cada aplicación, sus bloqueos
 
 - [Ecosistema: capas y relaciones](ES-Ecosystem)
 - [Roadmap global](ES-Roadmap)
+- [Inteligencia de seguridad: fuentes, alertas y suscripciones](ES-Intelligence)
 - [YARA Channel en profundidad](ES-YARA-Channel)
 - Fichas: [MacUSBGuard](ES-App-USB), [MacFirewallGuard](ES-App-Firewall), [MacProcessGuard](ES-App-Process), [MacCoreGuard](ES-App-Core), [Installer Auditor](ES-App-InstallerAuditor), [DesignKit](ES-App-DesignKit)
 - Tecnologías: [YARA](ES-Tech-YARA), [Sigstore](ES-Tech-Sigstore), [árboles de Merkle](ES-Tech-Merkle), [copias S3](ES-Tech-S3-Backups), [Endpoint Security](ES-Tech-EndpointSecurity), [DriverKit](ES-Tech-DriverKit), [Network Extension](ES-Tech-NetworkExtension), [Firma de código](ES-Tech-CodeSigning)

@@ -47,6 +47,21 @@
    }
   },
   {
+   "id": "Intelligence",
+   "section": {
+    "es": "Inteligencia de seguridad",
+    "en": "Security Intelligence"
+   },
+   "title": {
+    "es": "Inteligencia de seguridad",
+    "en": "Security Intelligence"
+   },
+   "summary": {
+    "es": "Fuentes, alertas y suscripciones: qué existe y qué falta",
+    "en": "Sources, alerts and subscriptions: what exists and what is missing"
+   }
+  },
+  {
    "id": "YARA-Channel",
    "section": {
     "es": "Canal YARA",

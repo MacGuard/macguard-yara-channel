@@ -1,0 +1,16 @@
+%%{init: {"flowchart": {"wrappingWidth": 300}}}%%
+flowchart TB
+  S1["Real sources<br/>validated<br/>not published"]:::doing
+  S2["Owner decisions<br/>licences, signing"]:::wait
+  S3["Publish cleared<br/>channels"]:::todo
+  S4["Alerts engine<br/>and web<br/>not deployed"]:::doing
+  S5["Hosted service,<br/>mail relay,<br/>identity"]:::wait
+  S6["Cloud inventory<br/>correlation"]:::todo
+  S1 --> S2
+  S2 --> S3
+  S4 --> S5
+  S5 --> S6
+  S1 ~~~ S4
+  classDef doing fill:#ffe9b8,stroke:#b8860b,color:#2b1d00
+  classDef wait fill:#cfe3ff,stroke:#2f6df0,color:#0b1b33
+  classDef todo fill:#eeeeee,stroke:#555555,color:#222222

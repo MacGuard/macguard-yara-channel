@@ -1945,6 +1945,150 @@
     "es": "El verificador público se obtiene del repositorio; descargarlo desde main no fija una versión, por lo que se recomienda fijar un commit revisado.",
     "en": "The public verifier is fetched from the repository; downloading it from main does not pin a version, so pinning a reviewed commit is recommended."
    }
+  },
+  {
+   "id": "EV-SI-01",
+   "repo": "self",
+   "path": "config/intel/sources.registry.json",
+   "ref": "506e493",
+   "date": "2026-10-23",
+   "source": "config/intel/sources.registry.json (MacGuard/macguard-yara-channel)",
+   "confidence": "high",
+   "validation": "file read at that commit",
+   "state": "blocked",
+   "class": "PUBLICABLE",
+   "claim": {
+    "es": "El registro de fuentes decide qué se puede publicar: hace falta un estado de redistribución autorizado Y la confirmación del propietario; hoy ninguna fuente de vulnerabilidades de terceros cumple ambas.",
+    "en": "The source registry decides what may be published: it needs a cleared redistribution status AND the owner's confirmation; today no third-party vulnerability source meets both."
+   }
+  },
+  {
+   "id": "EV-SI-02",
+   "repo": "self",
+   "path": "docs/intelligence/SOURCES-STATUS.md",
+   "ref": "506e493",
+   "date": "2026-10-23",
+   "source": "docs/intelligence/SOURCES-STATUS.md (MacGuard/macguard-yara-channel)",
+   "confidence": "high",
+   "validation": "file read at that commit",
+   "state": "implemented-not-deployed",
+   "class": "PUBLICABLE",
+   "claim": {
+    "es": "Los adaptadores de CISA KEV, ENISA EUVD, su lista de explotadas y CERT-EU se ejecutaron con datos reales el 2026-10-22 (1.754, 2.928, 1.770 y 10 registros aceptados) y no se publica nada.",
+    "en": "The CISA KEV, ENISA EUVD, EUVD exploited list and CERT-EU adapters ran on real data on 2026-10-22 (1,754, 2,928, 1,770 and 10 records accepted) and nothing is published."
+   }
+  },
+  {
+   "id": "EV-SI-03",
+   "repo": "self",
+   "path": "alerts/engine.py",
+   "ref": "506e493",
+   "date": "2026-10-23",
+   "source": "alerts/engine.py (MacGuard/macguard-yara-channel)",
+   "confidence": "high",
+   "validation": "file read at that commit",
+   "state": "implemented-not-deployed",
+   "class": "PUBLICABLE",
+   "claim": {
+    "es": "El motor guarda cada actualización como una versión nueva de la misma alerta y solo los cambios relevantes (nueva, explotación, corrección, gravedad, fuente o producto nuevos, mitigación) generan avisos.",
+    "en": "The engine stores each update as a new version of the same alert and only material changes (new, exploitation, fix, severity, new source or product, mitigation) produce notifications."
+   }
+  },
+  {
+   "id": "EV-SI-04",
+   "repo": "self",
+   "path": "alerts/filters.py",
+   "ref": "506e493",
+   "date": "2026-10-23",
+   "source": "alerts/filters.py (MacGuard/macguard-yara-channel)",
+   "confidence": "high",
+   "validation": "file read at that commit",
+   "state": "implemented-not-deployed",
+   "class": "PUBLICABLE",
+   "claim": {
+    "es": "El filtro es un lenguaje cerrado de 26 campos validado y evaluado por el servidor, sin expresiones regulares ni código del cliente.",
+    "en": "The filter is a closed language of 26 fields validated and evaluated by the server, with no regular expressions or client code."
+   }
+  },
+  {
+   "id": "EV-SI-05",
+   "repo": "self",
+   "path": "alerts/webhook.py",
+   "ref": "506e493",
+   "date": "2026-10-23",
+   "source": "alerts/webhook.py (MacGuard/macguard-yara-channel)",
+   "confidence": "high",
+   "validation": "file read at that commit",
+   "state": "implemented-not-deployed",
+   "class": "PUBLICABLE",
+   "claim": {
+    "es": "Los webhooks exigen https, un nombre público cuyas direcciones resueltas sean todas públicas, conexión fijada a la dirección validada, firma HMAC con claves rotables y reintentos con cola de cartas muertas.",
+    "en": "Webhooks require https, a public name whose resolved addresses are all public, a connection pinned to the validated address, HMAC signatures with rotating keys and retries with a dead-letter state."
+   }
+  },
+  {
+   "id": "EV-SI-06",
+   "repo": "self",
+   "path": "alerts/authz.py",
+   "ref": "506e493",
+   "date": "2026-10-23",
+   "source": "alerts/authz.py (MacGuard/macguard-yara-channel)",
+   "confidence": "high",
+   "validation": "file read at that commit",
+   "state": "implemented-not-deployed",
+   "class": "PUBLICABLE",
+   "claim": {
+    "es": "Los permisos se cargan del servidor en cada petición con roles explícitos; una membresía limitada a una unidad no concede nada fuera de ella y un MSP solo actúa con un enlace aceptado y un rol delegado.",
+    "en": "Permissions are loaded on the server for every request with explicit roles; a unit-limited membership grants nothing outside it and an MSP acts only through an accepted link and a delegated role."
+   }
+  },
+  {
+   "id": "EV-SI-07",
+   "repo": "self",
+   "path": "docs/alerts/ARCHITECTURE.md",
+   "ref": "506e493",
+   "date": "2026-10-23",
+   "source": "docs/alerts/ARCHITECTURE.md (MacGuard/macguard-yara-channel)",
+   "confidence": "high",
+   "validation": "file read at that commit",
+   "state": "implemented-not-deployed",
+   "class": "PUBLICABLE",
+   "claim": {
+    "es": "La arquitectura de suscripciones y alertas está implementada como servidor de referencia y páginas estáticas; no hay servicio alojado, relé de correo ni proveedor de identidad.",
+    "en": "The subscriptions and alerts architecture is implemented as a reference server and static pages; there is no hosted service, mail relay or identity provider."
+   }
+  },
+  {
+   "id": "EV-SI-08",
+   "repo": "self",
+   "path": "scripts/gen_alerts_site.py",
+   "ref": "506e493",
+   "date": "2026-10-23",
+   "source": "scripts/gen_alerts_site.py (MacGuard/macguard-yara-channel)",
+   "confidence": "high",
+   "validation": "file read at that commit",
+   "state": "operational",
+   "class": "PUBLICABLE",
+   "claim": {
+    "es": "Los ficheros estáticos de alertas y feeds públicos se regeneran desde el repositorio (registro de versiones de reglas de MacGuard) y se comprueban con --check.",
+    "en": "The static alert files and public feeds are regenerated from the repository (MacGuard's rule release log) and checked with --check."
+   }
+  },
+  {
+   "id": "EV-SI-09",
+   "repo": "self",
+   "path": "docs/alerts/CLOUD-ROADMAP.md",
+   "ref": "506e493",
+   "date": "2026-10-23",
+   "source": "docs/alerts/CLOUD-ROADMAP.md (MacGuard/macguard-yara-channel)",
+   "confidence": "high",
+   "validation": "file read at that commit",
+   "state": "planned",
+   "class": "PUBLICABLE",
+   "claim": {
+    "es": "La correlación con inventarios de equipos es un contrato y un comparador de referencia; no existe inventario ni servicio Cloud.",
+    "en": "Correlation with device inventories is a contract and a reference matcher; no inventory or Cloud service exists."
+   }
   }
  ]
 }

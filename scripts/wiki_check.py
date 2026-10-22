@@ -39,6 +39,10 @@ def jload(p): return json.loads(pathlib.Path(p).read_text())
 def strip_code(text): return re.sub(r'```.*?```', '', text, flags=re.S)
 
 
+def git_has_path(ref, path):
+    return subprocess.run(['git', 'cat-file', '-e', f'{ref}:{path}'], cwd=ROOT, capture_output=True).returncode == 0
+
+
 def git_has(sha):
     return subprocess.run(['git', '-C', str(ROOT), 'cat-file', '-e', f'{sha}^{{commit}}'], capture_output=True).returncode == 0
 
@@ -107,7 +111,9 @@ def check(wiki=WIKI):
         if e.get('class') not in CLASSES: err.append(f'provenance {i}: class {e.get("class")!r} must be PUBLICABLE or REQUIERE REVISION (CONFIDENCIAL never enters the repository)')
         if not isinstance(e.get('claim'), dict) or set(e['claim']) != {'es', 'en'}: err.append(f'provenance {i}: claim needs es and en')
         if e.get('repo') == 'self':
-            if e.get('path') and not (ROOT / e['path']).exists(): err.append(f'provenance {i}: path {e["path"]} does not exist (obsolete reference)')
+            # the file must exist in this checkout OR in the pinned commit (a claim about work that lives on a branch that is not merged yet is pinned to that commit)
+            if e.get('path') and not (ROOT / e['path']).exists() and not (e.get('ref') and re.fullmatch(r'[0-9a-f]{7,40}', e['ref']) and git_has_path(e['ref'], e['path'])):
+                err.append(f'provenance {i}: path {e["path"]} does not exist (obsolete reference)')
             if e.get('ref') and re.fullmatch(r'[0-9a-f]{7,40}', e['ref']) and not git_has(e['ref']): err.append(f'provenance {i}: commit {e["ref"]} does not exist')
     # pages
     for p in pages:

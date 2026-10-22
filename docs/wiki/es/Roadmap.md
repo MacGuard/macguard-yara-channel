@@ -20,6 +20,8 @@ Es como el panel de obras de un edificio: dice qué planta está terminada, cuá
 
 {{diagram:roadmap-global-4-others}}
 
+{{diagram:intelligence-roadmap}}
+
 ## Por aplicación
 
 Etapas usadas: concepto, prototipo, desarrollo, validación, candidata a versión (release candidate) y publicada. Cada aplicación se sitúa en la que su evidencia respalda.
@@ -73,6 +75,13 @@ Etapas usadas: concepto, prototipo, desarrollo, validación, candidata a versió
 - **Hecho:** nada más que la frontera descrita en otros proyectos {{ev:EV-EC-05}}.
 - **Bloqueos:** no existe repositorio ni especificación.
 - **Siguiente:** decidir si se emprende.
+
+### Inteligencia de seguridad
+
+- **Fase:** desarrollo (implementada en el repositorio, sin desplegar).
+- **Hecho:** fuentes reales descargadas y validadas, un motor de alertas con filtros, feeds, correo, webhooks, organizaciones y roles, y una sección web bilingüe, todo con pruebas {{ev:EV-SI-02}} {{ev:EV-SI-03}} {{ev:EV-SI-07}}.
+- **Bloqueos:** el propietario no ha confirmado la reutilización de ninguna fuente de vulnerabilidades de terceros, no se encontraron los términos de reutilización de ENISA y no hay flujo de firma, servicio alojado, relé de correo ni proveedor de identidad {{ev:EV-SI-01}}.
+- **Siguiente:** decisiones del propietario sobre licencias y firma; después publicar los canales autorizados. Correlacionar las alertas con los equipos de los clientes espera a MacGuard Cloud {{ev:EV-SI-09}}. Ver [Inteligencia de seguridad](ES-Intelligence).
 
 ## Dependencias entre proyectos
 
