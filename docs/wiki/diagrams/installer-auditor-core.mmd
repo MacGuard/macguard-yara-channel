@@ -1,0 +1,14 @@
+flowchart TB
+  GUI["GUI (SwiftUI)"]:::fe --> CORE
+  CLI["CLI macguard-audit"]:::fe --> CORE
+  TUI["TUI (terminal)"]:::fe --> CORE
+  CORE["Core: AuditEngine"]:::core
+  CORE --> SIG["Signature, hash and<br/>bundle checks"]:::core
+  CORE --> YE["YARAEngine<br/>helpers yara and yarac 4.5.8"]:::core
+  CORE --> RI["RuleInstaller<br/>channel rules only"]:::core
+  RI --> CH["YARA Channel<br/>Pages, then mirror"]:::ext
+  CORE --> OUT["Findings: passed, warning,<br/>failed, unknown"]:::out
+  classDef fe fill:#e8e8e8,stroke:#555555,color:#111111
+  classDef core fill:#fff3cd,stroke:#8a6d00,color:#3d2f00
+  classDef ext fill:#d4edda,stroke:#1b5e20,color:#102a12
+  classDef out fill:#d6e4ff,stroke:#1a3d8f,color:#0d1f4d
