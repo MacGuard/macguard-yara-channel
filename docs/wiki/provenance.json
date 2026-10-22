@@ -1,6 +1,6 @@
 {
  "schema": 1,
- "note": "Evidence matrix of the wiki. 'repo: self' entries are checked by CI (path and commit must exist). Entries about the private repositories are REQUIERE REVISION until the owner approves their publication; they carry commit ids and states only, never internal paths, identities or unpublished weaknesses.",
+ "note": "Evidence matrix of the wiki. 'repo: self' entries are checked by CI (path and commit must exist). Entries about the private repositories are REQUIERE REVISION until the owner approves their publication; they carry state and review date only, never internal paths, identities or unpublished weaknesses.",
  "entries": [
   {
    "id": "EV-YC-01",
@@ -45,8 +45,8 @@
    "state": "published",
    "class": "PUBLICABLE",
    "claim": {
-    "es": "Cada release se firma con Sigstore sin clave almacenada, desde el workflow publish.yml, tras una aprobación humana.",
-    "en": "Each release is signed with Sigstore with no stored key, from the publish.yml workflow, after a human approval."
+    "es": "Cada release se firma con Sigstore sin clave almacenada, desde el flujo de trabajo publish.yml; la publicación se hace mediante un flujo de trabajo protegido y reproducible.",
+    "en": "Each release is signed with Sigstore with no stored key, from the publish.yml workflow; publication runs through a protected, reproducible workflow."
    }
   },
   {
@@ -60,7 +60,7 @@
    "state": "published",
    "class": "PUBLICABLE",
    "claim": {
-    "es": "Cada publicación se registra en un registro de transparencia (árbol Merkle) con checkpoints firmados que cualquiera puede verificar.",
+    "es": "Cada publicación se registra en un registro de transparencia (árbol Merkle) con puntos de control firmados que cualquiera puede verificar.",
     "en": "Every publication is recorded in a transparency log (Merkle tree) with signed checkpoints anyone can verify."
    }
   },
@@ -69,14 +69,14 @@
    "repo": "self",
    "path": "admin/worker/src/index.js",
    "date": "2026-10-22",
-   "source": "admin/worker (code) and the owner's production verification of 2026-10-21",
+   "source": "Code of the private review service in the repository and the maintainer's own record of 2026-10-21",
    "confidence": "medium",
-   "validation": "code read; the deployment itself is recorded by the owner, not in the repository",
+   "validation": "code read; the deployment is confirmed by a private review service, not by the repository",
    "state": "operational",
    "class": "REQUIERE REVISION",
    "claim": {
-    "es": "El panel privado de cuarentena está desplegado y en uso en su versión anterior a las funciones de retiradas persistentes y propuestas de fuentes.",
-    "en": "The private quarantine panel is deployed and in use, in its version before the persistent-withdrawal and source-proposal features."
+    "es": "El panel privado de cuarentena está desplegado y en uso, en su versión anterior a las funciones de retiradas persistentes y control de admisión.",
+    "en": "The private quarantine panel is deployed and in use, in its version before the persistent-withdrawal and admission-control features."
    }
   },
   {
@@ -87,12 +87,12 @@
    "date": "2026-10-22",
    "source": "pull request #24, migration 0003",
    "confidence": "high",
-   "validation": "merged to main with tests; not deployed and migration not applied",
+   "validation": "merged to main with tests; not yet active in production",
    "state": "implemented-not-deployed",
    "class": "PUBLICABLE",
    "claim": {
-    "es": "La memoria de decisiones y las retiradas persistentes están implementadas y fusionadas en main, pero no desplegadas y su migración de base de datos no está aplicada.",
-    "en": "Decision memory and persistent withdrawals are implemented and merged to main, but not deployed, and their database migration is not applied."
+    "es": "La memoria de decisiones y las retiradas persistentes están implementadas y fusionadas en main, pero aún no están activas en producción.",
+    "en": "Decision memory and persistent withdrawals are implemented and merged to main, but not yet active in production."
    }
   },
   {
@@ -103,12 +103,12 @@
    "date": "2026-10-22",
    "source": "pull request #25 and its specification",
    "confidence": "high",
-   "validation": "merged to main with tests; not deployed",
+   "validation": "merged to main with tests; not yet active in production",
    "state": "implemented-not-deployed",
    "class": "PUBLICABLE",
    "claim": {
-    "es": "El proceso para proponer y admitir nuevas fuentes de reglas está implementado en main sin desplegar; ninguna fuente nueva se ha incorporado.",
-    "en": "The process to propose and admit new rule sources is implemented in main but not deployed; no new source has been added."
+    "es": "El proceso para proponer y admitir nuevas fuentes de reglas está implementado en el repositorio y aún no activo en producción; ninguna fuente nueva se ha incorporado.",
+    "en": "The process to propose and admit new rule sources is implemented in the repository and not yet active in production; no new source has been added."
    }
   },
   {
@@ -139,7 +139,7 @@
    "state": "development",
    "class": "PUBLICABLE",
    "claim": {
-    "es": "MacGuard Installer Auditor (GUI, CLI y TUI sobre un núcleo común, CLI macguard-audit 0.2.0) instala reglas del canal solo si pasan firma Sigstore, manifiesto, SHA-256, conjunto exacto de ficheros, pruebas Merkle y antirretroceso; está sin firmar ni notarizar.",
+    "es": "MacGuard Installer Auditor (GUI, CLI y TUI sobre un núcleo común, CLI macguard-audit 0.2.0) instala reglas del canal solo si pasan firma Sigstore, manifiesto, SHA-256, conjunto exacto de archivos, pruebas Merkle y antirretroceso; está sin firmar ni notarizar.",
     "en": "MacGuard Installer Auditor (GUI, CLI and TUI over one core, CLI macguard-audit 0.2.0) installs channel rules only if they pass the Sigstore signature, manifest, SHA-256, exact file set, Merkle proofs and anti-rollback; it is neither signed nor notarized."
    }
   },
@@ -161,69 +161,69 @@
   {
    "id": "EV-EC-01",
    "repo": "private",
-   "ref": "78f7d37",
+   "ref": "private",
    "date": "2026-10-22",
-   "source": "GitLab security-mac/macusb-guard, branch ai/v1-release-integration, HEAD 78f7d37 (2026-09-30); tag v1.0.0-rc1",
+   "source": "Private repository (MacUSBGuard), static review dated 2026-10-22",
    "confidence": "medium",
    "validation": "static read-only survey, nothing executed",
    "state": "validation",
    "class": "REQUIERE REVISION",
    "claim": {
-    "es": "MacUSBGuard está en validación hacia una V1: su documentación lo describe como vista previa de desarrollo en modo solo observación; existe un tag v1.0.0-rc1 que no es ancestro de la rama actual. No importa otras aplicaciones MacGuard.",
-    "en": "MacUSBGuard is in validation towards a V1: its documentation describes it as a development preview in observe-only mode; a v1.0.0-rc1 tag exists that is not an ancestor of the current branch. It does not import other MacGuard applications."
+    "es": "MacUSBGuard está en validación hacia una V1: su documentación lo describe como vista previa de desarrollo en modo solo observación; existen dos conjuntos de cifras de pruebas autoinformadas que no son comparables y no se volvió a ejecutar nada. No importa otras aplicaciones MacGuard.",
+    "en": "MacUSBGuard is in validation towards a V1: its documentation describes it as a development preview in observe-only mode; two sets of self-reported test figures exist, they are not comparable and nothing was re-run. It imports no other MacGuard application."
    }
   },
   {
    "id": "EV-EC-02",
    "repo": "private",
-   "ref": "78f7d37",
+   "ref": "private",
    "date": "2026-10-22",
-   "source": "GitLab security-mac/macusb-guard documentation at HEAD 78f7d37",
+   "source": "Private repository (MacUSBGuard), static review dated 2026-10-22",
    "confidence": "medium",
    "validation": "static read-only survey",
    "state": "blocked",
    "class": "REQUIERE REVISION",
    "claim": {
-    "es": "Las comprobaciones de hardware de MacUSBGuard (HID y almacenamiento) siguen sin verificar porque falta la autorización de Apple para Endpoint Security.",
-    "en": "MacUSBGuard hardware checks (HID and storage) remain unverified because Apple's Endpoint Security entitlement is missing."
+    "es": "Las comprobaciones de hardware de MacUSBGuard (HID y almacenamiento) siguen sin verificar porque ningún permiso de Apple para Endpoint Security consta como utilizable.",
+    "en": "MacUSBGuard hardware checks (HID and storage) remain unverified because no Apple Endpoint Security entitlement is confirmed as usable."
    }
   },
   {
    "id": "EV-EC-03",
    "repo": "private",
-   "ref": "052007e",
+   "ref": "private",
    "date": "2026-10-22",
-   "source": "GitLab security-mac/macfirewall-guard, main, HEAD 052007e (2026-10-10), 58 commits",
+   "source": "Private repository (MacFirewallGuard), static review dated 2026-10-22",
    "confidence": "medium",
    "validation": "static read-only survey, nothing executed",
    "state": "development",
    "class": "REQUIERE REVISION",
    "claim": {
-    "es": "MacFirewallGuard está en desarrollo: tiene motor de políticas, modelo de flujos y procesos y una app SwiftUI, pero todavía NO puede bloquear conexiones porque falta la autorización de Apple para Network Extension.",
-    "en": "MacFirewallGuard is in development: it has a policy engine, a flow and process model and a SwiftUI app, but it cannot block connections yet because Apple's Network Extension entitlement is missing."
+    "es": "MacFirewallGuard está en desarrollo: tiene motor de políticas, modelo de flujos y procesos y una app SwiftUI, pero todavía NO puede bloquear conexiones porque ningún permiso de Network Extension consta como utilizable.",
+    "en": "MacFirewallGuard is in development: it has a policy engine, a flow and process model and a SwiftUI app, but it cannot block connections yet because no Network Extension entitlement is confirmed as usable."
    }
   },
   {
    "id": "EV-EC-04",
    "repo": "private",
-   "ref": "052007e",
+   "ref": "private",
    "date": "2026-10-22",
-   "source": "GitLab security-mac/macfirewall-guard, roadmap and release documents at 052007e",
+   "source": "Private repository (MacFirewallGuard), static review dated 2026-10-22",
    "confidence": "medium",
    "validation": "static read-only survey",
    "state": "development",
    "class": "REQUIERE REVISION",
    "claim": {
-    "es": "Fases de MacFirewallGuard: F1-A, F1-B y GUI-V1 cerradas; F2-A parcial; F2-NIM integrada. Bloqueos documentados: la autorización de Apple y que MacCoreGuard aún no existe como servicio. MacFirewallGuard tiene un cliente de MacCoreGuard probado solo contra un simulacro.",
-    "en": "MacFirewallGuard phases: F1-A, F1-B and GUI-V1 closed; F2-A partial; F2-NIM merged. Documented blockers: Apple's entitlement and the fact that MacCoreGuard does not yet exist as a service. MacFirewallGuard has a MacCoreGuard client tested only against a mock."
+    "es": "Fases de desarrollo de MacFirewallGuard: las iniciales están cerradas y una posterior está parcial. Bloqueos documentados: ningún permiso de Network Extension consta como utilizable y MacCoreGuard aún no existe como servicio. MacFirewallGuard tiene un cliente de MacCoreGuard probado solo contra un doble de prueba.",
+    "en": "MacFirewallGuard development phases: the early ones are closed and a later one is partial. Documented blockers: no Network Extension entitlement is confirmed as usable and MacCoreGuard does not yet exist as a service. MacFirewallGuard has a MacCoreGuard client tested only against a test double."
    }
   },
   {
    "id": "EV-EC-05",
    "repo": "private",
-   "ref": "052007e",
+   "ref": "private",
    "date": "2026-10-22",
-   "source": "GitLab security-mac/macfirewall-guard, README at 052007e",
+   "source": "Private repository (MacFirewallGuard), static review dated 2026-10-22",
    "confidence": "high",
    "validation": "README sentence read directly",
    "state": "concept",
@@ -236,31 +236,31 @@
   {
    "id": "EV-EC-06",
    "repo": "private",
-   "ref": "b0b0f07",
+   "ref": "private",
    "date": "2026-10-22",
-   "source": "GitLab security-mac/maccore-guard, branch candidate/macfirewallguard-session-reference, one commit b0b0f07 (2026-10-09)",
+   "source": "Private repository (MacCoreGuard), static review dated 2026-10-22",
    "confidence": "high",
-   "validation": "commit count and message read; static survey of the sources",
+   "validation": "static survey of the sources",
    "state": "prototype",
    "class": "REQUIERE REVISION",
    "claim": {
-    "es": "MacCoreGuard es un prototipo de un solo commit: implementa un protocolo y una capa criptográfica (cadena de hashes SHA-256 y árbol Merkle RFC 9162 con pruebas de inclusión y consistencia); registro, firma e ingesta son marcadores de posición.",
-    "en": "MacCoreGuard is a one-commit prototype: it implements a protocol and a cryptography layer (SHA-256 hash chain and an RFC 9162 Merkle tree with inclusion and consistency proofs); ledger, signing and ingest are placeholders."
+    "es": "MacCoreGuard es un prototipo sin publicar: implementa un protocolo y una capa criptográfica (una cadena de hashes que enlaza cada registro con el anterior y un árbol de Merkle según la RFC 9162, pública, con pruebas de inclusión y consistencia); registro, firma e ingesta son marcadores de posición.",
+    "en": "MacCoreGuard is an unpublished prototype: it implements a protocol and a cryptography layer (a hash chain that links each record to the previous one and a Merkle tree following RFC 9162, public, with inclusion and consistency proofs); ledger, signing and ingest are placeholders."
    }
   },
   {
    "id": "EV-EC-07",
    "repo": "private",
-   "ref": "f017df0",
+   "ref": "private",
    "date": "2026-10-22",
-   "source": "GitLab security-mac/macguard-designkit, main, HEAD f017df0 (2026-10-08), tags v0.1.0 to v0.3.1",
+   "source": "Private repository (MacGuardDesignKit), static review dated 2026-10-22",
    "confidence": "medium",
    "validation": "static read-only survey",
    "state": "development",
    "class": "REQUIERE REVISION",
    "claim": {
-    "es": "MacGuardDesignKit es una biblioteca SwiftUI sin dependencias externas (tags v0.1.0 a v0.3.1); su 1.0 exige dos productos que la usen y cinco decisiones de diseño pendientes.",
-    "en": "MacGuardDesignKit is a SwiftUI library with no external dependencies (tags v0.1.0 to v0.3.1); its 1.0 needs two consuming products and five pending design decisions."
+    "es": "MacGuardDesignKit es una biblioteca SwiftUI sin dependencias externas, anterior a la 1.0; la capa de interfaz de MacFirewallGuard la importa; su 1.0 exige dos productos que la usen y decisiones de diseño pendientes.",
+    "en": "MacGuardDesignKit is a pre-1.0 SwiftUI library with no external dependencies; MacFirewallGuard's interface layer imports it; its 1.0 requires two products using it and pending design decisions."
    }
   },
   {
@@ -303,7 +303,7 @@
    "date": "2026-10-22",
    "source": "scripts/prepare.py",
    "confidence": "high",
-   "validation": "file read at commit: commits/HEAD lookup, tarball of that sha, MAX_DOWNLOAD 90,000,000, 25,000 entries, 3 attempts, 40 s, 1,000,000-byte cap, NUL check, token only for api.github.com",
+   "validation": "file read at commit: commits/HEAD lookup, tarball of that sha, download and entry caps, file size cap, NUL check, token only for api.github.com",
    "state": "operational",
    "class": "PUBLICABLE",
    "claim": {
@@ -319,12 +319,12 @@
    "date": "2026-10-22",
    "source": "scripts/licensing.py and config/policy.json licenses",
    "confidence": "high",
-   "validation": "file read at commit; policy expects DRL-1.1 marker for Neo23x0/signature-base and GPL-2.0 for Yara-Rules/rules; license-changed is not in WAIVABLE (decide.py)",
+   "validation": "file read at commit; policy expects DRL-1.1 marker for Neo23x0/signature-base and GPL-2.0 for Yara-Rules/rules; a changed license cannot be waived by a person",
    "state": "operational",
    "class": "PUBLICABLE",
    "claim": {
-    "es": "La licencia de cada fuente de reglas se comprueba contra la política; si no coincide, todos sus ficheros van a cuarentena y la aprobación humana no lo levanta.",
-    "en": "The licence of each rule source is checked against the policy; if it does not match, all its files are quarantined and human approval does not lift it."
+    "es": "La licencia de cada fuente de reglas se comprueba contra la política; si no coincide, todos sus archivos van a cuarentena y la aprobación humana no lo levanta.",
+    "en": "The license of each rule source is checked against the policy; if it does not match, all its files are quarantined and human approval does not lift it."
    }
   },
   {
@@ -335,12 +335,12 @@
    "date": "2026-10-22",
    "source": "scripts/rulecheck.py",
    "confidence": "high",
-   "validation": "file read at commit: strip, rule_blocks, analyse_text, compile_file (6 rounds), classify with transitive dependency check, states VALIDATED/QUARANTINED/REJECTED/DEPRECATED",
+   "validation": "file read at commit: strip, rule_blocks, analyse_text, compile_file, classify with transitive dependency check, states VALIDATED/QUARANTINED/REJECTED/DEPRECATED",
    "state": "operational",
    "class": "PUBLICABLE",
    "claim": {
-    "es": "rulecheck.py analiza el texto sin ejecutarlo, detecta reglas truncadas o corruptas, resuelve dependencias entre ficheros y clasifica cada fichero.",
-    "en": "rulecheck.py analyses the text without executing it, detects truncated or corrupt rules, resolves dependencies between files and classifies each file."
+    "es": "rulecheck.py analiza el texto sin ejecutarlo, detecta reglas truncadas o corruptas, resuelve dependencias entre archivos y clasifica cada archivo.",
+    "en": "rulecheck.py analyzes the text without executing it, detects truncated or corrupt rules, resolves dependencies between files and classifies each file."
    }
   },
   {
@@ -355,8 +355,8 @@
    "state": "operational",
    "class": "PUBLICABLE",
    "claim": {
-    "es": "La política fija 1 000 000 bytes, 3000 reglas por fichero, módulos permitidos y bloqueados, puntuación de regex 7, hueco ancho 1000 y 3 bucles for.",
-    "en": "The policy sets 1,000,000 bytes, 3000 rules per file, allowed and blocked modules, regex score 7, wide gap 1000 and 3 for loops."
+    "es": "La política fija 1 000 000 bytes, 3000 reglas por archivo, módulos permitidos y bloqueados, puntuación de regex 7, hueco ancho 1000 y 3 bucles for; son puntos de partida de política que pueden cambiar.",
+    "en": "The policy sets 1,000,000 bytes, 3000 rules per file, allowed and blocked modules, regex score 7, wide gap 1000 and 3 for loops; these are policy starting points that can change."
    }
   },
   {
@@ -367,12 +367,12 @@
    "date": "2026-10-22",
    "source": "scripts/rulecheck.py regex_risk and analyse_text",
    "confidence": "high",
-   "validation": "file read at commit; analyse_text run locally with Python 3.12 on three example rules: /(ab+)+c/ gives costly-regex observed 9, /ab.*cd.*ef/ gives no finding, for all i in (0..filesize-1) gives filesize-loop",
+   "validation": "file read at commit; regex_risk assigns points for nested quantifiers, repeated open-ended runs, very wide gaps and open-ended repetition, and a score at or above regex.max_risk_score sends the file to review; analyse_text was run locally with Python 3.12 on three example rules, and the nested quantifier and the filesize loop were flagged",
    "state": "operational",
    "class": "PUBLICABLE",
    "claim": {
-    "es": "La puntuación de regex suma 9 por cuantificador anidado, 3 por dos o más tramos abiertos, 2 por .* inicial, 4 por hueco >= 1000 y 3 por repetición abierta; los bucles sobre filesize se marcan.",
-    "en": "The regex score adds 9 for a nested quantifier, 3 for two or more open stretches, 2 for a leading .*, 4 for a gap >= 1000 and 3 for an open-ended repetition; loops over filesize are flagged."
+    "es": "La puntuación de riesgo de una regex suma puntos por cuantificadores anidados, tramos abiertos repetidos, huecos muy anchos y repeticiones abiertas; una puntuación igual o mayor que el umbral de la política manda el archivo a revisión, y los bucles sobre filesize se marcan.",
+    "en": "The regex risk score adds points for nested quantifiers, repeated open-ended runs, very wide gaps and open-ended repetition; a score at or above the policy threshold sends the file to review, and loops over filesize are flagged."
    }
   },
   {
@@ -383,12 +383,12 @@
    "date": "2026-10-22",
    "source": "scripts/decide.py and tests/test_decide.py",
    "confidence": "high",
-   "validation": "file read at commit: WAIVABLE set, hit_rate_limit 0.05 with corpus >= 50, publishability conditions, anomaly gate from policy.json (0.15 removed, 0.4 changed)",
+   "validation": "file read at commit: waivable findings, publishability conditions, anomaly gate from policy.json (0.15 removed, 0.4 changed)",
    "state": "operational",
    "class": "PUBLICABLE",
    "claim": {
-    "es": "decide.py solo permite renunciar a hallazgos de juicio, exige que la medición dinámica corresponda al conjunto exacto, que se detecten los canarios y limita cambios masivos (15 % retirado, 40 % tocado).",
-    "en": "decide.py lets a human waive only judgement findings, requires the dynamic measurement to belong to the exact set, canaries to be detected, and limits mass changes (15 % removed, 40 % touched)."
+    "es": "decide.py solo permite renunciar a hallazgos de juicio, exige que la medición dinámica corresponda al conjunto exacto, que pase la comprobación canario y limita cambios masivos (15 % retirado, 40 % tocado).",
+    "en": "decide.py lets a human waive only judgment findings, requires the dynamic measurement to belong to the exact set, the canary check to pass, and limits mass changes (15 % removed, 40 % touched)."
    }
   },
   {
@@ -399,12 +399,12 @@
    "date": "2026-10-22",
    "source": "scripts/dynamic_gate.py, scripts/bench.py, config/policy.json dynamic",
    "confidence": "high",
-   "validation": "file read at commit: runs 5, min_runs 3, noise multiplier 3.0, relative 0.25, cpu 0.5 s, rss 25 MB, absolute p95 2.0 s, scan RSS 1500 MB, compile RSS 3000 MB, compile 240 s, ddmin budget 40, max_iter 3, per-file timeout 10 s, max_failures 3",
+   "validation": "file read at commit: thresholds read from config/policy.json (repetitions, noise multiplier, relative and absolute minimums, sanity limits without a previous release, per-file timeout)",
    "state": "operational",
    "class": "PUBLICABLE",
    "claim": {
-    "es": "La puerta dinámica mide 5 repeticiones frente a la release anterior con umbrales documentados y aísla culpables por delta debugging con un máximo de 3 rondas.",
-    "en": "The dynamic gate measures 5 repetitions against the previous release with documented thresholds and isolates culprits by delta debugging in at most 3 rounds."
+    "es": "La puerta dinámica mide repeticiones frente a la release anterior con umbrales documentados y aísla culpables por delta debugging.",
+    "en": "The dynamic gate measures repetitions against the previous release with documented thresholds and isolates culprits by delta debugging."
    }
   },
   {
@@ -413,14 +413,14 @@
    "path": "scripts/bench.py",
    "ref": "d3236cf",
    "date": "2026-10-22",
-   "source": "scripts/bench.py build_corpus and CANARY_RULES",
+   "source": "scripts/bench.py",
    "confidence": "high",
-   "validation": "file read at commit: 40 random, 10 text, up to 8 system binaries, 5 canaries; root-cause document cites a clean corpus of 58 files",
+   "validation": "file read at commit",
    "state": "operational",
    "class": "PUBLICABLE",
    "claim": {
-    "es": "El corpus benigno determinista tiene 40 ficheros aleatorios, 10 de texto y hasta 8 binarios del sistema, más 5 canarios.",
-    "en": "The deterministic benign corpus has 40 random files, 10 text files and up to 8 system binaries, plus 5 canaries."
+    "es": "El corpus benigno es pequeño y sintético; mide genericidad grosera, no la tasa real de falsos positivos. Existe una comprobación canario que prueba que la medición puede detectar un acierto.",
+    "en": "The benign corpus is small and synthetic; it measures gross genericity, not the real-world false-positive rate. A canary check exists to prove the measurement can detect a match."
    }
   },
   {
@@ -431,12 +431,12 @@
    "date": "2026-10-22",
    "source": "tests/test_rulecheck_adversarial.py",
    "confidence": "high",
-   "validation": "file read at commit: truncation at every position, 1500 random damage cases, Unicode/control inputs, pathological inputs up to 1,000,000 characters bounded by 8 s",
+   "validation": "file read at commit: truncation at every position, random damage cases, Unicode and control inputs, pathological inputs bounded in time",
    "state": "operational",
    "class": "PUBLICABLE",
    "claim": {
-    "es": "Hay pruebas adversariales del analizador estático: truncamiento en cada posición, 1500 daños aleatorios y entradas patológicas acotadas en tiempo.",
-    "en": "There are adversarial tests of the static analyser: truncation at every position, 1500 random damage cases and pathological inputs bounded in time."
+    "es": "Hay pruebas adversariales del analizador estático: truncamiento en cada posición, muchos casos de daño aleatorio y entradas patológicas acotadas en tiempo.",
+    "en": "There are adversarial tests of the static analyser: truncation at every position, many random damage cases and pathological inputs bounded in time."
    }
   },
   {
@@ -446,13 +446,13 @@
    "ref": "81981a7",
    "date": "2026-10-22",
    "source": "scripts/admission.py, admin/worker/src/proposals.js, docs/audit/source-proposals-spec.md",
-   "confidence": "medium",
-   "validation": "file read at commit; held_sources and the new-source finding exist; decide.py accepts sources only when the caller passes them (--sources); dynamic_gate.py calls decide.decide without sources (read, not run); deployment status taken from EV-YC-07",
+   "confidence": "high",
+   "validation": "files read at commit; behavior read, not triggered",
    "state": "implemented-not-deployed",
    "class": "PUBLICABLE",
    "claim": {
-    "es": "El control de admisión de fuentes nuevas (new-source, probation) está implementado en main y no desplegado; no se ha verificado que la ejecución diaria lo active.",
-    "en": "The admission control for new sources (new-source, probation) is implemented in main and not deployed; it was not verified that the daily run activates it."
+    "es": "El control de admisión de fuentes nuevas está implementado en el repositorio y aún no está habilitado en producción.",
+    "en": "Admission control for new sources is implemented in the repository and not yet enabled in production."
    }
   },
   {
@@ -463,12 +463,12 @@
    "date": "2026-10-22",
    "source": "config/policy.json engines; logs/log.jsonl engine field",
    "confidence": "medium",
-   "validation": "policy declares engines.min_version 4.3.0; grep of scripts, workflows, tests and config found no reader of that key; log entries record engine 4.5.0",
+   "validation": "policy and scripts read; log entries record engine 4.5.0",
    "state": "documented design",
    "class": "PUBLICABLE",
    "claim": {
-    "es": "La política declara versión mínima del motor 4.3.0 pero no se encontró código que la lea; la versión usada se registra (4.5.0).",
-    "en": "The policy declares a minimum engine version of 4.3.0 but no code reading it was found; the version used is recorded (4.5.0)."
+    "es": "La política declara una versión mínima del motor; algunos valores de configuración están declarados pero el código todavía no los aplica; la versión usada se registra (4.5.0).",
+    "en": "The policy declares a minimum engine version; some configuration values are declared but not yet applied by the code; the version used is recorded (4.5.0)."
    }
   },
   {
@@ -499,8 +499,8 @@
    "state": "operational",
    "class": "PUBLICABLE",
    "claim": {
-    "es": "macguard_smoke.py ejecuta la CLI macguard-audit sobre el corpus seguro con las reglas candidatas e informa de caídas, cuelgues, percentiles y canarios; no decide la publicación.",
-    "en": "macguard_smoke.py runs the macguard-audit CLI over the safe corpus with the candidate rules and reports crashes, hangs, percentiles and canaries; it does not decide publication."
+    "es": "macguard_smoke.py ejecuta la CLI macguard-audit sobre el corpus benigno con las reglas candidatas e informa de caídas, cuelgues, percentiles y el resultado de la comprobación canario; no decide la publicación.",
+    "en": "macguard_smoke.py runs the macguard-audit CLI over the benign corpus with the candidate rules and reports crashes, hangs, percentiles and the canary check result; it does not decide publication."
    }
   },
   {
@@ -509,9 +509,9 @@
    "path": "docs/audit/TEST-MATRIX.md",
    "ref": "5eba4f7",
    "date": "2026-10-22",
-   "source": "docs/audit/TEST-MATRIX.md; search of tests, scripts and app tests",
+   "source": "Public audit test inventory in the repository; search of tests, scripts and app tests",
    "confidence": "medium",
-   "validation": "TEST-MATRIX read; grep for concurrency found only a unit test that a second concurrent rules update is refused (Swift) and no end-to-end performance or scan-during-update test",
+   "validation": "project test documents read; only a unit test that a second concurrent rules update is refused (Swift) was found, and no end-to-end performance or scan-during-update test",
    "state": "planned",
    "class": "PUBLICABLE",
    "claim": {
@@ -527,7 +527,7 @@
    "date": "2026-10-22",
    "source": ".github/workflows/daily.yml and scripts/prepare.py",
    "confidence": "medium",
-   "validation": "file read at commit: run.failed event when decision.json is missing; request-publish only when publishable and changed; prepare.py raises after 3 attempts; behaviour read, not triggered",
+   "validation": "file read at commit: run.failed event when decision.json is missing; request-publish only when publishable and changed; prepare.py raises on failure; behaviour read, not triggered",
    "state": "operational",
    "class": "PUBLICABLE",
    "claim": {
@@ -563,7 +563,7 @@
    "state": "operational",
    "class": "PUBLICABLE",
    "claim": {
-    "es": "El conjunto se compila con un espacio de nombres por fichero para que reglas con el mismo nombre en ficheros distintos coexistan.",
+    "es": "El conjunto se compila con un espacio de nombres por archivo para que reglas con el mismo nombre en archivos distintos coexistan.",
     "en": "The set is compiled with one namespace per file so that rules with the same name in different files coexist."
    }
   },
@@ -579,8 +579,8 @@
    "state": "documented design",
    "class": "PUBLICABLE",
    "claim": {
-    "es": "El archivo histórico en tres proveedores (R2, B2, Scaleway; un bucket cada uno) es un diseño: guardaría bundles, manifiestos, hashes, firmas Sigstore, checkpoints, pruebas Merkle, registros públicos y auditoría privada cifrada con age; la retención compliance y las cuentas/claves exigen autorización del propietario.",
-    "en": "The three-provider historical archive (R2, B2, Scaleway; one bucket each) is a design: it would keep bundles, manifests, hashes, Sigstore signatures, checkpoints, Merkle proofs, public logs and age-encrypted private audit; compliance retention, accounts and keys need owner authorisation."
+    "es": "El archivo histórico en tres proveedores (R2, B2, Scaleway; un bucket cada uno) es un diseño: guardaría bundles, manifiestos, hashes, firmas Sigstore, puntos de control, pruebas Merkle, registros públicos y auditoría privada cifrada con age; la retención compliance y las cuentas/claves exigen autorización del propietario.",
+    "en": "The three-provider historical archive (R2, B2, Scaleway; one bucket each) is a design: it would keep bundles, manifests, hashes, Sigstore signatures, checkpoints, Merkle proofs, public logs and age-encrypted private audit; compliance retention, accounts and keys need owner authorization."
    }
   },
   {
@@ -605,14 +605,14 @@
    "path": "docs/audit/historical-archive-triple-spec.md",
    "ref": "8423c75",
    "date": "2026-10-22",
-   "source": "spec section 14 and checkout listing of docs/",
+   "source": "spec section 14 and listing of docs/",
    "confidence": "high",
-   "validation": "file read at commit; docs/OPERATIONS-archive-setup.md is absent from the main checkout (it lives in the PR #23 branch under review)",
+   "validation": "file read at commit; the setup guide is not yet in the repository",
    "state": "planned",
    "class": "PUBLICABLE",
    "claim": {
-    "es": "El archivo en tres proveedores no es operativo: no se ha probado ninguna restauración desde un proveedor real y la guía de configuración docs/OPERATIONS-archive-setup.md no está en main, está en revisión.",
-    "en": "The three-provider archive is not operational: no restoration from a real provider has been tested and the setup guide docs/OPERATIONS-archive-setup.md is not in main, it is under review."
+    "es": "El archivo en tres proveedores no es operativo: ningún flujo de trabajo de archivo en main escribe en un proveedor, no se ha probado ninguna restauración real y la guía de configuración todavía no está en el repositorio. La preparación de los proveedores no ha empezado.",
+    "en": "The three-provider archive is not operational: no archive workflow in main writes to a provider, no real restoration has been tested and the setup guide is not yet in the repository. Provider setup has not started."
    }
   },
   {
@@ -623,12 +623,12 @@
    "date": "2026-10-22",
    "source": "spec section 4 (immutability per provider, independence and limits), section 2 (costs)",
    "confidence": "medium",
-   "validation": "file read at commit; provider statements are as read by the spec author on 2026-10-21, Scaleway Object Lock explicitly flagged as to be verified on an authorised test bucket",
+   "validation": "file read at commit; provider statements are as read by the spec author on 2026-10-21, with the provider capabilities flagged as to be verified on authorised test buckets",
    "state": "documented design",
    "class": "PUBLICABLE",
    "claim": {
-    "es": "Según la especificación, el bloqueo de R2 es una regla de retención eliminable, B2 ofrece gobernanza y compliance, y Scaleway debe confirmarse en un bucket de prueba; las tres copias comparten un único origen de escritura y un propietario, y el coste estimado es de céntimos a decenas de dólares en casi todos los escenarios.",
-    "en": "According to the specification, R2's lock is a removable retention rule, B2 offers governance and compliance, and Scaleway must be confirmed on a test bucket; the three copies share a single write origin and owner, and the estimated cost is cents to tens of dollars in almost all scenarios."
+    "es": "Según la especificación, la fortaleza del bloqueo depende de la configuración de cada proveedor, B2 ofrece gobernanza y compliance, y las capacidades de cada proveedor deben confirmarse en buckets de prueba; las tres copias comparten un único origen de escritura y un propietario, y el coste estimado es de céntimos a decenas de dólares en casi todos los escenarios.",
+    "en": "According to the specification, lock strength depends on each provider's settings, B2 offers governance and compliance, and provider capabilities must be confirmed on test buckets; the three copies share a single write origin and owner, and the estimated cost is cents to tens of dollars in almost all scenarios."
    }
   },
   {
@@ -637,14 +637,14 @@
    "path": "scripts/bench.py",
    "ref": "d3236cf",
    "date": "2026-10-22",
-   "source": "scripts/bench.py build_corpus, CANARY_RULES",
+   "source": "scripts/bench.py",
    "confidence": "high",
-   "validation": "file read at commit (function build_corpus)",
+   "validation": "file read at commit",
    "state": "operational",
    "class": "PUBLICABLE",
    "claim": {
-    "es": "El corpus benigno es sintético: 40 ficheros aleatorios (semilla 1234, 512 B a 256 KiB), 10 de texto, hasta 8 binarios del sistema del ejecutor y 5 ficheros canario aparte.",
-    "en": "The benign corpus is synthetic: 40 random files (seed 1234, 512 B to 256 KiB), 10 text files, up to 8 runner system binaries and 5 separate canary files."
+    "es": "El corpus benigno es pequeño y sintético; mide genericidad grosera, no la tasa real de falsos positivos. Existe una comprobación canario que prueba que la medición puede detectar un acierto.",
+    "en": "The benign corpus is small and synthetic; it measures gross genericity, not the real-world false-positive rate. A canary check exists to prove the measurement can detect a match."
    }
   },
   {
@@ -659,8 +659,8 @@
    "state": "operational",
    "class": "PUBLICABLE",
    "claim": {
-    "es": "La puerta dinámica pone en cuarentena una regla que coincide con más del 5 % del corpus benigno (hit_rate_limit=0.05, solo con corpus de 50 o más ficheros); un defecto de recuento por espacio de nombres se corrigió sin cambiar el límite y el resultado depende de los binarios de la imagen del ejecutor.",
-    "en": "The dynamic gate quarantines a rule that matches more than 5% of the benign corpus (hit_rate_limit=0.05, only with a corpus of 50 or more files); a per-namespace counting defect was fixed without changing the limit and the result depends on the runner image's binaries."
+    "es": "La puerta dinámica pone en cuarentena una regla que coincide con una fracción demasiado grande del corpus benigno (un límite fijado en el código, que puede cambiar); un defecto de recuento por espacio de nombres se corrigió sin cambiar el límite.",
+    "en": "The dynamic gate quarantines a rule that matches too large a share of the benign corpus (a limit set in the code, which can change); a per-namespace counting defect was fixed without changing the limit."
    }
   },
   {
@@ -669,14 +669,14 @@
    "path": "docs/audit/RESIDUAL-RISKS.md",
    "ref": "5eba4f7",
    "date": "2026-10-22",
-   "source": "docs/audit/RESIDUAL-RISKS.md (RR-02, RR-06, RR-07, RR-10, RR-11, RR-12, RR-13), SECURITY-FINDINGS.md FA-11, TEST-MATRIX.md",
+   "source": "Public audit documents in the repository (open items, findings and test inventory)",
    "confidence": "high",
-   "validation": "files read at commit; summarised at public level, only items already public",
+   "validation": "audit documents read at commit; summarised at public level, only items already public",
    "state": "documented design",
    "class": "PUBLICABLE",
    "claim": {
-    "es": "La auditoría deja abiertos, entre otros: sin atestación independiente de la revisión (manifest.evidence es declaración del flujo de publicación), puerta Linux con YARA 4.5.0 frente al motor 4.5.8 y macOS en máquina virtual, fuzzing con semillas fijas, Grype/Scorecard/lectores de pantalla sin ejecutar, revisión legal de licencias fuera de alcance y diez ficheros de la primera release retenidos.",
-    "en": "The audit leaves open, among others: no independent attestation of the review (manifest.evidence is the publishing workflow's statement), Linux gate on YARA 4.5.0 versus the 4.5.8 engine and macOS in a virtual machine, fuzzing with fixed seeds, Grype/Scorecard/screen readers not run, legal licence review out of scope and ten files of the first release withheld."
+    "es": "El proyecto mantiene una auditoría con puntos abiertos: sin atestación independiente de la revisión (manifest.evidence es declaración del flujo de publicación), diferencias de versión de motor entre la puerta Linux y el motor distribuido, medición en macOS en máquina virtual, fuzzing limitado, algunas herramientas sin ejecutar y revisión legal de licencias fuera de alcance.",
+    "en": "The project keeps an audit with open items: no independent attestation of the review (manifest.evidence is the publishing workflow's statement), engine version differences between the Linux gate and the shipped engine, macOS measurement in a virtual machine, limited fuzzing, some tools not yet run and legal license review out of scope."
    }
   },
   {
@@ -691,8 +691,8 @@
    "state": "operational",
    "class": "PUBLICABLE",
    "claim": {
-    "es": "La política exige YARA 4.3.0 o superior, bloquea los módulos cuckoo, magic y androguard, fija límites de cordura (scan p95 2,0 s, 1500 MB; compilación 3000 MB, 240 s), regresión con 3 veces el ruido, 25 % relativo, 0,5 s CPU o 25 MB, y rechaza la publicación automática que quite más del 15 % o cambie más del 40 %.",
-    "en": "The policy requires YARA 4.3.0 or later, blocks the cuckoo, magic and androguard modules, sets sanity limits (scan p95 2.0 s, 1500 MB; compile 3000 MB, 240 s), regression at 3 times the noise, 25% relative, 0.5 s CPU or 25 MB, and refuses automatic publication that removes more than 15% or changes more than 40%."
+    "es": "La política declara una versión mínima del motor, bloquea los módulos cuckoo, magic y androguard, fija límites de cordura cuando no hay versión previa (p95 de escaneo 2,0 s, 1500 MB; compilación 3000 MB, 240 s), define una regresión por encima del ruido con mínimos relativo y absoluto, y rechaza la publicación automática que quite más del 15 % o cambie más del 40 %. Son valores de política que pueden cambiar.",
+    "en": "The policy declares a minimum engine version, blocks the cuckoo, magic and androguard modules, sets sanity limits for when there is no previous release (scan p95 2.0 s, 1500 MB; compile 3000 MB, 240 s), defines a regression as an increase above the noise with relative and absolute minimums, and refuses automatic publication that removes more than 15% or changes more than 40%. These are policy values and can change."
    }
   },
   {
@@ -701,7 +701,7 @@
    "path": "scripts/tlog.py",
    "ref": "c16bc18",
    "date": "2026-10-22",
-   "source": "scripts/tlog.py (leaf_hash, node_hash, mth, inclusion_proof, verify_inclusion, consistency_proof, verify_consistency, check_inventory); tests/test_tlog_adversarial.py; docs/audit/TEST-MATRIX.md",
+   "source": "scripts/tlog.py; tests/test_tlog_adversarial.py; public audit test inventory",
    "confidence": "high",
    "validation": "file read at commit; TEST-MATRIX records the adversarial Merkle tests as OK; not re-run by this page author",
    "state": "operational",
@@ -723,7 +723,7 @@
    "state": "operational",
    "class": "PUBLICABLE",
    "claim": {
-    "es": "publish.yml firma con cosign sign-blob --bundle el checkpoint del registro y dist/manifest.json, y tlog.py verifica con cosign verify-blob exigiendo identidad, emisor OIDC y repositorio del flujo.",
+    "es": "publish.yml firma con cosign sign-blob --bundle el punto de control del registro y dist/manifest.json, y tlog.py verifica con cosign verify-blob exigiendo identidad, emisor OIDC y repositorio del flujo.",
     "en": "publish.yml signs the log checkpoint and dist/manifest.json with cosign sign-blob --bundle, and tlog.py verifies with cosign verify-blob requiring identity, OIDC issuer and workflow repository."
    }
   },
@@ -813,7 +813,7 @@
    "state": "published",
    "class": "PUBLICABLE",
    "claim": {
-    "es": "La documentación de Kubernetes dice que su proceso de release firma todos los artefactos binarios (tarballs, ficheros SPDX, binarios) con la firma sin clave de cosign.",
+    "es": "La documentación de Kubernetes dice que su proceso de release firma todos los artefactos binarios (tarballs, archivos SPDX, binarios) con la firma sin clave de cosign.",
     "en": "Kubernetes documentation says its release process signs all binary artifacts (tarballs, SPDX files, standalone binaries) using cosign keyless signing."
    }
   },
@@ -899,14 +899,14 @@
    "path": "scripts/decide.py",
    "ref": "81981a7",
    "date": "2026-10-22",
-   "source": "scripts/decide.py WAIVABLE, scripts/rulecheck.py finding codes, admin/worker/src/core.js WAIVABLE and blockingReasons",
+   "source": "scripts/decide.py, scripts/rulecheck.py and the private review service",
    "confidence": "high",
-   "validation": "file read at commit; tests.test_admission (WAIVABLE parity between Python and JS) and tests.test_decide run OK 2026-10-22",
+   "validation": "file read at commit; tests.test_admission (waivable-list parity between the pipeline and the review service) and tests.test_decide run OK 2026-10-22",
    "state": "operational",
    "class": "PUBLICABLE",
    "claim": {
-    "es": "Solo nueve hallazgos de criterio son aprobables a mano; truncado, corrupción, errores de compilación, módulo bloqueado, licencia cambiada, fallo dinámico y contenido rechazado antes no se pueden aprobar, y decide.py lo aplica de nuevo.",
-    "en": "Only nine judgement findings can be approved by hand; truncation, corruption, compile errors, blocked module, changed licence, dynamic failure and previously rejected content cannot be approved, and decide.py enforces it again."
+    "es": "Los hallazgos de criterio los puede dispensar una persona con un motivo registrado; los fallos duros no se pueden dispensar, y decide.py lo aplica de nuevo.",
+    "en": "Judgment findings can be waived by a person with a recorded reason; hard failures cannot be waived, and decide.py enforces it again."
    }
   },
   {
@@ -915,14 +915,14 @@
    "path": "admin/worker/src/core.js",
    "ref": "faff238",
    "date": "2026-10-22",
-   "source": "admin/worker/src/core.js (HUMAN, validateDecisionRequest, chainHash, verifyChain), docs-src/en/admin-panel.md",
+   "source": "Review service code in the repository; docs-src/en/admin-panel.md",
    "confidence": "high",
-   "validation": "file read at commit; node --test test/service.test.js test/policies.test.js test/anchor.test.js in admin/worker gave 113 pass, 0 fail on 2026-10-22",
+   "validation": "file read at commit; the review-service test suites passed on 2026-10-22",
    "state": "operational",
    "class": "PUBLICABLE",
    "claim": {
-    "es": "El panel permite approve, reject, hold, review y release_review con motivo y control de versión; ninguna acción humana produce RELEASED; las decisiones se registran en una cadena de hashes SHA-256 verificable (verifyChain).",
-    "en": "The panel allows approve, reject, hold, review and release_review with a reason and version check; no human action produces RELEASED; decisions are recorded in a verifiable SHA-256 hash chain (verifyChain)."
+    "es": "El servicio privado de revisión permite a una persona revisora autorizada aprobar, rechazar, retener o enviar un candidato a revisión, con motivo registrado y control de versión; ninguna acción humana produce RELEASED; las decisiones se registran en una cadena de hashes SHA-256 verificable.",
+    "en": "The private review service lets an authorized reviewer approve, reject, hold or send a candidate to review, with a recorded reason and a version check; no human action produces RELEASED; decisions are recorded in a verifiable SHA-256 hash chain."
    }
   },
   {
@@ -933,12 +933,12 @@
    "date": "2026-10-22",
    "source": "admin/worker/src/policies.js, admin/worker/migrations/0003_policies.sql, docs/audit/quarantine-decision-memory-and-withdrawal-spec.md",
    "confidence": "medium",
-   "validation": "files read at commit; grep for blocked-by-policy/policy_mode in scripts/ and .github/ found nothing, so the pipeline does not consume policies; migration 0003 not applied (header says NOT RUN); no `reopen` action found in admin/worker/src. Deployment state of the live Worker not checked beyond the brief",
+   "validation": "files read at commit; the pipeline does not yet consume policies; not yet active in production",
    "state": "implemented-not-deployed",
    "class": "PUBLICABLE",
    "claim": {
-    "es": "El Worker de main implementa políticas persistentes y retirada de reglas publicadas (tablas de la migración 0003), pero la migración no está aplicada, no hay acción reopen y decide.py no lee todavía políticas.",
-    "en": "The main Worker implements persistent policies and withdrawal of published rules (migration 0003 tables), but the migration is not applied, there is no reopen action and decide.py does not read policies yet."
+    "es": "El servicio de revisión de main implementa políticas persistentes y retirada de reglas publicadas, pero aún no están activas en producción y decide.py no lee todavía políticas.",
+    "en": "The review service in main implements persistent policies and withdrawal of published rules, but they are not yet active in production and decide.py does not read policies yet."
    }
   },
   {
@@ -949,12 +949,12 @@
    "date": "2026-10-22",
    "source": "admin/worker/src/anchor.js, admin/worker/migrations/0004_audit_anchor.sql",
    "confidence": "medium",
-   "validation": "files read at commit; tests/anchor.test.js within the 113 passing node tests; migration 0004 not applied per its header and per the brief",
+   "validation": "files and tests read at commit; not yet active in production",
    "state": "implemented-not-deployed",
    "class": "PUBLICABLE",
    "claim": {
-    "es": "Las anclas de auditoría (audit_anchor) están implementadas en main y solo se escriben tras probar el archivo en tres proveedores, pero la migración 0004 no está aplicada y el archivo de tres proveedores no está operativo.",
-    "en": "Audit anchors (audit_anchor) are implemented in main and written only after proving archival in three providers, but migration 0004 is not applied and the three-provider archive is not operational."
+    "es": "El anclaje de auditoría está implementado en main y solo se escribe tras probar el archivo en tres proveedores, pero aún no está activo en producción y el archivo de tres proveedores no está operativo.",
+    "en": "Audit anchoring is implemented in main and written only after proving archival in three providers, but it is not yet active in production and the three-provider archive is not operational."
    }
   },
   {
@@ -985,7 +985,7 @@
    "state": "operational",
    "class": "PUBLICABLE",
    "claim": {
-    "es": "Se firman con Sigstore keyless (cosign sign-blob) el manifiesto y el checkpoint; la identidad es el workflow publish.yml de la rama main de este repositorio; el paquete no se firma por separado.",
+    "es": "Se firman con Sigstore keyless (cosign sign-blob) el manifiesto y el punto de control; la identidad es el flujo de trabajo publish.yml de la rama main de este repositorio; el paquete no se firma por separado.",
     "en": "The manifest and the checkpoint are signed with keyless Sigstore (cosign sign-blob); the identity is the publish.yml workflow on the main branch of this repository; the package is not signed separately."
    }
   },
@@ -997,12 +997,12 @@
    "date": "2026-10-22",
    "source": "search of .github/workflows and scripts for attest/slsa; scripts/seal.py comment; docs-src/en/sigstore.md LIMIT",
    "confidence": "medium",
-   "validation": "grep -i attest/slsa/provenance over .github/workflows and scripts/*.py found only a 'Verify candidate provenance' step name and seal.py's note that evidence is not an independent attestation; absence of a feature, so confidence is medium (releases were not inspected for GitHub attestation records)",
+   "validation": "workflows and scripts reviewed: only a 'Verify candidate provenance' step name and seal.py's note that evidence is not an independent attestation; absence of a feature, so confidence is medium (releases were not inspected for GitHub attestation records)",
    "state": "planned",
    "class": "PUBLICABLE",
    "claim": {
-    "es": "El repositorio no produce atestaciones GitHub ni SLSA; existen firmas Sigstore de dos blobs y un campo evidence dentro del manifiesto firmado que es declaración del propio workflow. No hay plan programado para añadirlas.",
-    "en": "The repository does not produce GitHub or SLSA attestations; what exists is Sigstore signatures of two blobs and an evidence field inside the signed manifest that is the workflow's own statement. There is no scheduled plan to add them."
+    "es": "El repositorio no produce atestaciones GitHub ni SLSA; existen firmas Sigstore de dos blobs y un campo evidence dentro del manifiesto firmado que es declaración del propio flujo de trabajo. Añadirlas es un posible paso futuro.",
+    "en": "The repository does not produce GitHub or SLSA attestations; what exists is Sigstore signatures of two blobs and an evidence field inside the signed manifest that is the workflow's own statement. Adding attestations is a possible future step."
    }
   },
   {
@@ -1017,7 +1017,7 @@
    "state": "operational",
    "class": "PUBLICABLE",
    "claim": {
-    "es": "El manifiesto firmado incluye el enlace a la ejecución de publish.yml, la ejecución diaria del candidato y el commit de su workflow; el tag lleva el id de la ejecución de publicación.",
+    "es": "El manifiesto firmado incluye el enlace a la ejecución de publish.yml, la ejecución diaria del candidato y el commit de su flujo de trabajo; el tag lleva el id de la ejecución de publicación.",
     "en": "The signed manifest includes the link to the publish.yml run, the candidate's daily run and its workflow commit; the tag carries the publication run id."
    }
   },
@@ -1034,7 +1034,7 @@
    "class": "PUBLICABLE",
    "claim": {
     "es": "El manifiesto lista las fuentes con su commit upstream y la comprobación de licencia; así el autor original de una regla se distingue del distribuidor del paquete.",
-    "en": "The manifest lists the sources with their upstream commit and licence check, so the original author of a rule is distinguishable from the distributor of the package."
+    "en": "The manifest lists the sources with their upstream commit and license check, so the original author of a rule is distinguishable from the distributor of the package."
    }
   },
   {
@@ -1065,7 +1065,7 @@
    "state": "operational",
    "class": "PUBLICABLE",
    "claim": {
-    "es": "El checkpoint tiene tres líneas (origen macguard-rules-log v1, tamaño, raíz en base64) y lo firma Sigstore; el manifiesto repite tamaño y raíz.",
+    "es": "El punto de control tiene tres líneas (origen macguard-rules-log v1, tamaño, raíz en base64) y lo firma Sigstore; el manifiesto repite tamaño y raíz.",
     "en": "The checkpoint has three lines (origin macguard-rules-log v1, size, root in base64) and is signed with Sigstore; the manifest repeats size and root."
    }
   },
@@ -1081,7 +1081,7 @@
    "state": "operational",
    "class": "PUBLICABLE",
    "claim": {
-    "es": "Las pruebas cubren historia reescrita, fork con el mismo tamaño y checkpoint de historia distinta; el verificador detecta ROLLBACK y FORK frente a un checkpoint de confianza guardado.",
+    "es": "Las pruebas cubren historia reescrita, fork con el mismo tamaño y punto de control de historia distinta; el verificador detecta ROLLBACK y FORK frente a un punto de control de confianza guardado.",
     "en": "Tests cover rewritten history, a fork at the same size and a checkpoint of a different history; the verifier detects ROLLBACK and FORK against a saved trusted checkpoint."
    }
   },
@@ -1161,8 +1161,8 @@
    "state": "planned",
    "class": "PUBLICABLE",
    "claim": {
-    "es": "Firmar el verificador con Sigstore y adjuntarlo a cada release es una propuesta; hoy ninguna release lleva una copia firmada.",
-    "en": "Signing the verifier with Sigstore and attaching it to every release is a proposal; no release carries a signed copy today."
+    "es": "Distribuir el verificador como artefacto firmado de la release es un refuerzo previsto; hoy se obtiene del repositorio.",
+    "en": "Distribution of the verifier as a signed release artifact is planned hardening; today it is fetched from the repository."
    }
   },
   {
@@ -1189,185 +1189,185 @@
    "date": "2026-10-22",
    "source": "docs-src/en/release.md publication rules, publish.yml draft-then-public step",
    "confidence": "medium",
-   "validation": "documentation and workflow read at commit; the repository setting itself was not queried",
+   "validation": "documentation and workflow read at commit",
    "state": "planned",
    "class": "PUBLICABLE",
    "claim": {
-    "es": "Las releases inmutables de GitHub no están activadas (ajuste que requiere autorización de una persona); el flujo borrador a público ya es el que ese ajuste exige.",
-    "en": "GitHub immutable releases are not enabled (a setting that needs a person's authorization); the draft-to-public flow is already the one that setting requires."
+    "es": "Está previsto reforzar la inmutabilidad de las releases; el flujo borrador a público ya está en marcha.",
+    "en": "Further hardening of release immutability is planned; the draft-to-public flow is already in place."
    }
   },
   {
    "id": "EV-EC-20",
    "repo": "private",
-   "ref": "78f7d37",
+   "ref": "private",
    "date": "2026-10-22",
-   "source": "GitLab security-mac/macusb-guard, branch ai/v1-release-integration, commit 78f7d37 (2026-09-30); tag v1.0.0-rc1 (c2f9492, 2026-09-25)",
+   "source": "Private repository (MacUSBGuard), static review dated 2026-10-22",
    "confidence": "high",
-   "validation": "README and git ancestry read statically; git merge-base --is-ancestor v1.0.0-rc1 HEAD returned false; nothing executed",
+   "validation": "README and project documents read statically; nothing executed.",
    "state": "validation",
    "class": "REQUIERE REVISION",
    "claim": {
-    "es": "MacUSBGuard separa cuatro dominios (HID, almacenamiento, red USB, llaves de acceso) y bloquea por defecto un dispositivo nuevo con el Mac bloqueado. El tag v1.0.0-rc1 no es ancestro de la rama actual: son líneas divergentes y sus cifras de pruebas (10.862 en el tag, 816 en el README de la rama) no se suman.",
-    "en": "MacUSBGuard separates four domains (HID, storage, USB network, login keys) and by default blocks a new device while the Mac is locked. Tag v1.0.0-rc1 is not an ancestor of the current branch: they are diverging lines and their test figures (10,862 on the tag, 816 in the branch README) are not merged."
+    "es": "MacUSBGuard separa cuatro dominios (HID, almacenamiento, red USB, llaves de acceso) y está diseñado para bloquear por defecto un dispositivo nuevo con el Mac bloqueado; hoy solo observa. Existen dos conjuntos de cifras de pruebas autoinformadas que no son comparables y no se volvió a ejecutar nada.",
+    "en": "MacUSBGuard separates four domains (HID, storage, USB network, access keys) and is designed to block a new device by default while the Mac is locked; today it only observes. Two sets of self-reported test figures exist, they are not comparable and nothing was re-run."
    }
   },
   {
    "id": "EV-EC-21",
    "repo": "private",
-   "ref": "78f7d37",
+   "ref": "private",
    "date": "2026-10-22",
-   "source": "GitLab security-mac/macusb-guard, commit 78f7d37: Sources/MacUSBGuardPlatform/RealEndpointSecurityClient.swift, Package.swift, README",
+   "source": "Private repository (MacUSBGuard), static review dated 2026-10-22",
    "confidence": "high",
-   "validation": "source read; calls es_new_client, es_subscribe(ES_EVENT_TYPE_AUTH_IOKIT_OPEN), es_respond_auth_result located; README says the client compiles and links but the restricted entitlement is missing; nothing executed",
+   "validation": "source read; the client calls the public Endpoint Security API; the project documentation says it compiles but live use is unverified; nothing executed.",
    "state": "validation",
    "class": "REQUIERE REVISION",
    "claim": {
-    "es": "MacUSBGuard usa Endpoint Security con un único evento AUTH (AUTH_IOKIT_OPEN). El cliente compila y enlaza con el SDK, pero su aplicación en vivo no está verificada porque falta el permiso restringido de Apple.",
-    "en": "MacUSBGuard uses Endpoint Security with a single AUTH event (AUTH_IOKIT_OPEN). The client compiles and links against the SDK, but live enforcement is unverified because Apple's restricted entitlement is missing."
+    "es": "MacUSBGuard usa eventos de autorización de Endpoint Security para el acceso a dispositivos. El cliente compila y enlaza con el SDK, pero su aplicación en vivo no está verificada porque ningún permiso consta como utilizable.",
+    "en": "MacUSBGuard uses Endpoint Security authorization events for device access. The client compiles and links against the SDK, but live enforcement is unverified because no entitlement is confirmed as usable."
    }
   },
   {
    "id": "EV-EC-22",
    "repo": "private",
-   "ref": "78f7d37",
+   "ref": "private",
    "date": "2026-10-22",
-   "source": "GitLab security-mac/macusb-guard, commit 78f7d37 (README, Sources grep, DistributionTests) and branches ai/dk2-driverkit-v1 (92243ba) and ai/dk2-2-c2-narrow-userclient-v1 (b6356bb)",
+   "source": "Private repository (MacUSBGuard), static review dated 2026-10-22",
    "confidence": "medium",
-   "validation": "grep of Sources at HEAD found DriverKit only in comments, a deliberately-unrequested entitlement record and a test; git ls-tree of the DK2 branches lists Driver/*.iig and .cpp; nothing executed",
+   "validation": "source and project documentation read statically; nothing executed.",
    "state": "planned",
    "class": "REQUIERE REVISION",
    "claim": {
-    "es": "DriverKit no forma parte del producto actual de MacUSBGuard; solo existe código de controlador en ramas DK2 separadas y su verificación con el permiso real de Apple sigue pendiente.",
-    "en": "DriverKit is not part of MacUSBGuard's current product; driver code exists only on separate DK2 branches and verification with Apple's real entitlement remains pending."
+    "es": "DriverKit no forma parte del producto actual de MacUSBGuard; es una opción explorada y no está verificada.",
+    "en": "DriverKit is not part of the current MacUSBGuard product; it is an explored option and is not verified."
    }
   },
   {
    "id": "EV-EC-23",
    "repo": "private",
-   "ref": "78f7d37",
+   "ref": "private",
    "date": "2026-10-22",
-   "source": "GitLab security-mac/macusb-guard, commit 78f7d37, Sources (DiskArbitrationBackend, IOKitDeviceInventory, PolicyDaemon/main.swift, PeerAuthentication, DeviceFingerprint, PIV services)",
+   "source": "Private repository (MacUSBGuard), static review dated 2026-10-22",
    "confidence": "medium",
-   "validation": "source read statically; symbols DARegisterDiskMountApprovalCallback, NSXPCListener, SecCodeCheckValidity, TKSmartCard, SHA-256 fingerprint located",
+   "validation": "source read statically; nothing executed.",
    "state": "validation",
    "class": "REQUIERE REVISION",
    "claim": {
-    "es": "El código de MacUSBGuard usa DiskArbitration, IOKit, XPC con verificación de firma del llamante, Security.framework, CryptoTokenKit, LocalAuthentication y huellas SHA-256; NetworkExtension y CGEventTap están descartados.",
-    "en": "MacUSBGuard's code uses DiskArbitration, IOKit, XPC with caller signature verification, Security.framework, CryptoTokenKit, LocalAuthentication and SHA-256 fingerprints; NetworkExtension and CGEventTap are rejected."
+    "es": "El código de MacUSBGuard usa servicios del sistema de Apple para discos, dispositivos, comunicación entre procesos, comprobación de firmas de código, tarjetas inteligentes y autenticación local, además de huellas SHA-256.",
+    "en": "MacUSBGuard's code uses Apple system services for disks, devices, inter-process communication, code-signature checks, smart cards and local authentication, plus SHA-256 fingerprints."
    }
   },
   {
    "id": "EV-EC-24",
    "repo": "private",
-   "ref": "78f7d37",
+   "ref": "private",
    "date": "2026-10-22",
-   "source": "GitLab security-mac/macusb-guard, README at 78f7d37; untracked local folder release/0.9.0-beta; tag v1.0.0-rc1 RELEASE_READINESS_REPORT.md",
+   "source": "Private repository (MacUSBGuard), static review dated 2026-10-22",
    "confidence": "medium",
-   "validation": "README warning read; ReleaseNotes of an untracked folder claim Notarization PASS while the rc1 report says NOT_NOTARIZED; no spctl or stapler check run; no release URL or tag found",
+   "validation": "static read-only review of the code and documents",
    "state": "validation",
    "class": "REQUIERE REVISION",
    "claim": {
-    "es": "La notarización del DMG 0.9.0-beta y su publicación no están verificadas: la nota que la declara está en una carpeta sin versionar y el informe del tag rc1 dice NOT_NOTARIZED; el README habla de firma ad hoc y vista previa de desarrollo.",
-    "en": "Notarization of the 0.9.0-beta DMG and its publication are not verified: the note claiming it lives in an untracked folder and the rc1 tag report says NOT_NOTARIZED; the README speaks of ad hoc signing and a development preview."
+    "es": "La notarización del instalador beta y su publicación no están verificadas: las fuentes disponibles se contradicen; la documentación habla de firma ad hoc y vista previa.",
+    "en": "Notarization and publication of the beta installer are not verified: the available sources contradict each other; the documentation states ad hoc signing and a preview."
    }
   },
   {
    "id": "EV-EC-25",
    "repo": "private",
-   "ref": "78f7d37",
+   "ref": "private",
    "date": "2026-10-22",
-   "source": "GitLab security-mac/macusb-guard, Sources/macusbguard-tests (63 files), README, tag v1.0.0-rc1 report",
+   "source": "Private repository (MacUSBGuard), static review dated 2026-10-22",
    "confidence": "medium",
-   "validation": "static count of the literal text check( in test sources (2929); declared figures read from README and tag report; no test executed",
+   "validation": "static count and declared figures read; no test executed.",
    "state": "validation",
    "class": "REQUIERE REVISION",
    "claim": {
-    "es": "Recuento estático de unas 2.929 apariciones de check( en 63 archivos de prueba; las cifras declaradas (816 en la rama, 10.862 en el tag) son autoinformadas y no se ejecutaron.",
-    "en": "Static count of about 2,929 occurrences of check( across 63 test files; the declared figures (816 on the branch, 10,862 on the tag) are self-reported and were not executed."
+    "es": "Arnés de pruebas interno con miles de comprobaciones (recuento estático); las cifras declaradas son autoinformadas y no se ejecutaron.",
+    "en": "Internal test harness with thousands of checks (static count); declared figures are self-reported and were not run."
    }
   },
   {
    "id": "EV-EC-26",
    "repo": "private",
-   "ref": "78f7d37",
+   "ref": "private",
    "date": "2026-10-22",
-   "source": "GitLab security-mac/macusb-guard, Package.swift at 78f7d37",
+   "source": "Private repository (MacUSBGuard), static review dated 2026-10-22",
    "confidence": "high",
-   "validation": "Package.swift read: targets Core, StoragePlatform, Platform, PolicyDaemon, ctl, App, tests; no external package dependencies",
+   "validation": "static read-only review of the code and documents",
    "state": "validation",
    "class": "REQUIERE REVISION",
    "claim": {
-    "es": "MacUSBGuard es un paquete SwiftPM sin dependencias externas cuyo demonio con privilegios depende solo de Core y StoragePlatform, de modo que el grafo de dependencias le impide alcanzar Endpoint Security y la interfaz.",
-    "en": "MacUSBGuard is a SwiftPM package with no external dependencies whose privileged daemon depends only on Core and StoragePlatform, so the dependency graph keeps it from reaching Endpoint Security and the UI."
+    "es": "MacUSBGuard es un paquete Swift sin dependencias externas con un diseño por capas (lógica de decisión, adaptadores de plataforma e interfaz).",
+    "en": "MacUSBGuard is a Swift package with no external dependencies and a layered design (decision logic, platform adapters and interface)."
    }
   },
   {
    "id": "EV-EC-27",
    "repo": "private",
-   "ref": "b0b0f07",
+   "ref": "private",
    "date": "2026-10-22",
-   "source": "GitLab security-mac/maccore-guard, branch candidate/macfirewallguard-session-reference, commit b0b0f07 (2026-10-09): Sources/MacCoreCrypto/CanonicalHashing.swift, MerkleTree.swift",
+   "source": "Private repository (MacCoreGuard), static review dated 2026-10-22",
    "confidence": "high",
-   "validation": "source read: recordHash with 0x02 domain tag, leaf 0x00, node 0x01, RFC 9162 recursion, inclusionProof/verifyInclusionProof, consistencyProof/verifyConsistencyProof located; nothing executed",
+   "validation": "source read statically; nothing executed.",
    "state": "prototype",
    "class": "REQUIERE REVISION",
    "claim": {
-    "es": "MacCore implementa una cadena de hashes SHA-256 con etiqueta de dominio y un árbol de Merkle RFC 9162 con pruebas de inclusión y de consistencia.",
-    "en": "MacCore implements a domain-tagged SHA-256 hash chain and an RFC 9162 Merkle tree with inclusion and consistency proofs."
+    "es": "MacCoreGuard implementa una cadena de hashes que enlaza cada registro con el anterior y un árbol de Merkle según la RFC 9162 (pública) con pruebas de inclusión y consistencia; sin ejecutar.",
+    "en": "MacCoreGuard implements a hash chain that links each record to the previous one and a Merkle tree following RFC 9162 (public) with inclusion and consistency proofs; not executed."
    }
   },
   {
    "id": "EV-EC-28",
    "repo": "private",
-   "ref": "b0b0f07",
+   "ref": "private",
    "date": "2026-10-22",
-   "source": "GitLab security-mac/maccore-guard, commit b0b0f07: Sources/MacCoreLedger, MacCoreSigning, MacCoreIngest, MacCoreWitness Placeholder.swift; Sources/maccorectl/main.swift",
+   "source": "Private repository (MacCoreGuard), static review dated 2026-10-22",
    "confidence": "high",
-   "validation": "placeholder files read: one comment line each; maccorectl prints not yet implemented",
+   "validation": "placeholders only",
    "state": "prototype",
    "class": "REQUIERE REVISION",
    "claim": {
-    "es": "Registro durable, firma, ingesta, testigo y verificador sin conexión son marcadores de posición sin lógica en MacCore.",
-    "en": "Durable ledger, signing, ingest, witness and offline verifier are logic-free placeholders in MacCore."
+    "es": "Registro durable, firma, ingesta, testigo y verificador sin conexión son marcadores de posición sin lógica en MacCoreGuard.",
+    "en": "Durable ledger, signing, ingest, witness and offline verifier are logic-free placeholders in MacCoreGuard."
    }
   },
   {
    "id": "EV-EC-29",
    "repo": "private",
-   "ref": "b0b0f07",
+   "ref": "private",
    "date": "2026-10-22",
-   "source": "GitLab security-mac/maccore-guard, commit b0b0f07 message and Sources/maccore-tests",
+   "source": "Private repository (MacCoreGuard), static review dated 2026-10-22",
    "confidence": "medium",
-   "validation": "commit message claims 147/147 tests for Protocol and Crypto; KAT vectors read in MerkleKAT.swift; tests not run",
+   "validation": "static read-only review of the documents",
    "state": "prototype",
    "class": "REQUIERE REVISION",
    "claim": {
-    "es": "MacCore declara 147/147 pruebas para protocolo y criptografía con vectores de respuesta conocida; cifra autoinformada y no ejecutada.",
-    "en": "MacCore claims 147/147 tests for protocol and crypto with known-answer vectors; a self-reported figure that was not executed."
+    "es": "MacCoreGuard declara pruebas de protocolo y criptografía con vectores de respuesta conocida; cifra autoinformada y no ejecutada.",
+    "en": "MacCoreGuard claims protocol and crypto tests with known-answer vectors; a self-reported figure that was not run."
    }
   },
   {
    "id": "EV-EC-30",
    "repo": "private",
-   "ref": "f017df0",
+   "ref": "private",
    "date": "2026-10-22",
-   "source": "GitLab security-mac/macguard-designkit, main, commit f017df0 (2026-10-08): README, Package.swift, MacGuardDesignKit.swift",
+   "source": "Private repository (MacGuardDesignKit), static review dated 2026-10-22",
    "confidence": "high",
-   "validation": "README and Package.swift read; version constant 0.3.1 in code; README text partly stale; no consumer found in other Package.swift files",
+   "validation": "static read-only review of the code and documents",
    "state": "development",
    "class": "REQUIERE REVISION",
    "claim": {
-    "es": "MacGuardDesignKit es una biblioteca de interfaz SwiftUI (versión 0.3.1 en el código), no un producto de protección, y ninguna aplicación la importa según los paquetes revisados.",
-    "en": "MacGuardDesignKit is a SwiftUI interface library (version 0.3.1 in code), not a protection product, and no application imports it according to the packages reviewed."
+    "es": "MacGuardDesignKit es una biblioteca de interfaz SwiftUI, no un producto de protección, y la capa de interfaz de MacFirewallGuard la importa.",
+    "en": "MacGuardDesignKit is a SwiftUI interface library, not a protection product, and MacFirewallGuard's interface layer imports it."
    }
   },
   {
    "id": "EV-EC-31",
    "repo": "private",
-   "ref": "f017df0",
+   "ref": "private",
    "date": "2026-10-22",
-   "source": "GitLab security-mac/macguard-designkit, commit f017df0: Package.swift, import statements in Sources, README Hard constraint",
+   "source": "Private repository (MacGuardDesignKit), static review dated 2026-10-22",
    "confidence": "high",
    "validation": "import statements counted: SwiftUI, AppKit, CoreGraphics, Foundation only; no import Charts, DriverKit, NetworkExtension or EndpointSecurity",
    "state": "development",
@@ -1380,16 +1380,16 @@
   {
    "id": "EV-EC-32",
    "repo": "private",
-   "ref": "f017df0",
+   "ref": "private",
    "date": "2026-10-22",
-   "source": "GitLab security-mac/macguard-designkit, commit f017df0: Tests/MacGuardDesignKitTests, docs pending decisions",
+   "source": "Private repository (MacGuardDesignKit), static review dated 2026-10-22",
    "confidence": "medium",
-   "validation": "static count of func test: 26 in 3 files; no execution results documented; pending decisions document read; tests not run",
+   "validation": "static read; tests not run.",
    "state": "development",
    "class": "REQUIERE REVISION",
    "claim": {
-    "es": "MacGuardDesignKit tiene 26 funciones de prueba (recuento estático, sin ejecutar) y cinco decisiones de diseño pendientes de visto bueno humano.",
-    "en": "MacGuardDesignKit has 26 test functions (static count, not run) and five design decisions awaiting human sign-off."
+    "es": "MacGuardDesignKit tiene un pequeño objetivo de pruebas (lectura estática, sin ejecutar) y decisiones de diseño pendientes de visto bueno humano.",
+    "en": "MacGuardDesignKit has a small test target (static reading, not run) and design decisions pending human sign-off."
    }
   },
   {
@@ -1451,121 +1451,121 @@
   {
    "id": "EV-EC-60",
    "repo": "private",
-   "ref": "052007e",
+   "ref": "private",
    "date": "2026-10-22",
-   "source": "GitLab security-mac/macfirewall-guard, main, commit 052007e (2026-10-10): README, docs/release entitlement decision, docs/project-management/BLOCKERS",
+   "source": "Private repository (MacFirewallGuard), static review dated 2026-10-22",
    "confidence": "high",
    "validation": "files read at the commit; nothing executed",
    "state": "blocked",
    "class": "REQUIERE REVISION",
    "claim": {
-    "es": "MacFirewallGuard no puede bloquear: falta el permiso de Network Extension (filtro de contenido) y toda decisión BLOCK acaba como UNAVAILABLE(ENTITLEMENT_MISSING). El permiso de instalación de extensiones del sistema figura como concedido en su documento de decisión. Si la solicitud se presentó o respondió no está verificado. La coexistencia con otros filtros de contenido es un bloqueo documentado sin resolver.",
-    "en": "MacFirewallGuard cannot block: the Network Extension (content filter) entitlement is missing and every BLOCK decision ends as UNAVAILABLE(ENTITLEMENT_MISSING). The system-extension install entitlement is recorded as granted in its decision document. Whether the request was filed or answered is not verified. Coexistence with other content filters is a documented, unresolved blocker."
+    "es": "MacFirewallGuard no puede bloquear hoy: ningún permiso de Network Extension consta como utilizable y toda decisión de bloqueo acaba como acción no disponible.",
+    "en": "MacFirewallGuard cannot block today: no Network Extension entitlement is confirmed as usable and any block decision ends as action unavailable."
    }
   },
   {
    "id": "EV-EC-61",
    "repo": "private",
-   "ref": "052007e",
+   "ref": "private",
    "date": "2026-10-22",
-   "source": "GitLab security-mac/macfirewall-guard, main, commit 052007e: Sources/MacFirewallGuardPlatform/MacCoreGuardIPCClient.swift, Sources/MacFirewallGuardAudit/MacCoreAuditClient.swift, docs/architecture",
+   "source": "Private repository (MacFirewallGuard), static review dated 2026-10-22",
    "confidence": "high",
-   "validation": "source and docs read; grep of Sources for xpc shows only comments and capability-matrix text, no XPC implementation; socket(AF_UNIX, SOCK_STREAM) in the client",
+   "validation": "source and docs read statically; nothing executed.",
    "state": "development",
    "class": "REQUIERE REVISION",
    "claim": {
-    "es": "Las docs de arquitectura hablan de XPC autenticado como diseño objetivo, pero el cliente de MacCore en el código usa un socket Unix con JSON con longitud y comprobación de la firma del par con LOCAL_PEERPID; las fuentes de producción no contienen implementación XPC.",
-    "en": "The architecture docs speak of authenticated XPC as the target design, but the MacCore client in the code uses a Unix socket with length-prefixed JSON and a peer-signature check via LOCAL_PEERPID; the production sources contain no XPC implementation."
+    "es": "El canal hacia MacCoreGuard es un objetivo de diseño; el cliente solo se ejercita contra un doble de prueba.",
+    "en": "The channel to MacCoreGuard is a design target; the client is only exercised against a test double."
    }
   },
   {
    "id": "EV-EC-62",
    "repo": "private",
-   "ref": "052007e",
+   "ref": "private",
    "date": "2026-10-22",
-   "source": "GitLab security-mac/macfirewall-guard, main, commit 052007e: README.md, verify (EXPECTED_DETERMINISTIC_TOTAL), docs/testing/TESTING_V1.md, docs/release/F2A_CLOSEOUT.md, docs/architecture/F2_NIM_ARCHITECTURE.md",
+   "source": "Private repository (MacFirewallGuard), static review dated 2026-10-22",
    "confidence": "medium",
-   "validation": "numbers read in each document; no test was run or re-measured",
+   "validation": "figures read in the project documents; no test was run or re-measured",
    "state": "development",
    "class": "REQUIERE REVISION",
    "claim": {
-    "es": "El README (661 deterministas + 10 en vivo) está desactualizado. Cifras por documento: 661 (TESTING_V1, F1-A), 1038 (total fijado en verify), 1160 superadas (cierre F2-A), 78/78 (suite NIM). Ninguna fue re-medida y el README también afirma cero dependencias externas, ya falso.",
-    "en": "The README (661 deterministic + 10 live) is stale. Figures per document: 661 (TESTING_V1, F1-A), 1038 (total pinned in verify), 1160 passed (F2-A closeout), 78/78 (NIM suite). None was re-measured, and the README also claims zero external dependencies, which is no longer true."
+    "es": "El README está desactualizado; los documentos del proyecto dan cifras de cientos hasta algo más de mil comprobaciones deterministas; ninguna re-medida.",
+    "en": "The README is stale; project documents report from hundreds to a little over a thousand deterministic checks; none re-measured."
    }
   },
   {
    "id": "EV-EC-63",
    "repo": "private",
-   "ref": "052007e",
+   "ref": "private",
    "date": "2026-10-22",
-   "source": "GitLab security-mac/macfirewall-guard, main, commit 052007e: Package.swift and Sources/",
+   "source": "Private repository (MacFirewallGuard), static review dated 2026-10-22",
    "confidence": "high",
-   "validation": "package manifest and sources read; imports and symbols located statically",
+   "validation": "package manifest and sources read statically",
    "state": "development",
    "class": "REQUIERE REVISION",
    "claim": {
-    "es": "Capas Core, Audit, Platform, CBPFShim, UI/App y CLI; con código: PolicyEngine, CodeSignatureResolver (Security.framework), parsers DNS/TLS/QUIC, sensor BPF opcional, monitor de integridad de red, app SwiftUI con MacGuardDesignKit. NetworkExtension solo como puente de traducción; sin extensión del sistema ni ficheros de entitlements en el árbol principal. Endpoint Security, PKTAP y Rust no tienen código.",
-    "en": "Layers Core, Audit, Platform, CBPFShim, UI/App and CLI; with code: PolicyEngine, CodeSignatureResolver (Security.framework), DNS/TLS/QUIC parsers, optional BPF sensor, network-integrity monitor, SwiftUI app with MacGuardDesignKit. NetworkExtension only as a translation bridge; no system extension and no entitlement files in the main tree. Endpoint Security, PKTAP and Rust have no code."
+    "es": "MacFirewallGuard tiene capas de lógica de dominio, adaptadores de plataforma e interfaz, con motor de políticas, resolución de firmas de código, analizadores de protocolos, un sensor de paquetes opcional y una app SwiftUI. Network Extension aparece solo como tipos de datos para traducir flujos; no hay extensión del sistema ni archivo de entitlements. Endpoint Security y Rust no tienen código.",
+    "en": "MacFirewallGuard has layers for domain logic, platform adapters and interface, with a policy engine, code-signature resolution, protocol parsers, an optional packet sensor and a SwiftUI app. Network Extension appears only as data types for translating flows; there is no system extension and no entitlement file. Endpoint Security and Rust have no code."
    }
   },
   {
    "id": "EV-EC-64",
    "repo": "private",
-   "ref": "052007e",
+   "ref": "private",
    "date": "2026-10-22",
-   "source": "GitLab security-mac/macfirewall-guard, main, commit 052007e: docs/release/F2A_CLOSEOUT.md",
+   "source": "Private repository (MacFirewallGuard), static review dated 2026-10-22",
    "confidence": "high",
    "validation": "closeout report read",
    "state": "development",
    "class": "REQUIERE REVISION",
    "claim": {
-    "es": "Cierre de F2-A: F2A_COMPLETE = NO; F2A_RUNTIME_VERIFIED = NO (ningún paquete real capturado, solo la ruta de permiso denegado del sensor BPF); sin TSan, fuzzing guiado por cobertura ni benchmarks de rendimiento.",
-    "en": "F2-A closeout: F2A_COMPLETE = NO; F2A_RUNTIME_VERIFIED = NO (no real packet captured, only the permission-denied path of the BPF sensor); no TSan, coverage-guided fuzzing or performance benchmarks."
+    "es": "Cierre de la fase actual: parcial; ningún paquete real capturado (solo la ruta de permiso denegado del sensor); sin sanitizador de hilos, fuzzing guiado por cobertura ni benchmarks.",
+    "en": "Closeout of the current phase: partial; no real packet captured (only the permission-denied path of the sensor); no thread sanitizer, coverage-guided fuzzing or performance benchmarks."
    }
   },
   {
    "id": "EV-EC-65",
    "repo": "private",
-   "ref": "052007e",
+   "ref": "private",
    "date": "2026-10-22",
-   "source": "GitLab security-mac/macfirewall-guard, main, commit 052007e: docs/project-management/RELEASE_PLAN.md",
+   "source": "Private repository (MacFirewallGuard), static review dated 2026-10-22",
    "confidence": "high",
    "validation": "document read",
    "state": "development",
    "class": "REQUIERE REVISION",
    "claim": {
-    "es": "FIREWALL_PRODUCTION_READY = NO: ninguna compilación está firmada, notarizada ni distribuida y no hay aplicación real de bloqueos; sin tags en el repositorio.",
-    "en": "FIREWALL_PRODUCTION_READY = NO: no build is signed, notarized or distributed and no enforcement is real; the repository has no tags."
+    "es": "El proyecto no se declara listo para producción: ninguna compilación está firmada, notarizada ni distribuida y no hay aplicación real de bloqueos; sin tags.",
+    "en": "The project does not declare itself production-ready: no build is signed, notarized or distributed and no enforcement is real; no tags."
    }
   },
   {
    "id": "EV-EC-66",
    "repo": "private",
-   "ref": "052007e",
+   "ref": "private",
    "date": "2026-10-22",
-   "source": "GitLab security-mac/macfirewall-guard, main, commit 052007e: README, docs/architecture/MFG_ARCHITECTURE_V2_AUDIT.md, docs/contracts/PROCESS_ATTRIBUTION_MODEL_V1.md, docs/security threat model",
+   "source": "Private repository (MacFirewallGuard), static review dated 2026-10-22",
    "confidence": "medium",
-   "validation": "documents read; negative search of local clones for any MacProcessGuard or MacEndpointGuard repository or package found none",
+   "validation": "documents read; negative search for any process-guard-type repository or package found none",
    "state": "concept",
    "class": "REQUIERE REVISION",
    "claim": {
-    "es": "MacProcessGuard solo aparece como frontera trazada por MacFirewallGuard (producto hermano no iniciado, decisión de mantenerlo aparte, responsabilidades futuras y maquetas de interfaz). No hay repositorio, código ni especificación propia. Los nombres MacProcessGuard y MacEndpointGuard se usan de forma inconsistente; que sean el mismo producto no está verificado.",
-    "en": "MacProcessGuard appears only as a boundary drawn by MacFirewallGuard (a not-yet-started sibling product, a decision to keep it separate, future responsibilities and interface mock-ups). There is no repository, code or specification of its own. The names MacProcessGuard and MacEndpointGuard are used inconsistently; that they are the same product is not verified."
+    "es": "MacProcessGuard solo aparece como frontera trazada por MacFirewallGuard (producto hermano no iniciado, decisión de mantenerlo aparte, responsabilidades futuras y maquetas de interfaz). No hay repositorio, código ni especificación propia. El nombre de este componente es inconsistente en los documentos revisados; que nombres distintos se refieran al mismo producto no está verificado.",
+    "en": "MacProcessGuard appears only as a boundary drawn by MacFirewallGuard (a not-yet-started sibling product, a decision to keep it separate, future responsibilities and interface mock-ups). There is no repository, code or specification of its own. Naming of this component is inconsistent in the reviewed documents; that different names refer to the same product is not verified."
    }
   },
   {
    "id": "EV-EC-67",
    "repo": "private",
-   "ref": "052007e",
+   "ref": "private",
    "date": "2026-10-22",
-   "source": "GitLab security-mac/macfirewall-guard, main, commit 052007e: Sources/MacFirewallGuardCore/Attribution/ProcessAttributionV1.swift, Sources/MacFirewallGuardCore/Egress/EgressProvenanceV1.swift",
+   "source": "Private repository (MacFirewallGuard), static review dated 2026-10-22",
    "confidence": "high",
-   "validation": "source read: enum value PROCESS_GUARD_CORRELATION documented as not implemented yet; ExternalProducerType slots",
+   "validation": "source read; slots documented as not implemented.",
    "state": "concept",
    "class": "REQUIERE REVISION",
    "claim": {
-    "es": "En el código de MacFirewallGuard solo hay huecos reservados para MacProcessGuard: el valor PROCESS_GUARD_CORRELATION (no implementado), la referencia ProcessSecurityIdentityReference con estado PROVIDER_ABSENT y un productor externo reconocido; ninguna función de MacProcessGuard.",
-    "en": "In the MacFirewallGuard code there are only reserved slots for MacProcessGuard: the PROCESS_GUARD_CORRELATION value (not implemented), the ProcessSecurityIdentityReference reference with state PROVIDER_ABSENT and a recognised external producer; no MacProcessGuard function."
+    "es": "En el código de MacFirewallGuard solo hay un hueco reservado para la identidad de proceso (MacProcessGuard), no implementado.",
+    "en": "In the MacFirewallGuard code there is only a reserved slot for process identity (MacProcessGuard), not implemented."
    }
   },
   {
@@ -1576,7 +1576,7 @@
    "date": "2026-10-22",
    "source": "DMGTrustAuditor/DMGTrustAuditor/SIGNING.md, docs/ENGINE.md, docs/ADR-0001-sigstore-verification.md",
    "confidence": "high",
-   "validation": "files read at checkout c20e806; no release tag for the app found",
+   "validation": "files read; no release tag for the app found",
    "state": "development",
    "class": "PUBLICABLE",
    "claim": {
@@ -1592,7 +1592,7 @@
    "date": "2026-10-22",
    "source": "project.yml, CLI/README.md, Core/Version.swift, App/, CLI/TUI.swift",
    "confidence": "high",
-   "validation": "files read at checkout",
+   "validation": "files read at the reviewed commit",
    "state": "development",
    "class": "PUBLICABLE",
    "claim": {
@@ -1644,7 +1644,7 @@
    "state": "implemented-not-deployed",
    "class": "PUBLICABLE",
    "claim": {
-    "es": "El motor es YARA 4.5.8 como ejecutables externos yara y yarac (universales, macOS 13+, OpenSSL estático fijado); se verifican hash, codesign --verify --strict, versión mínima 4.5.0, arquitectura y una regla canario. YARA-X no se usa. Límites de escaneo: 25 000 000 bytes por fichero y 2 000 ficheros (maxFileBytes, maxFiles).",
+    "es": "El motor es YARA 4.5.8 como ejecutables externos yara y yarac (universales, macOS 13+, OpenSSL estático fijado); se verifican hash, codesign --verify --strict, versión mínima 4.5.0, arquitectura y una regla canario. YARA-X no se usa. Límites de escaneo: 25 000 000 bytes por archivo y 2 000 archivos (maxFileBytes, maxFiles).",
     "en": "The engine is YARA 4.5.8 as external yara and yarac executables (universal, macOS 13+, pinned static OpenSSL); hash, codesign --verify --strict, minimum version 4.5.0, architecture and a canary rule are verified. YARA-X is not used. Scan limits: 25,000,000 bytes per file and 2,000 files (maxFileBytes, maxFiles)."
    }
   },
@@ -1708,7 +1708,7 @@
    "state": "development",
    "class": "PUBLICABLE",
    "claim": {
-    "es": "README.md, README_V8.md y YARA_INTEGRATION.md de la carpeta de la app describen versiones anteriores (prototipo sin compilar, actualizador desde rama de GitHub, motor no incluido, límite de 40 reglas y 30 ficheros); el código actual instala solo del canal firmado, incluye motor YARA, tiene CI en macOS y sus límites de escaneo están en YARAEngine.",
+    "es": "README.md, README_V8.md y YARA_INTEGRATION.md de la carpeta de la app describen versiones anteriores (prototipo sin compilar, actualizador desde rama de GitHub, motor no incluido, límite de 40 reglas y 30 archivos); el código actual instala solo del canal firmado, incluye motor YARA, tiene CI en macOS y sus límites de escaneo están en YARAEngine.",
     "en": "README.md, README_V8.md and YARA_INTEGRATION.md in the app folder describe earlier versions (uncompiled prototype, updater from a GitHub branch, engine not included, 40-rule and 30-file limit); the current code installs only from the signed channel, includes a YARA engine, has macOS CI and its scan limits are in YARAEngine."
    }
   },
@@ -1738,7 +1738,7 @@
    "state": "published",
    "class": "PUBLICABLE",
    "claim": {
-    "es": "Según la guía de seguridad de plataforma de Apple, Gatekeeper comprueba la identidad del desarrollador, la notarización y la integridad, pide aprobación en el primer arranque de lo descargado y sigue la procedencia de los ficheros.",
+    "es": "Según la guía de seguridad de plataforma de Apple, Gatekeeper comprueba la identidad del desarrollador, la notarización y la integridad, pide aprobación en el primer arranque de lo descargado y sigue la procedencia de los archivos.",
     "en": "According to Apple's Platform Security guide, Gatekeeper checks developer identity, notarization and integrity, asks for approval on first run of downloaded software and tracks file provenance."
    }
   },
@@ -1768,6 +1768,326 @@
    "claim": {
     "es": "La documentación oficial de Apple sobre Network Extension existe en esa dirección, pero su cuerpo no pudo leerse con la herramienta; ninguna afirmación de la wiki depende de ella.",
     "en": "Apple's official Network Extension documentation exists at that address, but its body could not be read with the tool; no wiki statement depends on it."
+   }
+  },
+  {
+   "id": "EV-YC-80",
+   "repo": "self",
+   "path": "scripts/tlog.py",
+   "ref": "c16bc18",
+   "date": "2026-10-22",
+   "source": "scripts/tlog.py (leaf_hash, node_hash) and the existing wiki pages the glossary was drawn from",
+   "confidence": "medium",
+   "validation": "File read at commit; python3 -m unittest tests.test_tlog ran 16 tests OK; glossary wording compared with the other wiki pages. The status and technology rows paraphrase those pages and inherit their evidence.",
+   "state": "documented design",
+   "class": "PUBLICABLE",
+   "claim": {
+    "es": "El glosario usa los mismos términos y palabras que las páginas de la wiki; la definición de la construcción de Merkle coincide con scripts/tlog.py.",
+    "en": "The glossary uses the same terms and wording as the wiki pages; the Merkle construction it states matches scripts/tlog.py."
+   }
+  },
+  {
+   "id": "EV-YC-81",
+   "repo": "self",
+   "path": "README.md",
+   "ref": "f95ba1e",
+   "date": "2026-10-22",
+   "source": "Repository tree at origin/main (find for LICENSE*, COPYING*) and GitHub repository metadata",
+   "confidence": "high",
+   "validation": "git ls-tree of origin/main and find over the repository tree found no LICENSE or COPYING file at the root (only web/vendor/mermaid-LICENSE.txt, a vendored third-party notice); gh api repos/MacGuard/macguard-yara-channel reports license null.",
+   "state": "blocked",
+   "class": "PUBLICABLE",
+   "claim": {
+    "es": "El repositorio no tiene archivo LICENSE propio; no se concede permiso de reutilización.",
+    "en": "The repository has no LICENSE file of its own; no reuse permission is granted."
+   }
+  },
+  {
+   "id": "EV-YC-82",
+   "repo": "self",
+   "path": ".github",
+   "ref": "81981a7",
+   "date": "2026-10-22",
+   "source": ".github directory at origin/main and GitHub private-vulnerability-reporting setting",
+   "confidence": "high",
+   "validation": "repository documentation reviewed; no channel is invented.",
+   "state": "planned",
+   "class": "PUBLICABLE",
+   "claim": {
+    "es": "Está planificado un canal de aviso de seguridad; su forma la definirá el mantenedor.",
+    "en": "A security reporting channel is planned; its form is to be defined by the maintainer."
+   }
+  },
+  {
+   "id": "EV-YC-83",
+   "repo": "self",
+   "path": ".github",
+   "ref": "81981a7",
+   "date": "2026-10-22",
+   "source": ".github directory at origin/main; not yet published",
+   "confidence": "medium",
+   "validation": "ls .github shows CODEOWNERS, dependabot.yml and workflows only; no ISSUE_TEMPLATE directory.",
+   "state": "planned",
+   "class": "PUBLICABLE",
+   "claim": {
+    "es": "Todavía no hay plantillas de issues en el repositorio.",
+    "en": "There are no issue templates in the repository yet."
+   }
+  },
+  {
+   "id": "EV-YC-84",
+   "repo": "self",
+   "path": "docs/audit/repo-hardening/OPERATIONS.md",
+   "ref": "81981a7",
+   "date": "2026-10-22",
+   "source": "docs/audit/repo-hardening/OPERATIONS.md and the ruleset-*.json files",
+   "confidence": "medium",
+   "validation": "File read at commit; planned hardening; no claim is made about the current repository settings.",
+   "state": "planned",
+   "class": "PUBLICABLE",
+   "claim": {
+    "es": "Está prevista una protección reforzada de main (reglas de revisión antes de fusionar).",
+    "en": "Hardening of main (review rules before merging) is planned."
+   }
+  },
+  {
+   "id": "EV-YC-85",
+   "repo": "self",
+   "path": "scripts/licensing.py",
+   "ref": "29b918a",
+   "date": "2026-10-22",
+   "source": "scripts/licensing.py, config/policy.json (licenses), docs-src/en/sources.md",
+   "confidence": "high",
+   "validation": "Files read at commit; python3 -m unittest tests.test_licensing ran 4 tests OK. policy.json lists Neo23x0/signature-base (marker 'Detection Rule License', DRL-1.1, allowed-with-attribution) and Yara-Rules/rules (GPL-2.0, allowed-with-license-notice); verdict() fails on a mismatch with what GitHub reports or the LICENSE text. The statement that redistribution conditions are pending legal review and that no general LICENSE file exists is the owner decision recorded for this wiki; the repository root has no LICENSE file.",
+   "state": "operational",
+   "class": "PUBLICABLE",
+   "claim": {
+    "es": "Las reglas vienen de dos fuentes de terceros con sus propias licencias y el proyecto no reclama derechos de autor sobre ellas; scripts/licensing.py compara la licencia esperada con la real y un desajuste deja la fuente en cuarentena. Es una comprobación de coherencia: las condiciones de redistribución están pendientes de revisión legal.",
+    "en": "The rules come from two third-party sources under their own licenses and the project claims no copyright over them; scripts/licensing.py compares the expected license with the actual one and a mismatch quarantines the source. It is a consistency check: the redistribution conditions are pending legal review."
+   }
+  },
+  {
+   "id": "EV-YC-86",
+   "repo": "self",
+   "path": ".github/CODEOWNERS",
+   "ref": "81981a7",
+   "date": "2026-10-22",
+   "source": ".github/CODEOWNERS",
+   "confidence": "high",
+   "validation": "File read at commit: sensitive paths are owned by @MacGuard.",
+   "state": "implemented-not-deployed",
+   "class": "PUBLICABLE",
+   "claim": {
+    "es": "CODEOWNERS nombra al propietario para las rutas sensibles.",
+    "en": "CODEOWNERS names the owner for sensitive paths."
+   }
+  },
+  {
+   "id": "EV-YC-87",
+   "repo": "self",
+   "path": "web/vendor/mermaid-LICENSE.txt",
+   "ref": "68bb4e9",
+   "date": "2026-10-22",
+   "source": "web/vendor/mermaid-LICENSE.txt",
+   "confidence": "high",
+   "validation": "File exists at origin/main; the vendored Mermaid library carries its own licence file. Its terms were not analysed.",
+   "state": "operational",
+   "class": "PUBLICABLE",
+   "claim": {
+    "es": "La biblioteca Mermaid incluida conserva su propio archivo de licencia.",
+    "en": "The vendored Mermaid library keeps its own license file."
+   }
+  },
+  {
+   "id": "EV-YC-88",
+   "repo": "self",
+   "path": ".github/workflows/ci.yml",
+   "ref": "bec4ecd",
+   "date": "2026-10-22",
+   "source": ".github/workflows/ci.yml, admin/worker/package.json, README.md (Tests), tests/",
+   "confidence": "high",
+   "validation": "ci.yml read at commit: on pull_request it runs python3 -m unittest discover -s tests (with yara and cosign installed) and, in the review service, npm ci, npm test and npm run test:runtime on Node 24. package.json defines test, test:runtime and test:ui. python3 -m unittest tests.test_tlog and tests.test_licensing were run locally and passed; the full suites were NOT run.",
+   "state": "operational",
+   "class": "PUBLICABLE",
+   "claim": {
+    "es": "La CI ejecuta en cada pull request la suite de Python y las pruebas del servicio de revisión con los comandos indicados en la página.",
+    "en": "CI runs the Python suite and the review-service tests on every pull request with the commands shown on the page."
+   }
+  },
+  {
+   "id": "EV-YC-89",
+   "repo": "self",
+   "path": ".github/workflows/daily.yml",
+   "ref": "07b247c",
+   "date": "2026-10-22",
+   "source": ".github/workflows/daily.yml and .github/workflows/publish.yml",
+   "confidence": "high",
+   "validation": "files read at commit: job macos needs review and runs if publishable == 'true' and changed != 'false'; job request-publish needs [review, macos] and runs only if publishable == 'true', changed == 'true' and needs.macos.result == 'success'; job app-compat runs after macos and request-publish does not list it in needs; publish.yml re-runs rulecheck and checks set_root, dynamic verdict and canaries before signing",
+   "state": "operational",
+   "class": "PUBLICABLE",
+   "claim": {
+    "es": "Una release se solicita solo si la revisión diaria declara el conjunto publicable y cambiado y el trabajo de medición en macOS termina bien; app-compat informa pero no condiciona; publish.yml vuelve a verificar el conjunto antes de firmar.",
+    "en": "A release is requested only if the daily review declares the set publishable and changed and the macOS measurement job succeeds; app-compat reports but does not gate; publish.yml re-verifies the set before signing."
+   }
+  },
+  {
+   "id": "EV-YC-90",
+   "repo": "self",
+   "path": "scripts/verify_public_release.py",
+   "ref": "1e1ed4a",
+   "date": "2026-10-22",
+   "source": "scripts/verify_public_release.py and the tags of the repository",
+   "confidence": "high",
+   "validation": "command output: the script is listed in origin/main; a raw URL ending in main fetches the current state of that branch",
+   "state": "operational",
+   "class": "PUBLICABLE",
+   "claim": {
+    "es": "El verificador público se obtiene del repositorio; descargarlo desde main no fija una versión, por lo que se recomienda fijar un commit revisado.",
+    "en": "The public verifier is fetched from the repository; downloading it from main does not pin a version, so pinning a reviewed commit is recommended."
+   }
+  },
+  {
+   "id": "EV-SI-01",
+   "repo": "self",
+   "path": "config/intel/sources.registry.json",
+   "ref": "506e493",
+   "date": "2026-10-23",
+   "source": "config/intel/sources.registry.json (MacGuard/macguard-yara-channel)",
+   "confidence": "high",
+   "validation": "file read at that commit",
+   "state": "blocked",
+   "class": "PUBLICABLE",
+   "claim": {
+    "es": "El registro de fuentes decide qué se puede publicar: hace falta un estado de redistribución autorizado Y la confirmación del propietario; hoy ninguna fuente de vulnerabilidades de terceros cumple ambas.",
+    "en": "The source registry decides what may be published: it needs a cleared redistribution status AND the owner's confirmation; today no third-party vulnerability source meets both."
+   }
+  },
+  {
+   "id": "EV-SI-02",
+   "repo": "self",
+   "path": "docs/intelligence/SOURCES-STATUS.md",
+   "ref": "506e493",
+   "date": "2026-10-23",
+   "source": "docs/intelligence/SOURCES-STATUS.md (MacGuard/macguard-yara-channel)",
+   "confidence": "high",
+   "validation": "file read at that commit",
+   "state": "implemented-not-deployed",
+   "class": "PUBLICABLE",
+   "claim": {
+    "es": "Los adaptadores de CISA KEV, ENISA EUVD, su lista de explotadas y CERT-EU se ejecutaron con datos reales el 2026-10-22 (1.754, 2.928, 1.770 y 10 registros aceptados) y no se publica nada.",
+    "en": "The CISA KEV, ENISA EUVD, EUVD exploited list and CERT-EU adapters ran on real data on 2026-10-22 (1,754, 2,928, 1,770 and 10 records accepted) and nothing is published."
+   }
+  },
+  {
+   "id": "EV-SI-03",
+   "repo": "self",
+   "path": "alerts/engine.py",
+   "ref": "506e493",
+   "date": "2026-10-23",
+   "source": "alerts/engine.py (MacGuard/macguard-yara-channel)",
+   "confidence": "high",
+   "validation": "file read at that commit",
+   "state": "implemented-not-deployed",
+   "class": "PUBLICABLE",
+   "claim": {
+    "es": "El motor guarda cada actualización como una versión nueva de la misma alerta y solo los cambios relevantes (nueva, explotación, corrección, gravedad, fuente o producto nuevos, mitigación) generan avisos.",
+    "en": "The engine stores each update as a new version of the same alert and only material changes (new, exploitation, fix, severity, new source or product, mitigation) produce notifications."
+   }
+  },
+  {
+   "id": "EV-SI-04",
+   "repo": "self",
+   "path": "alerts/filters.py",
+   "ref": "506e493",
+   "date": "2026-10-23",
+   "source": "alerts/filters.py (MacGuard/macguard-yara-channel)",
+   "confidence": "high",
+   "validation": "file read at that commit",
+   "state": "implemented-not-deployed",
+   "class": "PUBLICABLE",
+   "claim": {
+    "es": "El filtro es un lenguaje cerrado de 26 campos validado y evaluado por el servidor, sin expresiones regulares ni código del cliente.",
+    "en": "The filter is a closed language of 26 fields validated and evaluated by the server, with no regular expressions or client code."
+   }
+  },
+  {
+   "id": "EV-SI-05",
+   "repo": "self",
+   "path": "alerts/webhook.py",
+   "ref": "506e493",
+   "date": "2026-10-23",
+   "source": "alerts/webhook.py (MacGuard/macguard-yara-channel)",
+   "confidence": "high",
+   "validation": "file read at that commit",
+   "state": "implemented-not-deployed",
+   "class": "PUBLICABLE",
+   "claim": {
+    "es": "Los webhooks exigen https, un nombre público cuyas direcciones resueltas sean todas públicas, conexión fijada a la dirección validada, firma HMAC con claves rotables y reintentos con cola de cartas muertas.",
+    "en": "Webhooks require https, a public name whose resolved addresses are all public, a connection pinned to the validated address, HMAC signatures with rotating keys and retries with a dead-letter state."
+   }
+  },
+  {
+   "id": "EV-SI-06",
+   "repo": "self",
+   "path": "alerts/authz.py",
+   "ref": "506e493",
+   "date": "2026-10-23",
+   "source": "alerts/authz.py (MacGuard/macguard-yara-channel)",
+   "confidence": "high",
+   "validation": "file read at that commit",
+   "state": "implemented-not-deployed",
+   "class": "PUBLICABLE",
+   "claim": {
+    "es": "Los permisos se cargan del servidor en cada petición con roles explícitos; una membresía limitada a una unidad no concede nada fuera de ella y un MSP solo actúa con un enlace aceptado y un rol delegado.",
+    "en": "Permissions are loaded on the server for every request with explicit roles; a unit-limited membership grants nothing outside it and an MSP acts only through an accepted link and a delegated role."
+   }
+  },
+  {
+   "id": "EV-SI-07",
+   "repo": "self",
+   "path": "docs/alerts/ARCHITECTURE.md",
+   "ref": "506e493",
+   "date": "2026-10-23",
+   "source": "docs/alerts/ARCHITECTURE.md (MacGuard/macguard-yara-channel)",
+   "confidence": "high",
+   "validation": "file read at that commit",
+   "state": "implemented-not-deployed",
+   "class": "PUBLICABLE",
+   "claim": {
+    "es": "La arquitectura de suscripciones y alertas está implementada como servidor de referencia y páginas estáticas; no hay servicio alojado, relé de correo ni proveedor de identidad.",
+    "en": "The subscriptions and alerts architecture is implemented as a reference server and static pages; there is no hosted service, mail relay or identity provider."
+   }
+  },
+  {
+   "id": "EV-SI-08",
+   "repo": "self",
+   "path": "scripts/gen_alerts_site.py",
+   "ref": "506e493",
+   "date": "2026-10-23",
+   "source": "scripts/gen_alerts_site.py (MacGuard/macguard-yara-channel)",
+   "confidence": "high",
+   "validation": "file read at that commit",
+   "state": "operational",
+   "class": "PUBLICABLE",
+   "claim": {
+    "es": "Los ficheros estáticos de alertas y feeds públicos se regeneran desde el repositorio (registro de versiones de reglas de MacGuard) y se comprueban con --check.",
+    "en": "The static alert files and public feeds are regenerated from the repository (MacGuard's rule release log) and checked with --check."
+   }
+  },
+  {
+   "id": "EV-SI-09",
+   "repo": "self",
+   "path": "docs/alerts/CLOUD-ROADMAP.md",
+   "ref": "506e493",
+   "date": "2026-10-23",
+   "source": "docs/alerts/CLOUD-ROADMAP.md (MacGuard/macguard-yara-channel)",
+   "confidence": "high",
+   "validation": "file read at that commit",
+   "state": "planned",
+   "class": "PUBLICABLE",
+   "claim": {
+    "es": "La correlación con inventarios de equipos es un contrato y un comparador de referencia; no existe inventario ni servicio Cloud.",
+    "en": "Correlation with device inventories is a contract and a reference matcher; no inventory or Cloud service exists."
    }
   }
  ]

@@ -1,0 +1,11 @@
+%%{init: {"flowchart": {"wrappingWidth": 300}}}%%
+flowchart TB
+  b1["6 cosign envía la firma y el<br/>certificado a Rekor"]:::act
+  b2["7 Rekor devuelve la marca de<br/>tiempo de la entrada firmada"]:::ext
+  b3["8 cosign devuelve a<br/>publish.yml el bundle<br/>manifest.sigstore.json"]:::act
+  b4["9 publish.yml adjunta<br/>manifest.json y el bundle a<br/>GitHub Releases"]:::act
+  b1 --> b2
+  b2 --> b3
+  b3 --> b4
+  classDef act fill:#cfe3ff,stroke:#2f6df0,color:#0b1b33
+  classDef ext fill:#e4d7ff,stroke:#6a3fd1,color:#1b0b3b

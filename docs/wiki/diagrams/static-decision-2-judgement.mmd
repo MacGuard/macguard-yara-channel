@@ -1,0 +1,17 @@
+%%{init: {"flowchart": {"wrappingWidth": 300}}}%%
+flowchart TB
+  st["from part 1:<br/>no hard criteria,<br/>not corrupt"]:::act
+  j["judgement findings?<br/>blocked module,<br/>costly regex,<br/>filesize loop,<br/>licence changed,<br/>needs a non<br/>validated file"]:::chk
+  q["yes:<br/>QUARANTINED"]:::bad
+  d["no: deprecated in<br/>its metadata?"]:::chk
+  de["yes:<br/>DEPRECATED"]:::bad
+  ok["no:<br/>VALIDATED"]:::ok
+  st --> j
+  j --> q
+  j --> d
+  d --> de
+  d --> ok
+  classDef act fill:#cfe3ff,stroke:#2f6df0,color:#0b1b33
+  classDef chk fill:#ffe9b8,stroke:#b8860b,color:#2b1d00
+  classDef bad fill:#ffd4cc,stroke:#c0392b,color:#33100b
+  classDef ok fill:#cdeedd,stroke:#1b6e3c,color:#08210f

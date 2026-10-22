@@ -1,0 +1,12 @@
+%%{init: {"flowchart": {"wrappingWidth": 300}}}%%
+flowchart TB
+  Y1["V1<br/>signed channel<br/>done"]:::done
+  Y2["V1.1 phase 1<br/>merged"]:::done
+  Y3["V1.1 phase 2<br/>awaiting<br/>acceptance"]:::wait
+  Y4["Archive 3x<br/>not operational"]:::todo
+  Y1 --> Y2
+  Y2 --> Y3
+  Y3 --> Y4
+  classDef done fill:#cdeedd,stroke:#1b6e3c,color:#08210f
+  classDef wait fill:#cfe3ff,stroke:#2f6df0,color:#0b1b33
+  classDef todo fill:#eeeeee,stroke:#555555,color:#222222

@@ -7,6 +7,12 @@
      (repo = self) name a file that exists and a commit that exists
   4. every diagram has a .mmd and a .json with title and alt in both languages; the diagram type is a known Mermaid type; the page text has no raw ```mermaid block
      (diagrams live in files so both languages share one source)
+     A wiki-owned diagram may have <name>.es.mmd (Spanish labels, same structure): both variants must compile (--render), have the same identifiers, arrows, classes and classDef lines
+     (only the quoted labels may differ) and the .es.mmd needs its English twin. Every wiki-owned variant: each classDef sets fill, stroke and color (dark mode never uses theme colours),
+     every node has a class, no label line over 30 characters (use <br/>), and a diagram with 2+ classDef has a legend (es, en) in its .json. --render also measures the SVG width and fails
+     when the smallest text would be under 10px at a 390px viewport (measured in the browser, scripts/wiki_measure.py, the same way wiki_screens.py measures). A diagram reused from docs-src that a page uses is measured with the same rule (no exceptions list): when it is too wide for a phone, the pages use wiki-owned split variants instead (docs-src stays untouched; its unused diagrams are not checked).
+     Every diagram a page uses must have a Spanish variant docs/wiki/diagrams/<name>.es.mmd, also the ones reused from docs-src: it is then compared with the docs-src English source (same
+     nodes, edges, classDef and structure; sequence participant names, messages and state-transition texts are labels) and the 'labels are in English' note is dropped.
   5. no secret-like string, no absolute local path, no absolute claims ("100% safe", "unbreakable"...) in any source
   6. accessibility basics of the Markdown: one H1, headings do not skip levels, images have alt text, link text is not "here"
   --render also compiles every diagram with the vendored Mermaid in headless Chrome (needs Chrome); GitHub renders with its own Mermaid version, so the real check is the first publication.
@@ -33,8 +39,58 @@ def jload(p): return json.loads(pathlib.Path(p).read_text())
 def strip_code(text): return re.sub(r'```.*?```', '', text, flags=re.S)
 
 
+def git_has_path(ref, path):
+    return subprocess.run(['git', 'cat-file', '-e', f'{ref}:{path}'], cwd=ROOT, capture_output=True).returncode == 0
+
+
 def git_has(sha):
     return subprocess.run(['git', '-C', str(ROOT), 'cat-file', '-e', f'{sha}^{{commit}}'], capture_output=True).returncode == 0
+
+LABEL_MAX = 30   # characters per line of a node label (lines are split with <br/>); phones render wide diagrams with tiny text
+NODE_SHAPE = re.compile(r'(?<![\w.])([A-Za-z_]\w*)\s*(?:\[\[|\(\(|\[|\{|\()')
+EDGE = re.compile(r'-->|-\.->|\.->|==>|---|-\.-')
+
+
+def unquoted(src):
+    """The diagram with every quoted label and |edge label| blanked: what is left is structure, identifiers and styles."""
+    s = re.sub(r'\|[^|\n]*\|', '||', re.sub(r'"[^"]*"', '""', src))
+    s = re.sub(r'(?m)^(\s*(?:participant|actor)\s+\w+\s+as\b).*$', r'\1', s)   # sequence participants: the display name is a label
+    return re.sub(r'(?m)^(\s*\S.*?(?:->>|-->>|-->|->))([^:\n]*):\s.*$', r'\1\2:', s)   # sequence messages and state transitions: the text after "name: " is a label
+
+
+def structure(src):
+    s = unquoted(src)
+    return {'nodes': len(set(NODE_SHAPE.findall(re.sub(r'(?m)^\s*subgraph\b', '', s)))), 'edges': len(EDGE.findall(s)), 'classDef': len(re.findall(r'(?m)^\s*classDef\b', s))}
+
+
+def diagram_problems(mmd):
+    """Rules every wiki-owned variant (.mmd and .es.mmd) must satisfy: known type, no tabs, classDef with fill+stroke+color, every node classed (dark mode never depends on theme defaults), short label lines."""
+    src = mmd.read_text(); n = mmd.name; err = []
+    first = next((l.strip() for l in src.splitlines() if l.strip() and not l.strip().startswith('%%')), '')
+    if not first.startswith(DIAGRAM_TYPES): err.append(f'diagram {n}: unknown Mermaid type {first[:30]!r}')
+    if src.count('\t'): err.append(f'diagram {n}: tabs in Mermaid source')
+    for l in src.splitlines():
+        if l.strip().startswith('classDef'):
+            miss = [k for k in ('fill', 'stroke', 'color') if not re.search(rf'(?<![\w-]){k}:', l)]
+            if miss: err.append(f'diagram {n}: classDef {l.split()[1] if len(l.split()) > 1 else "?"} lacks {", ".join(miss)} (dark mode must not depend on theme colours)')
+    if first.startswith(('flowchart', 'graph')):
+        u = unquoted(src)
+        defined = set(NODE_SHAPE.findall(re.sub(r'(?m)^\s*subgraph\b.*$', '', u)))
+        classed = set(re.findall(r'(?<![\w.])([A-Za-z_]\w*)\s*(?:\[[^\]]*\]|\{[^}]*\}|\([^)]*\))?\s*:::', u))
+        for line in re.findall(r'(?m)^\s*class\s+([\w,\s]+?)\s+\w+\s*$', u): classed |= {x.strip() for x in line.split(',')}
+        if structure(src)['classDef'] and defined - classed: err.append(f'diagram {n}: nodes without a class: {", ".join(sorted(defined - classed))}')
+    for q in re.findall(r'"([^"]*)"', src):
+        for line in re.split(r'<br\s*/?>', q):
+            if len(line) > (LABEL_MAX + 4 if ' ' not in line.strip() else LABEL_MAX): err.append(f'diagram {n}: label line {line!r} is {len(line)} characters (max {LABEL_MAX}; wrap with <br/>)')
+    return err
+
+
+def parity_problems(en, es):
+    a, b = structure(en.read_text()), structure(es.read_text())
+    if a != b: return [f'diagram {es.name}: differs from {en.name} in {", ".join(k for k in a if a[k] != b[k])} (EN {a}, ES {b})']
+    sk = lambda p: [l.strip() for l in unquoted(p.read_text()).splitlines() if l.strip() and not l.strip().startswith('%%')]
+    if sk(en) != sk(es): return [f'diagram {es.name}: structure (identifiers, arrows, classes) differs from {en.name}; only the quoted labels may differ']
+    return []
 
 
 def check(wiki=WIKI):
@@ -55,7 +111,9 @@ def check(wiki=WIKI):
         if e.get('class') not in CLASSES: err.append(f'provenance {i}: class {e.get("class")!r} must be PUBLICABLE or REQUIERE REVISION (CONFIDENCIAL never enters the repository)')
         if not isinstance(e.get('claim'), dict) or set(e['claim']) != {'es', 'en'}: err.append(f'provenance {i}: claim needs es and en')
         if e.get('repo') == 'self':
-            if e.get('path') and not (ROOT / e['path']).exists(): err.append(f'provenance {i}: path {e["path"]} does not exist (obsolete reference)')
+            # the file must exist in this checkout OR in the pinned commit (a claim about work that lives on a branch that is not merged yet is pinned to that commit)
+            if e.get('path') and not (ROOT / e['path']).exists() and not (e.get('ref') and re.fullmatch(r'[0-9a-f]{7,40}', e['ref']) and git_has_path(e['ref'], e['path'])):
+                err.append(f'provenance {i}: path {e["path"]} does not exist (obsolete reference)')
             if e.get('ref') and re.fullmatch(r'[0-9a-f]{7,40}', e['ref']) and not git_has(e['ref']): err.append(f'provenance {i}: commit {e["ref"]} does not exist')
     # pages
     for p in pages:
@@ -73,7 +131,7 @@ def check(wiki=WIKI):
             if lv.count(1) != 1: err.append(f'{p["id"]}/{l}: expected exactly one H1, found {lv.count(1)}')
             for a, b in zip(lv, lv[1:]):
                 if b > a + 1: err.append(f'{p["id"]}/{l}: heading level jumps from H{a} to H{b}'); break
-        refs = {l: sorted(re.findall(r'\{\{(?:diagram|ev):[^}]+\}\}', texts[l])) for l in texts}
+        refs = {l: sorted(re.findall(r'\{\{(?:diagram|ev|roadmap):[^}]+\}\}', texts[l])) for l in texts}
         if refs['es'] != refs['en']: err.append(f'{p["id"]}: ES and EN reference different diagrams or evidence')
         tabs = {l: len(re.findall(r'^\|[-: |]+\|\s*$', texts[l], re.M)) for l in texts}
         if tabs['es'] != tabs['en']: err.append(f'{p["id"]}: ES and EN have different numbers of tables')
@@ -81,6 +139,12 @@ def check(wiki=WIKI):
             if '```mermaid' in t: err.append(f'{p["id"]}/{l}: raw mermaid block; use {{{{diagram:name}}}} so both languages share one source')
             for m in re.finditer(r'\{\{ev:([^}]+)\}\}', t):
                 if m.group(1) not in pids: err.append(f'{p["id"]}/{l}: evidence {m.group(1)} is not in provenance.json')
+            if '{{roadmap:' in t:
+                rd = wiki / 'roadmap-data.json'
+                if not rd.exists(): err.append(f'{p["id"]}/{l}: uses {{{{roadmap:table}}}} but docs/wiki/roadmap-data.json does not exist')
+                else:
+                    try: wiki_build.roadmap_table(l)
+                    except (wiki_build.BuildError, KeyError, ValueError) as e: err.append(f'{p["id"]}/{l}: roadmap data unusable ({e})')
             for m in re.finditer(r'\{\{diagram:([^}]+)\}\}', t):
                 try: wiki_build.diagram_block(m.group(1), l)
                 except wiki_build.BuildError as e: err.append(f'{p["id"]}/{l}: {e}')
@@ -99,21 +163,48 @@ def check(wiki=WIKI):
             for pat in ABSOLUTE:
                 if re.search(pat, t): err.append(f'{p["id"]}/{l}: absolute security claim ({pat[:30]}...)')
     # diagrams in use or present
-    for base in (wiki / 'diagrams',):
-        if not base.exists(): continue
-        for mmd in sorted(base.glob('*.mmd')):
+    base = wiki / 'diagrams'; src_base = ROOT / 'docs-src' / 'diagrams'
+    used = sorted({m for l in wiki_build.LANGS for p in pages if (wiki / l / f'{p["id"]}.md').exists() for m in re.findall(r'\{\{diagram:([^}]+)\}\}', (wiki / l / f'{p["id"]}.md').read_text())})
+    for n in used:   # language parity of the diagrams: every diagram a page uses has a Spanish variant in docs/wiki/diagrams
+        try:
+            if not wiki_build.diagram_source(n, 'es')[1]: err.append(f'diagram {n}: no Spanish variant docs/wiki/diagrams/{n}.es.mmd (Spanish pages must not show English labels)')
+        except wiki_build.BuildError: pass   # reported above, page by page
+    if base.exists():
+        for es in sorted(base.glob('*.es.mmd')):
+            twin = es.name.replace('.es.mmd', '.mmd')
+            if not (base / twin).exists() and not (src_base / twin).exists(): err.append(f'diagram {es.name}: has no English twin {twin} (in docs/wiki/diagrams or docs-src/diagrams)')
+            elif not (base / twin).exists(): err += parity_problems(src_base / twin, es)   # reused from docs-src: same structure as the English source (not owned: only parity, no legend or label-length rules)
+        for mmd in sorted(p for p in base.glob('*.mmd') if not p.name.endswith('.es.mmd')):
             meta = mmd.with_suffix('.json')
             if not meta.exists(): err.append(f'diagram {mmd.name} has no .json'); continue
             m = jload(meta)
             for k in ('title', 'alt'):
                 if not isinstance(m.get(k), dict) or set(m[k]) != {'es', 'en'} or not all(m[k].values()): err.append(f'diagram {mmd.stem}: {k} needs es and en')
-            first = next((l.strip() for l in mmd.read_text().splitlines() if l.strip() and not l.strip().startswith('%%')), '')
-            if not first.startswith(DIAGRAM_TYPES): err.append(f'diagram {mmd.stem}: unknown Mermaid type {first[:30]!r}')
-            if mmd.read_text().count('\t'): err.append(f'diagram {mmd.stem}: tabs in Mermaid source')
+            if 'legend' in m and (not isinstance(m['legend'], dict) or set(m['legend']) != {'es', 'en'} or not all(m['legend'].values())): err.append(f'diagram {mmd.stem}: legend needs es and en')
+            if structure(mmd.read_text())['classDef'] >= 2 and 'legend' not in m: err.append(f'diagram {mmd.stem}: colours carry meaning (2+ classDef) so the .json needs a legend in es and en')
+            es = mmd.with_name(f'{mmd.stem}.es.mmd')
+            for v in (mmd, es):
+                if v.exists(): err += diagram_problems(v)
+            if es.exists(): err += parity_problems(mmd, es)
     return err
 
 
-def render_diagrams(chrome, limit=120):
+PRIVATE = re.compile(r'security-mac|maccore-guard|macusb-guard|macfirewall-guard|macguard-designkit|\bai/(?:v1|dk)|candidate/|Sources/|Scripts/|\.swift\b|\.iig\b|/Users/|swift run|Package\.swift|\bcommit `?[0-9a-f]{7,40}|\([0-9a-f]{7,40}\)|candidate branch|rama de candidato')
+
+
+def private_report(wiki=WIKI):
+    """Lines of the page bodies that name internal paths, branches or private repositories of the other projects: for the owner to approve or generalise."""
+    out = []
+    for f in sorted(wiki.glob('*/*.md')):
+        for i, line in enumerate(f.read_text().splitlines(), 1):
+            if PRIVATE.search(line): out.append(f'{f.relative_to(wiki)}:{i}: {line.strip()[:110]}')
+    return out
+
+
+from wiki_measure import VIEWPORT, MIN_PX, JS as MEASURE_JS, init_js   # phone width, smallest effective text accepted, and the measurement shared with wiki_screens.py
+
+
+def render_diagrams(chrome, limit=120, theme='default'):
     """Compile every diagram used by the wiki with the vendored Mermaid in one headless Chrome."""
     import docs_check
     names = set()
@@ -123,11 +214,16 @@ def render_diagrams(chrome, limit=120):
     srcs = {}
     for n in sorted(names):
         for base in (WIKI / 'diagrams', ROOT / 'docs-src' / 'diagrams'):
-            if (base / f'{n}.mmd').exists(): srcs[n] = (base / f'{n}.mmd').read_text(); break
-    page = ('<!doctype html><meta charset=utf-8><pre id=result>RUNNING</pre><script src="mermaid.js"></script><script>'
-            'var S=%s, out=[]; mermaid.initialize({startOnLoad:false,securityLevel:"strict"});'
-            '(async function(){for(var k in S){try{await mermaid.parse(S[k]);await mermaid.render("d_"+k.replace(/[^a-z0-9]/gi,"_"),S[k]);out.push({n:k,ok:true})}catch(e){out.push({n:k,ok:false,e:String(e&&e.message||e).slice(0,200)})}}'
-            'document.getElementById("result").textContent="DONE "+JSON.stringify(out)})();</script>') % json.dumps(srcs)
+            if (base / f'{n}.mmd').exists():
+                srcs[n] = (base / f'{n}.mmd').read_text()
+                es = WIKI / 'diagrams' / f'{n}.es.mmd'
+                if es.exists():   # both language variants must compile
+                    srcs[f'{n}.es'] = es.read_text()
+                break
+    page = ('<!doctype html><meta charset=utf-8><style>#c{width:%dpx}#c svg{max-width:100%%;height:auto}</style><div id=c></div><pre id=result>RUNNING</pre><script src="mermaid.js"></script><script>' + MEASURE_JS +
+            'var S=%s, out=[], C=document.getElementById("c"); ' + init_js(theme) +
+            '(async function(){for(var k in S){try{await mermaid.parse(S[k]);var r=await mermaid.render("d_"+k.replace(/[^a-z0-9]/gi,"_"),S[k],C);C.innerHTML=r.svg;var m=wikiMeasure(C);C.innerHTML="";out.push({n:k,ok:true,w:m.vw,h:m.vh,eff:m.eff,font:m.font})}catch(e){C.innerHTML="";out.push({n:k,ok:false,e:String(e&&e.message||e).slice(0,200)})}}'
+            'document.getElementById("result").textContent="DONE "+JSON.stringify(out)})();</script>') % (VIEWPORT, json.dumps(srcs))
     with tempfile.TemporaryDirectory(prefix='wiki-render-') as d:
         d = pathlib.Path(d); (d / 'index.html').write_text(page); (d / 'mermaid.js').write_bytes((ROOT / 'web' / 'vendor' / 'mermaid-12.2.0.min.js').read_bytes())
         out, timed_out = docs_check.run_chrome([chrome, '--headless=new', '--disable-gpu', '--no-sandbox', '--allow-file-access-from-files', '--virtual-time-budget=60000', '--dump-dom', (d / 'index.html').as_uri()], limit)
@@ -135,19 +231,26 @@ def render_diagrams(chrome, limit=120):
     if timed_out or not m: return [f'the browser did not finish (timeout={timed_out})'], len(srcs)
     import html
     res = json.loads(html.unescape(m.group(1)))
-    return [f'diagram {r["n"]} does not compile: {r["e"]}' for r in res if not r['ok']], len(res)
+    err = [f'diagram {r["n"]} does not compile: {r["e"]}' for r in res if not r['ok']]
+    # phone legibility: measured in the browser in a block VIEWPORT px wide (wiki_measure.py, the same measurement wiki_screens.py uses): computed font size x rendered scale of the smallest text
+    for r in sorted((r for r in res if r['ok']), key=lambda r: r['eff']):
+        print(f'  width {r["w"]:6.0f}px  height {r["h"]:5.0f}px  smallest text at {VIEWPORT}px = {r["eff"]:4.1f}px (font {r["font"]:.0f}px)  {r["n"]}{"" if r["eff"] >= MIN_PX else " TOO SMALL"}')
+        if r['eff'] < MIN_PX: err.append(f'diagram {r["n"]}: smallest text is {r["eff"]:.1f}px at {VIEWPORT}px (min {MIN_PX}px; diagram {r["w"]:.0f}px wide): split it into several wiki-owned diagrams and keep edge labels out of them')
+    return err, len(res)
 
 
 def main(argv=None):
-    ap = argparse.ArgumentParser(description=(__doc__ or '').split('\n')[0]); ap.add_argument('--render', action='store_true', help='also compile diagrams in headless Chrome'); ap.add_argument('--chrome', default=os.environ.get('CHROME', ''))
+    ap = argparse.ArgumentParser(description=(__doc__ or '').split('\n')[0]); ap.add_argument('--render', action='store_true', help='also compile diagrams in headless Chrome'); ap.add_argument('--chrome', default=os.environ.get('CHROME', '')); ap.add_argument('--no-theme', action='store_true', help='with --render: measure Mermaid without a configured theme (14 px labels, the worst case)'); ap.add_argument('--private-report', action='store_true', help='list the lines that name internal paths, branches or private repositories (owner review before publication)')
     a = ap.parse_args(argv)
+    if a.private_report:
+        r = private_report(); print(chr(10).join(r)); print(f"wiki_check: {len(r)} line(s) need owner review before publication"); return 0
     err = check()
     if a.render:
         import docs_check, shutil  # noqa: F401
         chrome = a.chrome or next((c for c in ('/Applications/Google Chrome.app/Contents/MacOS/Google Chrome', shutil.which('google-chrome') or '', shutil.which('chromium') or '') if c and os.path.exists(c)), '')
         if not chrome: err.append('--render needs Chrome/Chromium (set CHROME)')
         else:
-            e, n = render_diagrams(chrome); err += e; print(f'wiki_check: {n} diagrams compiled with the vendored Mermaid')
+            e, n = render_diagrams(chrome, theme=None if a.no_theme else 'default'); err += e; print(f'wiki_check: {n} diagrams compiled with the vendored Mermaid')
     for e in err[:100]: print('FAIL', e)
     print(f'wiki_check: {"OK" if not err else str(len(err)) + " problem(s)"}')
     return 1 if err else 0

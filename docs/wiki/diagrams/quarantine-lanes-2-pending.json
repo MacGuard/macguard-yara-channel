@@ -1,0 +1,14 @@
+{
+ "title": {
+  "en": "The fates of a rule in quarantine, part 2 of 3: pending review",
+  "es": "Los destinos de una regla en la cuarentena, parte 2 de 3: pendiente de revisión"
+ },
+ "alt": {
+  "en": "With only judgement findings the file is pending review: QUARANTINED but approvable. If a person approves, the checks run again (part 3). If the person rejects it, it is rejected (REJECTED).",
+  "es": "Con solo hallazgos de criterio el archivo queda pendiente de revisión: QUARANTINED pero aprobable. Si una persona aprueba, las comprobaciones se repiten (parte 3). Si la persona lo rechaza, queda rechazado (REJECTED)."
+ },
+ "legend": {
+  "en": "blue: starting point; white with a thick border: checks; green: accepted or published; red: rejected or blocked; amber: pending review. The state name is also written in each box.",
+  "es": "azul: punto de partida; blanco con borde grueso: comprobaciones; verde: aceptado o publicado; rojo: rechazado o bloqueado; ámbar: pendiente de revisión. El estado figura también en cada caja."
+ }
+}

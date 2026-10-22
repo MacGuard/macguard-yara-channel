@@ -1,0 +1,14 @@
+{
+ "title": {
+  "en": "How MacUSBGuard decides, part 2 of 3: the two-stage resolver",
+  "es": "Cómo decide MacUSBGuard, parte 2 de 3: el resolutor en dos etapas"
+ },
+ "alt": {
+  "en": "With the Mac locked, a two-stage resolver (device, then interface) allows the device if it is trusted and the interface is granted; otherwise it denies it. The denial is detailed in part 3.",
+  "es": "Con el Mac bloqueado, un resolutor en dos etapas (dispositivo, luego interfaz) permite el dispositivo si es de confianza y la interfaz está concedida; si no, lo deniega. La denegación se detalla en la parte 3."
+ },
+ "legend": {
+  "en": "blue: the start; grey: process steps; amber: questions; green: allow or normal behaviour; red: deny; orange: what is unverified or observe only.",
+  "es": "azul: el inicio; gris: pasos de proceso; ámbar: preguntas; verde: permitir o comportamiento normal; rojo: denegar; naranja: lo no verificado o solo observación."
+ }
+}

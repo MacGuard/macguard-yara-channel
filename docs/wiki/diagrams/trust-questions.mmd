@@ -1,9 +1,9 @@
-flowchart TB
-  Q1["Who wrote the rule?"]:::src --> A1["upstream repository and licence, listed in manifest sources"]:::val
-  Q2["Who handed me the package?"]:::src --> A2["the MacGuard channel, a GitHub release"]:::val
-  Q3["Who signed it?"]:::src --> A3["the publish.yml workflow identity, via Sigstore"]:::sec
-  Q4["Are the bytes the signed ones?"]:::src --> A4["SHA-256 per file + rules_root"]:::sec
-  Q5["Is the content harmless?"]:::src --> A5["NOT proven by any of the above"]:::bad
+flowchart LR
+  Q1["Who wrote<br/>the rule?"]:::src --> A1["upstream repository and<br/>licence, listed in<br/>manifest sources"]:::val
+  Q2["Who handed me<br/>the package?"]:::src --> A2["the MacGuard channel,<br/>a GitHub release"]:::val
+  Q3["Who signed it?"]:::src --> A3["the publish.yml workflow<br/>identity, via Sigstore"]:::sec
+  Q4["Are the bytes<br/>the signed ones?"]:::src --> A4["SHA-256 per file<br/>+ rules_root"]:::sec
+  Q5["Is the content<br/>harmless?"]:::src --> A5["NOT proven by<br/>any of the above"]:::bad
   classDef src fill:#cfe3ff,stroke:#2f6df0,color:#0b1b33
   classDef val fill:#d6f5dd,stroke:#2e8b4a,color:#0c2a16
   classDef sec fill:#e8e0ff,stroke:#6b4fd8,color:#1a1033

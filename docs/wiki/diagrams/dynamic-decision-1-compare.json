@@ -1,0 +1,14 @@
+{
+ "title": {
+  "en": "Dynamic gate decisions, part 1 of 3: compare or apply limits",
+  "es": "Decisiones de la puerta dinámica, parte 1 de 3: comparar o aplicar límites"
+ },
+ "alt": {
+  "en": "The gate needs a previous release to compare with. Without one it applies absolute sanity limits (p95, RSS and compile time). With one it compares medians with the baseline noise. Either way the result goes to the question \"ok?\", which part 2 (not ok) and part 3 (ok) continue.",
+  "es": "La puerta necesita una release anterior con la que comparar. Sin ella aplica límites absolutos de cordura (p95, RSS y tiempo de compilación). Con ella compara las medianas con el ruido de la línea base. En ambos casos el resultado va a la pregunta \"¿correcto?\", que continúan la parte 2 (no) y la parte 3 (sí)."
+ },
+ "legend": {
+  "en": "blue: start or return; amber: step or question; red: isolation or refusal; green: publishable; white with a thick border: final question.",
+  "es": "azul: inicio o retorno; ámbar: paso o pregunta; rojo: aislamiento o rechazo; verde: publicable; blanco con borde grueso: pregunta final."
+ }
+}

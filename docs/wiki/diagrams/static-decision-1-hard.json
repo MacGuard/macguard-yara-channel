@@ -1,0 +1,14 @@
+{
+ "title": {
+  "en": "Static classification, part 1 of 2: hard criteria and corrupt files",
+  "es": "Clasificación estática, parte 1 de 2: criterios duros y archivos corruptos"
+ },
+ "alt": {
+  "en": "Each file is read as text and compiled. Hard criteria (binary, empty, no rules, over 1 MB, identical content rejected before) reject it (REJECTED). If it is not rejected, a truncated or corrupt file or a compile error sends it to QUARANTINED. Otherwise the classification continues in part 2.",
+  "es": "Cada fichero se lee como texto y se compila. Los criterios duros (binario, vacío, sin reglas, más de 1 MB, mismo contenido rechazado antes) lo rechazan (REJECTED). Si no se rechaza, un fichero truncado o corrupto o un error de compilación lo envía a QUARANTINED. En otro caso la clasificación continúa en la parte 2."
+ },
+ "legend": {
+  "en": "blue: start or continuation; amber: question; red: refused outcome; green: VALIDATED.",
+  "es": "azul: inicio o continuación; ámbar: pregunta; rojo: resultado rechazado; verde: VALIDATED."
+ }
+}

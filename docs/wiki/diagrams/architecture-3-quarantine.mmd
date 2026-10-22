@@ -1,0 +1,14 @@
+%%{init: {"flowchart": {"wrappingWidth": 300}}}%%
+flowchart TB
+  d["decide.py<br/>PUBLISH GATE:<br/>not approved"]:::gate
+  q["Private quarantine<br/>store"]:::bad
+  api["Private review<br/>service and panel"]:::bad
+  hr["Human review<br/>approve, delete<br/>or keep"]:::bad
+  r["decision: back to<br/>rulecheck.py"]:::chk
+  d --> q
+  q --> api
+  api --> hr
+  hr --> r
+  classDef gate fill:#ffffff,stroke:#111111,stroke-width:3px,color:#111111
+  classDef bad fill:#ffd4cc,stroke:#c0392b,color:#33100b
+  classDef chk fill:#ffe9b8,stroke:#b8860b,color:#2b1d00

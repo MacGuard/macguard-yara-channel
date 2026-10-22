@@ -1,0 +1,16 @@
+%%{init: {"flowchart": {"wrappingWidth": 300}}}%%
+flowchart TB
+  f["archivo de reglas<br/>examinado"]:::act
+  s["comprobaciones<br/>estáticas y dinámicas"]:::gate
+  a["sin hallazgos:<br/>aceptado,<br/>VALIDATED"]:::ok
+  r["criterios duros:<br/>rechazado,<br/>REJECTED"]:::bad
+  b["hallazgo técnico:<br/>bloqueado,<br/>QUARANTINED,<br/>no aprobable"]:::bad
+  f --> s
+  s --> a
+  s --> r
+  s --> b
+  a ~~~ r ~~~ b
+  classDef act fill:#cfe3ff,stroke:#2f6df0,color:#0b1b33
+  classDef gate fill:#ffffff,stroke:#111111,stroke-width:3px,color:#111111
+  classDef ok fill:#cdeedd,stroke:#1b6e3c,color:#08210f
+  classDef bad fill:#ffd4cc,stroke:#c0392b,color:#33100b

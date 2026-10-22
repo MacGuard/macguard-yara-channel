@@ -10,7 +10,11 @@ YARA is a language for writing "pattern descriptions" of files, plus a program t
 
 A rule is like a "wanted" poster: "a file containing this phrase and of this size". The engine walks through files and flags the ones matching the poster. A match does not prove danger; it only means the file resembles the poster.
 
-{{diagram:sources-sequence}}
+{{diagram:sources-sequence-1-commit}}
+
+{{diagram:sources-sequence-2-download}}
+
+{{diagram:sources-sequence-3-inventory}}
 
 ## YARA versus YARA-X
 
@@ -20,7 +24,7 @@ A rule is like a "wanted" poster: "a file containing this phrase and of this siz
 
 - **Problem:** automatically deciding whether a rule file is safe to publish.
 - **Input:** `.yar`/`.yara` files from the two sources. **Output:** a per-file classification (accept, quarantine, reject) with reasons.
-- **How:** `scripts/rulecheck.py` analyses the text (regex risk, loops) and compiles with `yarac`; the policy `config/policy.json` requires YARA 4.3.0 or later and forbids the `cuckoo`, `magic` and `androguard` modules {{ev:EV-YC-67}}. Then `scripts/bench.py` and `scripts/dynamic_gate.py` measure time, memory and matches against a benign corpus {{ev:EV-YC-64}}.
+- **How:** `scripts/rulecheck.py` analyzes the text (regex risk, loops) and compiles with `yarac`; the policy `config/policy.json` declares a minimum engine version and forbids the `cuckoo`, `magic` and `androguard` modules {{ev:EV-YC-67}}. Then `scripts/bench.py` and `scripts/dynamic_gate.py` measure time, memory and matches against a benign corpus {{ev:EV-YC-64}}.
 - **What it does not prevent:** a valid rule may be useless or produce false positives; see [Limits](EN-YARA-Limits).
 - **Shipped engine:** the app uses YARA 4.5.8 built with the tooling described in `docs/ENGINE.md`.
 

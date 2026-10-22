@@ -1,0 +1,15 @@
+%%{init: {"flowchart": {"wrappingWidth": 300}}}%%
+flowchart TB
+  PG["On the Mac:<br/>MacProcessGuard<br/>concept"]:::econ
+  R2["process identity<br/>(planned)"]:::rel
+  FW["On the Mac:<br/>MacFirewallGuard<br/>development"]:::edev
+  R3["evidence client<br/>(only tested with<br/>a test double)"]:::rel
+  CORE["Shared building blocks:<br/>MacCoreGuard<br/>prototype"]:::epro
+  PG -.-> R2
+  R2 -.-> FW
+  FW -.-> R3
+  R3 -.-> CORE
+  classDef econ fill:#eeeeee,stroke:#555555,color:#222222
+  classDef rel fill:#ffffff,stroke:#777777,color:#222222
+  classDef edev fill:#ffe9b8,stroke:#b8860b,color:#2b1d00
+  classDef epro fill:#ffe0b2,stroke:#9a4b00,color:#4a2400

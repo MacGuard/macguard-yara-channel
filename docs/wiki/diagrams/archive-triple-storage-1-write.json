@@ -1,0 +1,14 @@
+{
+ "title": {
+  "en": "Triple-provider archive, part 1 of 2: writing (design)",
+  "es": "Archivo en tres proveedores, parte 1 de 2: escritura (diseño)"
+ },
+ "alt": {
+  "en": "Design diagram, not operational. The publication flow (release, logs, audit segments) passes pre-write checks (no secrets, SHA-256). Private audit data is encrypted with age before it leaves the process. Each object is written to three providers, one bucket each. Part 2 verifies the copies.",
+  "es": "Diagrama de diseño, no operativo. El flujo de publicación (release, logs, segmentos de auditoría) pasa unas comprobaciones previas (sin secretos, SHA-256). La auditoría privada se cifra con age antes de salir del proceso. Cada objeto se escribe en tres proveedores, un bucket por proveedor. La parte 2 verifica las copias."
+ },
+ "legend": {
+  "en": "blue: publication steps before writing; green: the three providers; amber: the verification and its result.",
+  "es": "azul: pasos de publicación antes de escribir; verde: los tres proveedores; ámbar: la verificación y su resultado."
+ }
+}

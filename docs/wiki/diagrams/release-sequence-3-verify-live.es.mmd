@@ -1,0 +1,10 @@
+%%{init: {"flowchart": {"wrappingWidth": 300}}}%%
+flowchart TB
+  v1["10 site.yml pide a<br/>verify_live.py verificar la<br/>URL pública"]:::act
+  v2["11 verify_live.py revisa<br/>GitHub Pages: paquete, cada<br/>archivo de reglas, catálogo,<br/>enlaces"]:::chk
+  v3["12 PASS o FAIL vuelve a<br/>site.yml y se registra en el<br/>registro de transparencia"]:::ok
+  v1 --> v2
+  v2 --> v3
+  classDef act fill:#cfe3ff,stroke:#2f6df0,color:#0b1b33
+  classDef chk fill:#ffe9b8,stroke:#b8860b,color:#2b1d00
+  classDef ok fill:#cdeedd,stroke:#1b6e3c,color:#08210f

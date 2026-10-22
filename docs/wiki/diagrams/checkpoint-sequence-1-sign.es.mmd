@@ -1,0 +1,15 @@
+%%{init: {"flowchart": {"wrappingWidth": 300}}}%%
+flowchart TB
+  k1["1 publish.yml da a tlog.py<br/>el evento release.approved"]:::act
+  k2["2 tlog.py escribe el<br/>checkpoint (origen, tamaño,<br/>raíz)"]:::act
+  k3["3 cosign sign-blob del<br/>checkpoint"]:::ext
+  k4["4 checkpoint.sigstore.json<br/>vuelve a publish.yml"]:::ok
+  k5["5 tlog.py verify: todos los<br/>checkpoints, consistencia,<br/>firmas"]:::chk
+  k1 --> k2
+  k2 --> k3
+  k3 --> k4
+  k4 --> k5
+  classDef act fill:#cfe3ff,stroke:#2f6df0,color:#0b1b33
+  classDef ext fill:#e4d7ff,stroke:#6a3fd1,color:#1b0b3b
+  classDef ok fill:#cdeedd,stroke:#1b6e3c,color:#08210f
+  classDef chk fill:#ffe9b8,stroke:#b8860b,color:#2b1d00

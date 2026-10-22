@@ -1,0 +1,13 @@
+%%{init: {"flowchart": {"wrappingWidth": 300}}}%%
+flowchart TB
+  r1["1 publish.yml: reverificar<br/>el conjunto final, sellar,<br/>firmar, tar.gz, metadatos"]:::act
+  r2["2 verify_release.py sobre<br/>los archivos exactos a<br/>publicar"]:::chk
+  r3["3 Crea una release BORRADOR<br/>en GitHub Releases con todos<br/>los activos"]:::act
+  r4["4 Comprueba el número de<br/>activos y publica"]:::act
+  r5["5 publish.yml solicita el<br/>despliegue del sitio<br/>(site.yml)"]:::act
+  r1 --> r2
+  r2 --> r3
+  r3 --> r4
+  r4 --> r5
+  classDef act fill:#cfe3ff,stroke:#2f6df0,color:#0b1b33
+  classDef chk fill:#ffe9b8,stroke:#b8860b,color:#2b1d00

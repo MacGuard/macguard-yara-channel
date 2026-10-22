@@ -1,0 +1,14 @@
+{
+ "title": {
+  "en": "Triple-provider archive, part 2 of 2: read-back verification (design)",
+  "es": "Archivo en tres proveedores, parte 2 de 2: lectura de verificación (diseño)"
+ },
+ "alt": {
+  "en": "Design diagram, not operational. The objects of the three providers are read back with a different read-only key and the SHA-256 values are compared. Only if all three match is the window marked archived; otherwise an alert is raised and nothing is pruned.",
+  "es": "Diagrama de diseño, no operativo. Los objetos de los tres proveedores se leen de vuelta con una clave de solo lectura distinta y se comparan los SHA-256. Solo si coinciden los tres se marca la ventana como archivada; si no, hay alerta y no se poda nada."
+ },
+ "legend": {
+  "en": "green: the three providers; amber: the verification and its result.",
+  "es": "verde: los tres proveedores; ámbar: la verificación y su resultado."
+ }
+}

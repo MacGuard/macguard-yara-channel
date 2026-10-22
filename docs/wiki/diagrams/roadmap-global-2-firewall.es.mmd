@@ -1,0 +1,10 @@
+%%{init: {"flowchart": {"wrappingWidth": 300}}}%%
+flowchart TB
+  F1["fases iniciales<br/>cerradas"]:::done
+  F2["fase posterior<br/>parcial"]:::doing
+  F3["Bloqueo: necesita<br/>la autorización de<br/>Apple; bloqueado"]:::block
+  F1 --> F2
+  F2 --> F3
+  classDef done fill:#cdeedd,stroke:#1b6e3c,color:#08210f
+  classDef doing fill:#ffe9b8,stroke:#b8860b,color:#2b1d00
+  classDef block fill:#ffd4cc,stroke:#c0392b,color:#33100b

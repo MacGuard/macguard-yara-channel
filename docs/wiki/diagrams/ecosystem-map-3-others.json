@@ -1,0 +1,14 @@
+{
+ "title": {
+  "en": "Map of the MacGuard ecosystem, part 3 of 3: parts with no link drawn",
+  "es": "Mapa del ecosistema MacGuard, parte 3 de 3: piezas sin enlace dibujado"
+ },
+ "alt": {
+  "en": "MacUSBGuard (validation) runs on the Mac and MacGuardDesignKit (development) is a shared building block. The map draws no relationship for them.",
+  "es": "MacUSBGuard (validación) se ejecuta en el Mac y MacGuardDesignKit (desarrollo) es un bloque compartido. El mapa no dibuja ninguna relación para ellos."
+ },
+ "legend": {
+  "en": "colour repeats the state written in each box (blue validation, amber development).",
+  "es": "el color repite el estado escrito en cada caja (azul validación, ámbar desarrollo)."
+ }
+}

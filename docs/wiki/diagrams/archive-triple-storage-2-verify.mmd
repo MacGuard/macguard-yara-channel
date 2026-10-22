@@ -1,0 +1,9 @@
+%%{init: {"flowchart": {"wrappingWidth": 300}}}%%
+flowchart TB
+  PROV["Provider 1, Provider 2,<br/>Provider 3:<br/>one bucket each"]:::ok
+  RB["Read back with a<br/>different read-only key<br/>and compare SHA-256"]:::chk
+  OK["3 of 3 match: window marked<br/>archived otherwise: alert,<br/>nothing is pruned"]:::chk
+  PROV --> RB
+  RB --> OK
+  classDef ok fill:#cdeedd,stroke:#1b6e3c,color:#08210f
+  classDef chk fill:#ffe9b8,stroke:#b8860b,color:#2b1d00

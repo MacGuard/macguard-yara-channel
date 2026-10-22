@@ -18,19 +18,18 @@ It is a reserved gap on a floor plan: someone drew a door labelled "process cont
 
 1. The MacFirewallGuard README literally says MacProcessGuard "does not exist yet" {{ev:EV-EC-05}}.
 2. Its architecture documents call it a "separate, not-yet-started" sibling product; a recorded decision keeps it as a separate product {{ev:EV-EC-66}}.
-3. In the MacFirewallGuard code there are only **reserved slots**: an enumeration value `PROCESS_GUARD_CORRELATION` ("Not implemented yet; reserved") and a reference with state `PROVIDER_ABSENT` {{ev:EV-EC-67}}.
-4. There are proposed interface placeholders (a "Process Activity" sidebar); they are design mock-ups, not functions {{ev:EV-EC-66}}.
+3. In the MacFirewallGuard code there is only **a reserved slot for process identity, not implemented** {{ev:EV-EC-67}}.
+4. There are proposed interface mock-ups; they are design drawings, not functions {{ev:EV-EC-66}}.
 
 ## Under the hood
 
-There are no algorithms to describe. The only thing with code is the **boundary** on the MacFirewallGuard side:
+There are no algorithms to describe. The only thing with code is the **boundary** on the MacFirewallGuard side, made of a single reserved slot:
 
-- `ProcessSecurityIdentityReference` (Core/Attribution/ProcessAttributionV1.swift): key `pid.pidversion` and correlation state `PROVIDER_ABSENT`. In production it always stays absent {{ev:EV-EC-67}}.
-- `ExternalProducerType` (Core/Egress/EgressProvenanceV1.swift): lists recognised external producers; treats an unrecognised producer as not admissible.
+- a reserved slot for process identity, not implemented {{ev:EV-EC-67}}.
 
-What MacFirewallGuard **says** MacProcessGuard would do (execution provenance, executable hash, process lineage, persistence, injection detection) is a **boundary drawn by another project**, not a commitment or a specification {{ev:EV-EC-66}}. Endpoint Security is named as the suitable API, but there is no code and no Apple permission for it in this ecosystem. No use of XPC, YARA or any other technology is documented.
+What MacFirewallGuard **says** MacProcessGuard would do (execution provenance, executable hash, process lineage, persistence, injection detection) is a **boundary drawn by another project**, not a commitment or a specification {{ev:EV-EC-66}}. Endpoint Security is named as the suitable API, but there is no code and no usable Apple permission for it in this ecosystem. No use of XPC, YARA or any other technology is documented.
 
-Unresolved name: the repositories also use "MacEndpointGuard" (`MACENDPOINTGUARD` in one value, `MACPROCESSGUARD` in another). The documentation does not state they are the same product; **not verified**.
+Unresolved name: the project material sometimes refers to a similar endpoint-oriented product. The documentation does not state they are the same product; **not verified**.
 
 ## Check it yourself
 

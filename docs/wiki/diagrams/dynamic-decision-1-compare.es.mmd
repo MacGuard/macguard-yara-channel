@@ -1,0 +1,14 @@
+%%{init: {"flowchart": {"wrappingWidth": 300}}}%%
+flowchart TB
+  s["conjunto aprobado"]:::act
+  b["¿hay release<br/>anterior?"]:::chk
+  a["no: límites absolutos<br/>p95, RSS,<br/>tiempo de compilación"]:::chk
+  cp["sí: comparar medianas<br/>con el ruido de la<br/>línea base"]:::chk
+  v["¿correcto?"]:::chk
+  s --> b
+  b --> a
+  b --> cp
+  a --> v
+  cp --> v
+  classDef act fill:#cfe3ff,stroke:#2f6df0,color:#0b1b33
+  classDef chk fill:#ffe9b8,stroke:#b8860b,color:#2b1d00

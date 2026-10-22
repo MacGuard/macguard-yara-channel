@@ -1,0 +1,14 @@
+{
+ "title": {
+  "en": "The fates of a rule in quarantine, part 3 of 3: after an approval",
+  "es": "Los destinos de una regla en la cuarentena, parte 3 de 3: tras una aprobación"
+ },
+ "alt": {
+  "en": "After a person approves, the checks run again. If the file is still clean it is accepted (VALIDATED) and published in a release; if a finding remains it goes back to blocked (QUARANTINED, not approvable).",
+  "es": "Tras la aprobación de una persona, las comprobaciones se repiten. Si el archivo sigue limpio se acepta (VALIDATED) y se publica en un release; si queda un hallazgo, vuelve a bloqueado (QUARANTINED, no aprobable)."
+ },
+ "legend": {
+  "en": "blue: starting point; white with a thick border: checks; green: accepted or published; red: rejected or blocked; amber: pending review. The state name is also written in each box.",
+  "es": "azul: punto de partida; blanco con borde grueso: comprobaciones; verde: aceptado o publicado; rojo: rechazado o bloqueado; ámbar: pendiente de revisión. El estado figura también en cada caja."
+ }
+}

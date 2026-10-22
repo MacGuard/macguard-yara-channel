@@ -1,0 +1,6 @@
+flowchart TB
+  L1["1 Suministro<br/>YARA Channel<br/>reglas verificadas<br/>(publicado)"]:::pub --> L2["2 Instaladores<br/>Installer Auditor<br/>revisa un archivo<br/>(desarrollo)"]:::dev --> L3["3 Dispositivos<br/>MacUSBGuard<br/>vigila el USB<br/>(validación)"]:::val --> L4["4 Red<br/>MacFirewallGuard<br/>ve conexiones<br/>(desarrollo)"]:::dev --> L5["5 Procesos<br/>MacProcessGuard<br/>solo una idea"]:::con
+  classDef pub fill:#d4edda,stroke:#1b5e20,color:#102a12
+  classDef val fill:#d6e4ff,stroke:#1a3d8f,color:#0d1f4d
+  classDef dev fill:#fff3cd,stroke:#8a6d00,color:#3d2f00
+  classDef con fill:#eeeeee,stroke:#555555,color:#222222

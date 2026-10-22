@@ -4,13 +4,17 @@
 
 ## En 30 segundos
 
-YARA es un lenguaje para escribir «descripciones de patrones» de ficheros y un programa que busca esos patrones. Sus autores lo describen como una herramienta pensada (sin limitarse a ello) para ayudar a investigadores de malware a identificar y clasificar muestras {{ev:EV-YC-70}}.
+YARA es un lenguaje para escribir «descripciones de patrones» de archivos y un programa que busca esos patrones. Sus autores lo describen como una herramienta pensada (sin limitarse a ello) para ayudar a investigadores de malware a identificar y clasificar muestras {{ev:EV-YC-70}}.
 
 ## Un ejemplo cotidiano
 
-Una regla es como una ficha de «se busca»: «un fichero que contiene esta frase y tiene este tamaño». El motor recorre ficheros y avisa de los que encajan con la ficha. Encajar no prueba que sea peligroso; solo que se parece a la ficha.
+Una regla es como una ficha de «se busca»: «un archivo que contiene esta frase y tiene este tamaño». El motor recorre archivos y avisa de los que encajan con la ficha. Encajar no prueba que sea peligroso; solo que se parece a la ficha.
 
-{{diagram:sources-sequence}}
+{{diagram:sources-sequence-1-commit}}
+
+{{diagram:sources-sequence-2-download}}
+
+{{diagram:sources-sequence-3-inventory}}
 
 ## YARA frente a YARA-X
 
@@ -18,9 +22,9 @@ Una regla es como una ficha de «se busca»: «un fichero que contiene esta fras
 
 ## Cómo funciona por dentro
 
-- **Problema:** decidir de forma automática si un fichero de reglas es seguro de publicar.
-- **Entrada:** ficheros `.yar`/`.yara` de las dos fuentes. **Salida:** una clasificación por fichero (aceptar, cuarentena, rechazar) con motivos.
-- **Cómo:** `scripts/rulecheck.py` analiza el texto (riesgo de expresiones regulares, bucles) y compila con `yarac`; la política `config/policy.json` exige YARA 4.3.0 o superior y prohíbe los módulos `cuckoo`, `magic` y `androguard` {{ev:EV-YC-67}}. Después `scripts/bench.py` y `scripts/dynamic_gate.py` miden tiempo, memoria y coincidencias contra un corpus benigno {{ev:EV-YC-64}}.
+- **Problema:** decidir de forma automática si un archivo de reglas es seguro de publicar.
+- **Entrada:** archivos `.yar`/`.yara` de las dos fuentes. **Salida:** una clasificación por archivo (aceptar, cuarentena, rechazar) con motivos.
+- **Cómo:** `scripts/rulecheck.py` analiza el texto (riesgo de expresiones regulares, bucles) y compila con `yarac`; la política `config/policy.json` declara una versión mínima del motor y prohíbe los módulos `cuckoo`, `magic` y `androguard` {{ev:EV-YC-67}}. Después `scripts/bench.py` y `scripts/dynamic_gate.py` miden tiempo, memoria y coincidencias contra un corpus benigno {{ev:EV-YC-64}}.
 - **Qué no previene:** una regla válida puede ser inútil o dar falsos positivos; ver [Límites](ES-YARA-Limits).
 - **Motor distribuido:** la aplicación usa YARA 4.5.8 compilado con la herramienta de `docs/ENGINE.md`.
 

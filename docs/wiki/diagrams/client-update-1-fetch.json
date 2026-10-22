@@ -1,0 +1,14 @@
+{
+ "title": {
+  "en": "Normal update, part 1 of 2: fetch",
+  "es": "Actualización normal, parte 1 de 2: descarga"
+ },
+ "alt": {
+  "en": "The user asks to update the rules and consents. MacGuard RuleInstaller takes the update.lock with flock and recovers any interrupted swap. It reads latest.json from the channel on GitHub Pages, downloads the tarball, manifest, bundles, proof, checkpoint and log.jsonl with a byte cap on each download, and extracts them safely into a staging folder.",
+  "es": "La persona pide actualizar las reglas y da su consentimiento. MacGuard RuleInstaller toma el bloqueo update.lock con flock y recupera cualquier intercambio interrumpido. Lee latest.json del canal en GitHub Pages, descarga el tarball, el manifiesto, los bundles, la prueba, el checkpoint y log.jsonl con un límite de bytes en cada descarga, y los extrae de forma segura en una carpeta temporal (staging)."
+ },
+ "legend": {
+  "en": "blue: local step in MacGuard; purple: traffic with the channel (Pages); amber: verification; green: result.",
+  "es": "azul: paso local en MacGuard; morado: tráfico con el canal (Pages); ámbar: verificación; verde: resultado."
+ }
+}

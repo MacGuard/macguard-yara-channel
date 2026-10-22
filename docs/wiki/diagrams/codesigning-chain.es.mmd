@@ -1,0 +1,10 @@
+flowchart TB
+  A["El desarrollador firma la app<br/>firma de código"]:::s1 --> B["El desarrollador la envía<br/>a Apple: notarización"]:::s2
+  B --> C["Apple devuelve un ticket"]:::s2
+  C --> D["El ticket se grapa a la app"]:::s2
+  D --> E["El usuario abre la descarga<br/>Gatekeeper comprueba"]:::s3
+  A -. "solo se hace este paso" .-> X["Installer Auditor hoy:<br/>firma ad hoc, sin notarizar"]:::warn
+  classDef s1 fill:#d6e4ff,stroke:#1a3d8f,color:#0d1f4d
+  classDef s2 fill:#d4edda,stroke:#1b5e20,color:#102a12
+  classDef s3 fill:#e8e8e8,stroke:#555555,color:#111111
+  classDef warn fill:#fff3cd,stroke:#8a6d00,color:#3d2f00

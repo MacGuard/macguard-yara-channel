@@ -1,0 +1,14 @@
+{
+ "title": {
+  "en": "Merkle tree of the log, part 4 of 4: root and checkpoint",
+  "es": "Árbol Merkle del registro, parte 4 de 4: raíz y checkpoint"
+ },
+ "alt": {
+  "en": "Nodes A and B are combined into node AB, and nodes AB and C into the log root. The root, the origin and the number of entries (size) are written into a checkpoint, and the checkpoint is signed. An inclusion proof for entry 4 is the list of sibling hashes along its path to the root.",
+  "es": "Los nodos A y B se combinan en el nodo AB, y los nodos AB y C en la raíz del registro. La raíz, el origen y el número de entradas (tamaño) se escriben en un checkpoint, y el checkpoint se firma. La prueba de inclusión de la entrada 4 es la lista de hashes hermanos a lo largo de su camino hasta la raíz."
+ },
+ "legend": {
+  "en": "blue: log entry (leaf); purple: the release entry; amber: intermediate hash; white with a thick border: log root; green: signed checkpoint.",
+  "es": "azul: entrada del registro (hoja); morado: la entrada del release; ámbar: hash intermedio; blanco con borde grueso: raíz del registro; verde: checkpoint firmado."
+ }
+}

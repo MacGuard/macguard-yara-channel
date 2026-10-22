@@ -1,0 +1,14 @@
+{
+ "title": {
+  "en": "Global roadmap by phases, part 3 of 4: MacUSBGuard (no dates)",
+  "es": "Roadmap global por fases, parte 3 de 4: MacUSBGuard (sin fechas)"
+ },
+ "alt": {
+  "en": "MacUSBGuard, top to bottom, without dates: release candidate prepared, V1 candidate in validation, hardware gates blocked by Apple's entitlement.",
+  "es": "MacUSBGuard, de arriba abajo y sin fechas: candidato a release preparado, candidato a V1 en validación, comprobaciones de hardware bloqueadas por la autorización de Apple."
+ },
+ "legend": {
+  "en": "green: done; amber: in progress; blue: waiting for a decision; red: blocked; grey: not started (the status is also written in each box).",
+  "es": "verde: hecho; ámbar: en curso; azul: a la espera de una decisión; rojo: bloqueado; gris: sin empezar (el estado figura también en cada caja)."
+ }
+}

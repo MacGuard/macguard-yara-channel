@@ -4,22 +4,28 @@
 
 ## In 30 seconds
 
-The channel keeps a **transparency log**: a diary where lines are only ever added, never deleted or changed. From time to time a "snapshot" of that diary (the **checkpoint**) is signed. Anyone can redo the maths and check that a publication is in the diary and that today's diary contains yesterday's in full. If someone tries to alter an earlier publication, the sums stop adding up. {{ev:EV-YC-04}} {{ev:EV-YC-50}}
+The channel keeps a **transparency log**: a diary where lines are only meant to be added; if someone deletes or changes one, a verifier detects it (it cannot prevent it). From time to time a "snapshot" of that diary (the **checkpoint**) is signed. Anyone can redo the maths and check that a publication is in the diary and that today's diary contains yesterday's in full. If someone tries to alter an earlier publication, the sums stop adding up. {{ev:EV-YC-04}} {{ev:EV-YC-50}}
 
 ## An everyday example
 
-A ledger whose pages are mathematically linked: at the foot of each page a fingerprint is written that depends on everything written before. If somebody tears out or rewrites an old page, the fingerprints of the later pages no longer match the one signed in front of witnesses. The analogy carries the idea; the real mechanism is a Merkle tree, explained below.
+A ledger whose pages are mathematically linked: at the foot of each page a fingerprint is written that depends on everything written before. If somebody tears out or rewrites an old page, the fingerprints of the later pages no longer match the one that was signed (anyone can check that signature). The analogy carries the idea; the real mechanism is a Merkle tree, explained below.
 
 Key words, once:
 
 - **Entry**: one JSON line of `logs/log.jsonl` (an event, for example `candidate.accepted`).
-- **Merkle tree**: hashes of hashes; each leaf is an entry and each node summarises its two children.
+- **Merkle tree**: hashes of hashes; each leaf is an entry and each node summarizes its two children.
 - **Root**: the hash at the top; it changes if any leaf changes.
 - **Checkpoint**: a three-line text with origin, number of entries and root; it is signed with Sigstore.
 - **Inclusion proof**: the sibling hashes that join one entry to the root.
 - **Consistency proof**: shows that the log of size *n* is a prefix of the log of size *m > n*.
 
-{{diagram:log-merkle}}
+{{diagram:log-merkle-1-pair-a}}
+
+{{diagram:log-merkle-2-pair-b}}
+
+{{diagram:log-merkle-3-pair-c}}
+
+{{diagram:log-merkle-4-root}}
 
 ## Step by step
 
@@ -29,9 +35,13 @@ Key words, once:
 4. The release carries `inclusion-proof.json` (this release's entry is in the checkpoint) and, if a previous release exists, `consistency.json`.
 5. The signed manifest copies `log.size` and `log.root`, which must match `checkpoint.txt`.
 
-{{diagram:checkpoint-sequence}}
+{{diagram:checkpoint-sequence-1-sign}}
 
-{{diagram:checkpoint-evolution}}
+{{diagram:checkpoint-sequence-2-manifest-proof}}
+
+{{diagram:checkpoint-evolution-1-growth}}
+
+{{diagram:checkpoint-evolution-2-refusals}}
 
 ## Under the hood
 
@@ -81,6 +91,6 @@ Recompute `rules_root` with the Python standard library (script in [merkle.md](h
 
 | Capability | State |
 |---|---|
-| Log, signed checkpoints, inclusion and consistency proofs in each release | operational {{ev:EV-YC-04}} |
+| Log, signed checkpoints, inclusion and consistency proofs in each release | published {{ev:EV-YC-04}} |
 | Third-party verification with a public script and tests | operational {{ev:EV-YC-52}} |
 | Independent external monitor watching the log | not verified: none found in the repository |

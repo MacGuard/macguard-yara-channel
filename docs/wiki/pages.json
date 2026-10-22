@@ -47,6 +47,21 @@
    }
   },
   {
+   "id": "Intelligence",
+   "section": {
+    "es": "Inteligencia de seguridad",
+    "en": "Security Intelligence"
+   },
+   "title": {
+    "es": "Inteligencia de seguridad",
+    "en": "Security Intelligence"
+   },
+   "summary": {
+    "es": "Fuentes, alertas y suscripciones: qué existe y qué falta",
+    "en": "Sources, alerts and subscriptions: what exists and what is missing"
+   }
+  },
+  {
    "id": "YARA-Channel",
    "section": {
     "es": "Canal YARA",
@@ -404,6 +419,36 @@
    "summary": {
     "es": "Qué son, cómo se relacionan y qué hace cada app MacGuard",
     "en": "What they are, how they relate and what each MacGuard app does"
+   }
+  },
+  {
+   "id": "Glossary",
+   "section": {
+    "es": "Referencia",
+    "en": "Reference"
+   },
+   "title": {
+    "es": "Glosario",
+    "en": "Glossary"
+   },
+   "summary": {
+    "es": "Los términos de la wiki con una frase sencilla, una precisa y un enlace a la página que los explica.",
+    "en": "The wiki's terms with a plain sentence, a precise one and a link to the page that explains them."
+   }
+  },
+  {
+   "id": "Contribute",
+   "section": {
+    "es": "Referencia",
+    "en": "Reference"
+   },
+   "title": {
+    "es": "Contribuir",
+    "en": "Contribute"
+   },
+   "summary": {
+    "es": "Cómo ejecutar las pruebas, proponer cambios, avisar de fallos, el canal de seguridad previsto y qué licencias aplican hoy.",
+    "en": "How to run the tests, propose changes, report bugs, the planned security channel, and which licences apply today."
    }
   }
  ]

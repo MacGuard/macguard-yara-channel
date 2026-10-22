@@ -1,1 +1,14 @@
-{"title":{"es":"MacCoreGuard: qué está implementado y qué es marcador","en":"MacCoreGuard: what is implemented and what is a placeholder"},"alt":{"es":"Diagrama: un productor propone un evento a un servicio de ingesta (marcador). El evento se serializa en JSON canónico y se calcula su hash de cadena (implementado). Después irían un registro duradero en disco (marcador), una raíz Merkle RFC 9162 por punto de control con pruebas de inclusión y consistencia (implementado) y un punto de control firmado (marcador). El verificador sin conexión es un marcador.","en":"Diagram: a producer proposes an event to an ingest service (placeholder). The event is serialized as canonical JSON and its chain hash computed (implemented). Then would come a durable ledger on disk (placeholder), an RFC 9162 Merkle root per checkpoint with inclusion and consistency proofs (implemented) and a signed checkpoint (placeholder). The offline verifier CLI is a placeholder."}}
+{
+ "title": {
+  "es": "MacCoreGuard: qué está implementado y qué es marcador",
+  "en": "MacCoreGuard: what is implemented and what is a placeholder"
+ },
+ "alt": {
+  "es": "Diagrama: un productor propone un evento a un servicio de ingesta (marcador). El evento se serializa en una forma canónica y se calcula el eslabón de la cadena de hashes que lo enlaza con el registro anterior (implementado). Después irían un registro duradero en disco (marcador), una raíz Merkle RFC 9162 por punto de control con pruebas de inclusión y consistencia (implementado) y un punto de control firmado (marcador). El verificador sin conexión es un marcador. Leyenda: caja verde de borde continuo, implementado; caja gris de borde discontinuo, marcador. La palabra implementado o marcador figura también en cada caja.",
+  "en": "Diagram: a producer proposes an event to an ingest service (placeholder). The event is serialized in a canonical form and its link in the hash chain, which ties the record to the previous one, is computed (implemented). Then would come a durable ledger on disk (placeholder), an RFC 9162 Merkle root per checkpoint with inclusion and consistency proofs (implemented) and a signed checkpoint (placeholder). The offline verifier CLI is a placeholder. Legend: green box with a solid border, implemented; grey box with a dashed border, placeholder. The word implemented or placeholder is also written in each box."
+ },
+ "legend": {
+  "es": "caja verde de borde continuo, implementado; caja gris de borde discontinuo, marcador (la palabra figura también en cada caja).",
+  "en": "green box with a solid border, implemented; grey box with a dashed border, placeholder (the word is also written in each box)."
+ }
+}

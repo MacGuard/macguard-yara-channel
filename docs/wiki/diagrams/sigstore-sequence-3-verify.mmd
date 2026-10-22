@@ -1,0 +1,11 @@
+%%{init: {"flowchart": {"wrappingWidth": 300}}}%%
+flowchart TB
+  c1["10 The client downloads<br/>manifest.json and the bundle<br/>from GitHub Releases"]:::act
+  c2["11 Verifies the chain up to<br/>the trust root"]:::chk
+  c3["Verifies the signature<br/>and the Rekor evidence"]:::chk
+  c4["Verifies the identity<br/>and the issuer"]:::chk
+  c1 --> c2
+  c2 --> c3
+  c3 --> c4
+  classDef act fill:#cfe3ff,stroke:#2f6df0,color:#0b1b33
+  classDef chk fill:#ffe9b8,stroke:#b8860b,color:#2b1d00

@@ -1,0 +1,22 @@
+flowchart TB
+  F["Falla un proveedor<br/>caída, cuenta perdida<br/>o manipulada"]
+  W["Escrituras: 3 de 3 no se<br/>alcanzan; alerta, sin poda"]
+  S["Las otras dos copias siguen<br/>bloqueadas y firmadas"]
+  C["Comparar SHA-256 y el<br/>manifiesto firmado del archivo"]
+  D{"¿Coinciden?"}
+  Y["Restaurar desde un proveedor<br/>superviviente y verificar<br/>sin conexión"]
+  N["Divergencia: investigar,<br/>no reintentar hasta que pase"]
+  A["Añadir un proveedor nuevo<br/>copiando objetos verificados"]
+  F --> W
+  F --> S
+  S --> C
+  C --> D
+  D -->|sí| Y
+  D -->|no| N
+  Y --> A
+  classDef bad fill:#6b2222,stroke:#ff8a8a,color:#ffffff
+  classDef ok fill:#2d4a2d,stroke:#9fd69f,color:#ffffff
+  classDef mid fill:#1f3a5f,stroke:#8ab4f8,color:#ffffff
+  class F,N bad
+  class S,Y,A ok
+  class W,C,D mid

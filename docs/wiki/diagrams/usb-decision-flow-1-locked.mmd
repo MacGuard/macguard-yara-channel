@@ -1,0 +1,15 @@
+%%{init: {"flowchart": {"wrappingWidth": 300}}}%%
+flowchart TB
+  A["USB device<br/>plugged in"]:::act
+  B["IOKit inventory<br/>and fingerprint"]:::neu
+  C["Mac locked?"]:::chk
+  D["no: normal<br/>behaviour"]:::ok
+  E["yes: two-stage resolver:<br/>device, then interface"]:::neu
+  A --> B
+  B --> C
+  C --> D
+  C --> E
+  classDef act fill:#cfe3ff,stroke:#2f6df0,color:#0b1b33
+  classDef neu fill:#eeeeee,stroke:#555555,color:#222222
+  classDef chk fill:#ffe9b8,stroke:#b8860b,color:#2b1d00
+  classDef ok fill:#cdeedd,stroke:#1b6e3c,color:#08210f

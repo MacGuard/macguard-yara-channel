@@ -1,1 +1,11 @@
-{"title":{"es":"Firma, notarización y Gatekeeper en orden","en":"Signing, notarization and Gatekeeper in order"},"alt":{"es":"Cadena de arriba abajo: el desarrollador firma la app (firma de código); la envía a Apple (notarización); Apple devuelve un ticket; el ticket se grapa a la app; cuando el usuario abre la descarga, Gatekeeper comprueba. Una flecha discontinua desde la firma indica el estado de Installer Auditor hoy: firma ad hoc de sus ejecutables auxiliares y sin notarizar.","en":"Top-down chain: the developer signs the app (code signing); sends it to Apple (notarization); Apple returns a ticket; the ticket is stapled to the app; when the user opens the download, Gatekeeper checks. A dashed arrow from signing points to the state of Installer Auditor today: its helper executables are ad-hoc signed and it is not notarized."}}
+{
+ "title": {"es": "Firma, notarización y Gatekeeper en orden, y hasta dónde llega Installer Auditor", "en": "Signing, notarization and Gatekeeper in order, and how far Installer Auditor goes"},
+ "alt": {
+  "es": "Cadena de arriba abajo: el desarrollador firma la app (firma de código); la envía a Apple (notarización); Apple devuelve un ticket; el ticket se grapa a la app; cuando el usuario abre la descarga, Gatekeeper comprueba. Una flecha discontinua desde la firma indica el estado de Installer Auditor hoy: firma ad hoc de sus ejecutables auxiliares y sin notarizar. Leyenda: azul, la firma; verde, los pasos de notarización; gris, la comprobación del usuario; ámbar, dónde está Installer Auditor hoy. La flecha discontinua marca el único paso hecho.",
+  "en": "Top-down chain: the developer signs the app (code signing); sends it to Apple (notarization); Apple returns a ticket; the ticket is stapled to the app; when the user opens the download, Gatekeeper checks. A dashed arrow from signing points to the state of Installer Auditor today: its helper executables are ad-hoc signed and it is not notarized. Legend: blue, signing; green, the notarization steps; grey, the user's check; amber, where Installer Auditor stands today. The dashed arrow marks the only step done."
+ },
+ "legend": {
+  "es": "azul, la firma; verde, los pasos de notarización; gris, la comprobación del usuario; ámbar, dónde está Installer Auditor hoy (flecha discontinua: el único paso hecho).",
+  "en": "blue, signing; green, the notarization steps; grey, the user's check; amber, where Installer Auditor stands today (dashed arrow: the only step done)."
+ }
+}

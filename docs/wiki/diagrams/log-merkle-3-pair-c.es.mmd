@@ -1,0 +1,10 @@
+%%{init: {"flowchart": {"wrappingWidth": 300}}}%%
+flowchart BT
+  E4["entrada 4<br/>la entrada del release"]:::pub
+  E5["entrada 5"]:::src
+  C["nodo C<br/>H(01 || L4 || L5)"]:::val
+  E4 --> C
+  E5 --> C
+  classDef pub fill:#e4d7ff,stroke:#6a3fd1,color:#1b0b3b
+  classDef src fill:#cfe3ff,stroke:#2f6df0,color:#0b1b33
+  classDef val fill:#ffe9b8,stroke:#b8860b,color:#2b1d00

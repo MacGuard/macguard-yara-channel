@@ -1,0 +1,13 @@
+%%{init: {"flowchart": {"wrappingWidth": 300}}}%%
+flowchart TB
+  u1["1 The user asks to update<br/>the rules (with consent)"]:::act
+  u2["2 MacGuard RuleInstaller:<br/>flock update.lock, recover<br/>interrupted swaps"]:::act
+  u3["3 Reads latest.json from the<br/>channel (Pages)"]:::ext
+  u4["4 Downloads tarball,<br/>manifest, bundles, proof,<br/>checkpoint, log.jsonl (byte<br/>caps)"]:::ext
+  u5["5 Safe extraction in staging"]:::act
+  u1 --> u2
+  u2 --> u3
+  u3 --> u4
+  u4 --> u5
+  classDef act fill:#cfe3ff,stroke:#2f6df0,color:#0b1b33
+  classDef ext fill:#e4d7ff,stroke:#6a3fd1,color:#1b0b3b

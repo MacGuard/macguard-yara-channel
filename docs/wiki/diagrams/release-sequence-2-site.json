@@ -1,0 +1,14 @@
+{
+ "title": {
+  "en": "Publication sequence, part 2 of 3: the site",
+  "es": "Secuencia de publicación, parte 2 de 3: el sitio"
+ },
+ "alt": {
+  "en": "site.yml downloads the release and the history from GitHub Releases, runs verify_release.py, builds the catalog and the stats and records the verification. It then deploys to GitHub Pages and deploys the mirror to Cloudflare Pages, running a preflight first.",
+  "es": "site.yml descarga la release y el historial de GitHub Releases, ejecuta verify_release.py, construye el catálogo y las estadísticas y registra la verificación. Después despliega en GitHub Pages y despliega la réplica en Cloudflare Pages, con una comprobación previa primero."
+ },
+ "legend": {
+  "en": "blue: step; amber: verification.",
+  "es": "azul: paso; ámbar: verificación."
+ }
+}

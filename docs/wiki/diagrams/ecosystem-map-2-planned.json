@@ -1,0 +1,14 @@
+{
+ "title": {
+  "en": "Map of the MacGuard ecosystem, part 2 of 3: planned or test-double-only links",
+  "es": "Mapa del ecosistema MacGuard, parte 2 de 3: enlaces planificados o solo con doble de prueba"
+ },
+ "alt": {
+  "en": "Dashed arrows are planned or only tested with a test double. MacProcessGuard (concept) would give MacFirewallGuard (development) process identity, which is planned. MacFirewallGuard has an evidence client for MacCoreGuard (prototype, a shared building block), only tested with a test double.",
+  "es": "Las flechas discontinuas son planificadas o solo probadas con un doble de prueba. MacProcessGuard (concepto) daría a MacFirewallGuard (desarrollo) la identidad del proceso, algo planificado. MacFirewallGuard tiene un cliente de evidencias para MacCoreGuard (prototipo, un bloque compartido), probado solo con un doble de prueba."
+ },
+ "legend": {
+  "en": "colour repeats the state written in each box (green published, blue validation, amber development, orange prototype, grey concept); white box: the relationship; solid arrow: supply; dashed arrow: planned or test-double-only.",
+  "es": "el color repite el estado escrito en cada caja (verde publicado, azul validación, ámbar desarrollo, naranja prototipo, gris concepto); caja blanca: la relación; flecha continua: suministro; flecha discontinua: planificado o solo con un doble de prueba."
+ }
+}

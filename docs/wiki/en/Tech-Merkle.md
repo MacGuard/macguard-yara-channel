@@ -10,7 +10,13 @@ A Merkle tree boils a long list of things down to one number (the **root**). If 
 
 Imagine a logbook where each page carries a summary of the earlier ones and the last page carries a summary of everything. If someone tears out or edits an old page, the final summary no longer matches. It does not say whether what was written on the pages was true.
 
-{{diagram:rules-merkle}}
+{{diagram:rules-merkle-1-leaves}}
+
+{{diagram:rules-merkle-2-leaves}}
+
+{{diagram:rules-merkle-3-node}}
+
+{{diagram:rules-merkle-4-root}}
 
 ## Under the hood
 
@@ -21,7 +27,13 @@ Imagine a logbook where each page carries a summary of the earlier ones and the 
 - **Cost:** a proof is of the order of log₂(*n*) hashes; the RFC gives at most ⌈log₂(*n*)⌉ + 1 nodes for consistency {{ev:EV-YC-76}}.
 - **Does not prevent:** legitimately signed false entries being appended; it only makes rewriting detectable.
 
-{{diagram:log-merkle}}
+{{diagram:log-merkle-1-pair-a}}
+
+{{diagram:log-merkle-2-pair-b}}
+
+{{diagram:log-merkle-3-pair-c}}
+
+{{diagram:log-merkle-4-root}}
 
 ## Who else uses it
 
@@ -48,5 +60,5 @@ The root shows integrity of the set, not its quality. The log is only as trustwo
 
 | Capability | State |
 |---|---|
-| `rules_root` and public log with signed checkpoints | operational {{ev:EV-YC-04}} |
+| `rules_root` and public log with signed checkpoints | published {{ev:EV-YC-04}} |
 | Archive manifest with a Merkle root (local tool) | implemented-not-deployed {{ev:EV-YC-61}} |

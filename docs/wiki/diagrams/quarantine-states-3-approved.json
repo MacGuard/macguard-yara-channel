@@ -1,0 +1,14 @@
+{
+ "title": {
+  "en": "Quarantine states, part 3 of 4: APPROVED_PENDING_VALIDATION",
+  "es": "Estados de la cuarentena, parte 3 de 4: APPROVED_PENDING_VALIDATION"
+ },
+ "alt": {
+  "en": "From APPROVED_PENDING_VALIDATION a reviewer can delete the file (REJECTED) or hold it, which takes the approval back (UNDER_REVIEW). If the revalidation fails it goes back to PENDING.",
+  "es": "Desde APPROVED_PENDING_VALIDATION una persona puede borrar el archivo (REJECTED) o retenerlo, lo que retira la aprobación (UNDER_REVIEW). Si la revalidación falla vuelve a PENDING."
+ },
+ "legend": {
+  "en": "colour per state: blue PENDING, purple UNDER_REVIEW, amber APPROVED_PENDING_VALIDATION, green RELEASED, red REJECTED; grey, entry or end. The action that leads to each state is written in its box.",
+  "es": "color por estado: azul PENDING, morado UNDER_REVIEW, ámbar APPROVED_PENDING_VALIDATION, verde RELEASED, rojo REJECTED; gris, entrada o fin. La acción que lleva a cada estado figura en su caja."
+ }
+}

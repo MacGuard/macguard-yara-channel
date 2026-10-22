@@ -1,0 +1,12 @@
+flowchart TB
+  A["Flujo observado<br/>(entrada sintética<br/>o de prueba)"]:::inp --> B["Resolutor de firma<br/>firma real, no el nombre"]:::ok
+  B --> C["Motor de políticas<br/>coincide, no coincide<br/>o indeterminado"]:::ok
+  C --> D["Paso de aplicación"]:::ok
+  D --> E{"¿Permiso de<br/>Network Extension?"}:::ok
+  E -- "falta hoy" --> F["Acción no disponible:<br/>falta el permiso"]:::blocked
+  E -. "haría falta" .-> G["Bloquear o permitir<br/>(hoy no es posible)"]:::plan
+  C --> H["Evento de auditoría y cola<br/>(cliente MacCoreGuard,<br/>solo doble de prueba)"]:::ok
+  classDef inp fill:#e8e8e8,stroke:#555555,color:#111111
+  classDef ok fill:#d6e4ff,stroke:#1a3d8f,color:#0d1f4d
+  classDef blocked fill:#f8d7da,stroke:#842029,color:#3b0a10
+  classDef plan fill:#fff3cd,stroke:#8a6d00,color:#3d2f00

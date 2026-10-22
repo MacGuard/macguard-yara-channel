@@ -1,0 +1,14 @@
+{
+ "title": {
+  "en": "Quarantine states, part 2 of 4: UNDER_REVIEW",
+  "es": "Estados de la cuarentena, parte 2 de 4: UNDER_REVIEW"
+ },
+ "alt": {
+  "en": "From UNDER_REVIEW a reviewer can approve the file (APPROVED_PENDING_VALIDATION) or delete it (REJECTED).",
+  "es": "Desde UNDER_REVIEW una persona puede aprobar el archivo (APPROVED_PENDING_VALIDATION) o borrarlo (REJECTED)."
+ },
+ "legend": {
+  "en": "colour per state: blue PENDING, purple UNDER_REVIEW, amber APPROVED_PENDING_VALIDATION, green RELEASED, red REJECTED; grey, entry or end. The action that leads to each state is written in its box.",
+  "es": "color por estado: azul PENDING, morado UNDER_REVIEW, ámbar APPROVED_PENDING_VALIDATION, verde RELEASED, rojo REJECTED; gris, entrada o fin. La acción que lleva a cada estado figura en su caja."
+ }
+}

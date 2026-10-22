@@ -24,12 +24,24 @@ An **ad-hoc** signature (`codesign --sign -`) carries no developer identity: it 
 
 ## Where this project uses it
 
-| App | What it does according to the evidence |
-|---|---|
-| Installer Auditor | Its `yara`/`yarac` helpers are signed **ad hoc** with the hardened runtime; the app and helpers are **not notarized** and Developer ID is missing for lack of credentials {{ev:EV-EC-73}}. It also **reads** signatures: it runs `codesign --verify --strict` on its own helpers before using them {{ev:EV-EC-72}} |
-| MacFirewallGuard | **Reads** the real signature of processes with `CodeSignatureResolver` (Security.framework) so as not to trust the name; there is no signed or notarized build {{ev:EV-EC-63}} {{ev:EV-EC-65}} |
-| YARA Channel | Does not sign apps; it signs the rules channel with Sigstore, a different mechanism {{ev:EV-YC-03}} |
-| MacProcessGuard | Nothing: it is a concept {{ev:EV-EC-05}} |
+### Installer Auditor
+
+- **Signing:** its `yara`/`yarac` helpers are signed **ad hoc** with the hardened runtime.
+- **Notarization:** the app and helpers are **not notarized**; Developer ID is missing for lack of credentials {{ev:EV-EC-73}}.
+- **Reading signatures:** it runs `codesign --verify --strict` on its own helpers before using them {{ev:EV-EC-72}}.
+
+### MacFirewallGuard
+
+- **Reading signatures:** it reads the real signature of processes through Security.framework so as not to trust the name {{ev:EV-EC-63}} {{ev:EV-EC-65}}.
+- **Own signing:** there is no signed or notarized build.
+
+### YARA Channel
+
+- Does not sign apps; it signs the rules channel with Sigstore, a different mechanism {{ev:EV-YC-03}}.
+
+### MacProcessGuard
+
+- Nothing: it is a concept {{ev:EV-EC-05}}.
 
 The signing state of MacUSBGuard, MacCoreGuard and MacGuardDesignKit was not reviewed for this page: **not verified**.
 

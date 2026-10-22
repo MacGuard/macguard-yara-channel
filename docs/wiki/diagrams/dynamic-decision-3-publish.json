@@ -1,0 +1,14 @@
+{
+ "title": {
+  "en": "Dynamic gate decisions, part 3 of 3: the final check",
+  "es": "Decisiones de la puerta dinámica, parte 3 de 3: la comprobación final"
+ },
+ "alt": {
+  "en": "A passing set must also detect every canary and must have been measured exactly as it will be published. If both hold it is publishable; otherwise it is not publishable.",
+  "es": "Un conjunto que pasa debe además detectar todos los canarios y haber sido medido exactamente como se va a publicar. Si se cumplen ambas cosas es publicable; si no, no es publicable."
+ },
+ "legend": {
+  "en": "blue: start or return; amber: step or question; red: isolation or refusal; green: publishable; white with a thick border: final question.",
+  "es": "azul: inicio o retorno; ámbar: paso o pregunta; rojo: aislamiento o rechazo; verde: publicable; blanco con borde grueso: pregunta final."
+ }
+}

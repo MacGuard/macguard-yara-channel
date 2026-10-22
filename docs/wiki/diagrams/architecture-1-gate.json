@@ -1,0 +1,14 @@
+{
+ "title": {
+  "en": "End-to-end architecture, part 1 of 3: from the sources to the publish gate",
+  "es": "Arquitectura de extremo a extremo, parte 1 de 3: de las fuentes a la puerta de publicación"
+ },
+ "alt": {
+  "en": "Three upstream sources feed prepare.py (the VirusTotal YARA-X source is recorded as an engine, with no rules, hence the dashed arrow). Files are classified by rulecheck.py and measured by dynamic_gate.py with bench.py. decide.py is the publish gate: part 2 follows the approved files and part 3 the ones that do not pass.",
+  "es": "Tres fuentes alimentan prepare.py (la fuente VirusTotal YARA-X se registra como motor, sin reglas, de ahí la flecha discontinua). rulecheck.py clasifica los ficheros y dynamic_gate.py los mide con bench.py. decide.py es la puerta de publicación: la parte 2 sigue los ficheros aprobados y la parte 3 los que no pasan."
+ },
+ "legend": {
+  "en": "blue: sources and preparation; amber: classification and measurement; white with a thick border: publish gate; green: sealing and signing; purple: publication; red: quarantine path.",
+  "es": "azul: fuentes y preparación; ámbar: clasificación y medición; blanco con borde grueso: puerta de publicación; verde: sellado y firma; morado: publicación; rojo: ruta de cuarentena."
+ }
+}

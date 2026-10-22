@@ -12,14 +12,16 @@
 
 It is a safe with a slot: you can put documents in, but for a set period nobody can take them out or change them. If the master-key holder decides to open it (governance mode), they can. With the strict mode (compliance) not even they can.
 
-{{diagram:archive-triple-storage}}
+{{diagram:archive-triple-storage-1-write}}
+
+{{diagram:archive-triple-storage-2-verify}}
 
 ## Under the hood
 
 - **Problem:** keeping the history even if a provider fails, corrupts data or is tampered with.
 - **Pieces:** versioning; Object Lock retention; identity rules giving the write key upload-only permission; read-back with another key; per-object SHA-256 hashes {{ev:EV-YC-60}}.
 - **Governance versus compliance:** in governance, whoever holds the special permission can bypass the lock; in compliance nobody can during retention, not even the account owner (except by deleting the account, in AWS's case) {{ev:EV-YC-78}} {{ev:EV-YC-79}}.
-- **Three providers:** Cloudflare R2, Backblaze B2 and Scaleway, one bucket each. The specification notes that R2's lock is a retention rule that can be removed, and that on Scaleway the feature must be confirmed on a test bucket {{ev:EV-YC-63}}.
+- **Three providers:** Cloudflare R2, Backblaze B2 and Scaleway, one bucket each. The specification notes that lock strength depends on each provider's settings, and that the feature must be confirmed on test buckets {{ev:EV-YC-63}}.
 - **Implementation in the repository:** `scripts/archive/providers.py` (local directory and a command-line S3 adapter), `store.py`, `restore.py`, entry point `scripts/archivectl.py` {{ev:EV-YC-61}}.
 - **Cost:** the specification estimates cents to tens of dollars in total in almost all scenarios, using prices read on 2026-10-21 that may change {{ev:EV-YC-60}}.
 - **Does not prevent:** a compromised write origin uploading false data with a valid signature; nor loss of the decryption key.
@@ -28,7 +30,7 @@ It is a safe with a slot: you can put documents in, but for a set period nobody 
 
 ## Who else uses it
 
-No row implies that these organisations use MacGuard.
+No row implies that these organizations use MacGuard.
 
 | Who | Classification | Source |
 |---|---|---|
@@ -54,4 +56,4 @@ Copies on three providers do not protect against whoever controls the signing or
 |---|---|
 | Archive and local restore tools | implemented-not-deployed {{ev:EV-YC-61}} |
 | Buckets with versioning and Object Lock on all three providers | planned |
-| Compliance mode | planned, not authorised |
+| Compliance mode | planned, not authorized |

@@ -1,0 +1,9 @@
+%%{init: {"flowchart": {"wrappingWidth": 300}}}%%
+flowchart TB
+  e1["6 prepare.py: GET tarball at<br/>that sha"]:::act
+  e2["7 The API takes a snapshot<br/>of that commit from the<br/>upstream repository"]:::ext
+  e3["8 The upstream returns a<br/>compressed archive<br/>(size capped)"]:::ext
+  e1 --> e2
+  e2 --> e3
+  classDef act fill:#cfe3ff,stroke:#2f6df0,color:#0b1b33
+  classDef ext fill:#e4d7ff,stroke:#6a3fd1,color:#1b0b3b

@@ -1,0 +1,14 @@
+{
+ "title": {
+  "en": "Checkpoints over time, part 2 of 2: what the client refuses",
+  "es": "Evolución de los checkpoints, parte 2 de 2: lo que el cliente rechaza"
+ },
+ "alt": {
+  "en": "A client that remembers the checkpoint of size 75 refuses a tree of a smaller size than the one it trusts (rollback refused) and refuses another root at the same size (fork refused).",
+  "es": "Un cliente que recuerda el checkpoint de tamaño 75 rechaza un árbol de tamaño menor que el que acepta (retroceso rechazado) y rechaza otra raíz con el mismo tamaño (bifurcación rechazada)."
+ },
+ "legend": {
+  "en": "green: signed checkpoint; white: the proof that links two checkpoints, or the refusal; red: a situation the client refuses; dashed arrow: refusal.",
+  "es": "verde: checkpoint firmado; blanco: la prueba que une dos checkpoints, o el rechazo; rojo: situación que el cliente rechaza; flecha discontinua: rechazo."
+ }
+}

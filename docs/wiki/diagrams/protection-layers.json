@@ -1,7 +1,11 @@
 {
  "title": {"en": "Layers of protection, from the supply of rules to running processes", "es": "Capas de protección, desde el suministro de reglas hasta los procesos en ejecución"},
  "alt": {
-  "en": "Five layers in a row. 1 Supply: YARA Channel provides verified rules (published). 2 Installers: Installer Auditor checks a file before it is opened (development). 3 Devices: MacUSBGuard watches USB devices (validation). 4 Network: MacFirewallGuard observes connections (development, it cannot block yet). 5 Processes: MacProcessGuard (concept only). Each layer is independent: a gap in one is not covered by the others.",
-  "es": "Cinco capas en fila. 1 Suministro: YARA Channel aporta reglas verificadas (publicado). 2 Instaladores: Installer Auditor revisa un archivo antes de abrirlo (desarrollo). 3 Dispositivos: MacUSBGuard vigila los dispositivos USB (validación). 4 Red: MacFirewallGuard observa conexiones (desarrollo, todavía no puede bloquear). 5 Procesos: MacProcessGuard (solo concepto). Cada capa es independiente: un hueco en una no lo cubren las demás."
+  "en": "Five layers from top to bottom. 1 Supply: YARA Channel provides verified rules (published). 2 Installers: Installer Auditor checks a file before it is opened (development). 3 Devices: MacUSBGuard watches USB devices (validation). 4 Network: MacFirewallGuard observes connections (development, it cannot block yet). 5 Processes: MacProcessGuard (concept only). Each layer is independent: a gap in one is not covered by the others. Legend: colour repeats the state written in each box (green published, blue validation, yellow development, grey concept only).",
+  "es": "Cinco capas de arriba abajo. 1 Suministro: YARA Channel aporta reglas verificadas (publicado). 2 Instaladores: Installer Auditor revisa un archivo antes de abrirlo (desarrollo). 3 Dispositivos: MacUSBGuard vigila los dispositivos USB (validación). 4 Red: MacFirewallGuard observa conexiones (desarrollo, todavía no puede bloquear). 5 Procesos: MacProcessGuard (solo concepto). Cada capa es independiente: un hueco en una no lo cubren las demás. Leyenda: el color repite el estado escrito en cada caja (verde publicado, azul validación, amarillo desarrollo, gris solo concepto)."
+ },
+ "legend": {
+  "en": "colour repeats the state written in each box (green published, blue validation, yellow development, grey concept only).",
+  "es": "el color repite el estado escrito en cada caja (verde publicado, azul validación, amarillo desarrollo, gris solo concepto)."
  }
 }

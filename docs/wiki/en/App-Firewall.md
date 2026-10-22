@@ -4,9 +4,9 @@
 
 ## In 30 seconds
 
-MacFirewallGuard is a macOS program designed to **observe which apps connect to the network and, later, apply rules** to those connections. Its central idea: an app can call itself "Safari" without being Safari, so the program looks at the **real code signature** and does not trust the name. If evidence is missing, the answer is "I don't know", never "allowed".
+MacFirewallGuard is a macOS program designed to **observe which apps connect to the network and, later, apply rules** to those connections. Its central idea: an app can call itself "Safari" without being Safari, so the program reads the **real code signature** of processes instead of trusting the name. If evidence is missing, the engine answers "indeterminate" and does not treat it as "allowed" (the final action under a real policy is not yet tested).
 
-**Today it cannot block anything**: Apple has not granted this project the Network Extension entitlement {{ev:EV-EC-60}}. It is an observation and policy engine, in **development** {{ev:EV-EC-03}}. It is not a working firewall and must not be relied on as protection.
+**There is no real blocking today**: no Network Extension entitlement is confirmed as usable for this project {{ev:EV-EC-60}}. It is an observation and policy engine, in **development** {{ev:EV-EC-03}}. It is not a working firewall and must not be relied on as protection.
 
 ## An everyday example
 
@@ -19,57 +19,47 @@ Think of a doorman with a guest list who checks your ID card, not the visitor's 
 ## Step by step
 
 1. An observed network flow comes in (today from synthetic or test input: no real packet was ever captured {{ev:EV-EC-64}}).
-2. `CodeSignatureResolver` finds out the real signature of the process.
-3. `PolicyEngine` evaluates the rules: match, no match or **indeterminate** when evidence is missing.
-4. `EnforcementResolver` turns the decision into an action. Without the entitlement, a BLOCK ends as `ACTION=UNAVAILABLE(ENTITLEMENT_MISSING)` {{ev:EV-EC-60}}.
-5. An audit event is created and kept in a local spool; sending it to MacCoreGuard has only been tested against a mock {{ev:EV-EC-04}}.
+2. A signature resolver finds out the real code signature of the process.
+3. The policy engine evaluates the rules: match, no match or **indeterminate** when evidence is missing.
+4. An enforcement step turns the decision into an action. Without a usable entitlement, a block decision ends as "action unavailable: entitlement missing" {{ev:EV-EC-60}}.
+5. An audit event is created and kept in a local queue; sending it to MacCoreGuard has only been tested against a test double {{ev:EV-EC-04}}.
 
 ## Under the hood
 
-Layered architecture (from `Package.swift`) {{ev:EV-EC-63}}:
+Layered architecture {{ev:EV-EC-63}}:
 
 | Layer | Role |
 |---|---|
-| `MacFirewallGuardCore` | Pure domain (flows, policy, DNS, correlation, network) |
-| `MacFirewallGuardAudit` | Canonical events and durable spool (`DurableAuditSpool`) |
-| `MacFirewallGuardPlatform` | The only layer touching Apple frameworks (Security, Network, SystemConfiguration, NetworkExtension as a translation bridge) |
-| `CBPFShim` | Small C module with BPF constants |
-| `MacFirewallGuardUI` and `MacFirewallGuardApp` | SwiftUI app (uses MacGuardDesignKit, the only external dependency) |
-| `macfirewallguardctl` | Read-only CLI: `capabilities`, `privileges`, `events`, `adversarial`, `preflight`, `explain` |
+| Domain logic | Pure logic: flows, policy, DNS, correlation, network, audit events and a local queue |
+| Platform adapters | The only layer that talks to Apple frameworks |
+| Interface | A SwiftUI app (uses the shared MacGuardDesignKit library) and a read-only command-line tool |
 
-Algorithms with code behind them (name, problem, evidence):
+Algorithms with code behind them (problem, evidence):
 
-- **`PolicyEngine.evaluate`**: decides with three values (match / no match / indeterminate). Avoids treating "no data" as "allowed". File `Sources/MacFirewallGuardCore/Policy/PolicyEngine.swift`.
-- **`CodeSignatureResolver`**: resolves the signing identity from an audit token, a pid or a path (`Platform/CodeSignatureResolver.swift`). It does not detect code injection: its threat model assigns that to MacProcessGuard, which does not exist.
-- **`DNSWireParser` and `TLSClientHelloParser`** (Core) and **`QUICInitialPacketParser`** (Platform): read DNS, TLS SNI and QUIC. Only tested with test bytes.
-- **`NetworkIntegrityRuleEngine`** (F2-NIM): detects VPN, route or DNS changes; observe and alert modes only.
-- Optional **BPF sensor** (`BPFDevice`, `BPFCaptureSensor`): on the development machine access was denied for lack of permissions {{ev:EV-EC-64}}.
+- **Policy evaluation**: decides with three values (match / no match / indeterminate). Avoids treating "no data" as "allowed".
+- **Signature resolution**: resolves the signing identity from an audit token, a pid or a path. It is not meant to detect code injection: that is assigned to MacProcessGuard, which is a concept only.
+- **DNS, TLS and QUIC readers**: read DNS, the TLS server name and QUIC initial packets. Only tested with test bytes.
+- **Network integrity rules**: detect VPN, route or DNS changes; observe and alert modes only.
+- Optional **packet-capture sensor**: on the development machine access was denied for lack of permissions {{ev:EV-EC-64}}.
 
-### Transport to MacCoreGuard: XPC or socket
+### Channel to MacCoreGuard
 
-The architecture documents and the capability matrix speak of "authenticated XPC" as the target design on the MacCore side. **The client code uses a Unix socket** (`AF_UNIX`, `SOCK_STREAM`, length-prefixed JSON messages) in `Platform/MacCoreGuardIPCClient.swift`; a comment in `MacCoreAuditClient.swift` says the transport "is NSXPC" as a future intention, but there is no XPC implementation in the production sources {{ev:EV-EC-61}}. The client checks, using the kernel credential (`LOCAL_PEERPID`), the signature of the process at the other end of the socket. That check and the server are exercised only with a test-only mock server.
+**The channel to MacCoreGuard is a design target; the client is only exercised against a test double** {{ev:EV-EC-61}}.
 
 ## Check it yourself
 
-The repository is private, so there are no public commands. In a copy with access: `swift run macfirewallguardctl explain` and `swift run macfirewallguardctl preflight` (both exist in the README). Nothing was run to write this page: the data is a static read of commit `052007e`.
+The repository is private, so there are no public commands to run. Nothing was run to write this page: the data comes from a static read of the project.
 
 ## Tests: which numbers exist and where they come from
 
-The README says "661 deterministic + 10 live checks", but it is **stale** (header "FOUNDATION_V1") {{ev:EV-EC-62}}. Figures per document, none re-measured:
+The README's test figure is **stale** {{ev:EV-EC-62}}. The project's own documents report figures from hundreds to a little over a thousand deterministic checks across successive phases, none re-measured for this review, and an independent suite for the network-integrity module that passes in full by its own report.
 
-| Figure | Comes from |
-|---|---|
-| 661 deterministic | `docs/testing/TESTING_V1.md` and README (phase F1-A) |
-| 1038 deterministic | total pinned in the `verify` harness (`EXPECTED_DETERMINISTIC_TOTAL`) |
-| 1160 passed (1043 + 70 + 47) | `docs/release/F2A_CLOSEOUT.md` |
-| 78/78 | `docs/architecture/F2_NIM_ARCHITECTURE.md`, suite `macfirewallguard-nim-tests` |
-
-Pending per its own closeout: no real packet capture, no TSan run, no coverage-guided fuzzing, no performance benchmarks {{ev:EV-EC-64}}. The README also says "zero external dependencies", which is no longer true (it uses MacGuardDesignKit).
+Pending per its own closeout: no real packet capture, no thread-sanitizer run, no coverage-guided fuzzing, no performance benchmarks {{ev:EV-EC-64}}. The README also claims no external dependencies, which is no longer true (it uses MacGuardDesignKit).
 
 ## Limits
 
 - It neither blocks nor observes real traffic today {{ev:EV-EC-60}}.
-- There is no signed or notarized build, and `FIREWALL_PRODUCTION_READY = NO` {{ev:EV-EC-65}}.
+- There is no signed or notarized build, and the project itself does not declare itself production-ready {{ev:EV-EC-65}}.
 - Coexisting with other content filters already installed is a documented, unresolved blocker.
 - It does not replace MacProcessGuard (process identity) or MacCoreGuard (verifiable record): neither exists as a service {{ev:EV-EC-05}}.
 
@@ -77,9 +67,9 @@ Pending per its own closeout: no real packet capture, no TSan run, no coverage-g
 
 | Capability | State |
 |---|---|
-| Policy engine, flow model, signature resolution, SwiftUI app, CLI | Implemented, not deployed |
-| MacCoreGuard client (Unix socket) | Implemented, tested only with a mock |
-| Real observation and blocking (system extension) | Planned, blocked by Apple's entitlement |
-| Endpoint Security, PKTAP, Rust | Planned or outside this repository; no code |
+| Policy engine, flow model, signature resolution, SwiftUI app, command line | Implemented, not deployed |
+| MacCoreGuard client | Implemented, tested only against a test double |
+| Real observation and blocking (system extension) | Planned, no entitlement confirmed as usable |
+| Endpoint Security, packet tap, Rust | Planned or outside this repository; no code |
 
-Phases: F1-A, F1-B and GUI-V1 closed; F2-A partial (`F2A_COMPLETE = NO`); F2-NIM merged {{ev:EV-EC-04}}. No dates. More: [Network Extension](EN-Tech-NetworkExtension), [Code signing](EN-Tech-CodeSigning).
+Early phases are closed; a later phase is partial; the network-integrity module is merged {{ev:EV-EC-04}}. No dates. More: [Network Extension](EN-Tech-NetworkExtension), [Code signing](EN-Tech-CodeSigning).

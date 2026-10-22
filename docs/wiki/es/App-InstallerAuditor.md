@@ -24,11 +24,13 @@ Es como el inspector de una aduana que comprueba el sello del paquete, de dónde
 4. Cada hallazgo recibe un estado: `passed`, `warning`, `failed` o `unknown`. Códigos de salida: 0 (sin fallo confirmado, no es garantía), 2 (una comprobación falló), 3 (argumentos), 4 (falta evidencia o capacidad).
 5. Aparte, `update-rules` descarga e instala reglas del canal (ver abajo).
 
-{{diagram:client-update}}
+{{diagram:client-update-1-fetch}}
+
+{{diagram:client-update-2-verify-install}}
 
 ## Cómo funciona por dentro
 
-**Instalar reglas del canal** (`RuleInstaller.install`, `Core/RuleInstaller.swift`) {{ev:EV-EC-70}}:
+**Instalar reglas del canal** (`RuleInstaller.install`) {{ev:EV-EC-70}}:
 
 - Problema: que nadie pueda colar reglas alteradas. Entrada: un origen del canal. Salida: reglas activas o nada.
 - Orden de orígenes: primero GitHub Pages, después un espejo en Cloudflare Pages; solo un fallo de red pasa al siguiente, un fallo de verificación nunca {{ev:EV-EC-77}}.
@@ -37,7 +39,7 @@ Es como el inspector de una aduana que comprueba el sello del paquete, de dónde
 
 **Firma Sigstore** (`SigstoreVerifier`, ADR-0001) {{ev:EV-EC-71}}: usa el `cosign` oficial como ayudante (v3.1.1), solo si su SHA-256 coincide con el fijado en el código, con una raíz de confianza incluida y sin red. Exige la identidad del flujo `publish.yml` del repositorio del canal. Una raíz caducada hace fallar la verificación (falla cerrado). El ADR figura "accepted", con revisión humana pendiente.
 
-**Motor YARA** (`YARAEngine`, `docs/ENGINE.md`) {{ev:EV-EC-72}}: **YARA 4.5.8 como ejecutables externos `yara` y `yarac`** (universales arm64 + x86_64, mínimo macOS 13), construidos desde fuente fijada. **YARA-X no se usa**: no aparece en el código del proyecto. Antes de usarlos comprueba hash contra el manifiesto, `codesign --verify --strict`, versión mínima 4.5.0, arquitectura y una regla canario. No hay alternativa por PATH ni Homebrew. Una regla por espacio de nombres; los ficheros que no compilan se nombran y se omiten. Límites actuales de escaneo: 25 000 000 bytes por fichero y 2 000 ficheros por pasada (`maxFileBytes`, `maxFiles`).
+**Motor YARA** (`YARAEngine`) {{ev:EV-EC-72}}: **YARA 4.5.8 como ejecutables externos `yara` y `yarac`** (universales arm64 + x86_64, mínimo macOS 13), construidos desde fuente fijada. **YARA-X no se usa**: no aparece en el código del proyecto. Antes de usarlos comprueba hash contra el manifiesto, `codesign --verify --strict`, versión mínima 4.5.0, arquitectura y una regla canario. No hay alternativa por PATH ni Homebrew. Una regla por espacio de nombres; los archivos que no compilan se nombran y se omiten. Límites actuales de escaneo: 25 000 000 bytes por archivo y 2 000 archivos por pasada (`maxFileBytes`, `maxFiles`). Los archivos que superan el límite por archivo no se escanean, y los que exceden el número por pasada se dejan fuera, así que un resultado limpio no los cubre: el escaneo no es una defensa completa.
 
 **Firma de los propios ejecutables** {{ev:EV-EC-73}}: los ayudantes `yara`/`yarac` se firman **ad hoc** con hardened runtime; la firma Developer ID y la notarización están pendientes de credenciales. Ver [Firma y notarización](ES-Tech-CodeSigning).
 
@@ -65,8 +67,8 @@ Cómo debería probarse: en un runner macOS limpio, con la app y el cosign fijad
 
 - No es antivirus; "desconocido" no significa seguro; PKG solo se inspecciona parcialmente.
 - Sin firma Developer ID ni notarización: Gatekeeper tratará una descarga como no notarizada {{ev:EV-EC-68}}.
-- **Documentación obsoleta en la carpeta** {{ev:EV-EC-76}}: `README.md` ("source prototype", "no compilado en macOS", opción "ZIP sin firmar"), `README_V8.md` (actualizaciones desde una rama de GitHub con consentimiento) y `YARA_INTEGRATION.md` (actualizador "experimental", sin motor incluido, límite "40 reglas y 30 ficheros"). El código actual instala solo del canal firmado, incluye motor y tiene CI en macOS; sus límites vienen de `YARAEngine`. `SIGNING.md` sí sigue vigente (no firmado ni notarizado).
-- Root de confianza Sigstore: renovarla exige actualizar la app.
+- **Documentación obsoleta en la carpeta** {{ev:EV-EC-76}}: varios documentos antiguos describen todavía un prototipo de código fuente sin compilar en macOS, un ZIP sin firmar, un actualizador experimental que lee de una rama de GitHub, la ausencia de motor incluido y un límite de "40 reglas y 30 archivos". El código actual instala solo del canal firmado, incluye motor y tiene CI en macOS; sus límites vienen de `YARAEngine`. La nota de firma sí sigue vigente (no firmado ni notarizado).
+- Raíz de confianza de Sigstore: renovarla exige actualizar la app.
 
 ## Estado
 

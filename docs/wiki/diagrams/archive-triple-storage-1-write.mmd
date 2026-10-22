@@ -1,0 +1,12 @@
+%%{init: {"flowchart": {"wrappingWidth": 300}}}%%
+flowchart TB
+  SRC["Publication workflow<br/>release, logs,<br/>audit segments"]:::act
+  PRE["Pre-write checks<br/>no secrets, SHA-256"]:::act
+  ENC["Private audit:<br/>age encryption before<br/>leaving the process"]:::act
+  PROV["Provider 1, Provider 2,<br/>Provider 3:<br/>one bucket each"]:::ok
+  SRC --> PRE
+  PRE --> ENC
+  PRE --> PROV
+  ENC --> PROV
+  classDef act fill:#cfe3ff,stroke:#2f6df0,color:#0b1b33
+  classDef ok fill:#cdeedd,stroke:#1b6e3c,color:#08210f

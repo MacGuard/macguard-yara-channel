@@ -1,1 +1,14 @@
-{"title":{"es":"La única frontera que existe de MacProcessGuard","en":"The only boundary that exists for MacProcessGuard"},"alt":{"es":"MacFirewallGuard (desarrollo) guarda una referencia, ProcessSecurityIdentityReference, con clave pid.pidversion y estado PROVIDER_ABSENT. Una flecha discontinua apunta a MacProcessGuard, que es solo un concepto: sin repositorio, sin código y sin especificación. El hueco está reservado pero no implementado.","en":"MacFirewallGuard (development) keeps a reference, ProcessSecurityIdentityReference, with key pid.pidversion and state PROVIDER_ABSENT. A dashed arrow points to MacProcessGuard, which is only a concept: no repository, no code and no specification. The slot is reserved but not implemented."}}
+{
+ "title": {
+  "es": "La única frontera que existe de MacProcessGuard: un hueco reservado",
+  "en": "The only boundary that exists for MacProcessGuard: a reserved slot"
+ },
+ "alt": {
+  "es": "MacFirewallGuard (desarrollo) guarda un hueco reservado para la identidad de proceso, no implementado. Una flecha discontinua apunta a MacProcessGuard, que es solo un concepto: sin repositorio, sin código y sin especificación. El hueco está reservado pero no implementado. Leyenda: amarillo, MacFirewallGuard; azul, el hueco reservado; gris, MacProcessGuard (concepto); flecha discontinua, reservado y no implementado.",
+  "en": "MacFirewallGuard (development) keeps a reserved slot for process identity, not implemented. A dashed arrow points to MacProcessGuard, which is only a concept: no repository, no code and no specification. The slot is reserved but not implemented. Legend: yellow, MacFirewallGuard; blue, the reserved slot; grey, MacProcessGuard (concept); dashed arrow, reserved and not implemented."
+ },
+ "legend": {
+  "es": "amarillo, MacFirewallGuard; azul, el hueco reservado; gris, MacProcessGuard (concepto); flecha discontinua, reservado y no implementado.",
+  "en": "yellow, MacFirewallGuard; blue, the reserved slot; grey, MacProcessGuard (concept); dashed arrow, reserved and not implemented."
+ }
+}

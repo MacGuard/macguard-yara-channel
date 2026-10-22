@@ -1,5 +1,5 @@
 flowchart TB
-  C["Safe corpus<br/>random, text, system files,<br/>5 canaries"]:::src
+  C["Small synthetic corpus<br/>and a canary check"]:::src
   K["yarac compiles the set<br/>time and memory measured"]:::val
   S["yara scans each file<br/>10 s limit per file"]:::val
   M["Per process: wall time,<br/>CPU, peak memory"]:::val
@@ -7,7 +7,7 @@ flowchart TB
   V{"Median above<br/>baseline noise floor?"}:::gate
   OK["no regression"]:::sec
   BAD["regression: isolate culprits"]:::qua
-  NO["Not measured here:<br/>Installer Auditor with the live channel,<br/>concurrency, race conditions"]:::qua
+  NO["Not measured here:<br/>Installer Auditor with<br/>the live channel,<br/>concurrency, race conditions"]:::qua
   C --> K --> S --> M --> R --> V
   V -->|no| OK
   V -->|yes| BAD

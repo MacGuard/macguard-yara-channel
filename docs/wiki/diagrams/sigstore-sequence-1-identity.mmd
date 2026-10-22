@@ -1,0 +1,13 @@
+%%{init: {"flowchart": {"wrappingWidth": 300}}}%%
+flowchart TB
+  a1["1 publish.yml asks GitHub<br/>OIDC for an ID token (id-<br/>token write)"]:::act
+  a2["2 GitHub OIDC returns a JWT<br/>naming workflow, repository<br/>and ref"]:::ext
+  a3["3 cosign sign-blob of<br/>manifest.json and makes an<br/>ephemeral key pair"]:::act
+  a4["4 cosign sends the JWT and<br/>the public key to Fulcio"]:::act
+  a5["5 Fulcio returns a short<br/>lived certificate"]:::ext
+  a1 --> a2
+  a2 --> a3
+  a3 --> a4
+  a4 --> a5
+  classDef act fill:#cfe3ff,stroke:#2f6df0,color:#0b1b33
+  classDef ext fill:#e4d7ff,stroke:#6a3fd1,color:#1b0b3b

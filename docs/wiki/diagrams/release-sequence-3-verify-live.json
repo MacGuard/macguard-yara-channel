@@ -1,0 +1,14 @@
+{
+ "title": {
+  "en": "Publication sequence, part 3 of 3: verifying the public URL",
+  "es": "Secuencia de publicación, parte 3 de 3: verificar la URL pública"
+ },
+ "alt": {
+  "en": "site.yml asks verify_live.py to verify the public URL. verify_live.py checks GitHub Pages: the package, every rule file, the catalog and the links. The result, PASS or FAIL, returns to site.yml and is logged in the transparency log.",
+  "es": "site.yml pide a verify_live.py que verifique la URL pública. verify_live.py revisa GitHub Pages: el paquete, cada archivo de reglas, el catálogo y los enlaces. El resultado, PASS o FAIL, vuelve a site.yml y se registra en el registro de transparencia."
+ },
+ "legend": {
+  "en": "blue: step; amber: verification; green: result.",
+  "es": "azul: paso; ámbar: verificación; verde: resultado."
+ }
+}

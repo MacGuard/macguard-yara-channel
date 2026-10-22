@@ -1,0 +1,9 @@
+%%{init: {"flowchart": {"wrappingWidth": 300}}}%%
+flowchart BT
+  E0["entrada 0"]:::src
+  E1["entrada 1"]:::src
+  A["nodo A<br/>H(01 || L0 || L1)"]:::val
+  E0 --> A
+  E1 --> A
+  classDef src fill:#cfe3ff,stroke:#2f6df0,color:#0b1b33
+  classDef val fill:#ffe9b8,stroke:#b8860b,color:#2b1d00

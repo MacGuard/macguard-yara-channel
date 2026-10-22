@@ -1,0 +1,13 @@
+%%{init: {"flowchart": {"wrappingWidth": 300}}}%%
+flowchart TB
+  d1["1 daily.yml ejecuta<br/>prepare.py con el token del<br/>trabajo"]:::act
+  d2["2 prepare.py: GET<br/>commits/HEAD"]:::act
+  d3["3 La API de GitHub devuelve<br/>el sha del commit, fijado<br/>para esta ejecución"]:::ext
+  d4["4 prepare.py: GET license"]:::act
+  d5["5 La API devuelve el id SPDX<br/>y el texto de LICENSE"]:::ext
+  d1 --> d2
+  d2 --> d3
+  d3 --> d4
+  d4 --> d5
+  classDef act fill:#cfe3ff,stroke:#2f6df0,color:#0b1b33
+  classDef ext fill:#e4d7ff,stroke:#6a3fd1,color:#1b0b3b
