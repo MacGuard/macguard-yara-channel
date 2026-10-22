@@ -50,7 +50,9 @@ class WorkflowPrerequisites(unittest.TestCase):
             t = wf.read_text()
             self.assertNotRegex(t, r"wrangler[^\n]*\b(deploy|d1)\b", f"{wf.name} deploys or migrates the private service from CI")
             for name in re.findall(r"secrets\.([A-Z0-9_]+)", t):
-                self.assertIn(name, {"CLOUDFLARE_API_TOKEN", "CLOUDFLARE_ACCOUNT_ID", "GITHUB_TOKEN"}, f"{wf.name}: unexpected secret {name}")
+                # archive.yml (inert until the owner configures it) may hold ONLY the per-provider object-storage keys of the archive environments, never a Cloudflare/D1 credential
+                allowed = {"ARCHIVE_ACCESS_KEY_ID", "ARCHIVE_SECRET_ACCESS_KEY"} if wf.name == "archive.yml" else {"CLOUDFLARE_API_TOKEN", "CLOUDFLARE_ACCOUNT_ID", "GITHUB_TOKEN"}
+                self.assertIn(name, allowed, f"{wf.name}: unexpected secret {name}")
         self.assertNotIn("secrets.", (WORKFLOWS / "daily.yml").read_text().replace("secrets.GITHUB_TOKEN", ""))
 
 
