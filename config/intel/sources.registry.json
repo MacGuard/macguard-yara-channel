@@ -93,6 +93,54 @@
         "kind": "none"
       },
       "status_note": "LICENSE-MATRIX.md (read 2026-10-22): MalwareBazaar, URLhaus and ThreatFox need an Auth-Key and the terms bar derivative works without consent; the old unauthenticated bulk exports return HTTP 410. Feodo Tracker and SSL Blacklist are listed separately in the matrix."
+    },
+    {
+      "id": "abusech-feodo",
+      "name": "abuse.ch Feodo Tracker (botnet C2 IP blocklist)",
+      "families": [
+        "ioc"
+      ],
+      "upstream_url": "https://feodotracker.abuse.ch/blocklist/",
+      "license": {
+        "name": "stated in the abuse.ch Terms of Use as CC0 ('currently'), read 2026-10-22; wording to be re-checked at each publication"
+      },
+      "redistribution_status": "allowed-with-conditions",
+      "owner_confirmed": false,
+      "attribution": "credit abuse.ch Feodo Tracker and keep the source URL",
+      "access": {
+        "method": "HTTPS GET, no key",
+        "credential_required": false
+      },
+      "trust": 80,
+      "default_ttl_days": 30,
+      "original_signature": {
+        "kind": "none"
+      },
+      "status_note": "LICENSE-MATRIX.md verdict ALLOWED-WITH-CONDITIONS. Publication stays blocked until the owner confirms (owner_confirmed). The feed header on 2026-10-22 said it was last updated 2026-03-04: check freshness before relying on it."
+    },
+    {
+      "id": "cisa-kev",
+      "name": "CISA Known Exploited Vulnerabilities catalog",
+      "families": [
+        "vulns"
+      ],
+      "upstream_url": "https://www.cisa.gov/known-exploited-vulnerabilities-catalog",
+      "license": {
+        "name": "CC0 (as stated by CISA/the project's matrix); US Government work"
+      },
+      "redistribution_status": "allowed-with-conditions",
+      "owner_confirmed": false,
+      "attribution": "credit CISA and link the catalog",
+      "access": {
+        "method": "HTTPS GET, no key",
+        "credential_required": false
+      },
+      "trust": 95,
+      "default_ttl_days": 3650,
+      "original_signature": {
+        "kind": "none"
+      },
+      "status_note": "LICENSE-MATRIX.md verdict ALLOWED-WITH-CONDITIONS. Publication blocked until the owner confirms."
     }
   ]
 }

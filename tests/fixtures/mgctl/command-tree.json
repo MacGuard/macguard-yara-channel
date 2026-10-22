@@ -31,6 +31,7 @@
     "intelligence verify": "implemented",
     "inventory": "planned",
     "provenance": "planned",
+    "provenance file": "experimental",
     "report": "planned",
     "scan": "implemented",
     "version": "implemented"

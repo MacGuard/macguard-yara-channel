@@ -1,0 +1,46 @@
+/* Security Intelligence pages: extends ../style.css (same tokens, same dark switch: body.dark). No external fonts or images. */
+:root{--st-ok-bg:#dcf3e4;--st-ok-fg:#0f4d27;--st-exp-bg:#fdefc9;--st-exp-fg:#5f4000;--st-pl-bg:#e6ebf3;--st-pl-fg:#33415a;--st-bad-bg:#fbe0de;--st-bad-fg:#8c1d18}
+body.dark{--st-ok-bg:#163d28;--st-ok-fg:#a6e8bf;--st-exp-bg:#463507;--st-exp-fg:#f6d38a;--st-pl-bg:#2a3646;--st-pl-fg:#c3cfdf;--st-bad-bg:#4a1f1d;--st-bad-fg:#ffb4ae}
+.badge{display:inline-flex;align-items:center;gap:5px;font-size:12px;font-weight:600;line-height:1.3;padding:2px 9px;border-radius:999px;border:1px solid currentColor;white-space:nowrap;vertical-align:middle}
+.st-operational{background:var(--st-ok-bg);color:var(--st-ok-fg)}
+.st-experimental{background:var(--st-exp-bg);color:var(--st-exp-fg)}
+.st-planned{background:var(--st-pl-bg);color:var(--st-pl-fg)}
+.st-unknown{background:var(--st-bad-bg);color:var(--st-bad-fg)}
+.notice{border:1px solid var(--line);border-left:4px solid var(--st-exp-fg);border-radius:10px;padding:10px 14px;margin:10px 0;color:var(--text);font-size:14px}
+nav.legacy{margin-top:18px;padding-top:14px;border-top:1px solid var(--line)}
+aside nav a{padding:9px 12px}
+.cmd{display:inline-block;max-width:100%;overflow-wrap:anywhere;word-break:break-word;font-family:ui-monospace,Menlo,monospace;font-size:12.5px;background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:2px 7px;color:var(--text)}
+.cardlist{list-style:none;padding:0;margin:0;display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:16px}
+.result{margin:0;padding:20px}
+.result h3,.card h3{margin:14px 0 6px;font-size:15px}
+.result h3{margin-top:0;font-size:17px}
+.card{margin:22px 0}
+.card h2{margin-top:0}
+section.panel{margin:22px 0}
+section.panel>h2{margin-top:0;font-size:20px}
+.gofour{grid-template-columns:repeat(auto-fill,minmax(250px,1fr))}
+.gofour .panel h3{margin:0 0 8px;font-size:16px}
+.gofour .panel p{margin:0}
+.toolbar select{min-width:150px;max-width:100%}
+.toolbar button{align-self:end}
+#load-state{font-size:13px;margin:6px 0}
+td,th{overflow-wrap:break-word}
+td:first-child{min-width:7em;overflow-wrap:normal}
+td:first-child .badge{white-space:nowrap}
+th{color:var(--muted);font-weight:600;font-size:12px}
+.tile strong{overflow-wrap:anywhere}
+table .badge{white-space:nowrap}
+.tablewrap:focus-visible{outline:3px solid var(--blue);outline-offset:2px}
+@media(max-width:850px){
+ aside nav{display:flex;overflow:auto;margin:12px 0}
+ aside nav a{white-space:nowrap}
+ nav.legacy{margin-top:0;padding-top:0;border-top:0}
+ .cardlist{grid-template-columns:1fr}
+ .panel{padding:18px}
+ th,td{padding:7px 8px}
+ h1{font-size:26px}
+}
+
+.facts dd{word-break:normal;overflow-wrap:anywhere}
+
+td .muted{white-space:nowrap;font-size:inherit}

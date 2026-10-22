@@ -19,7 +19,8 @@
 | `mgctl evidence verify` | implemented | `scripts/verify_public_release.py` + `cosign` |
 | `mgctl intelligence status / update / verify` | implemented (macOS) | `macguard-audit rules-status / update-rules / verify-rules` |
 | `mgctl alias status / enable / disable` | implemented | mgctl itself (optional `mg` alias) |
-| `inventory`, `provenance`, `audit system`, `baseline create/verify/diff`, `attest verify`, `report`, `agent status`, `cloud status` | **planned** | none. They exit with code 4 and say so. |
+| `mgctl provenance file PATH` | **experimental** | `python3 -m intel provenance file` (package `intel/provenance/`): read-only and offline. Six separate facts (origin, installation, ownership, integrity, confidence, detection) with evidence, absences and limits, as a document that follows `docs/intelligence/schemas/file-provenance.schema.json`. Collectors: Homebrew formula, Homebrew cask, macOS pkgutil/quarantine/code signature/Gatekeeper, pip, APT/dpkg (tested on recorded fixtures only: no Linux host yet), and hash-only for unowned files. `--redact` drops download URLs and quarantine details; `--follow-symlinks` records both paths; with the global `--output DIR` the document is also saved to `DIR/provenance.json` (never overwritten) |
+| `inventory`, `provenance --all` (the host-wide scan), `audit system`, `baseline create/verify/diff`, `attest verify`, `report`, `agent status`, `cloud status` | **planned** | none. They exit with code 4 and say so. |
 
 "Planned" is a promise about direction, not a feature: nothing runs and nothing is reported as passed. `mgctl --help` marks them with `x`.
 
@@ -127,7 +128,8 @@ Install without root under a prefix you own (see `mgctl-install.md`). Point `MGC
 | `mgctl evidence verify` | implementado | `scripts/verify_public_release.py` + `cosign` |
 | `mgctl intelligence status / update / verify` | implementado (macOS) | `macguard-audit rules-status / update-rules / verify-rules` |
 | `mgctl alias status / enable / disable` | implementado | el propio mgctl (alias opcional `mg`) |
-| `inventory`, `provenance`, `audit system`, `baseline create/verify/diff`, `attest verify`, `report`, `agent status`, `cloud status` | **planificado** | ninguno. Terminan con código 4 y lo dicen. |
+| `mgctl provenance file RUTA` | **experimental** | `python3 -m intel provenance file` (paquete `intel/provenance/`): solo lectura y sin red. Seis hechos separados (origen, instalación, propiedad, integridad, confianza, detección) con evidencias, ausencias y límites, en un documento conforme a `docs/intelligence/schemas/file-provenance.schema.json`. Recolectores: fórmula de Homebrew, cask de Homebrew, pkgutil/cuarentena/firma de código/Gatekeeper de macOS, pip, APT/dpkg (probado solo con grabaciones: aún no hay equipo Linux) y solo hash para archivos sin propietario. `--redact` quita las URL de descarga y los detalles de cuarentena; `--follow-symlinks` registra ambas rutas; con la opción global `--output DIR` el documento también se guarda en `DIR/provenance.json` (nunca se sobrescribe) |
+| `inventory`, `provenance --all` (el escaneo de todo el equipo), `audit system`, `baseline create/verify/diff`, `attest verify`, `report`, `agent status`, `cloud status` | **planificado** | ninguno. Terminan con código 4 y lo dicen. |
 
 «Planificado» es una dirección, no una función: no se ejecuta nada y no se informa de nada como superado. `mgctl --help` los marca con `x`.
 

@@ -18,7 +18,7 @@ class ChannelError(Exception):
     pass
 
 
-def _artifact_entries(artifact_dir: str, origin: str = "derived") -> List[Dict[str, Any]]:
+def _artifact_entries(artifact_dir: str, originals: Optional[set] = None) -> List[Dict[str, Any]]:
     out = []
     for base, dirs, files in os.walk(artifact_dir):
         dirs.sort()
@@ -30,14 +30,14 @@ def _artifact_entries(artifact_dir: str, origin: str = "derived") -> List[Dict[s
             if rel in ("manifest.json",) or rel.endswith(".sigstore.json"):
                 continue
             out.append({"path": rel, "sha256": file_sha256(full), "bytes": os.path.getsize(full),
-                        "media_type": MEDIA.get(os.path.splitext(fn)[1], "application/octet-stream"), "origin": origin,
+                        "media_type": MEDIA.get(os.path.splitext(fn)[1], "application/octet-stream"), "origin": "original" if rel in (originals or set()) else "derived",
                         "original_signature": {"present": False}})
     return out
 
 
 def build_manifest(channel_id: str, family: str, version: int, artifact_dir: str, source_ids: List[str], registry: Dict[str, Dict[str, Any]],
                    created_at: str, compatibility: Optional[Dict[str, Any]] = None, previous: Optional[Dict[str, Any]] = None,
-                   validation: Optional[Dict[str, Any]] = None, stats: Optional[Dict[str, Any]] = None, approval_state: str = "draft") -> Dict[str, Any]:
+                   validation: Optional[Dict[str, Any]] = None, stats: Optional[Dict[str, Any]] = None, approval_state: str = "draft", originals: Optional[set] = None) -> Dict[str, Any]:
     if family not in FAMILIES:
         raise ChannelError(f"unknown family '{family}' (known: {', '.join(FAMILIES)})")
     if not isinstance(version, int) or version < 1:
@@ -49,7 +49,7 @@ def build_manifest(channel_id: str, family: str, version: int, artifact_dir: str
             raise ChannelError("the previous manifest belongs to another channel")
         if int(previous["channel"]["version"]) >= version:
             raise ChannelError("version must increase: a channel never reuses or lowers a version (rollback is a catalog decision)")
-    arts = _artifact_entries(artifact_dir)
+    arts = _artifact_entries(artifact_dir, originals)
     if not arts:
         raise ChannelError("the channel has no artifacts")
     ok, reasons = clearance(registry, source_ids)

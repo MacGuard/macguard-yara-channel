@@ -1,0 +1,426 @@
+{
+  "coverage": {
+    "counts": {
+      "designed": 24,
+      "exercised-in-survey": 9,
+      "not-possible": 1,
+      "recorded-only": 1
+    },
+    "engine_counts": {
+      "experimental-real-mac-tested": 7,
+      "fixture-only": 2,
+      "none": 26
+    },
+    "engine_meaning": {
+      "experimental": "a collector exists with tests",
+      "experimental-real-mac-tested": "a collector exists and tests ran it against a real Mac",
+      "fixture-only": "a collector exists, tested only on recorded fixtures (no real-host run)",
+      "none": "no collector code exists for this manager"
+    },
+    "managers": [
+      {
+        "collector": "collect_dpkg",
+        "coverage": "designed",
+        "coverage_raw": "designed",
+        "engine": "fixture-only",
+        "group": "Linux system package managers",
+        "name": "APT / aptitude / DPKG, ownership"
+      },
+      {
+        "collector": "collect_dpkg",
+        "coverage": "designed",
+        "coverage_raw": "designed",
+        "engine": "fixture-only",
+        "group": "Linux system package managers",
+        "name": "DPKG integrity"
+      },
+      {
+        "collector": null,
+        "coverage": "designed",
+        "coverage_raw": "designed",
+        "engine": "none",
+        "group": "Linux system package managers",
+        "name": "APT repository / signatures"
+      },
+      {
+        "collector": null,
+        "coverage": "designed",
+        "coverage_raw": "designed",
+        "engine": "none",
+        "group": "Linux system package managers",
+        "name": "APT history"
+      },
+      {
+        "collector": null,
+        "coverage": "designed",
+        "coverage_raw": "designed",
+        "engine": "none",
+        "group": "Linux system package managers",
+        "name": "RPM / DNF / Zypper ownership"
+      },
+      {
+        "collector": null,
+        "coverage": "designed",
+        "coverage_raw": "designed",
+        "engine": "none",
+        "group": "Linux system package managers",
+        "name": "RPM integrity"
+      },
+      {
+        "collector": null,
+        "coverage": "designed",
+        "coverage_raw": "designed",
+        "engine": "none",
+        "group": "Linux system package managers",
+        "name": "DNF / Zypper install source"
+      },
+      {
+        "collector": null,
+        "coverage": "designed",
+        "coverage_raw": "designed",
+        "engine": "none",
+        "group": "Linux system package managers",
+        "name": "Pacman"
+      },
+      {
+        "collector": null,
+        "coverage": "designed",
+        "coverage_raw": "designed",
+        "engine": "none",
+        "group": "Linux self-contained formats",
+        "name": "Flatpak"
+      },
+      {
+        "collector": null,
+        "coverage": "designed",
+        "coverage_raw": "designed",
+        "engine": "none",
+        "group": "Linux self-contained formats",
+        "name": "Snap"
+      },
+      {
+        "collector": null,
+        "coverage": "designed",
+        "coverage_raw": "designed",
+        "engine": "none",
+        "group": "Linux self-contained formats",
+        "name": "AppImage"
+      },
+      {
+        "collector": null,
+        "coverage": "designed",
+        "coverage_raw": "designed",
+        "engine": "none",
+        "group": "Linux self-contained formats",
+        "name": "Homebrew on Linux"
+      },
+      {
+        "collector": "collect_formula",
+        "coverage": "designed",
+        "coverage_raw": "designed (read of receipt + brew info implemented in v1)",
+        "engine": "experimental-real-mac-tested",
+        "group": "macOS",
+        "name": "Homebrew formula"
+      },
+      {
+        "collector": "collect_cask",
+        "coverage": "designed",
+        "coverage_raw": "designed (v1)",
+        "engine": "experimental-real-mac-tested",
+        "group": "macOS",
+        "name": "Homebrew cask"
+      },
+      {
+        "collector": null,
+        "coverage": "designed",
+        "coverage_raw": "designed",
+        "engine": "none",
+        "group": "macOS",
+        "name": "Taps"
+      },
+      {
+        "collector": "collect_pkgutil",
+        "coverage": "exercised-in-survey",
+        "coverage_raw": "implemented (v1)",
+        "engine": "experimental-real-mac-tested",
+        "group": "macOS",
+        "name": "PKG installer"
+      },
+      {
+        "collector": null,
+        "coverage": "exercised-in-survey",
+        "coverage_raw": "implemented (v1)",
+        "engine": "none",
+        "group": "macOS",
+        "name": "DMG / APP drag install"
+      },
+      {
+        "collector": "collect_xattrs",
+        "coverage": "exercised-in-survey",
+        "coverage_raw": "implemented (v1)",
+        "engine": "experimental-real-mac-tested",
+        "group": "macOS",
+        "name": "Quarantine xattr"
+      },
+      {
+        "collector": "collect_xattrs",
+        "coverage": "exercised-in-survey",
+        "coverage_raw": "implemented (v1)",
+        "engine": "experimental-real-mac-tested",
+        "group": "macOS",
+        "name": "kMDItemWhereFroms"
+      },
+      {
+        "collector": null,
+        "coverage": "recorded-only",
+        "coverage_raw": "recorded as PROVENANCE_XATTR, supports nothing",
+        "engine": "none",
+        "group": "macOS",
+        "name": "com.apple.provenance xattr"
+      },
+      {
+        "collector": "collect_codesign",
+        "coverage": "exercised-in-survey",
+        "coverage_raw": "implemented (v1)",
+        "engine": "experimental-real-mac-tested",
+        "group": "macOS",
+        "name": "Code signature, notarization, Gatekeeper"
+      },
+      {
+        "collector": null,
+        "coverage": "exercised-in-survey",
+        "coverage_raw": "implemented (v1)",
+        "engine": "none",
+        "group": "macOS",
+        "name": "Mac App Store"
+      },
+      {
+        "collector": null,
+        "coverage": "exercised-in-survey",
+        "coverage_raw": "implemented (v1)",
+        "engine": "none",
+        "group": "macOS",
+        "name": "Manual downloads"
+      },
+      {
+        "collector": "collect_pip",
+        "coverage": "exercised-in-survey",
+        "coverage_raw": "implemented (v1: RECORD, INSTALLER, direct_url)",
+        "engine": "experimental-real-mac-tested",
+        "group": "Language ecosystems",
+        "name": "pip / pipx / uv / Poetry"
+      },
+      {
+        "collector": null,
+        "coverage": "designed",
+        "coverage_raw": "designed",
+        "engine": "none",
+        "group": "Language ecosystems",
+        "name": "npm / pnpm / Yarn / Bun"
+      },
+      {
+        "collector": null,
+        "coverage": "designed",
+        "coverage_raw": "designed",
+        "engine": "none",
+        "group": "Language ecosystems",
+        "name": "Cargo"
+      },
+      {
+        "collector": null,
+        "coverage": "designed",
+        "coverage_raw": "designed",
+        "engine": "none",
+        "group": "Language ecosystems",
+        "name": "Composer"
+      },
+      {
+        "collector": null,
+        "coverage": "designed",
+        "coverage_raw": "designed",
+        "engine": "none",
+        "group": "Language ecosystems",
+        "name": "RubyGems / Bundler"
+      },
+      {
+        "collector": null,
+        "coverage": "exercised-in-survey",
+        "coverage_raw": "implemented (v1: read buildinfo with go version -m or by parsing the section)",
+        "engine": "none",
+        "group": "Language ecosystems",
+        "name": "Go"
+      },
+      {
+        "collector": null,
+        "coverage": "designed",
+        "coverage_raw": "designed",
+        "engine": "none",
+        "group": "Language ecosystems",
+        "name": "Maven / Gradle"
+      },
+      {
+        "collector": null,
+        "coverage": "designed",
+        "coverage_raw": "designed",
+        "engine": "none",
+        "group": "Language ecosystems",
+        "name": "NuGet"
+      },
+      {
+        "collector": null,
+        "coverage": "designed",
+        "coverage_raw": "designed",
+        "engine": "none",
+        "group": "Other methods",
+        "name": "Git"
+      },
+      {
+        "collector": null,
+        "coverage": "designed",
+        "coverage_raw": "designed (best-effort search of known build dirs, never a full-disk crawl)",
+        "engine": "none",
+        "group": "Other methods",
+        "name": "make / CMake / Meson install"
+      },
+      {
+        "collector": null,
+        "coverage": "not-possible",
+        "coverage_raw": "NOT_POSSIBLE for history",
+        "engine": "none",
+        "group": "Other methods",
+        "name": "Scripts and direct downloads (curl | sh, wget, cp)"
+      },
+      {
+        "collector": null,
+        "coverage": "designed",
+        "coverage_raw": "designed (v1.5)",
+        "engine": "none",
+        "group": "Other methods",
+        "name": "Docker / Podman"
+      }
+    ],
+    "meaning": {
+      "designed": "specified in the design document, not exercised in the survey",
+      "exercised-in-survey": "the mechanism was run by hand on one Mac during the design survey (the design document); whether code exists is the separate `engine` field",
+      "not-possible": "the act leaves no evidence",
+      "other": "see coverage_raw",
+      "recorded-only": "recorded but supports no claim"
+    }
+  },
+  "data_origin": "docs/intelligence/PROVENANCE-DESIGN.md (sections 1, 2, 4, 12), intel/provenance/collectors/*.py, tests/test_provenance.py, tests/fixtures/mgctl/command-tree.json, docs/intelligence/ROADMAP.md",
+  "engine_collectors": {
+    "intel/provenance/collectors/brew.py": [
+      "collect_formula",
+      "collect_cask"
+    ],
+    "intel/provenance/collectors/dpkg.py": [
+      "collect_dpkg"
+    ],
+    "intel/provenance/collectors/macos.py": [
+      "collect_pkgutil",
+      "collect_xattrs",
+      "collect_codesign"
+    ],
+    "intel/provenance/collectors/pip.py": [
+      "collect_pip"
+    ]
+  },
+  "engine_test_functions": 111,
+  "generated_at": "2026-10-22T18:00:00Z",
+  "generated_by": "scripts/gen_intel_web.py",
+  "hard_rules": [
+    {
+      "consequence": "PATH_LOCATION evidence is recorded with trust HEURISTIC and may not support any claim (the schema forbids supports on it).",
+      "id": "R1",
+      "rule": "Never infer provenance from the path alone."
+    },
+    {
+      "consequence": "The current catalog / apt-cache policy / brew info candidate is recorded as NAME_COLLISION_NOTE (no supports). Origin comes only from records of the installation or from bytes matched to a reference.",
+      "id": "R2",
+      "rule": "A package with the same name in an official repository today does not make an installed binary official."
+    },
+    {
+      "consequence": "integrity_status is NO_REFERENCE when the only evidence is HASH_ONLY. VERIFIED_INTACT and MODIFIED require reference.kind != NONE (schema-enforced).",
+      "id": "R3",
+      "rule": "A computed hash is not integrity."
+    },
+    {
+      "consequence": "Evidence has present:false for \"looked for, not found\" and a contradicts list; both feed provenance_confidence.",
+      "id": "R4",
+      "rule": "Contradicting evidence and absences are always stored."
+    },
+    {
+      "consequence": "Every field has UNKNOWN (or NO_REFERENCE, NOT_SCANNED, OWNERSHIP_NOT_QUERYABLE). The vocabulary contains no SAFE, TRUSTED, CLEAN. UI copy for unknown is \"cannot say\", never green. SCANNED_NO_MATCH reads \"these rules found nothing\", never \"clean\".",
+      "id": "R5",
+      "rule": "Unknown is a value and is never rendered as safe."
+    },
+    {
+      "consequence": "reference_location_writable_by_attacker is recorded; a same-account-writable reference caps integrity at PARTIALLY_VERIFIED unless it is cryptographically signed.",
+      "id": "R6",
+      "rule": "A reference stored where the file's attacker can also write is weak."
+    },
+    {
+      "consequence": "Confidence can only rise through explicit rules in section 5, and only by new evidence; a later scan never overwrites an earlier assessment, it appends a document with a history link.",
+      "id": "R7",
+      "rule": "Never upgrade silently."
+    },
+    {
+      "consequence": "coverage.historical_reconstruction is FULL, PARTIAL or NONE; history entries carry known_via and reliability.",
+      "id": "R8",
+      "rule": "Old installs are reconstructed only as far as records exist, and the limit is declared."
+    }
+  ],
+  "limits": [
+    "Deciding whether software is malicious or safe; that belongs to detection, and SCANNED_NO_MATCH is not a safe verdict.",
+    "Reconstructing history before the engine's first observation, or recovering what curl | sh did.",
+    "Trusting any path layout, file name, or catalog entry as origin.",
+    "Executing, unpacking by default, or instrumenting the inspected software.",
+    "Fixing or updating packages, removing quarantine, or changing any manager state.",
+    "Uploading file content, shell history, or the quarantine events database.",
+    "A single host \"trust score\" or a green/red badge derived from UNKNOWN.",
+    "Windows support in v1.",
+    "Supply-chain verdicts on upstream source (Homebrew's bottle vs the upstream tarball) beyond what attestations prove."
+  ],
+  "mgctl_command": "mgctl provenance file is experimental; mgctl provenance (host-wide, --all) is planned (tests/fixtures/mgctl/command-tree.json)",
+  "schema": "macguard.web-data/1",
+  "six_facts": [
+    {
+      "field": "content_origin",
+      "question": "Where did these bytes come from?",
+      "values": "OS_VENDOR, REGISTERED_REPOSITORY, THIRD_PARTY_REPOSITORY, VENDOR_DIRECT, USER_DOWNLOAD_RECORDED, LOCAL_BUILD, CONTAINER_IMAGE, UNKNOWN. Plus claim_basis: VERIFIED_BINDING, DECLARED_BY_MANAGER, DECLARED_BY_WRITABLE_METADATA, INFERRED, NONE (required with UNKNOWN)."
+    },
+    {
+      "field": "installation_method",
+      "question": "How did they get onto disk?",
+      "values": "SYSTEM_PACKAGE_MANAGER, THIRD_PARTY_PACKAGE_MANAGER, LANGUAGE_PACKAGE_MANAGER, PKG_INSTALLER, APP_BUNDLE_COPY, SELF_CONTAINED_BUNDLE, SOURCE_INSTALL, CONTAINER_RUNTIME, MANUAL_COPY, SCRIPT_OR_PIPE_UNRECORDED, UNKNOWN."
+    },
+    {
+      "field": "package_ownership",
+      "question": "Which package claims this path?",
+      "values": "OWNED_BY_PACKAGE, OWNED_BY_MULTIPLE_PACKAGES, GENERATED_BY_PACKAGE_SCRIPT, NOT_OWNED (only if every applicable database was read successfully), OWNERSHIP_NOT_QUERYABLE, UNKNOWN."
+    },
+    {
+      "field": "integrity_status",
+      "question": "Do the bytes match a reference, which one?",
+      "values": "VERIFIED_INTACT, MODIFIED, PARTIALLY_VERIFIED, REFERENCE_UNTRUSTED, NO_REFERENCE, UNKNOWN; plus reference.{kind, authority, strength, scope, reference_location_writable_by_attacker}."
+    },
+    {
+      "field": "provenance_confidence",
+      "question": "How far can the engine trust the origin/ownership claims together?",
+      "values": "UNKNOWN, LOW, MEDIUM, HIGH, VERY_HIGH + contradicted, capped_from, cap_rule_ids, independent_sources."
+    },
+    {
+      "field": "detection_status",
+      "question": "What did YARA/AV/IOC say?",
+      "values": "NOT_SCANNED, SCANNED_NO_MATCH, MATCHED, SCAN_ERROR, SCAN_PARTIAL, RESULT_STALE, UNKNOWN. Says nothing about provenance."
+    }
+  ],
+  "status": "experimental",
+  "status_basis": "intel/provenance/ and tests/test_provenance.py exist and tests/fixtures/mgctl/command-tree.json lists \"provenance file\" as experimental; 111 test functions counted in tests/test_provenance.py",
+  "still_planned": [
+    "mgctl provenance (host-wide) is planned in the command snapshot",
+    "real Linux dpkg host test is PENDING (class RealLinuxDpkgPending in tests/test_provenance.py)",
+    "roadmap P2 missing: Linux real-host test (dpkg collector is fixture-only), online checks, rpm/pacman/npm/cargo/go/containers, host-wide provenance --all and per-file inventory (planned), history across runs"
+  ],
+  "what_is_real": "A design plus a first EXPERIMENTAL engine. The collectors listed under engine_collectors exist and are tested; macOS collectors were also run against a real Mac by the tests, the dpkg collector is fixture-only (real Linux host test pending). Host-wide scanning and online checks are not implemented. Per-manager `engine` says what the code covers; `coverage` is the design survey, which is a different thing."
+}

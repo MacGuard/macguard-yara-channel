@@ -66,7 +66,7 @@ One document per subject (`subject.kind` = `file`, `package`, `application`, `co
 
 ## 4. Real evidence per manager (coverage matrix)
 
-No provenance engine code exists in this worktree. The coverage column therefore means: `implemented` = the evidence mechanism was exercised by experiment on this Mac in this survey and is v1 scope (the engine code itself is still to be written); `designed` = specified here but not exercised on this host; `not-possible` = the act leaves no evidence. Rows marked "(not run here)" are from documented behavior of the tool, not from an experiment on this machine (this Mac has no dpkg, rpm, pacman, flatpak, snap). Treat them as hypotheses to confirm on a real Linux host (test plan, section 10).
+The first engine implementation lives in `intel/provenance/` (`python3 -m intel provenance file PATH`, `mgctl provenance file PATH`; tests in `tests/test_provenance.py`); the Linux rows are implemented against recorded fixtures only and their real-host test is PENDING. The coverage column below is the original design survey and means: `implemented` = the evidence mechanism was exercised by experiment on this Mac in this survey and is v1 scope (the engine code itself is still to be written); `designed` = specified here but not exercised on this host; `not-possible` = the act leaves no evidence. Rows marked "(not run here)" are from documented behavior of the tool, not from an experiment on this machine (this Mac has no dpkg, rpm, pacman, flatpak, snap). Treat them as hypotheses to confirm on a real Linux host (test plan, section 10).
 
 Columns: Evidence sources and exact read-only commands/APIs | Proves | Does NOT prove | Reliability | Offline? | Root? | Platform | Coverage today.
 

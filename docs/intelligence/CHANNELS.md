@@ -7,7 +7,8 @@
 | 1 | **YARA** (classic YARA, `yarac`) | **operational** | daily validated and signed releases, transparency log, independent verifier | none for operation; redistribution notices are pending legal review |
 | 1b | **YARA-X compatibility gate** | planned | nothing: `yara-x` is only an engine entry; manifests record `validation.engine: yara` | needs a YARA-X build in CI and a compatibility policy (designed in `VALIDATION-PLAN.md`) |
 | 2 | **Sigma** | planned | design only | pySigma bench and the licence decision for the rule source |
-| 3 | **IOC** (hashes, IP, domains, URLs) | **experimental** | `intel/ioc.py` + channel manifest + catalog + verifier, 42 tests with local files; no network | no source is cleared for redistribution; the main candidate feeds need credentials and their terms are not evaluated; signing/publication workflow does not exist |
+| 3 | **IOC** (hashes, IP, domains, URLs) | **experimental** | pipeline + manifest + catalog + verifier; one real source wired (Feodo Tracker: 5 records read, 0 publishable because all are older than the TTL) | threat feeds that need credentials (ThreatFox, URLhaus, MalwareBazaar) are blocked by their terms; owner confirmation and a signing/publication workflow do not exist |
+| 3b | **Vulnerabilities (CISA KEV)** | **experimental** | wired end to end: 1754 of 1754 records validated, original preserved | owner confirmation and signing/publication workflow |
 | 4 | **Antivirus / ClamAV signatures** | planned | design only | redistribution terms of the databases (see `LICENSE-MATRIX.md`); original CVD signatures must be kept, never re-signed |
 | 5 | **Own heuristics** | planned | design only | test sets, threshold policy |
 | 6 | **Behaviour detections** | planned | design only | sensors on macOS/Linux and event fixtures |

@@ -1,0 +1,49 @@
+{
+  "data_origin": "the files listed here",
+  "files": [
+    {
+      "description": "artifact card ioc-1",
+      "path": "cards/ioc-1.json",
+      "sha256": "17e9f178c3855dc98ceecb3b9ecf8c81bf871fdbf0b5a143f6941d4baca57725"
+    },
+    {
+      "description": "artifact card vulns-1",
+      "path": "cards/vulns-1.json",
+      "sha256": "d381920d1ada84e2a931e7c2d7fc25d1bb94ab26b96c5d01bb5d6f63b08173de"
+    },
+    {
+      "description": "artifact card yara-legacy",
+      "path": "cards/yara-legacy.json",
+      "sha256": "59bc673be4bfe9df9281991583f57b51bbed72960b42e3b255d1cfc03a7d9272"
+    },
+    {
+      "description": "status of every channel family (intel/status.py)",
+      "path": "channels.json",
+      "sha256": "c1f32421bf8e75b7a396616fa709f63f20b9e1c99e62ad6e58e5edeaac376b4a"
+    },
+    {
+      "description": "licence verdicts (evidence, not legal advice)",
+      "path": "licenses.json",
+      "sha256": "8c1303af78671d5c46ae6408687bf7143a02392477e7718542b4838a7cc9baef"
+    },
+    {
+      "description": "software provenance design, rules and coverage",
+      "path": "provenance.json",
+      "sha256": "a08b8fc978a714142c9ec7eff1faf1cb37e7d76362e5dcb98daf93fbe7daecca"
+    },
+    {
+      "description": "roadmap rows and tracks",
+      "path": "roadmap.json",
+      "sha256": "bf27e0641c6bcebe79eba25b3c13579745b03abdd5d020d30b9e63bce3e38ac5"
+    },
+    {
+      "description": "source registry with clearance",
+      "path": "sources.json",
+      "sha256": "1d8753431975b43af64997669f3c644164cc19023be8550600d201a49106bdd4"
+    }
+  ],
+  "generated_at": "2026-10-22T18:00:00Z",
+  "generated_by": "scripts/gen_intel_web.py",
+  "schema": "macguard.web-data/1",
+  "what_is_real": "An index of the static data files with their SHA-256. There is no server: these are plain files."
+}
