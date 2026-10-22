@@ -73,7 +73,7 @@ def check(wiki=WIKI):
             if lv.count(1) != 1: err.append(f'{p["id"]}/{l}: expected exactly one H1, found {lv.count(1)}')
             for a, b in zip(lv, lv[1:]):
                 if b > a + 1: err.append(f'{p["id"]}/{l}: heading level jumps from H{a} to H{b}'); break
-        refs = {l: sorted(re.findall(r'\{\{(?:diagram|ev):[^}]+\}\}', texts[l])) for l in texts}
+        refs = {l: sorted(re.findall(r'\{\{(?:diagram|ev|roadmap):[^}]+\}\}', texts[l])) for l in texts}
         if refs['es'] != refs['en']: err.append(f'{p["id"]}: ES and EN reference different diagrams or evidence')
         tabs = {l: len(re.findall(r'^\|[-: |]+\|\s*$', texts[l], re.M)) for l in texts}
         if tabs['es'] != tabs['en']: err.append(f'{p["id"]}: ES and EN have different numbers of tables')
@@ -81,6 +81,12 @@ def check(wiki=WIKI):
             if '```mermaid' in t: err.append(f'{p["id"]}/{l}: raw mermaid block; use {{{{diagram:name}}}} so both languages share one source')
             for m in re.finditer(r'\{\{ev:([^}]+)\}\}', t):
                 if m.group(1) not in pids: err.append(f'{p["id"]}/{l}: evidence {m.group(1)} is not in provenance.json')
+            if '{{roadmap:' in t:
+                rd = wiki / 'roadmap-data.json'
+                if not rd.exists(): err.append(f'{p["id"]}/{l}: uses {{{{roadmap:table}}}} but docs/wiki/roadmap-data.json does not exist')
+                else:
+                    try: wiki_build.roadmap_table(l)
+                    except (wiki_build.BuildError, KeyError, ValueError) as e: err.append(f'{p["id"]}/{l}: roadmap data unusable ({e})')
             for m in re.finditer(r'\{\{diagram:([^}]+)\}\}', t):
                 try: wiki_build.diagram_block(m.group(1), l)
                 except wiki_build.BuildError as e: err.append(f'{p["id"]}/{l}: {e}')
@@ -113,6 +119,18 @@ def check(wiki=WIKI):
     return err
 
 
+PRIVATE = re.compile(r'security-mac|maccore-guard|macusb-guard|macfirewall-guard|macguard-designkit|\bai/(?:v1|dk)|candidate/|Sources/|Scripts/|\.swift\b')
+
+
+def private_report(wiki=WIKI):
+    """Lines of the page bodies that name internal paths, branches or private repositories of the other projects: for the owner to approve or generalise."""
+    out = []
+    for f in sorted(wiki.glob('*/*.md')):
+        for i, line in enumerate(f.read_text().splitlines(), 1):
+            if PRIVATE.search(line): out.append(f'{f.relative_to(wiki)}:{i}: {line.strip()[:110]}')
+    return out
+
+
 def render_diagrams(chrome, limit=120):
     """Compile every diagram used by the wiki with the vendored Mermaid in one headless Chrome."""
     import docs_check
@@ -139,8 +157,10 @@ def render_diagrams(chrome, limit=120):
 
 
 def main(argv=None):
-    ap = argparse.ArgumentParser(description=(__doc__ or '').split('\n')[0]); ap.add_argument('--render', action='store_true', help='also compile diagrams in headless Chrome'); ap.add_argument('--chrome', default=os.environ.get('CHROME', ''))
+    ap = argparse.ArgumentParser(description=(__doc__ or '').split('\n')[0]); ap.add_argument('--render', action='store_true', help='also compile diagrams in headless Chrome'); ap.add_argument('--chrome', default=os.environ.get('CHROME', '')); ap.add_argument('--private-report', action='store_true', help='list the lines that name internal paths, branches or private repositories (owner review before publication)')
     a = ap.parse_args(argv)
+    if a.private_report:
+        r = private_report(); print(chr(10).join(r)); print(f"wiki_check: {len(r)} line(s) need owner review before publication"); return 0
     err = check()
     if a.render:
         import docs_check, shutil  # noqa: F401

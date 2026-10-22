@@ -8,7 +8,7 @@ MacGuard YARA Channel is a system that collects, validates, prepares and distrib
 
 Every day an automated job downloads rules from two public repositories, checks them with static checks and with real measurements of the YARA engine, sets aside the ones that fail, and publishes only the ones that pass, with a signature anyone can check. It helps recognise known patterns; it does **not** guarantee that a file is safe or that a new threat will be detected. {{ev:EV-YC-20}}
 
-## What YARA is, for a 12-year-old
+## What YARA is, in plain words
 
 Imagine searching a library for every book that mentions the phrase "buried treasure". A YARA rule is that instruction written for a computer: "look for these words or these chunks of bytes inside a file, and tell me if this condition holds". YARA does not "understand" the file: it only checks whether certain patterns appear. That is why it is useful for flagging things that are already known, and also why it can be wrong.
 

@@ -37,7 +37,7 @@ rule Example_Open { strings: $a = /ab.*cd.*ef/ condition: $a }
 rule Example_Loop { condition: for all i in (0..filesize-1) : ( uint8(i) == 0 ) }
 ```
 
-- **Nested:** the shape `(x+)+` is the classic one that, in many regular-expression engines, produces an enormous number of combinations when the match fails. I did not measure how YARA's engine behaves; the repository treats it as a risk signal (score 9, threshold 7).
+- **Nested:** the shape `(x+)+` is the classic one that, in many regular-expression engines, produces an enormous number of combinations when the match fails. How YARA's engine behaves was not measured; the repository treats it as a risk signal (score 9, threshold 7).
 - **Open-ended stretches** `.*` with no anchor: make the engine keep looking across the file after every possible start. With two such stretches the score is 3, below the threshold: the heuristic does not flag it and only the dynamic measurement would see it.
 - **Loop over the whole file:** a `filesize` of 100 MB means a hundred million iterations for every file scanned. `rulecheck.py` flags it as `filesize-loop`.
 

@@ -49,7 +49,7 @@ Think of quality control in a bakery. Good bread goes to the shop. Burnt or brok
 
 A changed file is a new candidate (key `(sha256, path)`) and inherits no approval; the earlier version is only shown as precedent. {{ev:EV-YC-41}}
 
-**Decision record.** Each decision writes an audit entry in the same atomic D1 batch. The hash of each entry is `SHA-256(previous_hash + canonical JSON of the entry)`, starting from 64 zeros (`chainHash`, `GENESIS` in `core.js`). `verifyChain` fails if an entry is edited, removed or reordered (`/api/audit/verify`, ADMIN only). What it does not prevent: someone with full control of the database could rewrite the **whole** chain; that is why the anchor design exists (see State). {{ev:EV-YC-42}}
+**Decision record.** Each decision writes an audit entry in the same atomic D1 batch. The hash of each entry is `SHA-256(previous_hash + canonical JSON of the entry)`, starting from 64 zeros (`chainHash`, `GENESIS` in `core.js`). `verifyChain` fails if an entry is edited, removed or reordered (verification restricted to administrators). What it does not prevent: someone with full control of the database could rewrite the **whole** chain; that is why the anchor design exists (see State). {{ev:EV-YC-42}}
 
 ## Check it yourself
 

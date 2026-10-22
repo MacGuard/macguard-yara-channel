@@ -4,11 +4,11 @@
 
 ## En 30 segundos
 
-El canal lleva un **registro de transparencia**: un diario donde solo se añaden líneas, nunca se borran ni se cambian. Cada cierto tiempo se firma una "foto" de ese diario (el **checkpoint**). Cualquiera puede recalcular las matemáticas y comprobar que una publicación está en el diario y que el diario de hoy contiene entero el de ayer. Si alguien intenta alterar una publicación anterior, las cuentas dejan de salir. {{ev:EV-YC-04}} {{ev:EV-YC-50}}
+El canal lleva un **registro de transparencia**: un diario pensado para que solo se añadan líneas; si alguien borra o cambia una, un verificador lo detecta (no lo impide). Cada cierto tiempo se firma una "foto" de ese diario (el **checkpoint**). Cualquiera puede recalcular las matemáticas y comprobar que una publicación está en el diario y que el diario de hoy contiene entero el de ayer. Si alguien intenta alterar una publicación anterior, las cuentas dejan de salir. {{ev:EV-YC-04}} {{ev:EV-YC-50}}
 
 ## Un ejemplo cotidiano
 
-Un libro de cuentas cuyas páginas están enlazadas matemáticamente: al final de cada página se anota una huella que depende de todo lo escrito antes. Si alguien arranca o reescribe una página antigua, la huella de las siguientes ya no cuadra con la que se firmó delante de testigos. La analogía sirve para la idea; el mecanismo real es un árbol de Merkle, explicado abajo.
+Un libro de cuentas cuyas páginas están enlazadas matemáticamente: al final de cada página se anota una huella que depende de todo lo escrito antes. Si alguien arranca o reescribe una página antigua, la huella de las siguientes ya no cuadra con la que se firmó (y cualquiera puede comprobar esa firma). La analogía sirve para la idea; el mecanismo real es un árbol de Merkle, explicado abajo.
 
 Palabras clave, una vez:
 
@@ -81,6 +81,6 @@ Recalcula `rules_root` con la biblioteca estándar de Python (script en [merkle.
 
 | Capacidad | Estado |
 |---|---|
-| Registro, checkpoints firmados, pruebas de inclusión y consistencia en cada release | operational {{ev:EV-YC-04}} |
-| Verificación por terceros con script público y pruebas | operational {{ev:EV-YC-52}} |
+| Registro, checkpoints firmados, pruebas de inclusión y consistencia en cada release | operativo {{ev:EV-YC-04}} |
+| Verificación por terceros con script público y pruebas | operativo {{ev:EV-YC-52}} |
 | Monitor externo independiente que vigile el registro | no verificado: no se encontró en el repositorio |

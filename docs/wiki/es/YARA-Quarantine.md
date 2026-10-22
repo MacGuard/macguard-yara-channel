@@ -49,7 +49,7 @@ Piensa en el control de calidad de una panadería. El pan bueno sale a la tienda
 
 Un archivo cambiado es un candidato nuevo (clave `(sha256, path)`) que no hereda aprobaciones; solo se muestra la versión anterior como precedente. {{ev:EV-YC-41}}
 
-**Registro de decisiones.** Cada decisión escribe una entrada de auditoría en el mismo lote atómico de D1. El hash de cada entrada es `SHA-256(hash_anterior + JSON canónico de la entrada)`, empezando por 64 ceros (`chainHash`, `GENESIS` en `core.js`). `verifyChain` falla si se edita, borra o reordena una entrada (`/api/audit/verify`, solo ADMIN). Qué no evita: alguien con control total de la base de datos podría reescribir **toda** la cadena; por eso existe el diseño de anclas (ver Estado). {{ev:EV-YC-42}}
+**Registro de decisiones.** Cada decisión escribe una entrada de auditoría en el mismo lote atómico de D1. El hash de cada entrada es `SHA-256(hash_anterior + JSON canónico de la entrada)`, empezando por 64 ceros (`chainHash`, `GENESIS` en `core.js`). `verifyChain` falla si se edita, borra o reordena una entrada (verificación restringida a administradores). Qué no evita: alguien con control total de la base de datos podría reescribir **toda** la cadena; por eso existe el diseño de anclas (ver Estado). {{ev:EV-YC-42}}
 
 ## Cómo comprobarlo tú
 
@@ -72,10 +72,10 @@ Ejecutados el 2026-10-22 sobre `main`: las pruebas Python de este tema (112 prue
 
 | Capacidad | Estado |
 |---|---|
-| Clasificación, decisión y hallazgos no aprobables en el pipeline | operational {{ev:EV-YC-41}} |
-| Panel desplegado: aprobar, rechazar, retener, cadena de auditoría | operational {{ev:EV-YC-05}} |
-| Memoria persistente de decisiones, retirada de reglas publicadas (`policies`, migración 0003) | implemented-not-deployed {{ev:EV-YC-43}} |
-| Anclas de auditoría (`audit_anchor`, migración 0004) | implemented-not-deployed {{ev:EV-YC-44}} |
-| Propuestas de fuentes (migración 0005) | implemented-not-deployed {{ev:EV-YC-07}} |
+| Clasificación, decisión y hallazgos no aprobables en el pipeline | operativo {{ev:EV-YC-41}} |
+| Panel desplegado: aprobar, rechazar, retener, cadena de auditoría | operativo {{ev:EV-YC-05}} |
+| Memoria persistente de decisiones, retirada de reglas publicadas (`policies`, migración 0003) | implementado, no desplegado {{ev:EV-YC-43}} |
+| Anclas de auditoría (`audit_anchor`, migración 0004) | implementado, no desplegado {{ev:EV-YC-44}} |
+| Propuestas de fuentes (migración 0005) | implementado, no desplegado {{ev:EV-YC-07}} |
 
 Las migraciones 0003, 0004 y 0005 no están aplicadas. El Worker de `main` tolera que falten (las lecturas responden "sin políticas"), pero en producción **no existen** retiradas persistentes, políticas ni anclas. Además, en `main` el pipeline (`decide.py`) no lee todavía políticas: no se encontró `blocked-by-policy` en `scripts/`, así que una retirada registrada no se aplicaría aún a la siguiente release. Tampoco existe acción `reopen`: nada saca un candidato de `REJECTED`. Diseño: [especificación](https://github.com/MacGuard/macguard-yara-channel/blob/main/docs/audit/quarantine-decision-memory-and-withdrawal-spec.md) (su cabecera dice "solo diseño"; el código de `policies.js` y `anchor.js` ya está en `main`). {{ev:EV-YC-43}} {{ev:EV-YC-06}}

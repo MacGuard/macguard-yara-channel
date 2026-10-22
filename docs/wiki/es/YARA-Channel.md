@@ -8,7 +8,7 @@ MacGuard YARA Channel es un sistema que recopila, valida, prepara y distribuye r
 
 Cada día, un proceso automático descarga reglas de dos repositorios públicos, las revisa con comprobaciones estáticas y con medidas reales del motor YARA, aparta las que no pasan, y solo publica las que sí, con una firma que cualquiera puede comprobar. Ayuda a reconocer patrones conocidos; **no** garantiza que un archivo sea seguro ni que una amenaza nueva se detecte. {{ev:EV-YC-20}}
 
-## Qué es YARA, para un niño de 12 años
+## Qué es YARA, sin tecnicismos
 
 Imagina que buscas en una biblioteca todos los libros que mencionan la frase «tesoro enterrado». Una regla YARA es esa instrucción escrita para un ordenador: «busca estas palabras o estos trozos de bytes dentro de un archivo, y avísame si se cumple esta condición». YARA no «entiende» el archivo: solo comprueba si aparecen ciertos patrones. Por eso sirve para señalar cosas que ya se conocen y por eso también puede equivocarse.
 
@@ -31,7 +31,7 @@ La regla salta solo si el archivo contiene exactamente ese texto. Las reglas rea
 
 ## Un ejemplo cotidiano
 
-Es como la lista de la compra de un guardia de aduanas: «si en la maleta hay A y B, mira con más atención». La lista la escriben otras personas; el canal comprueba que esté bien escrita, que no tarde una eternidad en aplicarse y que no marque maletas inocentes, y entrega solo las listas que superan esas pruebas. No puede saber qué hay en maletas de un tipo que nadie ha descrito todavía.
+Es como la lista de comprobación de un guardia de aduanas: «si en la maleta hay A y B, mira con más atención». La lista la escriben otras personas; el canal comprueba que esté bien escrita, que no tarde una eternidad en aplicarse y que no marque maletas inocentes, y entrega solo las listas que superan esas pruebas. No puede saber qué hay en maletas de un tipo que nadie ha descrito todavía.
 
 ## El viaje de una regla
 

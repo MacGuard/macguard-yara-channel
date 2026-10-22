@@ -8,7 +8,7 @@ DriverKit is Apple's technology for writing **hardware drivers that run outside 
 
 ## In this project: planned and branch-only
 
-**MacUSBGuard does not use DriverKit in its current code.** Its README says DriverKit "is not part of this product" because, per Apple DTS, a match-everything USB permission would not be approved for this purpose; the code records it as a "deliberately unrequested" entitlement and a test checks that {{ev:EV-EC-22}}.
+**MacUSBGuard does not use DriverKit in its current code.** Its README says DriverKit "is not part of this product" because, per the project documentation, Apple would not grant a USB permission of that scope for this purpose; the code records it as a "deliberately unrequested" entitlement and a test checks that {{ev:EV-EC-22}}.
 
 Even so, **separate branches** exist (`ai/dk2-driverkit-v1` and derivatives: DK2.2-B, C1, C2) with driver files (`Driver/MacUSBGuardDriver.iig`, `.cpp`, a narrow user client) and contract tests. Its documentation describes them as frozen milestones whose verification with the real Apple entitlement "remains external". On the current branch (`ai/v1-release-integration`, 78f7d37) there is no DriverKit symbol in `Sources`; only comments, the recorded entitlement and tests.
 
@@ -23,13 +23,13 @@ Even so, **separate branches** exist (`ai/dk2-driverkit-v1` and derivatives: DK2
 
 - A driver is not a firewall or an antivirus: it only looks at devices.
 - Apple's approval does not depend on the code, and is unresolved for this use.
-- More recent branches may exist that I did not review; I limited myself to the listed local branches.
+- More recent branches may exist that this review did not examine; only the listed local branches were reviewed.
 
 ## Who else uses it
 
 - **Karabiner-DriverKit-VirtualHIDDevice** (open project by pqrs-org) implements a virtual keyboard and mouse with DriverKit, and its README says permissions must be requested from Apple, with approval that can take time. Classification: uses the same technology {{ev:EV-EC-34}}.
 
-I include no further examples because I could not open another official source. None of this implies those projects use MacGuard.
+No further examples are included because no other official source could be opened. None of this implies those projects use MacGuard.
 
 ## State in this project
 

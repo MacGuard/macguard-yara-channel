@@ -74,6 +74,25 @@ class Wiki(unittest.TestCase):
         for l in ('es', 'en'): self.edit(l, lambda t: t.replace('#### Salto', '# Otro h1'))
         self.assertTrue(any('exactly one H1' in p for p in self.problems()))
 
+    def test_the_roadmap_table_comes_from_measured_data_and_is_required_to_exist(self):
+        import wiki_roadmap
+        calls = {'milestones': [{'number': 2, 'title': 'B', 'html_url': 'https://x/2', 'open_issues': 1, 'closed_issues': 2}, {'number': 1, 'title': 'A', 'html_url': 'https://x/1', 'open_issues': 0, 'closed_issues': 0}],
+                 'releases': [{'tag_name': 'r1', 'html_url': 'https://x/r1', 'published_at': '2026-10-21T00:00:00Z', 'draft': False}, {'tag_name': 'd', 'html_url': 'https://x/d', 'published_at': None, 'draft': True}]}
+        def fake(args):
+            a = args[0]
+            if 'milestones' in a: return calls['milestones']
+            if 'releases' in a: return calls['releases']
+            return {'total_count': 7 if 'is:merged' in a else 3}
+        data = wiki_roadmap.collect('o/r', '2026-10-22', call=fake)
+        self.assertEqual([m['title'] for m in data['milestones']], ['A', 'B']); self.assertEqual([r['tag'] for r in data['releases']], ['r1'], 'a draft release is not listed')
+        self.assertEqual((data['open_prs'], data['merged_last_30_days'], data['measured_on']), (3, 7, '2026-10-22'))
+        self.assertNotIn('percent', json.dumps(data).lower())
+        for l in ('es', 'en'): self.edit(l, lambda t: t + '\n## Datos\n\n{{roadmap:table}}\n')
+        self.assertTrue(any('roadmap-data.json does not exist' in p for p in self.problems()))
+        self.put('roadmap-data.json', data); self.assertEqual(self.problems(), [])
+        out = self.d / 'out'; wiki_build.main(['--out', str(out)]); built = (out / 'EN-Home.md').read_text()
+        self.assertIn('| [A](https://x/1) | 0 | 0 |', built); self.assertIn('2026-10-22', built); self.assertIn('[r1](https://x/r1)', built)
+
     def test_the_real_sources_pass(self):
         # the repository's own docs/wiki (when present) must satisfy every rule; this is the check CI runs
         real = ROOT / 'docs' / 'wiki'

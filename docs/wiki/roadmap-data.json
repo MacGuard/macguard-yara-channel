@@ -1,0 +1,56 @@
+{
+ "schema": 1,
+ "repo": "MacGuard/macguard-yara-channel",
+ "measured_on": "2026-10-22",
+ "milestones": [
+  {
+   "title": "V1 - Signed channel stabilisation",
+   "url": "https://github.com/MacGuard/macguard-yara-channel/milestone/1",
+   "open": 0,
+   "closed": 0
+  },
+  {
+   "title": "V1.1 - Panel, persistent withdrawals and sources",
+   "url": "https://github.com/MacGuard/macguard-yara-channel/milestone/2",
+   "open": 1,
+   "closed": 0
+  },
+  {
+   "title": "Protection of main and transparency log",
+   "url": "https://github.com/MacGuard/macguard-yara-channel/milestone/3",
+   "open": 1,
+   "closed": 0
+  },
+  {
+   "title": "Triple historical archive (R2/B2/Scaleway)",
+   "url": "https://github.com/MacGuard/macguard-yara-channel/milestone/4",
+   "open": 1,
+   "closed": 0
+  },
+  {
+   "title": "Recovery and disaster tests",
+   "url": "https://github.com/MacGuard/macguard-yara-channel/milestone/5",
+   "open": 0,
+   "closed": 0
+  }
+ ],
+ "releases": [
+  {
+   "tag": "rules-20261021-39541028283",
+   "url": "https://github.com/MacGuard/macguard-yara-channel/releases/tag/rules-20261021-39541028283",
+   "published_at": "2026-10-21T03:57:41Z"
+  },
+  {
+   "tag": "rules-20261018-39150886414",
+   "url": "https://github.com/MacGuard/macguard-yara-channel/releases/tag/rules-20261018-39150886414",
+   "published_at": "2026-10-18T17:44:25Z"
+  },
+  {
+   "tag": "rules-20261018-39103534527",
+   "url": "https://github.com/MacGuard/macguard-yara-channel/releases/tag/rules-20261018-39103534527",
+   "published_at": "2026-10-18T06:18:14Z"
+  }
+ ],
+ "open_prs": 11,
+ "merged_last_30_days": 18
+}

@@ -42,7 +42,7 @@ It is like proofreading an exam before handing it out: first that it is complete
 
 A regex score adds: 9 for nested quantifiers, 3 for two or more `.*`/`.+`, 2 for a single leading `.*`, 4 for every `{n,m}` gap with `m` ≥ 1000 (`regex.wide_gap`) and 3 for an open-ended repetition `{n,}`. One nested quantifier (9) is enough to exceed the threshold of 7. These heuristics **only send a file to quarantine**; the real cost is decided by the dynamic measurement. {{ev:EV-YC-25}} {{ev:EV-YC-26}}
 
-Engine compatibility is checked by compiling with the available `yara`/`yarac` engine (`-w` and empty external variables). `config/policy.json` declares `engines.min_version` `4.3.0`, but I found no code that reads that value; the real version is recorded (4.5.0 in the public log of the daily run). {{ev:EV-YC-32}}
+Engine compatibility is checked by compiling with the available `yara`/`yarac` engine (`-w` and empty external variables). `config/policy.json` declares `engines[].min_version` `4.3.0`, but no code that reads that value was found; the real version is recorded (4.5.0 in the public log of the daily run). {{ev:EV-YC-32}}
 
 ### Dynamic checks (`scripts/dynamic_gate.py`, `scripts/bench.py`)
 
@@ -80,7 +80,7 @@ Measurements: time, CPU and peak memory per child process (`wait4`). {{ev:EV-YC-
 
 - The heuristics are approximations: they can let a slow regex through or set aside a harmless one.
 - A rule that compiles and does not overload the engine is not proven to detect what it claims to detect.
-- Keys in `policy.json` with no reader that I could find in the code: `engines.min_version`, `regex.quarantine_nested_quantifiers`, `dynamic.timeout_seconds_per_file` (the effective value, 10 s, is fixed in `bench.py`).
+- Keys in `policy.json` with no reader in the code reviewed: `engines.min_version`, `regex.quarantine_nested_quantifiers`, `dynamic.timeout_seconds_per_file` (the effective value, 10 s, is fixed in `bench.py`).
 
 ## State
 

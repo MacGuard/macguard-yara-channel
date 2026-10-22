@@ -57,7 +57,7 @@ It is like buying fruit from two different markets and writing on the delivery n
 
 Adding a source needs a reviewed change to `config/sources.json` and `config/policy.json` on `main`; with no licence entry in the policy its files are quarantined. The "source proposals" design (`docs/audit/source-proposals-spec.md`, `admin/worker/src/proposals.js`, migration `0005`) and the admission control (`scripts/admission.py`) are **implemented in `main` and not deployed**: a new source is held until an ADMIN authorises its rules (`new-source`). It is controlled because a new source brings third-party content that ends up on users' machines; a licence problem or a compromised upstream repository would spread through the channel. {{ev:EV-YC-31}}
 
-A note from reading the code: `scripts/dynamic_gate.py` calls `decide.decide` without passing the sources, and `daily.yml` uses that script; the hold only activates when the caller passes the sources (the `--sources` option of `decide.py`). I did not verify that the current daily run activates it. {{ev:EV-YC-31}}
+The hold on new sources only activates when the caller passes the sources (the `--sources` option of `decide.py`). The daily run uses `scripts/dynamic_gate.py`, which does not pass them: **today that control is not active in the daily run** (checked by reading `daily.yml` and `dynamic_gate.py`). {{ev:EV-YC-31}}
 
 ## Check it yourself
 

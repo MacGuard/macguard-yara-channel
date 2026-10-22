@@ -4,7 +4,7 @@
 
 ## In 30 seconds
 
-MacFirewallGuard is a macOS program designed to **observe which apps connect to the network and, later, apply rules** to those connections. Its central idea: an app can call itself "Safari" without being Safari, so the program looks at the **real code signature** and does not trust the name. If evidence is missing, the answer is "I don't know", never "allowed".
+MacFirewallGuard is a macOS program designed to **observe which apps connect to the network and, later, apply rules** to those connections. Its central idea: an app can call itself "Safari" without being Safari, so the program looks at the **real code signature** and does not trust the name.If evidence is missing, the engine answers "indeterminate" and does not treat it as "allowed" (the final action under a real policy is not yet tested).
 
 **Today it cannot block anything**: Apple has not granted this project the Network Extension entitlement {{ev:EV-EC-60}}. It is an observation and policy engine, in **development** {{ev:EV-EC-03}}. It is not a working firewall and must not be relied on as protection.
 

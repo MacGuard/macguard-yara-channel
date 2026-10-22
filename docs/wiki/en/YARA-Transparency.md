@@ -4,11 +4,11 @@
 
 ## In 30 seconds
 
-The channel keeps a **transparency log**: a diary where lines are only ever added, never deleted or changed. From time to time a "snapshot" of that diary (the **checkpoint**) is signed. Anyone can redo the maths and check that a publication is in the diary and that today's diary contains yesterday's in full. If someone tries to alter an earlier publication, the sums stop adding up. {{ev:EV-YC-04}} {{ev:EV-YC-50}}
+The channel keeps a **transparency log**: a diary where lines are only meant to be added; if someone deletes or changes one, a verifier detects it (it cannot prevent it). From time to time a "snapshot" of that diary (the **checkpoint**) is signed. Anyone can redo the maths and check that a publication is in the diary and that today's diary contains yesterday's in full. If someone tries to alter an earlier publication, the sums stop adding up. {{ev:EV-YC-04}} {{ev:EV-YC-50}}
 
 ## An everyday example
 
-A ledger whose pages are mathematically linked: at the foot of each page a fingerprint is written that depends on everything written before. If somebody tears out or rewrites an old page, the fingerprints of the later pages no longer match the one signed in front of witnesses. The analogy carries the idea; the real mechanism is a Merkle tree, explained below.
+A ledger whose pages are mathematically linked: at the foot of each page a fingerprint is written that depends on everything written before. If somebody tears out or rewrites an old page, the fingerprints of the later pages no longer match the one that was signed (anyone can check that signature). The analogy carries the idea; the real mechanism is a Merkle tree, explained below.
 
 Key words, once:
 

@@ -6,7 +6,7 @@
 
 MacGuardDesignKit es una **biblioteca de componentes de interfaz en SwiftUI**: botones, tarjetas, tablas, insignias de estado, barras de búsqueda y el aspecto de los gráficos. **No es un producto de protección**: no vigila, bloquea ni detecta nada. Su objetivo es que todas las aplicaciones MacGuard se vean y se comporten igual, de modo que una insignia verde "protegido" signifique lo mismo en todas {{ev:EV-EC-30}}.
 
-**Estado: en desarrollo** (versión 0.3.1; la propia biblioteca dice que no es 1.0 porque gran parte del catálogo de 16 componentes aún no está construido). Hoy no hay ninguna aplicación que la importe según los archivos de paquete que he leído {{ev:EV-EC-07}}.
+**Estado: en desarrollo** (versión 0.3.1; la propia biblioteca dice que no es 1.0 porque gran parte del catálogo de 16 componentes aún no está construido). La capa de interfaz de MacFirewallGuard la importa (dependencia de paquete desde la 0.2.0); MacUSBGuard todavía no la ha adoptado, y el README de DesignKit aún dice «cero consumidores», lo que está desactualizado {{ev:EV-EC-07}}.
 
 ## Un ejemplo cotidiano
 
@@ -53,7 +53,7 @@ El repositorio es privado. Según su README: `swift build` y `swift test`, y el 
 
 ## Límites
 
-- El README conserva texto desactualizado (versión 0.1.0 y "aún no publicado"), mientras el código declara 0.3.1; no he verificado que el repositorio remoto sea accesible ni que las etiquetas estén publicadas.
+- El README conserva texto desactualizado (versión 0.1.0 y "aún no publicado"), mientras el código declara 0.3.1; no se verificó que el repositorio remoto sea accesible ni que las etiquetas estén publicadas.
 - Cinco decisiones de diseño esperan visto bueno humano {{ev:EV-EC-32}}.
 - No es un control de seguridad ni protege a nadie por sí misma.
 
@@ -62,7 +62,7 @@ El repositorio es privado. Según su README: `swift build` y `swift test`, y el 
 | Capacidad | Estado |
 |---|---|
 | Tokens, componentes base, shell, tabla, búsqueda, estados | Implementado (0.1.0 a 0.3.1), no verificado por ejecución |
-| Resto del catálogo de 16 componentes | Planeado |
+| Resto del catálogo de 16 componentes | Planificado |
 | Versión 1.0 | Planeada: exige estabilidad y que al menos dos productos la usen (hoy cero) |
 
 ## Dónde seguir

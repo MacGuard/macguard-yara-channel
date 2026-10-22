@@ -4,7 +4,7 @@
 
 ## In 30 seconds
 
-You do not have to trust us: you can check a release yourself in four steps. (1) Hashes: the files are the ones the manifest lists. (2) Signature: the manifest was signed by the `publish.yml` workflow of this repository. (3) Merkle root: the file list produces the signed `rules_root`. (4) Log: the publication is in the transparency log and extends the one you already knew. A public script does it all in one go. {{ev:EV-YC-53}}
+You can check a release yourself in four steps, without relying on what we claim here. You still trust the verifier (read it before running it), cosign and the Sigstore trust root. (1) Hashes: the files are the ones the manifest lists. (2) Signature: the manifest was signed by the `publish.yml` workflow of this repository. (3) Merkle root: the file list produces the signed `rules_root`. (4) Log: the publication is in the transparency log and extends the one you already knew. A public script does it all in one go. {{ev:EV-YC-53}}
 
 ## An everyday example
 
@@ -89,6 +89,6 @@ The commands above are the repository's own. Run on 2026-10-22: `--latest` (PASS
 
 | Capability | State |
 |---|---|
-| Independent public verifier with tests | operational {{ev:EV-YC-53}} |
+| Public verifier (same repository, not independent) with tests | operational {{ev:EV-YC-53}} |
 | Anti-rollback protection with local state | operational {{ev:EV-YC-54}} |
 | Verifier signed and attached to each release | not implemented (proposal) {{ev:EV-YC-57}} |

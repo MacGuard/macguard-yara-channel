@@ -37,7 +37,7 @@ rule Ejemplo_Abierto { strings: $a = /ab.*cd.*ef/ condition: $a }
 rule Ejemplo_Bucle { condition: for all i in (0..filesize-1) : ( uint8(i) == 0 ) }
 ```
 
-- **Anidado:** la forma `(x+)+` es la clásica que, en muchos motores de expresiones regulares, provoca un número enorme de combinaciones al fallar. No he medido cómo se comporta el motor de YARA; el repositorio lo trata como señal de riesgo (puntuación 9, umbral 7).
+- **Anidado:** la forma `(x+)+` es la clásica que, en muchos motores de expresiones regulares, provoca un número enorme de combinaciones al fallar. No se ha medido cómo se comporta el motor de YARA; el repositorio lo trata como señal de riesgo (puntuación 9, umbral 7).
 - **Tramos abiertos** `.*` sin ancla: obligan al motor a seguir mirando por todo el fichero tras cada posible inicio. Con dos tramos la puntuación es 3, por debajo del umbral: la heurística no lo marca y solo la medición dinámica lo vería.
 - **Bucle sobre todo el fichero:** `filesize` de 100 MB significa cien millones de vueltas por cada fichero escaneado. `rulecheck.py` lo marca como `filesize-loop`.
 

@@ -8,7 +8,7 @@ Endpoint Security es una tecnología de Apple para que un programa de seguridad 
 
 ## Con más detalle
 
-Los eventos son de dos clases: de **notificación** (solo avisan) y de **autorización o AUTH** (el programa debe contestar permitir o denegar dentro de un plazo; si no contesta, el sistema puede actuar contra él). Un cliente se crea con `es_new_client`, se suscribe a eventos con `es_subscribe` y responde con `es_respond_auth_result`. Esta descripción general procede de la API usada en el código del proyecto; no pude leer el cuerpo de la página de Apple, así que no se apoya en ella.
+Los eventos son de dos clases: de **notificación** (solo avisan) y de **autorización o AUTH** (el programa debe contestar permitir o denegar dentro de un plazo; si no contesta, el sistema puede actuar contra él). Un cliente se crea con `es_new_client`, se suscribe a eventos con `es_subscribe` y responde con `es_respond_auth_result`. Esta descripción general procede de la API usada en el código del proyecto; no se pudo leer el cuerpo de la página de Apple, así que no se apoya en ella.
 
 ## Dónde la usa este proyecto
 
@@ -34,7 +34,7 @@ Fuentes oficiales abiertas para esta página; no implica que ninguna de estas em
 
 - **Microsoft Defender for Endpoint en macOS** usa, según su documentación, una "extensión de seguridad de endpoint" (`com.microsoft.wdav.epsext`) además de una extensión de red, ambas como extensiones de sistema de Apple que requieren aprobación y Acceso total al disco. Clasificación: usa la misma tecnología (la documentación la llama endpoint security extension; no cita el nombre del framework) {{ev:EV-EC-33}}.
 
-No añado más ejemplos porque no pude abrir una fuente oficial que los respalde.
+No se añaden más ejemplos porque no se pudo abrir una fuente oficial que los respalde.
 
 ## Estado en este proyecto
 

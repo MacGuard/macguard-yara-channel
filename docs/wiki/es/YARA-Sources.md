@@ -57,7 +57,7 @@ La «normalización» **no reescribe reglas**: `prepare.py` copia los bytes tal 
 
 Añadir una fuente exige un cambio revisado de `config/sources.json` y de `config/policy.json` en `main`; sin entrada de licencia en la política, sus ficheros quedan en cuarentena. El diseño de «propuestas de fuentes» (`docs/audit/source-proposals-spec.md`, `admin/worker/src/proposals.js`, migración `0005`) y el control de admisión (`scripts/admission.py`) están **implementados en `main` y no desplegados**: una fuente nueva queda retenida hasta que un ADMIN autorice sus reglas (`new-source`). Se controla porque una fuente nueva introduce código de terceros que llega a los equipos de las personas usuarias; un fallo de licencia o un compromiso del repositorio de origen se propagaría. {{ev:EV-YC-31}}
 
-Observación de lectura de código: `scripts/dynamic_gate.py` llama a `decide.decide` sin pasarle las fuentes, y `daily.yml` usa ese script; el gancho de retención solo se activa si quien llama pasa las fuentes (opción `--sources` de `decide.py`). No he verificado que la ejecución diaria actual lo active. {{ev:EV-YC-31}}
+La retención de fuentes nuevas solo se activa si quien llama pasa las fuentes (opción `--sources` de `decide.py`). La ejecución diaria usa `scripts/dynamic_gate.py`, que no las pasa: **hoy ese control no está activo en la ejecución diaria** (comprobado leyendo `daily.yml` y `dynamic_gate.py`). {{ev:EV-YC-31}}
 
 ## Cómo comprobarlo tú
 

@@ -4,7 +4,7 @@
 
 ## En 30 segundos
 
-MacFirewallGuard es un programa para macOS pensado para **observar qué apps se conectan a la red y, más adelante, aplicar reglas** sobre esas conexiones. Su idea central: una app puede llamarse "Safari" sin serlo, así que el programa mira la **firma de código real** y no se fía del nombre. Si falta evidencia, responde "no lo sé", nunca "permitido".
+MacFirewallGuard es un programa para macOS pensado para **observar qué apps se conectan a la red y, más adelante, aplicar reglas** sobre esas conexiones. Su idea central: una app puede llamarse "Safari" sin serlo, así que el programa mira la **firma de código real** y no se fía del nombre. Si falta evidencia, el motor responde "indeterminado" y no lo trata como "permitido" (qué acción final se aplicaría con la política real aún no está probado).
 
 **Hoy no puede bloquear nada**: Apple no ha concedido a este proyecto el permiso (entitlement) de Network Extension {{ev:EV-EC-60}}. Es un motor de observación y de políticas, en estado **desarrollo** {{ev:EV-EC-03}}. No es un cortafuegos operativo y no se debe usar como protección.
 

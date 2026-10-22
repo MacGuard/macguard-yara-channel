@@ -2,11 +2,11 @@
 
 [Home](EN-Home) · [Limits](EN-YARA-Limits) · [Technology: S3 and backups](EN-Tech-S3-Backups) · [Technology: Merkle](EN-Tech-Merkle) · [Technology: Sigstore](EN-Tech-Sigstore)
 
-> **State: NOT operational.** This is a design plus local tooling. No account, bucket or key exists in production, and **no restoration from any real provider has been tested** {{ev:EV-YC-62}} {{ev:EV-YC-08}}. The phase 1 tools are in `main`; the archive workflow does not write to any provider.
+> **State: NOT operational.** This is a design plus local tooling. No archive workflow in `main` writes to any provider; credentials and bucket settings were configured as GitHub environment secrets and variables on 2026-10-22, but nothing has been written or restored through them, and **no restoration from any real provider has been tested** {{ev:EV-YC-62}} {{ev:EV-YC-08}}. The phase 1 tools are in `main`; the archive workflow does not write to any provider.
 
 ## In 30 seconds
 
-The channel publishes signed rules on GitHub. If GitHub lost the history, could anyone still prove what was published and when? The plan is to keep a permanent copy on **three independent storage providers** (Cloudflare R2, Backblaze B2 and Scaleway Object Storage), one bucket each, so that no single failure or decision can delete or forge the history {{ev:EV-YC-60}}.
+The channel publishes signed rules on GitHub. If GitHub lost the history, could anyone still prove what was published and when? The plan is to keep a permanent copy on **three independent storage providers** (Cloudflare R2, Backblaze B2 and Scaleway Object Storage), one bucket each, so that the failure or decision of one provider cannot delete or forge the history (all three share one write origin; see Limits) {{ev:EV-YC-60}}.
 
 ## An everyday example
 
@@ -71,7 +71,8 @@ These are fast tests with no network. The test using the real `age` binary only 
 | Capability | State |
 |---|---|
 | Phase 1 archive tools (segments, seals, `age`, local restore) | implemented-not-deployed {{ev:EV-YC-61}} |
-| Accounts, buckets, keys, writing to providers | planned |
+| Credentials configured in GitHub environments (2026-10-22) | configured, unused |
+| Writing to providers and restoration | planned |
 | Compliance-mode lock | planned, not authorised |
 | Restore tested from a real provider | not done |
 | Pruning audit rows | dry-run report only; not executable |

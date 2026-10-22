@@ -66,7 +66,7 @@ Cómo debería probarse: en un runner macOS limpio, con la app y el cosign fijad
 - No es antivirus; "desconocido" no significa seguro; PKG solo se inspecciona parcialmente.
 - Sin firma Developer ID ni notarización: Gatekeeper tratará una descarga como no notarizada {{ev:EV-EC-68}}.
 - **Documentación obsoleta en la carpeta** {{ev:EV-EC-76}}: `README.md` ("source prototype", "no compilado en macOS", opción "ZIP sin firmar"), `README_V8.md` (actualizaciones desde una rama de GitHub con consentimiento) y `YARA_INTEGRATION.md` (actualizador "experimental", sin motor incluido, límite "40 reglas y 30 ficheros"). El código actual instala solo del canal firmado, incluye motor y tiene CI en macOS; sus límites vienen de `YARAEngine`. `SIGNING.md` sí sigue vigente (no firmado ni notarizado).
-- Root de confianza Sigstore: renovarla exige actualizar la app.
+- Raíz de confianza de Sigstore: renovarla exige actualizar la app.
 
 ## Estado
 

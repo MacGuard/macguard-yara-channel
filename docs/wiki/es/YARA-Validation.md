@@ -42,7 +42,7 @@ Es como revisar un examen antes de entregarlo: primero que esté completo y legi
 
 La puntuación de una regex suma: 9 por cuantificadores anidados, 3 si hay dos o más `.*`/`.+`, 2 si es un único `.*` inicial, 4 por cada hueco `{n,m}` con `m` ≥ 1000 (`regex.wide_gap`) y 3 por una repetición abierta `{n,}`. Un cuantificador anidado (9) basta para superar el umbral de 7. Estas heurísticas **solo mandan a cuarentena**; el coste real lo decide la medición dinámica. {{ev:EV-YC-25}} {{ev:EV-YC-26}}
 
-La compatibilidad con el motor se comprueba compilando con el motor `yara`/`yarac` disponible (`-w` y variables externas vacías). `config/policy.json` declara `engines.min_version` `4.3.0`, pero no he encontrado código que lea ese valor; la versión real queda registrada (4.5.0 en el registro público de la ejecución diaria). {{ev:EV-YC-32}}
+La compatibilidad con el motor se comprueba compilando con el motor `yara`/`yarac` disponible (`-w` y variables externas vacías). `config/policy.json` declara `engines[].min_version` `4.3.0`, pero no se encontró código que lea ese valor; la versión real queda registrada (4.5.0 en el registro público de la ejecución diaria). {{ev:EV-YC-32}}
 
 ### Comprobaciones dinámicas (`scripts/dynamic_gate.py`, `scripts/bench.py`)
 
@@ -80,7 +80,7 @@ Mediciones: tiempo, CPU y memoria máxima por proceso hijo (`wait4`). {{ev:EV-YC
 
 - Las heurísticas son aproximaciones: pueden dejar pasar una regex lenta o apartar una inofensiva.
 - Que una regla compile y no sature el motor no prueba que detecte lo que dice detectar.
-- Claves de `policy.json` sin lector que encontrara en el código: `engines.min_version`, `regex.quarantine_nested_quantifiers`, `dynamic.timeout_seconds_per_file` (el valor efectivo, 10 s, está fijado en `bench.py`).
+- Claves de `policy.json` sin lector en el código revisado: `engines.min_version`, `regex.quarantine_nested_quantifiers`, `dynamic.timeout_seconds_per_file` (el valor efectivo, 10 s, está fijado en `bench.py`).
 
 ## Estado
 

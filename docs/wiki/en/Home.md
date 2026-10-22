@@ -2,9 +2,13 @@
 
 ## In 30 seconds
 
-MacGuard is a family of tools to protect a Mac. Each one watches a different thing: the installers you download, USB devices, network connections. One of them, **YARA Channel**, distributes the "lists of clues" (YARA rules) used to recognise suspicious files, and does it in a way anyone can check that nothing was tampered with.
+MacGuard is a family of tools to protect a Mac. Each one watches a different thing: the installers you download, USB devices, network connections. One of them, **YARA Channel**, distributes the "lists of clues" (YARA rules) used to recognise suspicious files, and signs them so anyone can check they are the published ones and did not change after signing. They help recognise known patterns; they do not guarantee a file is safe.
 
 This wiki explains what each piece does, how it works and **where its development really stands**. When something is not proven, we say so.
+
+## An everyday example
+
+Think of a house: a lock, an alarm and someone watching the door. None is enough alone and none promises to stop every thief. MacGuard is the same: several small pieces, each with one job and clear limits.
 
 ## The map at a glance
 
@@ -41,4 +45,5 @@ There are no committed dates. Each application's next step, blockers and depende
 - [Global roadmap](EN-Roadmap)
 - [YARA Channel in depth](EN-YARA-Channel)
 - Pages: [MacUSBGuard](EN-App-USB), [MacFirewallGuard](EN-App-Firewall), [MacProcessGuard](EN-App-Process), [MacCoreGuard](EN-App-Core), [Installer Auditor](EN-App-InstallerAuditor), [DesignKit](EN-App-DesignKit)
+- [Glossary](EN-Glossary) · [How to contribute](EN-Contribute)
 - [Evidence matrix](EN-Evidence)

@@ -52,7 +52,7 @@ The repository is private. Its README names `swift build` and `swift run maccore
 ## Limits
 
 - No service, no durable storage, no signing and no offline verifier.
-- One candidate branch, no tags, and an unresolved split of responsibilities between parties according to the commit; I did not verify whether another implementation exists on another branch or team.
+- One candidate branch, no tags, and an unresolved split of responsibilities between parties according to the commit; it was not verified whether another implementation exists on another branch or team.
 - MacFirewallGuard has a MacCoreGuard client tested only against a mock; MacUSBGuard does not import it {{ev:EV-EC-04}}. MacGuardDesignKit is forbidden from depending on it.
 
 ## State

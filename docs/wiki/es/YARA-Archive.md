@@ -2,11 +2,11 @@
 
 [Inicio](ES-Home) · [Límites](ES-YARA-Limits) · [Tecnología: S3 y copias](ES-Tech-S3-Backups) · [Tecnología: Merkle](ES-Tech-Merkle) · [Tecnología: Sigstore](ES-Tech-Sigstore)
 
-> **Estado: NO operativo.** Es un diseño con herramientas locales. No existe ninguna cuenta, bucket ni clave en producción, y **no se ha probado ninguna restauración desde un proveedor real** {{ev:EV-YC-62}} {{ev:EV-YC-08}}. Las herramientas de la fase 1 están en `main`; el flujo de trabajo de archivo no escribe en ningún proveedor.
+> **Estado: NO operativo.** Es un diseño con herramientas locales. Ningún workflow de archivo en `main` escribe en un proveedor; las credenciales y los ajustes de bucket se configuraron como secretos y variables de entornos de GitHub el 2026-10-22, pero no se ha escrito ni restaurado nada con ellos, y **no se ha probado ninguna restauración desde un proveedor real** {{ev:EV-YC-62}} {{ev:EV-YC-08}}. Las herramientas de la fase 1 están en `main`; el flujo de trabajo de archivo no escribe en ningún proveedor.
 
 ## En 30 segundos
 
-El canal publica reglas firmadas en GitHub. Si GitHub perdiera el historial, ¿se podría demostrar qué se publicó y cuándo? El plan es guardar una copia permanente en **tres proveedores de almacenamiento independientes** (Cloudflare R2, Backblaze B2 y Scaleway Object Storage), un bucket por proveedor, de modo que ningún fallo o decisión de uno solo borre o falsifique el historial {{ev:EV-YC-60}}.
+El canal publica reglas firmadas en GitHub. Si GitHub perdiera el historial, ¿se podría demostrar qué se publicó y cuándo? El plan es guardar una copia permanente en **tres proveedores de almacenamiento independientes** (Cloudflare R2, Backblaze B2 y Scaleway Object Storage), un bucket por proveedor, de modo que el fallo o la decisión de un solo proveedor no pueda borrar ni falsificar el historial (los tres comparten un único origen de escritura; ver Límites) {{ev:EV-YC-60}}.
 
 ## Un ejemplo cotidiano
 
@@ -71,7 +71,8 @@ Son pruebas rápidas y sin red. La prueba con el binario real de `age` solo corr
 | Capacidad | Estado |
 |---|---|
 | Herramientas de archivo de la fase 1 (segmentos, sellos, `age`, restauración local) | implementado, no desplegado {{ev:EV-YC-61}} |
-| Cuentas, buckets, claves, escritura en proveedores | planificado |
+| Credenciales configuradas en entornos de GitHub (2026-10-22) | configurado, sin usar |
+| Escritura en proveedores y restauración | planificado |
 | Bloqueo en modo compliance | planificado, sin autorizar |
 | Restauración probada desde un proveedor real | no realizada |
 | Poda de filas de la auditoría | solo informe en seco; no ejecutable |

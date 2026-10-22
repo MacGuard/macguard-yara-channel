@@ -4,7 +4,7 @@
 
 ## En 30 segundos
 
-No tienes que fiarte de nosotros: puedes comprobar tú mismo una release en cuatro pasos. (1) Los hashes: los archivos son los que lista el manifiesto. (2) La firma: el manifiesto lo firmó el workflow `publish.yml` de este repositorio. (3) La raíz Merkle: la lista de archivos produce el `rules_root` firmado. (4) El registro: la publicación consta en el registro de transparencia y extiende el que ya conocías. Un script público lo hace todo de una vez. {{ev:EV-YC-53}}
+Puedes comprobar tú mismo una release en cuatro pasos, sin depender de lo que afirmamos aquí. Aun así confías en el verificador (léelo antes de ejecutarlo), en cosign y en la raíz de confianza de Sigstore. (1) Los hashes: los archivos son los que lista el manifiesto. (2) La firma: el manifiesto lo firmó el workflow `publish.yml` de este repositorio. (3) La raíz Merkle: la lista de archivos produce el `rules_root` firmado. (4) El registro: la publicación consta en el registro de transparencia y extiende el que ya conocías. Un script público lo hace todo de una vez. {{ev:EV-YC-53}}
 
 ## Un ejemplo cotidiano
 
@@ -89,6 +89,6 @@ Las órdenes de arriba son las del repositorio. Ejecutadas el 2026-10-22: `--lat
 
 | Capacidad | Estado |
 |---|---|
-| Verificador público independiente con pruebas | operational {{ev:EV-YC-53}} |
-| Protección anti-retroceso con estado local | operational {{ev:EV-YC-54}} |
+| Verificador público (mismo repositorio, no independiente) con pruebas | operativo {{ev:EV-YC-53}} |
+| Protección anti-retroceso con estado local | operativo {{ev:EV-YC-54}} |
 | Verificador firmado y adjunto a cada release | no implementado (propuesta) {{ev:EV-YC-57}} |

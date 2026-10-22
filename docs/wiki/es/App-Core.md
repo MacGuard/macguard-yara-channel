@@ -4,7 +4,7 @@
 
 ## En 30 segundos
 
-MacCoreGuard (el código y el paquete se llaman **MacCore**; solo el nombre del repositorio privado usa "maccore-guard") quiere ser el "cuaderno de actas" común de las aplicaciones MacGuard: cada una propone eventos de seguridad ("se bloqueó un USB") y solo MacCoreGuard decide anotarlos de forma permanente y a prueba de manipulaciones {{ev:EV-EC-27}}.
+MacCoreGuard (el código y el paquete se llaman **MacCore**; solo el nombre del repositorio privado usa "maccore-guard") quiere ser el "cuaderno de actas" común de las aplicaciones MacGuard: cada una propone eventos de seguridad ("se bloqueó un USB") y solo MacCoreGuard decide anotarlos de forma permanente y con evidencia de manipulación (si alguien lo altera, se nota) {{ev:EV-EC-27}}.
 
 **Estado: prototipo de un solo commit** (b0b0f07, 2026-10-09) en una rama de candidato que su propio mensaje declara "no autoritativa" y no publicada. Hoy existen el **formato de los datos** y las **matemáticas de hashes**; el registro en disco, la firma, la ingesta y el verificador son **marcadores de posición** {{ev:EV-EC-28}} {{ev:EV-EC-06}}.
 
@@ -39,11 +39,11 @@ Piensa en un cuaderno donde cada página lleva escrita la "huella" de la página
 
 Coste declarado en el propio código: recalcular la raíz es O(n) por punto de control, aceptable porque no se hace por evento. Código: `Sources/MacCoreCrypto/MerkleTree.swift` {{ev:EV-EC-27}}.
 
-**Qué es marcador.** `MacCoreLedger`, `MacCoreSigning`, `MacCoreIngest` y `MacCoreWitness` contienen un archivo de una línea; `maccorectl` solo imprime "not yet implemented" {{ev:EV-EC-28}}. Firmas P-256, claves en Secure Enclave o llavero, rotación de claves, escritura atómica con recuperación de fallos y cliente testigo están descritos solo en el contrato de diseño o en comentarios, sin código.
+**Qué es solo un marcador de posición.** `MacCoreLedger`, `MacCoreSigning`, `MacCoreIngest` y `MacCoreWitness` contienen un archivo de una línea; `maccorectl` solo imprime "not yet implemented" {{ev:EV-EC-28}}. Firmas P-256, claves en Secure Enclave o llavero, rotación de claves, escritura atómica con recuperación de fallos y cliente testigo están descritos solo en el contrato de diseño o en comentarios, sin código.
 
 ## Pruebas
 
-Arnés propio `maccore-tests` (ejecutable, tres archivos), con vectores de respuesta conocida (KAT), entre ellos pruebas de inclusión para árboles de 1 a 6 hojas, derivados según el código de una referencia escrita aparte en Python/hashlib. El mensaje del commit declara "147/147 tests" para Protocolo y Cripto: autoinformado, **no ejecutado por mí**. No hay pruebas posibles para las partes marcador {{ev:EV-EC-29}}.
+Arnés propio `maccore-tests` (ejecutable, tres archivos), con vectores de respuesta conocida (KAT), entre ellos pruebas de inclusión para árboles de 1 a 6 hojas, derivados según el código de una referencia escrita aparte en Python/hashlib. El mensaje del commit declara "147/147 tests" para Protocolo y Cripto: autoinformado, **no ejecutado en esta revisión**. No hay pruebas posibles para las partes marcador {{ev:EV-EC-29}}.
 
 ## Cómo comprobarlo tú
 
@@ -52,7 +52,7 @@ El repositorio es privado. Su README indica `swift build` y `swift run maccore-t
 ## Límites
 
 - No hay servicio, ni almacenamiento durable, ni firma, ni verificador sin conexión.
-- Una sola rama de candidato, sin tags, y con reparto de responsabilidades entre partes sin resolver según el commit; no he verificado si existe otra implementación en otra rama o equipo.
+- Una sola rama de candidato, sin tags, y con reparto de responsabilidades entre partes sin resolver según el commit; no se verificó si existe otra implementación en otra rama o equipo.
 - MacFirewallGuard tiene un cliente de MacCoreGuard probado solo contra un simulacro; MacUSBGuard no lo importa {{ev:EV-EC-04}}. MacGuardDesignKit tiene prohibido depender de él.
 
 ## Estado
@@ -61,7 +61,7 @@ El repositorio es privado. Su README indica `swift build` y `swift run maccore-t
 |---|---|
 | Formato de eventos y identificadores | Implementado, no desplegado |
 | Cadena de hashes y árbol Merkle con pruebas | Implementado con vectores de prueba, no desplegado |
-| Registro durable, firma, ingesta, testigo, verificador | Planeado (marcadores de posición) |
+| Registro durable, firma, ingesta, testigo, verificador | Planificado (marcadores de posición) |
 
 Oleadas de trabajo nombradas TL-0 a TL-8, cada una condicionada a compilar y pasar sus pruebas; no hay fechas {{ev:EV-EC-06}}.
 

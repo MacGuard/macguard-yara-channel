@@ -27,7 +27,7 @@ A bookshop sells a book with the distributor's stamp and a numbered seal. The au
 {{diagram:release-sequence}}
 
 1. `precheck` compares the candidate with the latest release; if identical it asks for no approval and publishes nothing.
-2. `publish` (behind a human-approval environment for now) re-verifies the final set: static classification and dynamic evidence.
+2. `publish` (in the `stable-signing-auto` environment, with no required reviewer, while the `AUTO_PUBLISH` variable is `true`; if it is switched off the human-approval environment `stable-signing` is used; branch protection, the OIDC identity and the technical checks are the same in both modes) re-verifies the final set: static classification and dynamic evidence.
 3. It signs the log checkpoint, writes the manifest (`scripts/seal.py`), signs it and generates the inclusion proof.
 4. It packages: `tar -czf rules-release.tar.gz -C dist rules manifest.json`.
 5. It checks the exact artifacts, creates the release as a **draft**, attaches every file and only then makes it public. {{ev:EV-YC-45}}
@@ -64,7 +64,7 @@ Details and real output in [Verify](EN-YARA-Verify). Code: [publish.yml](https:/
 ## Limits
 
 - A valid signature and matching hashes prove **who** published exactly **those bytes**, not that the rules are good.
-- Each release is the complete set; a correction is a new release and tags are never reused.
+- Each release is the complete set; a correction is a new release and by convention, tags are not reused (GitHub immutable releases, which would enforce it, are not enabled).
 - GitHub immutable releases are not enabled (needs a person's authorization); the draft-to-public flow is already the one that setting requires. {{ev:EV-YC-59}}
 - `release.json` is unsigned metadata; the verifier cross-checks it against the signed values.
 

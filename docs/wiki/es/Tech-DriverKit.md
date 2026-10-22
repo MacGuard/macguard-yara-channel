@@ -6,9 +6,9 @@
 
 DriverKit es la tecnología de Apple para escribir **controladores de hardware que funcionan fuera del núcleo del sistema**, como programas aparte. Si un controlador falla, no derriba todo el Mac. Es como una oficina de atención con su propia puerta: trabaja con el dispositivo, pero sin entrar en la sala de máquinas. Apple la documenta como framework {{ev:EV-EC-36}}; los controladores necesitan permisos específicos de Apple (el proyecto Karabiner lo documenta en su README) {{ev:EV-EC-34}}.
 
-## En este proyecto: planeado y solo en ramas
+## En este proyecto: planificado y solo en ramas
 
-**MacUSBGuard no usa DriverKit en su código actual.** Su README dice que DriverKit "no forma parte de este producto" porque, según Apple DTS, no se aprobaría un permiso USB que abarque todos los dispositivos con este fin; el código lo registra como permiso "deliberadamente no solicitado" y una prueba lo comprueba {{ev:EV-EC-22}}.
+**MacUSBGuard no usa DriverKit en su código actual.** Su README dice que DriverKit "no forma parte de este producto" porque, según la documentación del proyecto, Apple no concedería un permiso USB de ese alcance con este fin; el código lo registra como permiso "deliberadamente no solicitado" y una prueba lo comprueba {{ev:EV-EC-22}}.
 
 Aun así, existen **ramas separadas** (`ai/dk2-driverkit-v1` y derivadas: DK2.2-B, C1, C2) con archivos de controlador (`Driver/MacUSBGuardDriver.iig`, `.cpp`, un cliente de usuario estrecho) y pruebas de contrato. Su documentación las describe como hitos congelados cuya verificación con el permiso real de Apple "sigue siendo externa". En la rama actual (`ai/v1-release-integration`, 78f7d37) no hay ningún símbolo de DriverKit en `Sources`; solo comentarios, el permiso registrado y pruebas.
 
@@ -23,19 +23,19 @@ Aun así, existen **ramas separadas** (`ai/dk2-driverkit-v1` y derivadas: DK2.2-
 
 - Un controlador no es un cortafuegos ni un antivirus: solo mira dispositivos.
 - Su aprobación por Apple no depende del código, y está sin resolver para este uso.
-- Puede haber ramas más recientes que no revisé; me limité a las ramas locales listadas.
+- Puede haber ramas más recientes que esta revisión no examinó; solo se revisaron las ramas locales listadas.
 
 ## Quién más lo usa
 
 - **Karabiner-DriverKit-VirtualHIDDevice** (proyecto abierto de pqrs-org) implementa un teclado y un ratón virtuales con DriverKit, y su README indica que hay que solicitar permisos a Apple, con aprobación que puede tardar. Clasificación: usa la misma tecnología {{ev:EV-EC-34}}.
 
-No incluyo más ejemplos porque no pude abrir otra fuente oficial. Nada de esto implica que esos proyectos usen MacGuard.
+No se incluyen más ejemplos porque no se pudo abrir otra fuente oficial. Nada de esto implica que esos proyectos usen MacGuard.
 
 ## Estado en este proyecto
 
 | Capacidad | Estado |
 |---|---|
-| Controlador DriverKit para USB | Planeado / solo en ramas, fuera del producto |
+| Controlador DriverKit para USB | Planificado / solo en ramas, fuera del producto |
 | Dependencia de DriverKit en el producto actual | Ninguna |
 
 ## Dónde seguir

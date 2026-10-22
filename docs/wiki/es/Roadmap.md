@@ -6,6 +6,10 @@
 
 Aquí ves en qué fase está cada aplicación, qué ya se hizo, qué la bloquea y qué viene después. **No hay fechas ni porcentajes**: no los inventamos. Una fase está "hecha" solo si hay evidencia enlazada; una aplicación no está "al 50 %" por tener 500 pruebas.
 
+## Un ejemplo cotidiano
+
+Es como el panel de obras de un edificio: dice qué planta está terminada, cuál está parada y por qué. No promete cuándo se abre.
+
 ## Vista global
 
 {{diagram:roadmap-global}}
@@ -31,6 +35,12 @@ Aquí ves en qué fase está cada aplicación, qué ya se hizo, qué la bloquea 
 ## Seguimiento en vivo
 
 El avance se sigue en GitHub con hitos, incidencias y releases reales: [hito V1.1](https://github.com/MacGuard/macguard-yara-channel/milestone/2), [hito del archivo triple](https://github.com/MacGuard/macguard-yara-channel/milestone/4) y [releases](https://github.com/MacGuard/macguard-yara-channel/releases). Esta página se actualiza con cambios revisados por pull request, no automáticamente.
+
+## Datos medidos de GitHub
+
+{{roadmap:table}}
+
+Los números son los que informa GitHub en la fecha indicada (se refrescan con `python3 scripts/wiki_roadmap.py` y entran por pull request). No son un porcentaje de avance.
 
 ## Lo que todavía no sabemos
 

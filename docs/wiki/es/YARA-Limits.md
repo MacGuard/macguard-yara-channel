@@ -48,7 +48,7 @@ La firma Sigstore y la raíz Merkle demuestran que **ese flujo de trabajo public
 
 ## Lo que la auditoría dejó abierto (nivel público)
 
-Resumen de `RESIDUAL-RISKS.md`, `SECURITY-FINDINGS.md` y `TEST-MATRIX.md` {{ev:EV-YC-66}}: no hay atestación independiente de la revisión (RR-02); la difusión (fuzzing) usa semillas fijas y no se ejecutó con herramientas de larga duración (RR-10); Grype, OpenSSF Scorecard y lectores de pantalla reales no se ejecutaron (RR-11); diez ficheros de la primera release siguen retenidos (RR-13). No se resumen aquí otros hallazgos para no adelantar detalles no publicados.
+Resumen de `RESIDUAL-RISKS.md`, `SECURITY-FINDINGS.md` y `TEST-MATRIX.md` {{ev:EV-YC-66}}: no hay atestación independiente de la revisión (RR-02); las pruebas de fuzzing usa semillas fijas y no se ejecutó con herramientas de larga duración (RR-10); Grype, OpenSSF Scorecard y lectores de pantalla reales no se ejecutaron (RR-11); diez ficheros de la primera release siguen retenidos (RR-13). No se resumen aquí otros hallazgos para no adelantar detalles no publicados.
 
 ## Cómo comprobarlo tú
 

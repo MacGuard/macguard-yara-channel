@@ -6,7 +6,7 @@
 
 MacGuardDesignKit is a **library of SwiftUI interface components**: buttons, cards, tables, status badges, search bars and the look of charts. It is **not a protection product**: it does not watch, block or detect anything. Its goal is that all MacGuard applications look and behave the same, so a green "protected" badge means the same thing in all of them {{ev:EV-EC-30}}.
 
-**State: development** (version 0.3.1; the library itself says it is not 1.0 because much of the 16-component catalog is not built yet). Today no application imports it, according to the package files I read {{ev:EV-EC-07}}.
+**State: development** (version 0.3.1; the library itself says it is not 1.0 because much of the 16-component catalog is not built yet). MacFirewallGuard's interface layer imports it (a package dependency since 0.2.0); MacUSBGuard has not adopted it yet, and the DesignKit README still says "zero consumers", which is stale {{ev:EV-EC-07}}.
 
 ## An everyday example
 
@@ -53,7 +53,7 @@ The repository is private. Per its README: `swift build` and `swift test`, plus 
 
 ## Limits
 
-- The README keeps stale text (version 0.1.0 and "not yet published") while the code declares 0.3.1; I did not verify that the remote repository is reachable or that tags are published.
+- The README keeps stale text (version 0.1.0 and "not yet published") while the code declares 0.3.1; it was not verified that the remote repository is reachable or that tags are published.
 - Five design decisions await human sign-off {{ev:EV-EC-32}}.
 - It is not a security control and protects no one by itself.
 

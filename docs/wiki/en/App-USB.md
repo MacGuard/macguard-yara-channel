@@ -4,7 +4,7 @@
 
 ## In 30 seconds
 
-MacUSBGuard is a Mac program that decides which USB devices may work **while the screen is locked**. It treats four families separately: keyboards and mice (HID), storage sticks, USB network adapters and login keys such as YubiKeys. A new device starts as "untrusted" and is fully blocked while the Mac is locked {{ev:EV-EC-20}}.
+MacUSBGuard is a Mac program that decides which USB devices may work **while the screen is locked**. It treats four families separately: keyboards and mice (HID), storage sticks, USB network adapters and login keys such as YubiKeys. By design a new device starts as "untrusted" and would be fully blocked while the Mac is locked. Today the program only observes: it blocks nothing {{ev:EV-EC-20}}.
 
 **State: validation.** Today the program reports itself as **observe only** (OBSERVE ONLY), never "active", because the Apple permission needed to block keyboards and mice is missing {{ev:EV-EC-01}} {{ev:EV-EC-02}}. It is not a production-ready security control.
 
@@ -53,7 +53,7 @@ Technologies proven in code: Endpoint Security, DiskArbitration, IOKit, XPC, Sec
 
 ## Tests
 
-The figures are self-reported and **I did not run them**. There is a single in-house harness (`macusbguard-tests`, 63 files) with about 2,929 literal `check(` occurrences (static count; loops multiply real runs) {{ev:EV-EC-25}}.
+The figures are self-reported and **this review did not run them**. There is a single in-house harness (`macusbguard-tests`, 63 files) with about 2,929 literal `check(` occurrences (static count; loops multiply real runs) {{ev:EV-EC-25}}.
 
 There are two **diverging** lines of development and their figures are neither added nor compared:
 
@@ -62,7 +62,7 @@ There are two **diverging** lines of development and their figures are neither a
 | Tag `v1.0.0-rc1` (c2f9492) | 10,862 verifications, 0 failures | the tag's readiness report |
 | Current branch `ai/v1-release-integration` (78f7d37) | 816 checks, 0 failures, 8 unverified | the branch README (predates later work) |
 
-The tag is **not an ancestor** of the current branch {{ev:EV-EC-20}}. Which one is "the" V1 candidate is unresolved in what I read. Documented pending items: HID and storage hardware gates, VoiceOver validation, visual audit and install validation.
+The tag is **not an ancestor** of the current branch {{ev:EV-EC-20}}. Which one is "the" V1 candidate is unresolved in what was reviewed. Documented pending items: HID and storage hardware gates, VoiceOver validation, visual audit and install validation.
 
 ## Check it yourself
 

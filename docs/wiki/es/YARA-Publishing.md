@@ -27,7 +27,7 @@ Una librería vende un libro con el sello del distribuidor y un precinto numerad
 {{diagram:release-sequence}}
 
 1. `precheck` compara el candidato con la última release; si es idéntico, no pide aprobación ni publica.
-2. `publish` (con entorno de aprobación humana por ahora) re-verifica el conjunto final: clasificación estática y evidencia dinámica.
+2. `publish` (en el entorno `stable-signing-auto`, sin revisor obligatorio, mientras la variable `AUTO_PUBLISH` sea `true`; si se desactiva se usa el entorno con aprobación humana `stable-signing`; la protección de rama, la identidad OIDC y los controles técnicos son los mismos en ambos modos) re-verifica el conjunto final: clasificación estática y evidencia dinámica.
 3. Firma el checkpoint del registro, escribe el manifiesto (`scripts/seal.py`), lo firma y genera la prueba de inclusión.
 4. Empaqueta: `tar -czf rules-release.tar.gz -C dist rules manifest.json`.
 5. Comprueba los artefactos exactos, crea la release como **borrador**, adjunta todos los archivos y solo entonces la hace pública. {{ev:EV-YC-45}}
@@ -64,7 +64,7 @@ Detalles y salida real en [Verificar](ES-YARA-Verify). Código: [publish.yml](ht
 ## Límites
 
 - Una firma válida y hashes correctos prueban **quién** publicó exactamente **esos bytes**, no que las reglas sean buenas.
-- Cada release es el conjunto completo; una corrección es una release nueva y los tags no se reutilizan.
+- Cada release es el conjunto completo; una corrección es una release nueva y por convención, los tags no se reutilizan (las releases inmutables de GitHub, que lo impondrían, no están activadas).
 - Las releases inmutables de GitHub no están activadas (requiere autorización de una persona); el flujo borrador a público ya es el que ese ajuste exige. {{ev:EV-YC-59}}
 - `release.json` es metadato sin firmar; el verificador lo contrasta con los valores firmados.
 
@@ -72,7 +72,7 @@ Detalles y salida real en [Verificar](ES-YARA-Verify). Código: [publish.yml](ht
 
 | Capacidad | Estado |
 |---|---|
-| Release completa con manifiesto y registro firmados con Sigstore | operational {{ev:EV-YC-03}} |
-| Vínculo release a ejecución del workflow dentro del manifiesto | operational {{ev:EV-YC-48}} |
+| Release completa con manifiesto y registro firmados con Sigstore | operativo {{ev:EV-YC-03}} |
+| Vínculo release a ejecución del workflow dentro del manifiesto | operativo {{ev:EV-YC-48}} |
 | Atestaciones GitHub/SLSA | no implementado, no programado {{ev:EV-YC-47}} |
 | Releases inmutables de GitHub | no activadas {{ev:EV-YC-59}} |
