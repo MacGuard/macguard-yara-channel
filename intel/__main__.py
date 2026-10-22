@@ -6,6 +6,7 @@
   registry list [--registry FILE]
   channels [--json]                     honest status of every channel family
   live SOURCE --out ROOT --version N    download a wired real source (abusech-feodo, cisa-kev), keep the original, validate, build the channel (never publishes)
+  provenance file PATH [--json] [--redact] [--follow-symlinks] [--out FILE]   per-file provenance, read-only and offline
 """
 from __future__ import annotations
 import argparse
@@ -152,6 +153,8 @@ def main(argv=None) -> int:
     ch.add_argument("--json", action="store_true"); ch.set_defaults(fn=cmd_channels)
     r = sub.add_parser("registry").add_subparsers(dest="sub", required=True).add_parser("list")
     r.add_argument("--registry", default=reg.DEFAULT_PATH); r.set_defaults(fn=cmd_registry_list)
+    from .provenance import cli as provenance_cli
+    provenance_cli.add_parser(sub)
     a = p.parse_args(argv)
     try:
         return a.fn(a)
