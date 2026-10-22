@@ -10,7 +10,7 @@ from typing import Any, Dict, List
 from . import CONTRACT, VERSION, backends
 from .core import FAILED, OK, UNAVAILABLE, USAGE, Ctx, UsageError
 from .help import render
-from .paths import validate_path
+from .paths import prepare_output_dir, validate_path
 from .services import aliasing, auditfile
 from .tree import BY_PATH, Cmd
 
@@ -326,3 +326,37 @@ def intelligence_catalog_verify(ctx: Ctx, cmd: Cmd, args: Dict[str, Any]) -> int
         if code == 5:
             ctx.out(ctx.t("The files match the catalog, but nothing proves WHO published them until the signature is checked.", "Los archivos coinciden con el catálogo, pero nada prueba QUIÉN los publicó hasta comprobar la firma."))
     return mapped
+
+
+# ---- provenance (delegated to the intel package) ------------------------------------------------------------------------
+def provenance_file(ctx: Ctx, cmd: Cmd, args: Dict[str, Any]) -> int:
+    """`mgctl provenance file PATH`: the engine is intel.provenance (read-only, offline). The host-wide scan (`provenance --all`) stays planned."""
+    _given, resolved, _st = validate_path(args["path"], follow_symlinks=bool(args.get("follow_symlinks")), allow_dir=True)
+    argv = ["provenance", "file", os.path.abspath(args["path"]), "--timeout", str(min(ctx.timeout, 600))] + (["--json"] if ctx.json else [])
+    if args.get("redact"):
+        argv.append("--redact")
+    if args.get("follow_symlinks"):
+        argv.append("--follow-symlinks")
+    if ctx.output:
+        argv += ["--out", os.path.join(prepare_output_dir(ctx.output), "provenance.json")]
+    res, rc = _intel(ctx, "provenance file", argv)
+    if res is None:
+        return rc
+    code, out, err, timed_out = res
+    if timed_out:
+        return _engine_unavailable(ctx, "provenance file", f"the provenance engine did not finish within {ctx.timeout} s")
+    if code == 3:
+        raise UsageError((err or "bad path").replace("error: ", "", 1).strip())
+    if code == 4:
+        return _engine_unavailable(ctx, "provenance file", (err or "this operating system is not supported").replace("error: ", "", 1).strip())
+    if code != 0:
+        return _engine_unavailable(ctx, "provenance file", "the provenance engine failed: " + (err or "").strip()[:200])
+    if not ctx.json:
+        ctx.stdout.write(out if out.endswith("\n") else out + "\n")
+        return OK
+    try:
+        doc = json.loads(out)
+    except ValueError:
+        return _engine_unavailable(ctx, "provenance file", "the provenance engine returned no readable answer: " + (err or "").strip()[:200])
+    ctx.emit_json({"schemaVersion": 1, "command": "provenance file", "ok": True, "exitCode": OK, "document": doc})
+    return OK
