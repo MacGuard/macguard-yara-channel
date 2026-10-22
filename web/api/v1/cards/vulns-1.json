@@ -1,0 +1,202 @@
+{
+  "approval": {
+    "approved_at": null,
+    "approved_by": [],
+    "blocking_reasons": [
+      "cisa-kev: the owner has not confirmed the redistribution decision (owner_confirmed is not true)"
+    ],
+    "publishable": false,
+    "state": "draft"
+  },
+  "artifacts": [
+    {
+      "bytes": 201,
+      "hosted_on_this_site": false,
+      "media_type": "application/json",
+      "metadata_embedded_in_card": true,
+      "origin": "derived",
+      "original_signature_present": false,
+      "path": "build-report.json",
+      "role": "MacGuard-generated metadata, embedded in this card",
+      "sha256": "cae3ba0524d37f1aa9090f70e0c647d6752346c9cb4f508555936e7a5d3c27c4"
+    },
+    {
+      "bytes": 385791,
+      "hosted_on_this_site": false,
+      "media_type": "application/x-ndjson",
+      "metadata_embedded_in_card": false,
+      "origin": "derived",
+      "original_signature_present": false,
+      "path": "kev-index.jsonl",
+      "role": "MacGuard-generated, derived from third-party content; not hosted",
+      "sha256": "b1f68b3f17bdb53db3032674046084b342f13142df0bd555c748aa9b8978f621"
+    },
+    {
+      "bytes": 1803428,
+      "hosted_on_this_site": false,
+      "media_type": "application/json",
+      "metadata_embedded_in_card": false,
+      "origin": "original",
+      "original_signature_present": false,
+      "path": "known_exploited_vulnerabilities.json",
+      "role": "original third-party file, kept byte for byte",
+      "sha256": "ef8fffede5c472001da046c7751beb2a3242458896d0ce08da52b30968b8b56b"
+    },
+    {
+      "bytes": 549,
+      "hosted_on_this_site": false,
+      "media_type": "application/json",
+      "metadata_embedded_in_card": true,
+      "origin": "derived",
+      "original_signature_present": false,
+      "path": "known_exploited_vulnerabilities.json.retrieval.json",
+      "role": "MacGuard-generated metadata, embedded in this card",
+      "sha256": "5bd1483205487913c097489b0c29d6578f94ef45b95120fd37ec6231fbc4c37b"
+    }
+  ],
+  "attestation": {
+    "status": "none",
+    "text": "none: not produced",
+    "validation_attestation": null,
+    "validation_gates": []
+  },
+  "build": {
+    "key_numbers": {
+      "accepted": 1754,
+      "count_matches_declared": true,
+      "declared_count": 1754,
+      "input_items": 1754,
+      "rejected": 0
+    },
+    "report": {
+      "accepted": 1754,
+      "catalog_version": "2026.10.21",
+      "count_matches_declared": true,
+      "date_released": "2026-10-21T14:04:39.8983Z",
+      "declared_count": 1754,
+      "input_items": 1754,
+      "rejected": 0,
+      "rejected_by_reason": {}
+    }
+  },
+  "channel": "vulns",
+  "data_origin": "docs/intelligence/live-evidence/2026-10-22/vulns-1/ (byte copies of the manifest, build report and retrieval record of a real build made on 2026-10-22), intel/status.py, config/intel/sources.registry.json, tests/",
+  "download": {
+    "metadata_offered": [
+      "api/v1/cards/vulns-1.json"
+    ],
+    "published": false,
+    "reason": [
+      "cisa-kev: the owner has not confirmed the redistribution decision (owner_confirmed is not true)"
+    ],
+    "text": "not published: publication is blocked",
+    "third_party_data_hosted": false,
+    "upstream_data_url": "https://www.cisa.gov/sites/default/files/feeds/known_exploited_vulnerabilities.json",
+    "upstream_note": "To compare, fetch the upstream file yourself and hash it. The upstream changes: a different hash later does not mean tampering."
+  },
+  "family": "vulns",
+  "generated_at": "2026-10-22T18:00:00Z",
+  "generated_by": "scripts/gen_intel_web.py",
+  "id": "vulns-1",
+  "identity": {
+    "artifacts_root": "30d33eb08368b74c4c2d933683f98c986b3f06fb8fd54a6682e6458da4c44fde",
+    "channel_manifest_schema": "macguard.channel-manifest/1",
+    "compatibility": {
+      "engines": [
+        {
+          "min_version": "0.1.0",
+          "name": "mgctl"
+        }
+      ],
+      "platforms": [
+        "macos",
+        "linux"
+      ]
+    },
+    "created_at": "2026-10-22T12:00:00Z",
+    "previous_version": null
+  },
+  "kind": "channel-artifact-set",
+  "metadata_files_sha256": {
+    "build-report.json": "cae3ba0524d37f1aa9090f70e0c647d6752346c9cb4f508555936e7a5d3c27c4",
+    "known_exploited_vulnerabilities.json.retrieval.json": "5bd1483205487913c097489b0c29d6578f94ef45b95120fd37ec6231fbc4c37b",
+    "manifest.json": "e4299e58b2c4875cb101eb947ec87fcd1a2f730b55d8ef051914d3076ee8b4c4"
+  },
+  "retrieval": {
+    "bytes": 1803428,
+    "etag": "\"1b84a4-65e5a3a633a28\"",
+    "file": "known_exploited_vulnerabilities.json",
+    "final_url": "https://www.cisa.gov/sites/default/files/feeds/known_exploited_vulnerabilities.json",
+    "last_modified": "Wed, 21 Oct 2026 14:04:39 GMT",
+    "redistribution_status_at_retrieval": "allowed-with-conditions",
+    "retrieved_at": "2026-10-22T12:00:00Z",
+    "sha256": "ef8fffede5c472001da046c7751beb2a3242458896d0ce08da52b30968b8b56b",
+    "source_id": "cisa-kev",
+    "status": 200,
+    "url": "https://www.cisa.gov/sites/default/files/feeds/known_exploited_vulnerabilities.json"
+  },
+  "schema": "macguard.web-data/1",
+  "signature": {
+    "original_signature": "none (the upstream provides none; MacGuard never re-signs a third-party file)",
+    "status": "not_signed",
+    "text": "not signed: no signing workflow exists"
+  },
+  "source": {
+    "attribution": "credit CISA and link the catalog",
+    "id": "cisa-kev",
+    "license": {
+      "name": "CC0 (as stated by CISA/the project's matrix); US Government work"
+    },
+    "name": "CISA Known Exploited Vulnerabilities catalog",
+    "owner_confirmed": false,
+    "redistribution_status": "allowed-with-conditions",
+    "registry_clearance_blocking_reasons": [
+      "cisa-kev: the owner has not confirmed the redistribution decision (owner_confirmed is not true)"
+    ],
+    "registry_status_note": "LICENSE-MATRIX.md verdict ALLOWED-WITH-CONDITIONS. Publication blocked until the owner confirms.",
+    "upstream_url": "https://www.cisa.gov/known-exploited-vulnerabilities-catalog"
+  },
+  "status": "experimental",
+  "status_detail": "CISA Known Exploited Vulnerabilities is wired: the original file is kept byte for byte and 1754 of 1754 records validated on 2026-10-22 into a CVE index. Nothing is published (owner confirmation and signing workflow missing).",
+  "status_source": "intel/status.py",
+  "tests": [
+    {
+      "file": "tests/test_intel.py",
+      "test_functions": 45,
+      "what_it_says": "Tests for the intel package (P0/P1): canonical JSON, IOC normalisation and validation, channel manifests, the global catalog and the independent verifier, including real signatures made with a throwaway cosign key (skipped, and reported as skipped, if cosign is missing)."
+    },
+    {
+      "file": "tests/test_intel_live.py",
+      "test_functions": 12,
+      "what_it_says": "Tests for the download layer and the two wired real sources."
+    }
+  ],
+  "tests_note": "Tests run against local test doubles; the live download was done once by hand. No test result is attested.",
+  "verify_independently": [
+    {
+      "command": "python3 -m intel live cisa-kev --out ROOT --version 1",
+      "step": "Rebuild the channel from the upstream feed (needs the network; writes only under ROOT)"
+    },
+    {
+      "caveat": "equal only if the upstream file did not change since the retrieval",
+      "command": "shasum -a 256 ROOT/vulns/1/known_exploited_vulnerabilities.json",
+      "expect": "ef8fffede5c472001da046c7751beb2a3242458896d0ce08da52b30968b8b56b",
+      "step": "Compare the sha256 of the retrieved file with the card"
+    },
+    {
+      "command": "python3 -m intel catalog build --channel ROOT/vulns/1/manifest.json --version 1 --out OUT --include-draft --rel-to ROOT",
+      "step": "Build a catalog that pins the channel (drafts are included only on request)"
+    },
+    {
+      "command": "python3 -m intel catalog verify OUT/catalog.json --root ROOT --allow-draft",
+      "expect": "exit 5 = CONSISTENT, SIGNATURE NOT CHECKED (there is no signature to check)",
+      "step": "Verify hashes, Merkle root, state and unlisted files"
+    },
+    {
+      "command": "mgctl intelligence catalog verify OUT/catalog.json --root ROOT --allow-draft",
+      "step": "Same check through the CLI front end"
+    }
+  ],
+  "version": 1,
+  "what_is_real": "A real download and build of one upstream feed. Every number below is copied from the build report or manifest. Nothing here is published: see approval and download."
+}

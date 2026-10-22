@@ -1,0 +1,330 @@
+{
+  "data_origin": "docs/intelligence/LICENSE-MATRIX.md (verdict table), config/intel/sources.registry.json",
+  "generated_at": "2026-10-22T18:00:00Z",
+  "generated_by": "scripts/gen_intel_web.py",
+  "matrix": [
+    {
+      "license_as_stated": "DRL 1.1 default; per-rule exceptions",
+      "n": 1,
+      "source": "Neo23x0/signature-base (YARA, IOC lists)",
+      "verdict": "ALLOWED-WITH-CONDITIONS for DRL-tagged rules only; BY-NC rules BLOCKED; OGL/Volexity/others PENDING-LEGAL",
+      "verdict_classes": [
+        "ALLOWED-WITH-CONDITIONS",
+        "PENDING-LEGAL",
+        "BLOCKED"
+      ]
+    },
+    {
+      "license_as_stated": "GPL-2.0",
+      "n": 2,
+      "source": "Yara-Rules/rules",
+      "verdict": "PENDING-LEGAL",
+      "verdict_classes": [
+        "PENDING-LEGAL"
+      ]
+    },
+    {
+      "license_as_stated": "MIT",
+      "n": 3,
+      "source": "ReversingLabs YARA rules",
+      "verdict": "ALLOWED-WITH-CONDITIONS",
+      "verdict_classes": [
+        "ALLOWED-WITH-CONDITIONS"
+      ]
+    },
+    {
+      "license_as_stated": "Elastic License 2.0",
+      "n": 4,
+      "source": "Elastic protections-artifacts (YARA)",
+      "verdict": "PENDING-LEGAL",
+      "verdict_classes": [
+        "PENDING-LEGAL"
+      ]
+    },
+    {
+      "license_as_stated": "BSD-2-Clause",
+      "n": 5,
+      "source": "ESET malware-ioc",
+      "verdict": "ALLOWED-WITH-CONDITIONS",
+      "verdict_classes": [
+        "ALLOWED-WITH-CONDITIONS"
+      ]
+    },
+    {
+      "license_as_stated": "BSD-3-Clause (engine, not a rule source)",
+      "n": 6,
+      "source": "VirusTotal/yara-x",
+      "verdict": "ALLOWED-WITH-CONDITIONS (engine only)",
+      "verdict_classes": [
+        "ALLOWED-WITH-CONDITIONS"
+      ]
+    },
+    {
+      "license_as_stated": "GPL-3.0 repo (Cuckoo Foundation text), per-rule author headers",
+      "n": 7,
+      "source": "CAPEv2 YARA (data/yara)",
+      "verdict": "PENDING-LEGAL",
+      "verdict_classes": [
+        "PENDING-LEGAL"
+      ]
+    },
+    {
+      "license_as_stated": "not read",
+      "n": 8,
+      "source": "Malpedia and other rule hubs",
+      "verdict": "NOT-VERIFIED",
+      "verdict_classes": [
+        "NOT-VERIFIED"
+      ]
+    },
+    {
+      "license_as_stated": "DRL 1.1",
+      "n": 9,
+      "source": "SigmaHQ/sigma",
+      "verdict": "ALLOWED-WITH-CONDITIONS",
+      "verdict_classes": [
+        "ALLOWED-WITH-CONDITIONS"
+      ]
+    },
+    {
+      "license_as_stated": "abuse.ch Terms of Use; Auth-Key",
+      "n": 10,
+      "source": "abuse.ch MalwareBazaar / URLhaus / ThreatFox",
+      "verdict": "BLOCKED (redistribution) until written consent/subscription",
+      "verdict_classes": [
+        "BLOCKED"
+      ]
+    },
+    {
+      "license_as_stated": "CC0 \"currently\" per Terms of Use",
+      "n": 11,
+      "source": "abuse.ch Feodo Tracker, SSL Blacklist, YARAify",
+      "verdict": "ALLOWED-WITH-CONDITIONS",
+      "verdict_classes": [
+        "ALLOWED-WITH-CONDITIONS"
+      ]
+    },
+    {
+      "license_as_stated": "CC0 1.0 (cisagov/kev-data)",
+      "n": 12,
+      "source": "CISA KEV",
+      "verdict": "ALLOWED-WITH-CONDITIONS",
+      "verdict_classes": [
+        "ALLOWED-WITH-CONDITIONS"
+      ]
+    },
+    {
+      "license_as_stated": "not verified live",
+      "n": 13,
+      "source": "Other US gov feeds (NVD CVE, CISA advisories)",
+      "verdict": "NOT-VERIFIED",
+      "verdict_classes": [
+        "NOT-VERIFIED"
+      ]
+    },
+    {
+      "license_as_stated": "per feed, heterogeneous",
+      "n": 14,
+      "source": "MISP default feeds (108 entries)",
+      "verdict": "PENDING-LEGAL per feed (no blanket verdict)",
+      "verdict_classes": [
+        "PENDING-LEGAL"
+      ]
+    },
+    {
+      "license_as_stated": "CC BY 4.0 by default \"unless a repository or dataset states otherwise\"",
+      "n": 15,
+      "source": "CIRCL OSINT feed",
+      "verdict": "PENDING-LEGAL (leaning ALLOWED-WITH-CONDITIONS after per-event check)",
+      "verdict_classes": [
+        "ALLOWED-WITH-CONDITIONS",
+        "PENDING-LEGAL"
+      ]
+    },
+    {
+      "license_as_stated": "Terms of Use",
+      "n": 16,
+      "source": "OpenPhish community feed",
+      "verdict": "BLOCKED",
+      "verdict_classes": [
+        "BLOCKED"
+      ]
+    },
+    {
+      "license_as_stated": "registration/key; Cisco EULA; no licence stated",
+      "n": 17,
+      "source": "PhishTank",
+      "verdict": "NOT-VERIFIED (credential blocker)",
+      "verdict_classes": [
+        "NOT-VERIFIED"
+      ]
+    },
+    {
+      "license_as_stated": "GPLv2 / BSD by SID range; Pro excluded",
+      "n": 18,
+      "source": "Emerging Threats Open",
+      "verdict": "PENDING-LEGAL (BSD SID range ALLOWED-WITH-CONDITIONS)",
+      "verdict_classes": [
+        "ALLOWED-WITH-CONDITIONS",
+        "PENDING-LEGAL"
+      ]
+    },
+    {
+      "license_as_stated": "API key required (HTTP 403 unauthenticated)",
+      "n": 19,
+      "source": "AlienVault OTX",
+      "verdict": "BLOCKED (credential) / NOT-VERIFIED terms",
+      "verdict_classes": [
+        "BLOCKED",
+        "NOT-VERIFIED"
+      ]
+    },
+    {
+      "license_as_stated": "free use + attribution; redistribution not addressed",
+      "n": 20,
+      "source": "Spamhaus DROP",
+      "verdict": "PENDING-LEGAL",
+      "verdict_classes": [
+        "PENDING-LEGAL"
+      ]
+    },
+    {
+      "license_as_stated": "no licence; \"as they are\"",
+      "n": 21,
+      "source": "blocklist.de",
+      "verdict": "PENDING-LEGAL",
+      "verdict_classes": [
+        "PENDING-LEGAL"
+      ]
+    },
+    {
+      "license_as_stated": "GPL-2.0",
+      "n": 22,
+      "source": "ClamAV engine",
+      "verdict": "ALLOWED-WITH-CONDITIONS (engine, as GPL)",
+      "verdict_classes": [
+        "ALLOWED-WITH-CONDITIONS"
+      ]
+    },
+    {
+      "license_as_stated": "no DB licence or redistribution grant found",
+      "n": 23,
+      "source": "ClamAV signature DBs (main/daily/bytecode.cvd)",
+      "verdict": "PENDING-LEGAL (public redistribution), private mirror documented",
+      "verdict_classes": [
+        "PENDING-LEGAL"
+      ]
+    },
+    {
+      "license_as_stated": "MITRE licence (copy notice + licence)",
+      "n": 24,
+      "source": "MITRE ATT&CK STIX",
+      "verdict": "ALLOWED-WITH-CONDITIONS",
+      "verdict_classes": [
+        "ALLOWED-WITH-CONDITIONS"
+      ]
+    },
+    {
+      "license_as_stated": "live terms not retrievable",
+      "n": 25,
+      "source": "NVD / CVE API",
+      "verdict": "NOT-VERIFIED",
+      "verdict_classes": [
+        "NOT-VERIFIED"
+      ]
+    },
+    {
+      "license_as_stated": "per upstream source; osv.dev code Apache-2.0",
+      "n": 26,
+      "source": "OSV (aggregate)",
+      "verdict": "ALLOWED-WITH-CONDITIONS per record origin; CC-BY-SA origins PENDING-LEGAL",
+      "verdict_classes": [
+        "ALLOWED-WITH-CONDITIONS",
+        "PENDING-LEGAL"
+      ]
+    },
+    {
+      "license_as_stated": "CC-BY-4.0",
+      "n": 27,
+      "source": "GitHub Advisory Database (GHSA)",
+      "verdict": "ALLOWED-WITH-CONDITIONS",
+      "verdict_classes": [
+        "ALLOWED-WITH-CONDITIONS"
+      ]
+    },
+    {
+      "license_as_stated": "differ per model",
+      "n": 28,
+      "source": "ML model sources",
+      "verdict": "NOT-VERIFIED (checklist only)",
+      "verdict_classes": [
+        "NOT-VERIFIED"
+      ]
+    }
+  ],
+  "matrix_status": "DRAFT for owner and legal review. Read date: 2026-10-22 (all sources below were read on that date unless stated). This document is information, not legal advice and not an authorization to publish. MacGuard does not own, and must not claim to own or relicense, any third-party content listed here.",
+  "registry": [
+    {
+      "id": "abusech-bulk",
+      "license_name": "abuse.ch Terms of Use (no licence grant for redistribution of these feeds)",
+      "name": "abuse.ch indicator feeds (MalwareBazaar, URLhaus, ThreatFox)",
+      "owner_confirmed": false,
+      "redistribution_status": "blocked",
+      "spdx": null
+    },
+    {
+      "id": "abusech-feodo",
+      "license_name": "stated in the abuse.ch Terms of Use as CC0 ('currently'), read 2026-10-22; wording to be re-checked at each publication",
+      "name": "abuse.ch Feodo Tracker (botnet C2 IP blocklist)",
+      "owner_confirmed": false,
+      "redistribution_status": "allowed-with-conditions",
+      "spdx": null
+    },
+    {
+      "id": "cisa-kev",
+      "license_name": "CC0 (as stated by CISA/the project's matrix); US Government work",
+      "name": "CISA Known Exploited Vulnerabilities catalog",
+      "owner_confirmed": false,
+      "redistribution_status": "allowed-with-conditions",
+      "spdx": null
+    },
+    {
+      "id": "community",
+      "license_name": "GNU General Public License v2",
+      "name": "Yara-Rules/rules",
+      "owner_confirmed": false,
+      "redistribution_status": "pending-legal",
+      "spdx": "GPL-2.0"
+    },
+    {
+      "id": "nextron",
+      "license_name": "Detection Rule License 1.1",
+      "name": "Neo23x0/signature-base (Nextron Systems)",
+      "owner_confirmed": false,
+      "redistribution_status": "pending-legal",
+      "spdx": "DRL-1.1"
+    },
+    {
+      "id": "yara-x",
+      "license_name": "BSD-3-Clause",
+      "name": "VirusTotal/yara-x",
+      "owner_confirmed": false,
+      "redistribution_status": "not-evaluated",
+      "spdx": "BSD-3-Clause"
+    }
+  ],
+  "rows_by_verdict_class": {
+    "ALLOWED-WITH-CONDITIONS": 13,
+    "BLOCKED": 4,
+    "NOT-VERIFIED": 6,
+    "PENDING-LEGAL": 11
+  },
+  "schema": "macguard.web-data/1",
+  "verdict_legend": [
+    "ALLOWED-WITH-CONDITIONS",
+    "PENDING-LEGAL",
+    "BLOCKED",
+    "NOT-VERIFIED"
+  ],
+  "what_is_real": "Evidence read on 2026-10-22, not legal advice and not an authorisation to publish. MacGuard does not own or relicense any third-party content."
+}
