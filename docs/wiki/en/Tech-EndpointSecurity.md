@@ -15,11 +15,11 @@ Events come in two kinds: **notify** (they only inform) and **authorization or A
 Only **MacUSBGuard**, and only like this {{ev:EV-EC-21}}:
 
 - Subscribed event: `ES_EVENT_TYPE_AUTH_IOKIT_OPEN` (someone opens an IOKit device; used to decide on USB keyboards and mice while the Mac is locked).
-- Code: `Sources/MacUSBGuardPlatform/RealEndpointSecurityClient.swift` (`es_new_client`, `es_subscribe`, `es_respond_auth_result`) and the `EndpointSecurityDecisionEngine` decision engine in Core, which does not import Endpoint Security.
-- `Package.swift` links `libEndpointSecurity` only if it finds the SDK; otherwise the rest builds without it.
+- Documented implementation: an Endpoint Security event adapter and a separate decision engine. It uses `es_new_client`, `es_subscribe` and `es_respond_auth_result`.
+- The build separates the SDK-dependent adapter from the rest of the decision engine.
 - A decision without reliable device identity (ES message older than version 10) refuses to act on a guess.
 
-**What is verified and what is not.** It compiles and links against the Xcode 26.3 SDK per the README. **Live enforcement is unverified**: Apple's restricted entitlement is missing (and the system extension and Full Disk Access approvals), so the overall state shows as observe only and the HID hardware checks remain unverified {{ev:EV-EC-02}}. There is also no proof the system delivers all keyboard events to this client (the README itself notes WindowServer is likely on the default mute list).
+**What is verified and what is not.** It compiles and links against the Xcode 26.3 SDK per the README. **Live enforcement is unverified**: Apple's restricted entitlement is missing (and the system extension and Full Disk Access approvals), so the overall state shows as observe only and the HID hardware checks remain unverified {{ev:EV-EC-02}}. There is also no proof the system delivers all keyboard events to this client (event coverage requires testing on a real system).
 
 No other MacGuard application uses it today; MacFirewallGuard uses the sibling network technology, not covered here.
 
