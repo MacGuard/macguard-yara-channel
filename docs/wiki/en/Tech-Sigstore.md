@@ -4,7 +4,7 @@
 
 ## In 30 seconds
 
-Sigstore is an open source project for signing files (releases, binaries, images) so anyone can verify the signature; signing events are recorded in a public, auditable log {{ev:EV-YC-73}}. Here it is used to check that a rule bundle was signed by the `publish.yml` workflow and not by something else.
+Sigstore provides tools to sign artifacts and verify their integrity and the asserted signing identity; verification evidence can include an auditable public log {{ev:EV-YC-73}}. In MacGuard it helps verify that a release was signed under the configured publishing-workflow identity. It does not establish authorship of individual third-party rules.
 
 ## An everyday example
 
@@ -47,7 +47,7 @@ The second command needs `cosign` installed and the exact workflow identity.
 
 ## Limits
 
-The signature proves origin and integrity, not rule quality. `manifest.evidence` is a statement by the publishing workflow, not an independent attestation {{ev:EV-YC-66}}. The in-browser verifier is served from the same origin as the package (RR-07).
+A signature binds an artifact to a publishing identity and permits integrity checks; it does not establish authorship of every rule or its quality. `manifest.evidence` is a statement by the publishing workflow, not an independent attestation {{ev:EV-YC-66}}. The in-browser verifier is served from the same origin as the package (RR-07).
 
 ## State
 
