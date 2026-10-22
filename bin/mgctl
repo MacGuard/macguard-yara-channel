@@ -1,0 +1,9 @@
+#!/usr/bin/env python3
+"""Launcher for mgctl. Works from a checkout and through symbolic links (the real location of this file is resolved first)."""
+import os
+import sys
+
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.realpath(__file__))))
+from mgctl.cli import main  # noqa: E402
+
+sys.exit(main())
