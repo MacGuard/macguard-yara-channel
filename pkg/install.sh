@@ -34,8 +34,9 @@ case "$ACTION" in
       esac
     fi
     mkdir -p "$LIB/bin" "$BIN"
-    rm -rf "$LIB/mgctl"
+    rm -rf "$LIB/mgctl" "$LIB/intel" "$LIB/config" "$LIB/scripts"
     cp -R "$HERE/mgctl" "$LIB/mgctl"
+    for d in intel config scripts; do [ -d "$HERE/$d" ] && cp -R "$HERE/$d" "$LIB/$d"; done
     cp "$HERE/bin/mgctl" "$LIB/bin/mgctl"
     chmod 755 "$LIB/bin/mgctl"
     ln -sfn "$LIB/bin/mgctl" "$LINK"

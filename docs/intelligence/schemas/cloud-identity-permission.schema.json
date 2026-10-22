@@ -1,0 +1,52 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.macguard.example/cloud/identity-permission/1",
+  "title": "Identity, roles and permissions (PLANNED, v1)",
+  "description": "DESIGN ONLY. MacGuard Cloud does not exist. Role bindings are scoped to one tenant and, optionally, to host groups. Least privilege: a role grants only the listed permissions; there is no wildcard and no implicit inheritance across tenants. Changing a role's permissions is a critical policy change that a human approves.",
+  "allOf": [{ "$ref": "cloud-common.schema.json#/$defs/record_header" }],
+  "type": "object",
+  "$defs": {
+    "permission": {
+      "enum": [
+        "tenant.read", "hostgroup.read", "hostgroup.write",
+        "inventory.read", "baseline.read", "baseline.write",
+        "audit.request", "audit.read", "evidence.read", "evidence.export",
+        "fleet.read", "agent.enroll", "agent.revoke",
+        "identity.read", "identity.write", "tenant.delete"
+      ]
+    }
+  },
+  "properties": {
+    "principal": {
+      "type": "object",
+      "properties": {
+        "principal_id": { "$ref": "cloud-common.schema.json#/$defs/id" },
+        "kind": { "enum": ["user", "service", "agent"] },
+        "external_subject": { "type": "string", "description": "Subject from the customer's identity provider (OIDC sub). Not an email address." },
+        "mfa_required": { "type": "boolean", "default": true }
+      },
+      "required": ["principal_id", "kind"],
+      "additionalProperties": false
+    },
+    "role": {
+      "type": "object",
+      "properties": {
+        "name": { "enum": ["owner", "security_admin", "auditor_readonly", "operator", "agent"] },
+        "permissions": { "type": "array", "uniqueItems": true, "minItems": 1, "items": { "$ref": "#/$defs/permission" } }
+      },
+      "required": ["name", "permissions"],
+      "additionalProperties": false
+    },
+    "scope": {
+      "type": "object",
+      "properties": {
+        "host_group_ids": { "type": "array", "items": { "$ref": "cloud-common.schema.json#/$defs/id" }, "description": "Empty or absent = whole tenant, never other tenants." }
+      },
+      "additionalProperties": false
+    },
+    "expires_utc": { "$ref": "cloud-common.schema.json#/$defs/utc_datetime", "description": "Bindings expire; an agent binding is limited to audit submission." },
+    "granted_by": { "$ref": "cloud-common.schema.json#/$defs/id" }
+  },
+  "required": ["principal", "role", "granted_by"],
+  "unevaluatedProperties": false
+}

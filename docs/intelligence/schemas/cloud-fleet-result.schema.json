@@ -1,0 +1,47 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.macguard.example/cloud/fleet-result/1",
+  "title": "Fleet consolidated result (PLANNED, v1)",
+  "description": "DESIGN ONLY. MacGuard Cloud does not exist. Roll-up of audit results of ONE tenant (optionally one host group) over a period. Hosts that did not report are counted as 'no_data', never as pass.",
+  "allOf": [{ "$ref": "cloud-common.schema.json#/$defs/record_header" }],
+  "type": "object",
+  "properties": {
+    "fleet_result_id": { "$ref": "cloud-common.schema.json#/$defs/id" },
+    "host_group_id": { "$ref": "cloud-common.schema.json#/$defs/id" },
+    "period": {
+      "type": "object",
+      "properties": {
+        "from_utc": { "$ref": "cloud-common.schema.json#/$defs/utc_datetime" },
+        "to_utc": { "$ref": "cloud-common.schema.json#/$defs/utc_datetime" }
+      },
+      "required": ["from_utc", "to_utc"],
+      "additionalProperties": false
+    },
+    "counts": {
+      "type": "object",
+      "description": "pass + fail + incomplete + no_data must equal hosts_total.",
+      "properties": {
+        "hosts_total": { "type": "integer", "minimum": 0 },
+        "pass": { "type": "integer", "minimum": 0 },
+        "fail": { "type": "integer", "minimum": 0 },
+        "incomplete": { "type": "integer", "minimum": 0 },
+        "no_data": { "type": "integer", "minimum": 0 }
+      },
+      "required": ["hosts_total", "pass", "fail", "incomplete", "no_data"],
+      "additionalProperties": false
+    },
+    "result_ids": { "type": "array", "items": { "$ref": "cloud-common.schema.json#/$defs/id" }, "description": "The audit results consolidated; each is a verifiable source." },
+    "findings_by_severity": {
+      "type": "object",
+      "properties": {
+        "info": { "type": "integer", "minimum": 0 }, "low": { "type": "integer", "minimum": 0 },
+        "medium": { "type": "integer", "minimum": 0 }, "high": { "type": "integer", "minimum": 0 },
+        "critical": { "type": "integer", "minimum": 0 }
+      },
+      "additionalProperties": false
+    },
+    "signature": { "$ref": "cloud-common.schema.json#/$defs/signature_envelope" }
+  },
+  "required": ["fleet_result_id", "period", "counts", "result_ids"],
+  "unevaluatedProperties": false
+}

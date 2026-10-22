@@ -1,0 +1,328 @@
+{
+  "schema_version": "1.0.0",
+  "document_id": "fx-homebrew-owned-intact",
+  "generated_at": "2026-10-22T13:30:00Z",
+  "engine": {
+    "name": "macguard-provenance",
+    "version": "0.0.0-design",
+    "policy_version": "1.0.0",
+    "network_used": true,
+    "privileges": "USER"
+  },
+  "host": {
+    "os_family": "macos",
+    "os_version": "15.7",
+    "arch": "x86_64",
+    "host_ref": "run-0001"
+  },
+  "subject": {
+    "kind": "file",
+    "file": {
+      "path": "/usr/local/Cellar/jq/1.8.2/COPYING",
+      "path_was_symlink": false,
+      "device": 16777220,
+      "inode": 1627680,
+      "size": 7887,
+      "mode": "644",
+      "uid_class": "user",
+      "mtime_ns": 1781962615000000000,
+      "hashes": {
+        "sha256": "ad2b4a266b2268939c1446979759706077421cf906a203aa188c6f396e8cfd74",
+        "computed_at": "2026-10-22T13:29:58Z",
+        "stable_during_read": true
+      },
+      "file_type": "text"
+    }
+  },
+  "assessment": {
+    "content_origin": {
+      "value": "REGISTERED_REPOSITORY",
+      "claim_basis": "VERIFIED_BINDING",
+      "source": {
+        "repository_id": "homebrew/core",
+        "recorded_by": "brew INSTALL_RECEIPT.json + signed formula API"
+      },
+      "basis": [
+        "ev-bottle-compare",
+        "ev-receipt",
+        "ev-api-sig"
+      ],
+      "reasons": [
+        "Installed file is byte-identical to the file inside a bottle whose sha256 is published in the JWS-signed Homebrew API index (opt-in network check)."
+      ],
+      "missing": [
+        "Homebrew keeps no per-file hash locally: without the opt-in network comparison this document would be NO_REFERENCE / MEDIUM at best."
+      ]
+    },
+    "installation_method": {
+      "value": "THIRD_PARTY_PACKAGE_MANAGER",
+      "manager": "brew",
+      "installer_version": "6.0.2",
+      "installed_at": "2026-07-16T09:12:21Z",
+      "installed_at_basis": "MANAGER_RECORD",
+      "basis": [
+        "ev-receipt"
+      ],
+      "reasons": [
+        "Receipt says poured_from_bottle=true, installed_on_request=true. The receipt is editable by the account that owns the Cellar."
+      ]
+    },
+    "package_ownership": {
+      "value": "OWNED_BY_PACKAGE",
+      "queried_managers": [
+        "brew"
+      ],
+      "unqueryable_managers": [],
+      "basis": [
+        "ev-receipt",
+        "ev-brew-info"
+      ],
+      "reasons": [
+        "brew info --json=v2 lists keg jq 1.8.2 and the file lies inside that keg; two readers of the same Cellar count as one independence group."
+      ]
+    },
+    "integrity_status": {
+      "value": "VERIFIED_INTACT",
+      "reference": {
+        "kind": "UPSTREAM_ARTIFACT_COMPARISON",
+        "authority": "homebrew bottle, sha256 listed in JWS-signed API index",
+        "strength": "CRYPTOGRAPHIC_SIGNED",
+        "reference_location_writable_by_attacker": false,
+        "scope": "WHOLE_FILE_CONTENT"
+      },
+      "basis": [
+        "ev-bottle-compare"
+      ],
+      "reasons": [
+        "The file inside the downloaded bottle (sha256 matched the signed index) has the same SHA-256 as the installed file. COPYING is plain text, absent from receipt changed_files, and its mtime equals the bottle build time, so no relocation touched it. This comparison would NOT work for bin/jq: its Mach-O load commands were rewritten at pour time, so installed bytes differ from bottle bytes; that file gets PARTIALLY_VERIFIED at best."
+      ]
+    },
+    "provenance_confidence": {
+      "value": "HIGH",
+      "contradicted": false,
+      "independent_sources": 2,
+      "basis": [
+        "ev-bottle-compare",
+        "ev-receipt",
+        "ev-api-sig"
+      ],
+      "reasons": [
+        "Local record and a reference check on the bytes agree. Not VERY_HIGH: the bottle attestation (GitHub build provenance) was not verified in this run."
+      ]
+    },
+    "detection_status": {
+      "value": "NOT_SCANNED",
+      "reasons": [
+        "No YARA/AV run attached to this document. Absence of a scan is not a clean result."
+      ]
+    }
+  },
+  "ownership_chain": [
+    {
+      "level": "file",
+      "resolution": "RESOLVED",
+      "id": "COPYING",
+      "evidence_ids": [
+        "ev-receipt"
+      ]
+    },
+    {
+      "level": "package",
+      "resolution": "RESOLVED",
+      "name": "jq",
+      "version": "1.8.2",
+      "arch": "x86_64",
+      "evidence_ids": [
+        "ev-receipt",
+        "ev-brew-info"
+      ]
+    },
+    {
+      "level": "manager",
+      "resolution": "RESOLVED",
+      "name": "brew",
+      "version": "6.0.2"
+    },
+    {
+      "level": "repository",
+      "resolution": "RESOLVED",
+      "id": "homebrew/core",
+      "evidence_ids": [
+        "ev-api-sig"
+      ]
+    },
+    {
+      "level": "source",
+      "resolution": "UNRESOLVED",
+      "note": "Upstream project tarball was not re-verified; the bottle is Homebrew's build of it."
+    }
+  ],
+  "evidence": [
+    {
+      "id": "ev-receipt",
+      "kind": "MANAGER_INSTALL_RECEIPT",
+      "present": true,
+      "source": {
+        "type": "MANAGER_METADATA",
+        "command_or_api": "read <cellar>/jq/1.8.2/INSTALL_RECEIPT.json (JSON parse, no execution)",
+        "needs_root": false,
+        "needs_network": false
+      },
+      "observed_at": "2026-10-22T13:29:50Z",
+      "trust": "MANAGER_DECLARED",
+      "independence_group": "brew-cellar",
+      "supports": [
+        {
+          "field": "package_ownership",
+          "value": "OWNED_BY_PACKAGE",
+          "weight": "MODERATE"
+        },
+        {
+          "field": "installation_method",
+          "value": "THIRD_PARTY_PACKAGE_MANAGER",
+          "weight": "MODERATE"
+        },
+        {
+          "field": "content_origin",
+          "value": "REGISTERED_REPOSITORY",
+          "weight": "MODERATE"
+        }
+      ],
+      "summary": "tap=homebrew/core, poured_from_bottle=true, loaded_from_api=true, time=2026-07-16"
+    },
+    {
+      "id": "ev-brew-info",
+      "kind": "OTHER",
+      "present": true,
+      "source": {
+        "type": "MANAGER_METADATA",
+        "command_or_api": "brew info --json=v2 jq",
+        "needs_root": false,
+        "needs_network": false
+      },
+      "observed_at": "2026-10-22T13:29:52Z",
+      "trust": "MANAGER_DECLARED",
+      "independence_group": "brew-cellar",
+      "supports": [
+        {
+          "field": "package_ownership",
+          "value": "OWNED_BY_PACKAGE",
+          "weight": "WEAK"
+        }
+      ],
+      "summary": "installed version 1.8.2 from tap homebrew/core. Same data source as the receipt: counted once."
+    },
+    {
+      "id": "ev-api-sig",
+      "kind": "REPOSITORY_SIGNATURE_VERIFIED",
+      "present": true,
+      "source": {
+        "type": "REGISTRY_NETWORK",
+        "command_or_api": "fetch formula API index, verify JWS signature",
+        "needs_root": false,
+        "needs_network": true
+      },
+      "observed_at": "2026-10-22T13:29:55Z",
+      "trust": "CRYPTOGRAPHIC",
+      "independence_group": "brew-api-signing",
+      "supports": [
+        {
+          "field": "content_origin",
+          "value": "REGISTERED_REPOSITORY",
+          "weight": "STRONG"
+        }
+      ],
+      "summary": "bottle sha256 for this platform read from the signed index"
+    },
+    {
+      "id": "ev-bottle-compare",
+      "kind": "UPSTREAM_ARTIFACT_COMPARISON",
+      "present": true,
+      "source": {
+        "type": "REGISTRY_NETWORK",
+        "command_or_api": "download bottle, check sha256 against signed index, extract bin/jq to a private temp dir, compare SHA-256",
+        "needs_root": false,
+        "needs_network": true
+      },
+      "observed_at": "2026-10-22T13:29:57Z",
+      "trust": "CRYPTOGRAPHIC",
+      "independence_group": "brew-bottle",
+      "supports": [
+        {
+          "field": "integrity_status",
+          "value": "VERIFIED_INTACT",
+          "weight": "STRONG"
+        },
+        {
+          "field": "content_origin",
+          "value": "REGISTERED_REPOSITORY",
+          "weight": "STRONG"
+        }
+      ],
+      "summary": "bottle COPYING SHA-256 equals installed COPYING SHA-256"
+    },
+    {
+      "id": "ev-path-cellar",
+      "kind": "PATH_LOCATION",
+      "present": true,
+      "source": {
+        "type": "COMPUTED",
+        "command_or_api": "path prefix check"
+      },
+      "observed_at": "2026-10-22T13:29:49Z",
+      "trust": "HEURISTIC",
+      "independence_group": "path",
+      "summary": "Path is under the Cellar. Recorded for the audit trail only; it supports nothing."
+    },
+    {
+      "id": "ev-no-attest",
+      "kind": "ATTESTATION_UNVERIFIED",
+      "present": false,
+      "source": {
+        "type": "REGISTRY_NETWORK",
+        "command_or_api": "not run",
+        "needs_network": true
+      },
+      "observed_at": "2026-10-22T13:29:57Z",
+      "trust": "HEURISTIC",
+      "independence_group": "attestation",
+      "summary": "Bottle build attestation not checked in this run (gap, not a failure)."
+    }
+  ],
+  "history": [
+    {
+      "at": "2026-07-16T09:12:21Z",
+      "at_precision": "EXACT",
+      "change": "PACKAGE_INSTALLED",
+      "known_via": "MANAGER_HISTORY_DB",
+      "reliability": "MEDIUM",
+      "evidence_ids": [
+        "ev-receipt"
+      ],
+      "detail": "receipt time field; editable by the account"
+    }
+  ],
+  "attestations": [
+    {
+      "kind": "GITHUB_ATTESTATION",
+      "availability": "NOT_CHECKED",
+      "verifier": "gh attestation verify",
+      "evidence_id": "ev-no-attest"
+    }
+  ],
+  "links": {
+    "detections": [],
+    "vulnerabilities": []
+  },
+  "coverage": {
+    "manager_or_method": "brew-formula",
+    "state": "DESIGNED",
+    "historical_reconstruction": "PARTIAL",
+    "limits": [
+      "No per-file hashes in the receipt",
+      "Intact verdict needs opt-in network comparison",
+      "Receipt and Cellar are writable by the installing account",
+      "Relocated files (Mach-O/ELF with prefix paths, text with @@HOMEBREW_PREFIX@@) cannot be byte-compared with the bottle"
+    ]
+  }
+}
