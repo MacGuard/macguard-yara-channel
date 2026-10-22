@@ -214,7 +214,7 @@
    "state": "development",
    "class": "REQUIERE REVISION",
    "claim": {
-    "es": "Fases de desarrollo de MacFirewallGuard: las iniciales están cerradas y una posterior está parcial. Bloqueos documentados: ningún permiso de Network Extension consta como utilizable y MacCoreGuard aún no existe como servicio. MacFirewallGuard tiene un cliente de MacCoreGuard probado solo contra un simulacro.",
+    "es": "Fases de desarrollo de MacFirewallGuard: las iniciales están cerradas y una posterior está parcial. Bloqueos documentados: ningún permiso de Network Extension consta como utilizable y MacCoreGuard aún no existe como servicio. MacFirewallGuard tiene un cliente de MacCoreGuard probado solo contra un doble de prueba.",
     "en": "MacFirewallGuard development phases: the early ones are closed and a later one is partial. Documented blockers: no Network Extension entitlement is confirmed as usable and MacCoreGuard does not yet exist as a service. MacFirewallGuard has a MacCoreGuard client tested only against a mock."
    }
   },

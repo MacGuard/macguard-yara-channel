@@ -41,7 +41,7 @@ It is like a customs officer's checklist: "if the suitcase has A and B, look clo
 
 | Step | What happens | Page |
 |---|---|---|
-| 1. Collect | Rules are downloaded from two public repositories, pinning the commit of each run | [Sources](EN-YARA-Sources) |
+| 1. Collect | Rules are downloaded from two public repositories, recording the commit used in each run | [Sources](EN-YARA-Sources) |
 | 2. Validate | Static check, compilation and engine measurements; decides what gets in | [Validation](EN-YARA-Validation) |
 | 3. Measure cost | CPU, memory and latency are measured against the previous version | [Performance](EN-YARA-Performance) |
 | 4. Set aside | Anything that fails goes to a private quarantine for human review | [Quarantine](EN-YARA-Quarantine) |

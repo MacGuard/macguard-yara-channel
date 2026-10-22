@@ -41,7 +41,7 @@ Es como la lista de comprobación de un guardia de aduanas: «si en la maleta ha
 
 | Paso | Qué ocurre | Página |
 |---|---|---|
-| 1. Recoger | Se descargan las reglas de dos repositorios públicos fijando el commit de cada ejecución | [Fuentes](ES-YARA-Sources) |
+| 1. Recoger | Se descargan las reglas de dos repositorios públicos registrando el commit usado en cada ejecución | [Fuentes](ES-YARA-Sources) |
 | 2. Validar | Comprobación estática, compilación y medidas del motor; se decide qué entra | [Validación](ES-YARA-Validation) |
 | 3. Medir coste | Se mide CPU, memoria y latencia frente a la versión anterior | [Rendimiento](ES-YARA-Performance) |
 | 4. Apartar | Lo que no pasa va a una cuarentena privada para revisión humana | [Cuarentena](ES-YARA-Quarantine) |
