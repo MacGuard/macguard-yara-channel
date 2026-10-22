@@ -4,9 +4,9 @@
 
 ## In 30 seconds
 
-MacCoreGuard (the code and package are named **MacCore**; only the private repository name uses "maccore-guard") aims to be the shared "minutes book" of the MacGuard applications: each one proposes security events ("a USB device was blocked") and only MacCoreGuard decides to record them permanently and in a tamper-evident way {{ev:EV-EC-27}}.
+MacCoreGuard (whose technical core is called **MacCore**) aims to be the shared "minutes book" of the MacGuard applications: each one proposes security events ("a USB device was blocked") and only MacCoreGuard decides to record them permanently and in a tamper-evident way {{ev:EV-EC-27}}.
 
-**State: one-commit prototype** (b0b0f07, 2026-10-09) on a candidate branch that its own message declares "not authoritative" and not pushed. Today the **data formats** and the **hash mathematics** exist; the on-disk ledger, signing, ingest and verifier are **placeholders** {{ev:EV-EC-28}} {{ev:EV-EC-06}}.
+**State: unpublished prototype.** Reviewed documentation shows an initial implementation of cryptographic data structures but does not establish an operational service. Today the **data formats** and the **hash mathematics** exist; the on-disk ledger, signing, ingest and verifier are **placeholders** {{ev:EV-EC-28}} {{ev:EV-EC-06}}.
 
 It guarantees nothing to a user yet: no service is running and no application imports it today.
 
@@ -30,20 +30,20 @@ Think of a notebook where each page carries the "fingerprint" of the previous pa
 
 ## Under the hood
 
-**Hash chain.** Problem: detect that an intermediate record was altered or deleted. Input: previous hash, sequence number and canonical event bytes. Computation: `recordHash = SHA-256(0x02 || previousHash || 64-bit big-endian sequence || eventBytes)`. Output: 32 bytes. It detects changes to any earlier link; it does **not** stop someone who controls all storage from rewriting the whole chain from the start: signing and an external witness address that, and neither is implemented. Code: `CanonicalHashing.recordHash`, `Sources/MacCoreCrypto/CanonicalHashing.swift` {{ev:EV-EC-27}}.
+**Hash chain.** Problem: detect that an intermediate record was altered or deleted. Input: previous hash, sequence number and canonical event bytes. Computation: `recordHash = SHA-256(0x02 || previousHash || 64-bit big-endian sequence || eventBytes)`. Output: 32 bytes. It detects changes to any earlier link; it does **not** stop someone who controls all storage from rewriting the whole chain from the start: signing and an external witness address that, and neither is implemented. Technical reference: canonical hashing implementation reviewed internally {{ev:EV-EC-27}}.
 
 **RFC 9162 Merkle tree.** Problem: summarize thousands of records in one hash and prove things about it. Input: leaf hashes. Computation (RFC 9162, section 2.1): leaf = `SHA-256(0x00 || data)`, node = `SHA-256(0x01 || left || right)`, splitting at the largest power of two below n; the empty tree is the SHA-256 of the empty string. The `0x00`, `0x01` and `0x02` prefixes separate domains so a leaf, node or record hash is never confused with another. It is the same kind of tree used by Certificate Transparency.
 
 - **Inclusion proof** (`inclusionProof` / `verifyInclusionProof`): shows leaf number *m* is in a tree of size *n* with a path of sibling hashes.
 - **Consistency proof** (`consistencyProof` / `verifyConsistencyProof`): shows an old tree is a prefix of the new one (entries were only appended, nothing rewritten).
 
-Cost stated in the code itself: recomputing the root is O(n) per checkpoint, acceptable because it is not done per event. Code: `Sources/MacCoreCrypto/MerkleTree.swift` {{ev:EV-EC-27}}.
+Cost stated in the code itself: recomputing the root is O(n) per checkpoint, acceptable because it is not done per event. Technical reference: internal Merkle tree implementation {{ev:EV-EC-27}}.
 
-**What is a placeholder.** `MacCoreLedger`, `MacCoreSigning`, `MacCoreIngest` and `MacCoreWitness` each hold a one-line file; `maccorectl` only prints "not yet implemented" {{ev:EV-EC-28}}. P-256 signatures, Secure Enclave or keychain keys, key rotation, atomic writes with crash recovery and a witness client appear only in the design contract or comments, with no code.
+**What is a placeholder.** Persistent recording, signing, ingestion and verification components remain unimplemented; no operational service exists {{ev:EV-EC-28}}. P-256 signatures, Secure Enclave or keychain keys, key rotation, atomic writes with crash recovery and a witness client appear only in the design contract or comments, with no code.
 
 ## Tests
 
-In-house harness `maccore-tests` (executable, three files) with known-answer vectors (KAT), including inclusion proofs for trees of 1 to 6 leaves, derived per the code from a separately written Python/hashlib reference. The commit message claims "147/147 tests" for Protocol and Crypto: self-reported, **not run by me**. No tests are possible for the placeholder parts {{ev:EV-EC-29}}.
+In-house harness `maccore-tests` (executable, three files) with known-answer vectors (KAT), including inclusion proofs for trees of 1 to 6 leaves, derived per the code from a separately written Python/hashlib reference. Internal documentation reports protocol and cryptography tests; **these were not run independently for this review**. No tests are possible for the placeholder parts {{ev:EV-EC-29}}.
 
 ## Check it yourself
 
@@ -52,7 +52,7 @@ The repository is private. Its README names `swift build` and `swift run maccore
 ## Limits
 
 - No service, no durable storage, no signing and no offline verifier.
-- One candidate branch, no tags, and an unresolved split of responsibilities between parties according to the commit; it was not verified whether another implementation exists on another branch or team.
+- An unpublished prototype was reviewed; the state of other development lines has not been verified.
 - MacFirewallGuard has a MacCoreGuard client tested only against a mock; MacUSBGuard does not import it {{ev:EV-EC-04}}. MacGuardDesignKit is forbidden from depending on it.
 
 ## State
