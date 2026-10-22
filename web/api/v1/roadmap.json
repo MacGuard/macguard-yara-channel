@@ -1,0 +1,132 @@
+{
+  "data_origin": "docs/intelligence/ROADMAP.md, intel/status.py, existence of the files named in each status_basis",
+  "generated_at": "2026-10-22T18:00:00Z",
+  "generated_by": "scripts/gen_intel_web.py",
+  "rows": [
+    {
+      "done": "state report (STATE-2026-10-22.md); catalog and channel contracts with schemas and a verifier (intel/, 42 tests); legacy YARA channel referenced unchanged; mgctl evidence verify PASS against the live release",
+      "missing": "owner decisions on the open PRs; the JSON Schemas for the channel manifest, catalog and IOC record exist as files (schemas/) but are not validated against a JSON Schema engine in CI (no such package is installed)",
+      "phase": "P0",
+      "scope": "repository audit, compatibility, contracts, continuity of the YARA channel",
+      "status": "experimental",
+      "status_basis": "all these files exist: intel/channel.py, intel/catalog.py, intel/verify.py, tests/test_intel.py"
+    },
+    {
+      "done": "IOC pipeline (normalise, validate, dedupe, TTL, confidence, report), manifest, catalog, verifier, CLI (python3 -m intel, mgctl intelligence …), 42 tests in tests/test_intel.py plus 4 mgctl integration tests",
+      "missing": "a cleared source (licence and access decision, credentials the owner must create); a signing/publishing workflow (a change to a publication workflow needs authorisation); allowlist curation; real-feed false-positive review",
+      "phase": "P1",
+      "scope": "IOC channel and signed publication",
+      "status": "experimental",
+      "status_basis": "best status of ioc, vulns in intel/status.py"
+    },
+    {
+      "done": "design, evidence matrix from real macOS experiments, JSON Schema (PROVENANCE-DESIGN.md)",
+      "missing": "implementation (not started)",
+      "phase": "P2",
+      "scope": "Software Provenance v1 (macOS/Linux) and per-file inventory",
+      "status": "planned",
+      "status_basis": "missing: intel/provenance.py; intel/provenance.py"
+    },
+    {
+      "done": "validation design only",
+      "missing": "pySigma bench; licence decision",
+      "phase": "P3",
+      "scope": "Sigma and sensor compatibility",
+      "status": "planned",
+      "status_basis": "best status of sigma in intel/status.py"
+    },
+    {
+      "done": "licence/terms analysis (LICENSE-MATRIX.md)",
+      "missing": "legal review; original CVD signature preservation",
+      "phase": "P4",
+      "scope": "ClamAV integration",
+      "status": "planned",
+      "status_basis": "best status of clamav in intel/status.py"
+    },
+    {
+      "done": "validation design only",
+      "missing": "test sets and sensors",
+      "phase": "P5",
+      "scope": "heuristics and behaviour",
+      "status": "planned",
+      "status_basis": "best status of heuristics, behavior in intel/status.py"
+    },
+    {
+      "done": "validation design only",
+      "missing": "isolated infrastructure, independent datasets",
+      "phase": "P6",
+      "scope": "sandbox and ML",
+      "status": "planned",
+      "status_basis": "best status of sandbox, ml in intel/status.py"
+    },
+    {
+      "done": "plan with real data sources per page (WEB-PLAN.md)",
+      "missing": "nothing is deployed; each stage ends at an owner approval",
+      "phase": "Web",
+      "scope": "Security Intelligence site",
+      "status": "experimental",
+      "status_basis": "all these files exist: web/intelligence/index.html, scripts/gen_intel_web.py"
+    },
+    {
+      "done": "draft contracts and schemas (CLOUD-CONTRACTS.md)",
+      "missing": "nothing exists; TSA and key custody decisions",
+      "phase": "Cloud",
+      "scope": "versioned contracts for tenants, fleets, evidence",
+      "status": "planned",
+      "status_basis": "missing: cloud; cloud"
+    },
+    {
+      "done": "install script, deterministic archive, pure-Python DEB, Homebrew and RPM templates (docs/cli/mgctl-install.md)",
+      "missing": "publishing any package; dpkg/rpmbuild/brew verification on real systems; signing",
+      "phase": "Install",
+      "scope": "mgctl via Homebrew (macOS and Linux), DEB, RPM, signed binaries",
+      "status": "experimental",
+      "status_basis": "all these files exist: docs/cli/mgctl-install.md, bin/mgctl"
+    }
+  ],
+  "schema": "macguard.web-data/1",
+  "tracks": [
+    {
+      "id": "macguard-intelligence",
+      "items": [
+        "P0",
+        "P1",
+        "P2",
+        "P3",
+        "P4",
+        "P5",
+        "P6",
+        "Web"
+      ],
+      "name": "MacGuard Intelligence",
+      "source": "docs/intelligence/ROADMAP.md"
+    },
+    {
+      "id": "linux-intelligence-guard",
+      "items": [
+        "P2",
+        "Install"
+      ],
+      "linux_provenance_phase": {
+        "justification": "Package databases give ownership and (RPM/pacman) real per-file digests; dpkg weaker but ubiquitous",
+        "phase": "P1b (Linux)",
+        "scope": "dpkg ownership + md5sums, rpm ownership + digests, pacman ownership + mtree, dnf/zypper install repo"
+      },
+      "name": "Linux Intelligence Guard",
+      "note": "ROADMAP.md has no section with this name. The Linux work it lists is: provenance for Linux package managers (P2, design only), Linux packages of mgctl (Install, templates only). Nothing runs on Linux as a product.",
+      "source": "docs/intelligence/ROADMAP.md rows P2 and Install; docs/intelligence/PROVENANCE-DESIGN.md section 11 (P1b)",
+      "status": "planned"
+    },
+    {
+      "id": "cloud",
+      "items": [
+        "Cloud"
+      ],
+      "name": "MacGuard Cloud",
+      "note": "Draft contracts only; no service, agent or schema is published.",
+      "source": "docs/intelligence/ROADMAP.md, docs/intelligence/CLOUD-CONTRACTS.md",
+      "status": "planned"
+    }
+  ],
+  "what_is_real": "No dates and no percentages. A status other than planned means the named files exist or intel/status.py says so; nothing in the roadmap is deployed."
+}

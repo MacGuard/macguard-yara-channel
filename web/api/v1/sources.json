@@ -1,0 +1,210 @@
+{
+  "data_origin": "config/intel/sources.registry.json, clearance computed by intel/registry.py",
+  "generated_at": "2026-10-22T18:00:00Z",
+  "generated_by": "scripts/gen_intel_web.py",
+  "schema": "macguard.web-data/1",
+  "sources": [
+    {
+      "access": {
+        "credential_required": true,
+        "credential_terms_allow_redistribution": false,
+        "method": "to be recorded"
+      },
+      "attribution": "to be recorded",
+      "clearance": {
+        "blocking_reasons": [
+          "abusech-bulk: redistribution status is 'blocked'"
+        ],
+        "publishable": false
+      },
+      "default_ttl_days": 30,
+      "families": [
+        "ioc"
+      ],
+      "id": "abusech-bulk",
+      "license": {
+        "name": "abuse.ch Terms of Use (no licence grant for redistribution of these feeds)"
+      },
+      "license_key": "no-spdx-terms-text",
+      "name": "abuse.ch indicator feeds (MalwareBazaar, URLhaus, ThreatFox)",
+      "original_signature": {
+        "kind": "none"
+      },
+      "owner_confirmed": false,
+      "real_retrieval_cards": [],
+      "redistribution_status": "blocked",
+      "status_note": "LICENSE-MATRIX.md (read 2026-10-22): MalwareBazaar, URLhaus and ThreatFox need an Auth-Key and the terms bar derivative works without consent; the old unauthenticated bulk exports return HTTP 410. Feodo Tracker and SSL Blacklist are listed separately in the matrix.",
+      "trust": 80,
+      "upstream_url": "https://abuse.ch/"
+    },
+    {
+      "access": {
+        "credential_required": false,
+        "method": "HTTPS GET, no key"
+      },
+      "attribution": "credit abuse.ch Feodo Tracker and keep the source URL",
+      "clearance": {
+        "blocking_reasons": [
+          "abusech-feodo: the owner has not confirmed the redistribution decision (owner_confirmed is not true)"
+        ],
+        "publishable": false
+      },
+      "default_ttl_days": 30,
+      "families": [
+        "ioc"
+      ],
+      "id": "abusech-feodo",
+      "license": {
+        "name": "stated in the abuse.ch Terms of Use as CC0 ('currently'), read 2026-10-22; wording to be re-checked at each publication"
+      },
+      "license_key": "no-spdx-terms-text",
+      "name": "abuse.ch Feodo Tracker (botnet C2 IP blocklist)",
+      "original_signature": {
+        "kind": "none"
+      },
+      "owner_confirmed": false,
+      "real_retrieval_cards": [
+        "ioc-1"
+      ],
+      "redistribution_status": "allowed-with-conditions",
+      "status_note": "LICENSE-MATRIX.md verdict ALLOWED-WITH-CONDITIONS. Publication stays blocked until the owner confirms (owner_confirmed). The feed header on 2026-10-22 said it was last updated 2026-03-04: check freshness before relying on it.",
+      "trust": 80,
+      "upstream_url": "https://feodotracker.abuse.ch/blocklist/"
+    },
+    {
+      "access": {
+        "credential_required": false,
+        "method": "HTTPS GET, no key"
+      },
+      "attribution": "credit CISA and link the catalog",
+      "clearance": {
+        "blocking_reasons": [
+          "cisa-kev: the owner has not confirmed the redistribution decision (owner_confirmed is not true)"
+        ],
+        "publishable": false
+      },
+      "default_ttl_days": 3650,
+      "families": [
+        "vulns"
+      ],
+      "id": "cisa-kev",
+      "license": {
+        "name": "CC0 (as stated by CISA/the project's matrix); US Government work"
+      },
+      "license_key": "no-spdx-terms-text",
+      "name": "CISA Known Exploited Vulnerabilities catalog",
+      "original_signature": {
+        "kind": "none"
+      },
+      "owner_confirmed": false,
+      "real_retrieval_cards": [
+        "vulns-1"
+      ],
+      "redistribution_status": "allowed-with-conditions",
+      "status_note": "LICENSE-MATRIX.md verdict ALLOWED-WITH-CONDITIONS. Publication blocked until the owner confirms.",
+      "trust": 95,
+      "upstream_url": "https://www.cisa.gov/known-exploited-vulnerabilities-catalog"
+    },
+    {
+      "access": {
+        "credential_required": false,
+        "method": "git clone, public"
+      },
+      "attribution": "keep copyright and warranty notices and ship the licence text",
+      "clearance": {
+        "blocking_reasons": [
+          "community: redistribution status is 'pending-legal'"
+        ],
+        "publishable": false
+      },
+      "default_ttl_days": null,
+      "families": [
+        "yara"
+      ],
+      "id": "community",
+      "license": {
+        "name": "GNU General Public License v2",
+        "spdx": "GPL-2.0"
+      },
+      "license_key": "GPL-2.0",
+      "name": "Yara-Rules/rules",
+      "original_signature": {
+        "kind": "none (git commits)"
+      },
+      "owner_confirmed": false,
+      "real_retrieval_cards": [],
+      "redistribution_status": "pending-legal",
+      "status_note": null,
+      "trust": 50,
+      "upstream_url": "https://github.com/Yara-Rules/rules"
+    },
+    {
+      "access": {
+        "credential_required": false,
+        "method": "git clone, public"
+      },
+      "attribution": "keep the rule author and the licence reference that each rule carries",
+      "clearance": {
+        "blocking_reasons": [
+          "nextron: redistribution status is 'pending-legal'"
+        ],
+        "publishable": false
+      },
+      "default_ttl_days": null,
+      "families": [
+        "yara"
+      ],
+      "id": "nextron",
+      "license": {
+        "name": "Detection Rule License 1.1",
+        "note": "individual rule files may carry their own licence lines",
+        "spdx": "DRL-1.1"
+      },
+      "license_key": "DRL-1.1",
+      "name": "Neo23x0/signature-base (Nextron Systems)",
+      "original_signature": {
+        "kind": "none (git commits)"
+      },
+      "owner_confirmed": false,
+      "real_retrieval_cards": [],
+      "redistribution_status": "pending-legal",
+      "status_note": "LICENSE-MATRIX.md: the repository default is DRL-1.1 but individual rule files carry other licences (some non-commercial); the licence must be resolved per rule, not per repository.",
+      "trust": 70,
+      "upstream_url": "https://github.com/Neo23x0/signature-base"
+    },
+    {
+      "access": {
+        "credential_required": false,
+        "method": "git clone, public"
+      },
+      "attribution": "engine entry only: no rules are taken from this repository today",
+      "clearance": {
+        "blocking_reasons": [
+          "yara-x: redistribution status is 'not-evaluated'"
+        ],
+        "publishable": false
+      },
+      "default_ttl_days": null,
+      "families": [
+        "yara-x"
+      ],
+      "id": "yara-x",
+      "license": {
+        "name": "BSD-3-Clause",
+        "spdx": "BSD-3-Clause"
+      },
+      "license_key": "BSD-3-Clause",
+      "name": "VirusTotal/yara-x",
+      "original_signature": {
+        "kind": "none"
+      },
+      "owner_confirmed": false,
+      "real_retrieval_cards": [],
+      "redistribution_status": "not-evaluated",
+      "status_note": null,
+      "trust": 50,
+      "upstream_url": "https://github.com/VirusTotal/yara-x"
+    }
+  ],
+  "what_is_real": "Redistribution status is a human decision recorded in the registry; the code never decides a licence question."
+}

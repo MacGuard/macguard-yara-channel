@@ -1,0 +1,167 @@
+{
+  "approval": {
+    "blocking_reasons": [],
+    "open_item": "Redistribution notices of the third-party rules are pending legal review (docs/intelligence/CHANNELS.md); both sources are pending-legal in the registry.",
+    "publishable": true,
+    "state": "published (release.published event in the log)"
+  },
+  "artifacts": [
+    {
+      "bytes": null,
+      "hosted_on_this_site": "built site only",
+      "origin": "derived",
+      "path": "rules-release.tar.gz",
+      "role": "the rule files of the release",
+      "sha256": null
+    },
+    {
+      "bytes": null,
+      "hosted_on_this_site": "built site only",
+      "origin": "derived",
+      "path": "manifest.json",
+      "role": "signed manifest: the SHA-256 and size of every file are inside it",
+      "sha256": null
+    },
+    {
+      "bytes": null,
+      "hosted_on_this_site": "built site only",
+      "origin": "derived",
+      "path": "manifest.sigstore.json",
+      "role": "Sigstore bundle of the manifest",
+      "sha256": null
+    },
+    {
+      "bytes": null,
+      "hosted_on_this_site": "built site only",
+      "origin": "derived",
+      "path": "inclusion-proof.json",
+      "role": "Merkle inclusion proof of the release in the log",
+      "sha256": null
+    }
+  ],
+  "artifacts_note": "Hashes are not copied here: the authoritative values are in the signed manifest.json of the release. The repository does not store them.",
+  "attestation": {
+    "status": "none",
+    "text": "none: not produced (no GitHub/SLSA attestation and no signed test attestation exist; docs/intelligence/VALIDATION-PLAN.md)"
+  },
+  "channel": "yara",
+  "data_origin": "logs/log.jsonl, logs/checkpoint.txt, logs/checkpoint.sigstore.json (the legacy channel's own transparency log), intel/status.py, config/intel/sources.registry.json",
+  "download": {
+    "published": true,
+    "release_url": "https://github.com/MacGuard/macguard-yara-channel/releases/tag/rules-20261021-39541028283",
+    "site_files": [
+      "latest.json",
+      "manifest.json",
+      "manifest.sigstore.json",
+      "inclusion-proof.json",
+      "rules-release.tar.gz",
+      "catalog.json",
+      "releases.json",
+      "logs/checkpoint.txt",
+      "logs/checkpoint.sigstore.json",
+      "verify_public_release.py"
+    ],
+    "site_files_note": "These files are produced by scripts/build_site.py in the deployed site; they are not part of this static data.",
+    "text": "published by the legacy pipeline: use the release assets"
+  },
+  "family": "yara",
+  "generated_at": "2026-10-22T18:00:00Z",
+  "generated_by": "scripts/gen_intel_web.py",
+  "id": "yara-legacy",
+  "identity": {
+    "engine": "classic YARA (yarac), not YARA-X",
+    "latest_release_tag": "rules-20261021-39541028283",
+    "log_checkpoint_root": "8Lrz3Jk0XqHlZ3vIgNTHS1cgSps6ctn3Qzv2jgpSAFs=",
+    "log_checkpoint_size": 180,
+    "log_format": "macguard-rules-log v1",
+    "log_seq_of_release_event": 180,
+    "release_published_at": "2026-10-21T03:57:43Z"
+  },
+  "kind": "legacy-channel",
+  "latest_candidate": {
+    "deprecated": 0,
+    "evaluated_at": "2026-10-22T03:52:45Z",
+    "examined": 1184,
+    "file_count": 1178,
+    "identical_to_latest_release_per_log": true,
+    "log_seq": 189,
+    "quarantined": 2,
+    "rejected": 4,
+    "rules_root": "b92e0216828b4ec73a7182fda4d4f3788327b8db03b350f1b3294c1add88eacd"
+  },
+  "schema": "macguard.web-data/1",
+  "signature": {
+    "evidence_files": [
+      "logs/checkpoint.sigstore.json"
+    ],
+    "status": "signed_sigstore",
+    "text": "Sigstore keyless signature of manifest.json and of the log checkpoint (bundles manifest.sigstore.json and logs/checkpoint.sigstore.json). Verify it yourself: the browser pages do not verify signatures.",
+    "workflow_identity": ".github/workflows/publish.yml@refs/heads/main"
+  },
+  "sources": [
+    {
+      "attribution": "keep the rule author and the licence reference that each rule carries",
+      "id": "nextron",
+      "license": {
+        "name": "Detection Rule License 1.1",
+        "note": "individual rule files may carry their own licence lines",
+        "spdx": "DRL-1.1"
+      },
+      "name": "Neo23x0/signature-base (Nextron Systems)",
+      "redistribution_status": "pending-legal",
+      "status_note": "LICENSE-MATRIX.md: the repository default is DRL-1.1 but individual rule files carry other licences (some non-commercial); the licence must be resolved per rule, not per repository.",
+      "upstream_url": "https://github.com/Neo23x0/signature-base"
+    },
+    {
+      "attribution": "keep copyright and warranty notices and ship the licence text",
+      "id": "community",
+      "license": {
+        "name": "GNU General Public License v2",
+        "spdx": "GPL-2.0"
+      },
+      "name": "Yara-Rules/rules",
+      "redistribution_status": "pending-legal",
+      "status_note": null,
+      "upstream_url": "https://github.com/Yara-Rules/rules"
+    }
+  ],
+  "status": "operational",
+  "status_detail": "Daily validated release, Sigstore-signed, transparency log. This is the legacy channel; the catalog references it unchanged.",
+  "status_source": "intel/status.py",
+  "tests": [
+    {
+      "file": "tests/test_verify_public_release.py",
+      "test_functions": 37,
+      "what_it_says": "Integration tests of scripts/verify_public_release.py against the REAL published release."
+    },
+    {
+      "file": "tests/test_tlog.py",
+      "test_functions": 16,
+      "what_it_says": null
+    },
+    {
+      "file": "tests/test_rulecheck.py",
+      "test_functions": 24,
+      "what_it_says": null
+    }
+  ],
+  "tests_note": "test_verify_public_release.py needs the network and cosign; tests are not attested.",
+  "verify_independently": [
+    {
+      "command": "mgctl evidence verify --latest",
+      "expect": "needs the network and cosign",
+      "step": "Verify the latest release end to end (signature, hashes, log inclusion)"
+    },
+    {
+      "command": "mgctl evidence verify --directory ./release --offline",
+      "step": "Verify a downloaded release folder offline"
+    },
+    {
+      "command": "python3 verify_public_release.py",
+      "expect": "script published on the site next to its .sha256; a same-origin copy is a convenience, not a root of trust",
+      "step": "Without mgctl"
+    }
+  ],
+  "version": "rules-20261021-39541028283",
+  "what_is_real": "The legacy YARA channel is published by its own pipeline. Numbers come from its transparency log in this repository; the release files themselves live on GitHub Releases and the built site, not here."
+}

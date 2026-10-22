@@ -1,0 +1,323 @@
+{
+  "coverage": {
+    "counts": {
+      "designed": 24,
+      "exercised-in-survey": 9,
+      "not-possible": 1,
+      "recorded-only": 1
+    },
+    "managers": [
+      {
+        "coverage": "designed",
+        "coverage_raw": "designed",
+        "group": "Linux system package managers",
+        "name": "APT / aptitude / DPKG, ownership"
+      },
+      {
+        "coverage": "designed",
+        "coverage_raw": "designed",
+        "group": "Linux system package managers",
+        "name": "DPKG integrity"
+      },
+      {
+        "coverage": "designed",
+        "coverage_raw": "designed",
+        "group": "Linux system package managers",
+        "name": "APT repository / signatures"
+      },
+      {
+        "coverage": "designed",
+        "coverage_raw": "designed",
+        "group": "Linux system package managers",
+        "name": "APT history"
+      },
+      {
+        "coverage": "designed",
+        "coverage_raw": "designed",
+        "group": "Linux system package managers",
+        "name": "RPM / DNF / Zypper ownership"
+      },
+      {
+        "coverage": "designed",
+        "coverage_raw": "designed",
+        "group": "Linux system package managers",
+        "name": "RPM integrity"
+      },
+      {
+        "coverage": "designed",
+        "coverage_raw": "designed",
+        "group": "Linux system package managers",
+        "name": "DNF / Zypper install source"
+      },
+      {
+        "coverage": "designed",
+        "coverage_raw": "designed",
+        "group": "Linux system package managers",
+        "name": "Pacman"
+      },
+      {
+        "coverage": "designed",
+        "coverage_raw": "designed",
+        "group": "Linux self-contained formats",
+        "name": "Flatpak"
+      },
+      {
+        "coverage": "designed",
+        "coverage_raw": "designed",
+        "group": "Linux self-contained formats",
+        "name": "Snap"
+      },
+      {
+        "coverage": "designed",
+        "coverage_raw": "designed",
+        "group": "Linux self-contained formats",
+        "name": "AppImage"
+      },
+      {
+        "coverage": "designed",
+        "coverage_raw": "designed",
+        "group": "Linux self-contained formats",
+        "name": "Homebrew on Linux"
+      },
+      {
+        "coverage": "designed",
+        "coverage_raw": "designed (read of receipt + brew info implemented in v1)",
+        "group": "macOS",
+        "name": "Homebrew formula"
+      },
+      {
+        "coverage": "designed",
+        "coverage_raw": "designed (v1)",
+        "group": "macOS",
+        "name": "Homebrew cask"
+      },
+      {
+        "coverage": "designed",
+        "coverage_raw": "designed",
+        "group": "macOS",
+        "name": "Taps"
+      },
+      {
+        "coverage": "exercised-in-survey",
+        "coverage_raw": "implemented (v1)",
+        "group": "macOS",
+        "name": "PKG installer"
+      },
+      {
+        "coverage": "exercised-in-survey",
+        "coverage_raw": "implemented (v1)",
+        "group": "macOS",
+        "name": "DMG / APP drag install"
+      },
+      {
+        "coverage": "exercised-in-survey",
+        "coverage_raw": "implemented (v1)",
+        "group": "macOS",
+        "name": "Quarantine xattr"
+      },
+      {
+        "coverage": "exercised-in-survey",
+        "coverage_raw": "implemented (v1)",
+        "group": "macOS",
+        "name": "kMDItemWhereFroms"
+      },
+      {
+        "coverage": "recorded-only",
+        "coverage_raw": "recorded as PROVENANCE_XATTR, supports nothing",
+        "group": "macOS",
+        "name": "com.apple.provenance xattr"
+      },
+      {
+        "coverage": "exercised-in-survey",
+        "coverage_raw": "implemented (v1)",
+        "group": "macOS",
+        "name": "Code signature, notarization, Gatekeeper"
+      },
+      {
+        "coverage": "exercised-in-survey",
+        "coverage_raw": "implemented (v1)",
+        "group": "macOS",
+        "name": "Mac App Store"
+      },
+      {
+        "coverage": "exercised-in-survey",
+        "coverage_raw": "implemented (v1)",
+        "group": "macOS",
+        "name": "Manual downloads"
+      },
+      {
+        "coverage": "exercised-in-survey",
+        "coverage_raw": "implemented (v1: RECORD, INSTALLER, direct_url)",
+        "group": "Language ecosystems",
+        "name": "pip / pipx / uv / Poetry"
+      },
+      {
+        "coverage": "designed",
+        "coverage_raw": "designed",
+        "group": "Language ecosystems",
+        "name": "npm / pnpm / Yarn / Bun"
+      },
+      {
+        "coverage": "designed",
+        "coverage_raw": "designed",
+        "group": "Language ecosystems",
+        "name": "Cargo"
+      },
+      {
+        "coverage": "designed",
+        "coverage_raw": "designed",
+        "group": "Language ecosystems",
+        "name": "Composer"
+      },
+      {
+        "coverage": "designed",
+        "coverage_raw": "designed",
+        "group": "Language ecosystems",
+        "name": "RubyGems / Bundler"
+      },
+      {
+        "coverage": "exercised-in-survey",
+        "coverage_raw": "implemented (v1: read buildinfo with go version -m or by parsing the section)",
+        "group": "Language ecosystems",
+        "name": "Go"
+      },
+      {
+        "coverage": "designed",
+        "coverage_raw": "designed",
+        "group": "Language ecosystems",
+        "name": "Maven / Gradle"
+      },
+      {
+        "coverage": "designed",
+        "coverage_raw": "designed",
+        "group": "Language ecosystems",
+        "name": "NuGet"
+      },
+      {
+        "coverage": "designed",
+        "coverage_raw": "designed",
+        "group": "Other methods",
+        "name": "Git"
+      },
+      {
+        "coverage": "designed",
+        "coverage_raw": "designed (best-effort search of known build dirs, never a full-disk crawl)",
+        "group": "Other methods",
+        "name": "make / CMake / Meson install"
+      },
+      {
+        "coverage": "not-possible",
+        "coverage_raw": "NOT_POSSIBLE for history",
+        "group": "Other methods",
+        "name": "Scripts and direct downloads (curl | sh, wget, cp)"
+      },
+      {
+        "coverage": "designed",
+        "coverage_raw": "designed (v1.5)",
+        "group": "Other methods",
+        "name": "Docker / Podman"
+      }
+    ],
+    "meaning": {
+      "designed": "specified only, not exercised on this host",
+      "exercised-in-survey": "the mechanism was run by hand on one Mac during the design survey; no engine code exists",
+      "not-possible": "the act leaves no evidence",
+      "other": "see coverage_raw",
+      "recorded-only": "recorded but supports no claim"
+    }
+  },
+  "data_origin": "docs/intelligence/PROVENANCE-DESIGN.md (sections 1, 2, 4, 12), existence of provenance code in intel/, scripts/, mgctl/",
+  "engine_code_found": [],
+  "generated_at": "2026-10-22T18:00:00Z",
+  "generated_by": "scripts/gen_intel_web.py",
+  "hard_rules": [
+    {
+      "consequence": "PATH_LOCATION evidence is recorded with trust HEURISTIC and may not support any claim (the schema forbids supports on it).",
+      "id": "R1",
+      "rule": "Never infer provenance from the path alone."
+    },
+    {
+      "consequence": "The current catalog / apt-cache policy / brew info candidate is recorded as NAME_COLLISION_NOTE (no supports). Origin comes only from records of the installation or from bytes matched to a reference.",
+      "id": "R2",
+      "rule": "A package with the same name in an official repository today does not make an installed binary official."
+    },
+    {
+      "consequence": "integrity_status is NO_REFERENCE when the only evidence is HASH_ONLY. VERIFIED_INTACT and MODIFIED require reference.kind != NONE (schema-enforced).",
+      "id": "R3",
+      "rule": "A computed hash is not integrity."
+    },
+    {
+      "consequence": "Evidence has present:false for \"looked for, not found\" and a contradicts list; both feed provenance_confidence.",
+      "id": "R4",
+      "rule": "Contradicting evidence and absences are always stored."
+    },
+    {
+      "consequence": "Every field has UNKNOWN (or NO_REFERENCE, NOT_SCANNED, OWNERSHIP_NOT_QUERYABLE). The vocabulary contains no SAFE, TRUSTED, CLEAN. UI copy for unknown is \"cannot say\", never green. SCANNED_NO_MATCH reads \"these rules found nothing\", never \"clean\".",
+      "id": "R5",
+      "rule": "Unknown is a value and is never rendered as safe."
+    },
+    {
+      "consequence": "reference_location_writable_by_attacker is recorded; a same-account-writable reference caps integrity at PARTIALLY_VERIFIED unless it is cryptographically signed.",
+      "id": "R6",
+      "rule": "A reference stored where the file's attacker can also write is weak."
+    },
+    {
+      "consequence": "Confidence can only rise through explicit rules in section 5, and only by new evidence; a later scan never overwrites an earlier assessment, it appends a document with a history link.",
+      "id": "R7",
+      "rule": "Never upgrade silently."
+    },
+    {
+      "consequence": "coverage.historical_reconstruction is FULL, PARTIAL or NONE; history entries carry known_via and reliability.",
+      "id": "R8",
+      "rule": "Old installs are reconstructed only as far as records exist, and the limit is declared."
+    }
+  ],
+  "limits": [
+    "Deciding whether software is malicious or safe; that belongs to detection, and SCANNED_NO_MATCH is not a safe verdict.",
+    "Reconstructing history before the engine's first observation, or recovering what curl | sh did.",
+    "Trusting any path layout, file name, or catalog entry as origin.",
+    "Executing, unpacking by default, or instrumenting the inspected software.",
+    "Fixing or updating packages, removing quarantine, or changing any manager state.",
+    "Uploading file content, shell history, or the quarantine events database.",
+    "A single host \"trust score\" or a green/red badge derived from UNKNOWN.",
+    "Windows support in v1.",
+    "Supply-chain verdicts on upstream source (Homebrew's bottle vs the upstream tarball) beyond what attestations prove."
+  ],
+  "mgctl_command": "mgctl provenance is declared planned in mgctl/tree.py and exits 4",
+  "schema": "macguard.web-data/1",
+  "six_facts": [
+    {
+      "field": "content_origin",
+      "question": "Where did these bytes come from?",
+      "values": "OS_VENDOR, REGISTERED_REPOSITORY, THIRD_PARTY_REPOSITORY, VENDOR_DIRECT, USER_DOWNLOAD_RECORDED, LOCAL_BUILD, CONTAINER_IMAGE, UNKNOWN. Plus claim_basis: VERIFIED_BINDING, DECLARED_BY_MANAGER, DECLARED_BY_WRITABLE_METADATA, INFERRED, NONE (required with UNKNOWN)."
+    },
+    {
+      "field": "installation_method",
+      "question": "How did they get onto disk?",
+      "values": "SYSTEM_PACKAGE_MANAGER, THIRD_PARTY_PACKAGE_MANAGER, LANGUAGE_PACKAGE_MANAGER, PKG_INSTALLER, APP_BUNDLE_COPY, SELF_CONTAINED_BUNDLE, SOURCE_INSTALL, CONTAINER_RUNTIME, MANUAL_COPY, SCRIPT_OR_PIPE_UNRECORDED, UNKNOWN."
+    },
+    {
+      "field": "package_ownership",
+      "question": "Which package claims this path?",
+      "values": "OWNED_BY_PACKAGE, OWNED_BY_MULTIPLE_PACKAGES, GENERATED_BY_PACKAGE_SCRIPT, NOT_OWNED (only if every applicable database was read successfully), OWNERSHIP_NOT_QUERYABLE, UNKNOWN."
+    },
+    {
+      "field": "integrity_status",
+      "question": "Do the bytes match a reference, which one?",
+      "values": "VERIFIED_INTACT, MODIFIED, PARTIALLY_VERIFIED, REFERENCE_UNTRUSTED, NO_REFERENCE, UNKNOWN; plus reference.{kind, authority, strength, scope, reference_location_writable_by_attacker}."
+    },
+    {
+      "field": "provenance_confidence",
+      "question": "How far can the engine trust the origin/ownership claims together?",
+      "values": "UNKNOWN, LOW, MEDIUM, HIGH, VERY_HIGH + contradicted, capped_from, cap_rule_ids, independent_sources."
+    },
+    {
+      "field": "detection_status",
+      "question": "What did YARA/AV/IOC say?",
+      "values": "NOT_SCANNED, SCANNED_NO_MATCH, MATCHED, SCAN_ERROR, SCAN_PARTIAL, RESULT_STALE, UNKNOWN. Says nothing about provenance."
+    }
+  ],
+  "status": "planned",
+  "status_basis": "no provenance engine code found",
+  "what_is_real": "This is a DESIGN. The engine is not implemented; the coverage column records which evidence mechanisms were exercised by hand on one Mac, not shipped features."
+}

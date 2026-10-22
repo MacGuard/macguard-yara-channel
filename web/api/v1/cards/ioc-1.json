@@ -1,0 +1,192 @@
+{
+  "approval": {
+    "approved_at": null,
+    "approved_by": [],
+    "blocking_reasons": [
+      "abusech-feodo: the owner has not confirmed the redistribution decision (owner_confirmed is not true)"
+    ],
+    "publishable": false,
+    "state": "draft"
+  },
+  "artifacts": [
+    {
+      "bytes": 154,
+      "hosted_on_this_site": false,
+      "media_type": "application/json",
+      "metadata_embedded_in_card": true,
+      "origin": "derived",
+      "original_signature_present": false,
+      "path": "build-report.json",
+      "role": "MacGuard-generated metadata, embedded in this card",
+      "sha256": "a121bf59fbf5c6bc1b0ba9bb98981e255f5baecbffbbab57534ee997b259c91f"
+    },
+    {
+      "bytes": 1763,
+      "hosted_on_this_site": false,
+      "media_type": "application/json",
+      "metadata_embedded_in_card": false,
+      "origin": "original",
+      "original_signature_present": false,
+      "path": "feodo-ipblocklist.json",
+      "role": "original third-party file, kept byte for byte",
+      "sha256": "ef1c98c807014247b232483e542b5deadb1b8738d30a072f2e2b154b05ebda52"
+    },
+    {
+      "bytes": 480,
+      "hosted_on_this_site": false,
+      "media_type": "application/json",
+      "metadata_embedded_in_card": true,
+      "origin": "derived",
+      "original_signature_present": false,
+      "path": "feodo-ipblocklist.json.retrieval.json",
+      "role": "MacGuard-generated metadata, embedded in this card",
+      "sha256": "c7e1b86da3f2adee4afaaf5775df9a30572597ce9ea26bfeb46ff997cf695bb5"
+    }
+  ],
+  "attestation": {
+    "status": "none",
+    "text": "none: not produced",
+    "validation_attestation": null,
+    "validation_gates": []
+  },
+  "build": {
+    "key_numbers": {
+      "accepted": 0,
+      "expired": 5,
+      "input_items": 5,
+      "published": 0,
+      "rejected": 0
+    },
+    "report": {
+      "accepted": 0,
+      "built_at": "2026-10-22T12:00:00Z",
+      "by_type": {},
+      "dropped": {},
+      "expired": 5,
+      "input_items": 5,
+      "published": 0,
+      "rejected": 0,
+      "rejected_by_reason": {}
+    }
+  },
+  "channel": "ioc",
+  "data_origin": "docs/intelligence/live-evidence/2026-10-22/ioc-1/ (byte copies of the manifest, build report and retrieval record of a real build made on 2026-10-22), intel/status.py, config/intel/sources.registry.json, tests/",
+  "download": {
+    "metadata_offered": [
+      "api/v1/cards/ioc-1.json"
+    ],
+    "published": false,
+    "reason": [
+      "abusech-feodo: the owner has not confirmed the redistribution decision (owner_confirmed is not true)"
+    ],
+    "text": "not published: publication is blocked",
+    "third_party_data_hosted": false,
+    "upstream_data_url": "https://feodotracker.abuse.ch/downloads/ipblocklist.json",
+    "upstream_note": "To compare, fetch the upstream file yourself and hash it. The upstream changes: a different hash later does not mean tampering."
+  },
+  "family": "ioc",
+  "generated_at": "2026-10-22T18:00:00Z",
+  "generated_by": "scripts/gen_intel_web.py",
+  "id": "ioc-1",
+  "identity": {
+    "artifacts_root": "54f75cf1776f91486a3508c74739f4d1667d0681c95f5eafd94966577195a2ad",
+    "channel_manifest_schema": "macguard.channel-manifest/1",
+    "compatibility": {
+      "engines": [
+        {
+          "min_version": "0.1.0",
+          "name": "mgctl"
+        }
+      ],
+      "platforms": [
+        "macos",
+        "linux"
+      ]
+    },
+    "created_at": "2026-10-22T12:00:00Z",
+    "previous_version": null
+  },
+  "kind": "channel-artifact-set",
+  "metadata_files_sha256": {
+    "build-report.json": "a121bf59fbf5c6bc1b0ba9bb98981e255f5baecbffbbab57534ee997b259c91f",
+    "feodo-ipblocklist.json.retrieval.json": "c7e1b86da3f2adee4afaaf5775df9a30572597ce9ea26bfeb46ff997cf695bb5",
+    "manifest.json": "d0537db8f76f27d30cba25e4cfd25391e139171c4a4ec84b810a41def339ecf9"
+  },
+  "retrieval": {
+    "bytes": 1763,
+    "etag": "\"6e3-6557159bdf633\"",
+    "file": "feodo-ipblocklist.json",
+    "final_url": "https://feodotracker.abuse.ch/downloads/ipblocklist.json",
+    "last_modified": "Tue, 30 Jun 2026 04:53:05 GMT",
+    "redistribution_status_at_retrieval": "allowed-with-conditions",
+    "retrieved_at": "2026-10-22T12:00:00Z",
+    "sha256": "ef1c98c807014247b232483e542b5deadb1b8738d30a072f2e2b154b05ebda52",
+    "source_id": "abusech-feodo",
+    "status": 200,
+    "url": "https://feodotracker.abuse.ch/downloads/ipblocklist.json"
+  },
+  "schema": "macguard.web-data/1",
+  "signature": {
+    "original_signature": "none (the upstream provides none; MacGuard never re-signs a third-party file)",
+    "status": "not_signed",
+    "text": "not signed: no signing workflow exists"
+  },
+  "source": {
+    "attribution": "credit abuse.ch Feodo Tracker and keep the source URL",
+    "id": "abusech-feodo",
+    "license": {
+      "name": "stated in the abuse.ch Terms of Use as CC0 ('currently'), read 2026-10-22; wording to be re-checked at each publication"
+    },
+    "name": "abuse.ch Feodo Tracker (botnet C2 IP blocklist)",
+    "owner_confirmed": false,
+    "redistribution_status": "allowed-with-conditions",
+    "registry_clearance_blocking_reasons": [
+      "abusech-feodo: the owner has not confirmed the redistribution decision (owner_confirmed is not true)"
+    ],
+    "registry_status_note": "LICENSE-MATRIX.md verdict ALLOWED-WITH-CONDITIONS. Publication stays blocked until the owner confirms (owner_confirmed). The feed header on 2026-10-22 said it was last updated 2026-03-04: check freshness before relying on it.",
+    "upstream_url": "https://feodotracker.abuse.ch/blocklist/"
+  },
+  "status": "experimental",
+  "status_detail": "One real source is wired (abuse.ch Feodo Tracker IP list: download, validation, TTL, manifest). On 2026-10-22 its five records were all older than the 30-day TTL, so 0 were publishable. ThreatFox, URLhaus and MalwareBazaar are blocked (credential and terms). Nothing is published: the owner has not confirmed the licence decision and no signing workflow exists.",
+  "status_source": "intel/status.py",
+  "tests": [
+    {
+      "file": "tests/test_intel.py",
+      "test_functions": 45,
+      "what_it_says": "Tests for the intel package (P0/P1): canonical JSON, IOC normalisation and validation, channel manifests, the global catalog and the independent verifier, including real signatures made with a throwaway cosign key (skipped, and reported as skipped, if cosign is missing)."
+    },
+    {
+      "file": "tests/test_intel_live.py",
+      "test_functions": 12,
+      "what_it_says": "Tests for the download layer and the two wired real sources."
+    }
+  ],
+  "tests_note": "Tests run against local test doubles; the live download was done once by hand. No test result is attested.",
+  "verify_independently": [
+    {
+      "command": "python3 -m intel live abusech-feodo --out ROOT --version 1",
+      "step": "Rebuild the channel from the upstream feed (needs the network; writes only under ROOT)"
+    },
+    {
+      "caveat": "equal only if the upstream file did not change since the retrieval",
+      "command": "shasum -a 256 ROOT/ioc/1/feodo-ipblocklist.json",
+      "expect": "ef1c98c807014247b232483e542b5deadb1b8738d30a072f2e2b154b05ebda52",
+      "step": "Compare the sha256 of the retrieved file with the card"
+    },
+    {
+      "command": "python3 -m intel catalog build --channel ROOT/ioc/1/manifest.json --version 1 --out OUT --include-draft --rel-to ROOT",
+      "step": "Build a catalog that pins the channel (drafts are included only on request)"
+    },
+    {
+      "command": "python3 -m intel catalog verify OUT/catalog.json --root ROOT --allow-draft",
+      "expect": "exit 5 = CONSISTENT, SIGNATURE NOT CHECKED (there is no signature to check)",
+      "step": "Verify hashes, Merkle root, state and unlisted files"
+    },
+    {
+      "command": "mgctl intelligence catalog verify OUT/catalog.json --root ROOT --allow-draft",
+      "step": "Same check through the CLI front end"
+    }
+  ],
+  "version": 1,
+  "what_is_real": "A real download and build of one upstream feed. Every number below is copied from the build report or manifest. Nothing here is published: see approval and download."
+}

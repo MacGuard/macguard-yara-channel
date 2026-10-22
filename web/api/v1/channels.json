@@ -1,0 +1,267 @@
+{
+  "channels": [
+    {
+      "cards": [
+        "yara-legacy"
+      ],
+      "detail": "Daily validated release, Sigstore-signed, transparency log. This is the legacy channel; the catalog references it unchanged.",
+      "engine": "classic YARA (yarac), not YARA-X",
+      "evidence": "scripts/verify_public_release.py; mgctl evidence verify",
+      "evidence_files_found": [
+        "scripts/verify_public_release.py"
+      ],
+      "family": "yara",
+      "id": "yara",
+      "kind": "detection rules",
+      "licenses": [
+        "DRL-1.1",
+        "GPL-2.0"
+      ],
+      "os": [],
+      "os_basis": "not stated in the data",
+      "publication": {
+        "published": true,
+        "text": "published by the legacy YARA pipeline (see card yara-legacy)"
+      },
+      "sources": [
+        "community",
+        "nextron"
+      ],
+      "status": "operational",
+      "status_source": "intel/status.py"
+    },
+    {
+      "cards": [],
+      "detail": "No YARA-X gate exists: yara-x is only an engine entry in config/sources.json and the manifests say validation.engine = yara. A YARA-X compatibility gate is designed as an additional check, not a replacement.",
+      "engine": "YARA-X",
+      "evidence": "config/sources.json; docs/intelligence/VALIDATION-PLAN.md",
+      "evidence_files_found": [
+        "config/sources.json",
+        "docs/intelligence/VALIDATION-PLAN.md"
+      ],
+      "family": "yara-x",
+      "id": "yara-x",
+      "kind": "detection rules",
+      "licenses": [
+        "BSD-3-Clause"
+      ],
+      "os": [],
+      "os_basis": "not stated in the data",
+      "publication": {
+        "published": false,
+        "text": "not published: no artifact exists"
+      },
+      "sources": [
+        "yara-x"
+      ],
+      "status": "planned",
+      "status_source": "intel/status.py"
+    },
+    {
+      "cards": [],
+      "detail": "Design only.",
+      "evidence": "docs/intelligence/VALIDATION-PLAN.md",
+      "evidence_files_found": [
+        "docs/intelligence/VALIDATION-PLAN.md"
+      ],
+      "family": "sigma",
+      "id": "sigma",
+      "kind": "detection rules",
+      "licenses": [],
+      "os": [],
+      "os_basis": "not stated in the data",
+      "publication": {
+        "published": false,
+        "text": "not published: no artifact exists"
+      },
+      "sources": [],
+      "status": "planned",
+      "status_source": "intel/status.py"
+    },
+    {
+      "cards": [
+        "ioc-1"
+      ],
+      "detail": "One real source is wired (abuse.ch Feodo Tracker IP list: download, validation, TTL, manifest). On 2026-10-22 its five records were all older than the 30-day TTL, so 0 were publishable. ThreatFox, URLhaus and MalwareBazaar are blocked (credential and terms). Nothing is published: the owner has not confirmed the licence decision and no signing workflow exists.",
+      "evidence": "intel/live.py; tests/test_intel_live.py; config/intel/sources.registry.json",
+      "evidence_files_found": [
+        "intel/live.py",
+        "tests/test_intel_live.py",
+        "config/intel/sources.registry.json"
+      ],
+      "family": "ioc",
+      "id": "ioc",
+      "kind": "indicators",
+      "licenses": [
+        "no-spdx-terms-text"
+      ],
+      "os": [
+        "linux",
+        "macos"
+      ],
+      "os_basis": "compatibility.platforms in the channel manifests",
+      "publication": {
+        "blocking_reasons": [
+          "abusech-feodo: the owner has not confirmed the redistribution decision (owner_confirmed is not true)"
+        ],
+        "published": false,
+        "text": "not published: publication is blocked"
+      },
+      "sources": [
+        "abusech-bulk",
+        "abusech-feodo"
+      ],
+      "status": "experimental",
+      "status_source": "intel/status.py"
+    },
+    {
+      "cards": [
+        "vulns-1"
+      ],
+      "detail": "CISA Known Exploited Vulnerabilities is wired: the original file is kept byte for byte and 1754 of 1754 records validated on 2026-10-22 into a CVE index. Nothing is published (owner confirmation and signing workflow missing).",
+      "evidence": "intel/live.py; tests/test_intel_live.py",
+      "evidence_files_found": [
+        "intel/live.py",
+        "tests/test_intel_live.py"
+      ],
+      "family": "vulns",
+      "id": "vulns",
+      "kind": "vulnerability catalog",
+      "licenses": [
+        "no-spdx-terms-text"
+      ],
+      "os": [
+        "linux",
+        "macos"
+      ],
+      "os_basis": "compatibility.platforms in the channel manifests",
+      "publication": {
+        "blocking_reasons": [
+          "cisa-kev: the owner has not confirmed the redistribution decision (owner_confirmed is not true)"
+        ],
+        "published": false,
+        "text": "not published: publication is blocked"
+      },
+      "sources": [
+        "cisa-kev"
+      ],
+      "status": "experimental",
+      "status_source": "intel/status.py"
+    },
+    {
+      "cards": [],
+      "detail": "Blocked until the redistribution terms of the signature databases are reviewed.",
+      "evidence": "docs/intelligence/LICENSE-MATRIX.md",
+      "evidence_files_found": [
+        "docs/intelligence/LICENSE-MATRIX.md"
+      ],
+      "family": "clamav",
+      "id": "clamav",
+      "kind": "antivirus signatures",
+      "licenses": [],
+      "os": [],
+      "os_basis": "not stated in the data",
+      "publication": {
+        "published": false,
+        "text": "not published: no artifact exists"
+      },
+      "sources": [],
+      "status": "planned",
+      "status_source": "intel/status.py"
+    },
+    {
+      "cards": [],
+      "detail": "Design only.",
+      "evidence": "docs/intelligence/VALIDATION-PLAN.md",
+      "evidence_files_found": [
+        "docs/intelligence/VALIDATION-PLAN.md"
+      ],
+      "family": "heuristics",
+      "id": "heuristics",
+      "kind": "heuristics",
+      "licenses": [],
+      "os": [],
+      "os_basis": "not stated in the data",
+      "publication": {
+        "published": false,
+        "text": "not published: no artifact exists"
+      },
+      "sources": [],
+      "status": "planned",
+      "status_source": "intel/status.py"
+    },
+    {
+      "cards": [],
+      "detail": "Design only.",
+      "evidence": "docs/intelligence/VALIDATION-PLAN.md",
+      "evidence_files_found": [
+        "docs/intelligence/VALIDATION-PLAN.md"
+      ],
+      "family": "behavior",
+      "id": "behavior",
+      "kind": "behaviour detections",
+      "licenses": [],
+      "os": [],
+      "os_basis": "not stated in the data",
+      "publication": {
+        "published": false,
+        "text": "not published: no artifact exists"
+      },
+      "sources": [],
+      "status": "planned",
+      "status_source": "intel/status.py"
+    },
+    {
+      "cards": [],
+      "detail": "Needs infrastructure and independent test sets that do not exist.",
+      "evidence": "docs/intelligence/VALIDATION-PLAN.md",
+      "evidence_files_found": [
+        "docs/intelligence/VALIDATION-PLAN.md"
+      ],
+      "family": "ml",
+      "id": "ml",
+      "kind": "ML models",
+      "licenses": [],
+      "os": [],
+      "os_basis": "not stated in the data",
+      "publication": {
+        "published": false,
+        "text": "not published: no artifact exists"
+      },
+      "sources": [],
+      "status": "planned",
+      "status_source": "intel/status.py"
+    },
+    {
+      "cards": [],
+      "detail": "Needs isolated infrastructure; real malware is never run on shared CI.",
+      "evidence": "docs/intelligence/VALIDATION-PLAN.md",
+      "evidence_files_found": [
+        "docs/intelligence/VALIDATION-PLAN.md"
+      ],
+      "family": "sandbox",
+      "id": "sandbox",
+      "kind": "sandbox profiles",
+      "licenses": [],
+      "os": [],
+      "os_basis": "not stated in the data",
+      "publication": {
+        "published": false,
+        "text": "not published: no artifact exists"
+      },
+      "sources": [],
+      "status": "planned",
+      "status_source": "intel/status.py"
+    }
+  ],
+  "counts_by_status": {
+    "experimental": 2,
+    "operational": 1,
+    "planned": 7
+  },
+  "data_origin": "intel/status.py (CHANNELS), config/intel/sources.registry.json, cards/*.json",
+  "generated_at": "2026-10-22T18:00:00Z",
+  "generated_by": "scripts/gen_intel_web.py",
+  "schema": "macguard.web-data/1",
+  "what_is_real": "Status of each family exactly as intel/status.py declares it; a badge is never set anywhere else."
+}
