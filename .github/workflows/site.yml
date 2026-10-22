@@ -86,7 +86,7 @@ jobs:
             'not_checked': ['Rekor inclusion is checked by cosign as part of verify-blob; the browser does not repeat it', 'Detection quality or safety of the rules']},
             open('site/verification.json', 'w'), indent=1)
           PY
-      - uses: actions/upload-pages-artifact@56afc609e74202658d3ffba0e8f6dda462b719fa # v3
+      - uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
         with:
           path: site
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
