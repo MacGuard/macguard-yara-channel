@@ -20,4 +20,4 @@ What passes the tests is published automatically. What does not pass goes to qua
 
 Details of quarantined or rejected rules (names, findings, content) travel only to the private service. Public artifacts, the log and the site carry counts only. A file that is not in the manifest appears nowhere public.
 
-> **CURRENT** Persistence and panel: implemented and tested locally; the service is not deployed in production (see [Private panel](page:admin-panel)). Until it is, quarantine is computed on every run and there is no human decision to read.
+> **CURRENT** The panel is operational (see [Private panel](page:admin-panel)) and the pipeline reads its decisions on every run. Persistent policies and withdrawals of already published rules are in `main` but not deployed (migrations 0003 to 0005 are not applied), and the pipeline does not consume policies yet.

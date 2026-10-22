@@ -18,7 +18,7 @@ The flow has two halves: a private pipeline that decides what is published and a
 | Servicio de cuarentena | Private store and review panel (Cloudflare Worker + D1). | `admin/worker/` |
 | MacGuard | GUI, TUI and CLI sharing one engine. | `DMGTrustAuditor/DMGTrustAuditor/Core/` |
 
-> **CURRENT** The quarantine service is implemented and tested against a local development server, but it is **not deployed** in production: Cloudflare Workers/D1 credentials and a GitHub OAuth app are missing. Meanwhile quarantine is applied inside the pipeline and only what passes every automatic check is published.
+> **CURRENT** The quarantine service and its panel are deployed and the pipeline reads their decisions. Quarantine is also applied inside the pipeline, and only what passes every automatic check is published. Persistent policies, audit anchors and source proposals (migrations 0003 to 0005) are in `main` but not deployed.
 
 ## Trust boundaries
 

@@ -20,4 +20,4 @@ Lo que pasa las pruebas se publica automáticamente. Lo que no pasa va a cuarent
 
 Los detalles de reglas en cuarentena o rechazadas (nombres, hallazgos, contenido) viajan solo al servicio privado. Los artefactos, el registro y el sitio públicos llevan únicamente recuentos. Un fichero que no está en el manifiesto no aparece en ninguna parte pública.
 
-> **ACTUAL** Persistencia y panel: implementados y probados en local; el servicio no está desplegado en producción (ver [Panel privado](page:admin-panel)). Mientras no lo esté, la cuarentena se calcula en cada ejecución y no hay decisión humana que leer.
+> **ACTUAL** El panel está operativo (ver [Panel privado](page:admin-panel)) y el pipeline lee sus decisiones en cada ejecución. Las políticas persistentes y las retiradas de reglas ya publicadas están en `main` pero no desplegadas (las migraciones 0003 a 0005 no están aplicadas), y el pipeline todavía no consume las políticas.

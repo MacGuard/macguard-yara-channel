@@ -21,4 +21,6 @@ Reading a public repository grants nothing. The role is recomputed from GitHub o
 - The audit log is hash-chained: editing, removing or reordering an entry fails `/api/audit/verify`.
 - Workflows prove who they are with their OIDC token (`daily.yml` may submit, `publish.yml` may mark releases, `main` only); there is no shared secret.
 
-> **LIMIT** The code and tests exist in `admin/worker/`. It is **not deployed**: a person with Cloudflare (Workers and D1) credentials must create it and a GitHub OAuth app must be registered; the steps are in `docs/OPERATIONS.md`. Confirm with the OAuth app type that `GET /repos/{repo}` returns `permissions` before trusting roles.
+> **CURRENT** The panel is deployed and in use (production check recorded by the owner on 2026-10-21; `QUARANTINE_URL` is set and `daily.yml` and `publish.yml` use it). The code and tests are in `admin/worker/`; the first-deployment steps (Cloudflare Workers and D1 credentials, a GitHub OAuth app) are in `docs/OPERATIONS.md`. Confirm with the OAuth app type that `GET /repos/{repo}` returns `permissions` before trusting roles.
+>
+> **LIMIT** Features added after the first deployment are in `main` but **not deployed**: persistent policies (migration 0003), audit anchors (0004) and source proposals (0005). Those migrations are not applied in production, and the pipeline does not read policies yet.

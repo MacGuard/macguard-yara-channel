@@ -1,5 +1,7 @@
 # MacGuard YARA Channel — final audit report (MACGUARD-FINAL-AUDIT-01)
 
+> **Note (2026-10-22): superseded in part.** This is a snapshot of 2026-10-19. The private quarantine service and panel were deployed afterwards (production check recorded by the owner on 2026-10-21), so "the service is not deployed" below no longer holds; persistent policies, audit anchors and source proposals (migrations 0003 to 0005) are in `main` and not deployed. See `docs-src/en/limits.md` and `docs-src/en/admin-panel.md`. The body is kept as written.
+
 Date: 2026-10-19. Scope: the channel repository, its pipeline, quarantine service, signing/transparency chain, releases, web, documentation, Open Graph, deployment to GitHub Pages and Cloudflare Pages. The macOS application was not touched.
 
 ## Verdict: **NO-GO** for closing V1

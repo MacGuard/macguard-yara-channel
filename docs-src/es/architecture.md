@@ -18,7 +18,7 @@ El flujo tiene dos mitades: un pipeline privado que decide qué se publica y una
 | Servicio de cuarentena | Almacén privado y panel de revisión (Cloudflare Worker + D1). | `admin/worker/` |
 | MacGuard | GUI, TUI y CLI con un único motor compartido. | `DMGTrustAuditor/DMGTrustAuditor/Core/` |
 
-> **ACTUAL** El servicio de cuarentena está implementado y probado con un servidor de desarrollo local, pero **no está desplegado** en producción: faltan credenciales de Cloudflare Workers/D1 y una aplicación OAuth de GitHub. Mientras tanto la cuarentena se aplica en el pipeline y solo se publica lo que supera todos los controles automáticos.
+> **ACTUAL** El servicio de cuarentena y su panel están desplegados y el pipeline lee sus decisiones. La cuarentena también se aplica dentro del pipeline y solo se publica lo que supera todos los controles automáticos. Las políticas persistentes, los anclajes de auditoría y las propuestas de fuentes (migraciones 0003 a 0005) están en `main` pero no desplegados.
 
 ## Límites de confianza
 

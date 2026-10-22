@@ -201,6 +201,8 @@ Criterio de éxito: todos los SHA-256 coinciden, firmas válidas, `verify_public
 | Compromiso de GitHub Actions / del workflow | Sube datos falsos con firma válida | Entornos con aprobación humana, rama protegida, anclaje del hash en `logs/` y comparación con el historial git independiente |
 | Error humano: secreto subido | No retirable con compliance | Comprobación previa; reglas de revisión; ventana corta de retención al principio (30 días) hasta pasar la fase 2 |
 
+> **Nota (2026-10-22): superada en parte.** La mitigación «entornos con aprobación humana» de la fila de compromiso de GitHub Actions está ausente mientras `AUTO_PUBLISH=true` (entorno `stable-signing-auto`, sin revisor obligatorio); siguen vigentes la rama protegida y la identidad OIDC.
+
 ## 10. Monitorización
 
 - Verificación diaria ligera: último objeto de cada proveedor existe y coincide con el manifiesto (lectura con clave de solo lectura).
