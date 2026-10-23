@@ -85,10 +85,12 @@ El recálculo manual de `rules_root` está en [Árboles Merkle](page:merkle). La
 El script `verify_public_release.py` hace todo lo anterior de una vez (biblioteca estándar de Python y `cosign`). Descárgalo **a un fichero**, léelo y ejecútalo; no lo canalices a un intérprete.
 
 ```bash
-curl -fsSLo verify_public_release.py https://raw.githubusercontent.com/{{repo}}/main/scripts/verify_public_release.py
+curl -fsSLo verify_public_release.py https://raw.githubusercontent.com/{{repo}}/<COMMIT_SHA>/scripts/verify_public_release.py
 less verify_public_release.py
 python3 verify_public_release.py --latest
 ```
+
+Para verificar sin fiarte de una rama móvil, sustituye `main` por un SHA de commit revisado (`<COMMIT_SHA>`): `main` no es una versión fija. Ninguna etiqueta de release contiene hoy el script; cuando alguna lo contenga, usa esa etiqueta.
 
 Opciones: `--latest`, `--tag TAG`, `--directory DIR` (artefactos ya descargados), `--json`, `--previous-checkpoint FILE` o `--trust-state FILE` (protección contra retroceso), `--token` o la variable `GITHUB_TOKEN` (opcional). Funciona sin token: la API anónima de GitHub admite 60 peticiones por hora y dirección IP; si se agota (HTTP 403 con `X-RateLimit-Remaining: 0`) el verificador lo dice con la hora de reinicio y, sin usar la API, resuelve `latest` con la redirección de `github.com` y descarga los mismos artefactos (se comprueba `Content-Length`, no el tamaño de la API) y lo anota en el informe. Un 403 sin cuota agotada (cortafuegos, proxy) se informa como tal. Salida real, abreviada, sobre la última release:
 

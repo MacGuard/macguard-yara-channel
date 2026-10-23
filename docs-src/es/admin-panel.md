@@ -21,4 +21,6 @@ Leer un repositorio público no concede ningún rol. El rol se recalcula desde G
 - El registro de auditoría está encadenado por hash: editar, quitar o reordenar una entrada hace fallar `/api/audit/verify`.
 - Los workflows se identifican con su token OIDC (`daily.yml` puede enviar candidatos, `publish.yml` puede marcar releases, solo desde `main`); no hay secreto compartido.
 
-> **LÍMITE** El código y las pruebas existen en `admin/worker/`. **No está desplegado**: hace falta una persona con credenciales de Cloudflare (Workers y D1) y crear una aplicación OAuth de GitHub; los pasos están en `docs/OPERATIONS.md`. Hay que confirmar con el tipo de aplicación OAuth que `GET /repos/{repo}` devuelve `permissions` antes de fiarse de los roles.
+> **ACTUAL** El panel está desplegado y en uso (comprobación en producción registrada por el propietario el 2026-10-21; `QUARANTINE_URL` está definida y `daily.yml` y `publish.yml` la usan). El código y las pruebas están en `admin/worker/`; los pasos del primer despliegue (credenciales de Cloudflare Workers y D1, una aplicación OAuth de GitHub) están en `docs/OPERATIONS.md`. Hay que confirmar con el tipo de aplicación OAuth que `GET /repos/{repo}` devuelve `permissions` antes de fiarse de los roles.
+>
+> **LÍMITE** Las funciones añadidas después del primer despliegue están en `main` pero **no desplegadas**: políticas persistentes (migración 0003), anclajes de auditoría (0004) y propuestas de fuentes (0005). Esas migraciones no están aplicadas en producción y el pipeline todavía no lee las políticas.

@@ -1,5 +1,7 @@
 # Production readiness — GO / NO-GO
 
+> **Note (2026-10-22): superseded in part.** This is a snapshot of 2026-10-19 to 2026-10-20. The private quarantine service and panel were deployed afterwards (recorded by the owner on 2026-10-21), so the rows that say "service not deployed" no longer hold; `AUTO_PUBLISH=true` is set (RR-16). The "A published rule must be withdrawn" runbook item (reject it in the panel, the next daily run withholds it) is **unverified for already released rules**: persistent withdrawals and policies are in `main` and not deployed, and the pipeline does not read policies yet. See `docs-src/en/limits.md`. The body is kept as written.
+
 ## Verdict: **NO-GO** (for declaring V1 closed)
 
 The channel itself works and is verifiable: two real signed releases, both hosts serve the same verified bytes, the rule pipeline fails closed, the cryptographic chain rejects every tampering tried. What stops a GO is not a known flaw in that chain but **four conditions of the brief that cannot be demonstrated yet** and **one that needs a human decision**. Nothing below was relaxed to reach a verdict.
