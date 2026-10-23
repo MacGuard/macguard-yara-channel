@@ -1,0 +1,8 @@
+{
+ "schema": 1,
+ "pages": [
+  {"id": "Home", "section": {"es": "Empezar", "en": "Start"}, "title": {"es": "Inicio", "en": "Home"}, "summary": {"es": "Qué es MacGuard y el mapa de sus aplicaciones", "en": "What MacGuard is and the map of its applications"}},
+  {"id": "Ecosystem", "section": {"es": "Ecosistema", "en": "Ecosystem"}, "title": {"es": "Ecosistema", "en": "Ecosystem"}, "summary": {"es": "Capas de protección y relación entre aplicaciones", "en": "Layers of protection and how the applications relate"}},
+  {"id": "Roadmap", "section": {"es": "Roadmap", "en": "Roadmap"}, "title": {"es": "Roadmap global", "en": "Global roadmap"}, "summary": {"es": "Fases, bloqueos y siguiente objetivo de cada aplicación", "en": "Phases, blockers and next goal of each application"}}
+ ]
+}
