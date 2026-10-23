@@ -1,0 +1,563 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://macguard.invalid/schemas/file-provenance/1.0.0",
+  "title": "MacGuard file provenance document",
+  "description": "One provenance assessment for one subject (file, package, application, container or host). The six facts content_origin, installation_method, package_ownership, integrity_status, provenance_confidence and detection_status are separate fields with separate vocabularies. UNKNOWN is a first-class value and is never rendered as safe. There is deliberately no 'safe', 'trusted' or 'clean' value anywhere.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "document_id", "generated_at", "engine", "subject", "assessment", "evidence"],
+  "properties": {
+    "schema_version": { "type": "string", "pattern": "^1\\.[0-9]+\\.[0-9]+$" },
+    "document_id": { "type": "string", "minLength": 1, "maxLength": 128 },
+    "generated_at": { "type": "string", "format": "date-time" },
+    "engine": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "version", "policy_version"],
+      "properties": {
+        "name": { "type": "string" },
+        "version": { "type": "string" },
+        "policy_version": { "type": "string", "description": "Version of the combination rules that produced the assessment. Same evidence + same policy_version must give the same assessment." },
+        "network_used": { "type": "boolean", "description": "True only if the user explicitly opted in to network references for this run." },
+        "privileges": { "enum": ["USER", "ROOT", "MIXED"] }
+      }
+    },
+    "host": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "os_family": { "enum": ["macos", "linux", "other"] },
+        "os_version": { "type": "string" },
+        "arch": { "type": "string" },
+        "distro_id": { "type": "string" },
+        "host_ref": { "type": "string", "description": "Opaque, run-scoped reference. Not a persistent identifier." }
+      }
+    },
+    "subject": { "$ref": "#/$defs/subject" },
+    "assessment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["content_origin", "installation_method", "package_ownership", "integrity_status", "provenance_confidence", "detection_status"],
+      "properties": {
+        "content_origin": { "$ref": "#/$defs/content_origin" },
+        "installation_method": { "$ref": "#/$defs/installation_method" },
+        "package_ownership": { "$ref": "#/$defs/package_ownership" },
+        "integrity_status": { "$ref": "#/$defs/integrity_status" },
+        "provenance_confidence": { "$ref": "#/$defs/provenance_confidence" },
+        "detection_status": { "$ref": "#/$defs/detection_status" }
+      }
+    },
+    "ownership_chain": {
+      "type": "array",
+      "description": "file -> package -> manager -> repository/source. A level that could not be resolved is listed with resolution UNRESOLVED or NOT_QUERYABLE, not omitted.",
+      "items": { "$ref": "#/$defs/chain_link" }
+    },
+    "evidence": {
+      "type": "array",
+      "description": "Every observation, including absences and contradictions. Evidence is append-only inside a document.",
+      "items": { "$ref": "#/$defs/evidence" }
+    },
+    "history": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/history_entry" }
+    },
+    "attestations": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/attestation" }
+    },
+    "links": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "detections": { "type": "array", "items": { "$ref": "#/$defs/detection_link" } },
+        "vulnerabilities": { "type": "array", "items": { "$ref": "#/$defs/vulnerability_link" } }
+      }
+    },
+    "coverage": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["manager_or_method", "state"],
+      "properties": {
+        "manager_or_method": { "type": "string" },
+        "state": { "enum": ["IMPLEMENTED", "DESIGNED", "NOT_POSSIBLE"] },
+        "historical_reconstruction": { "enum": ["FULL", "PARTIAL", "NONE"] },
+        "limits": { "type": "array", "items": { "type": "string" } }
+      }
+    }
+  },
+  "$defs": {
+    "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "sha512": { "type": "string", "pattern": "^[0-9a-f]{128}$" },
+    "evidence_id": { "type": "string", "pattern": "^ev-[0-9a-z][0-9a-z-]*$" },
+    "evidence_ids": { "type": "array", "items": { "$ref": "#/$defs/evidence_id" }, "uniqueItems": true },
+    "field_name": {
+      "enum": ["content_origin", "installation_method", "package_ownership", "integrity_status", "provenance_confidence", "detection_status"]
+    },
+
+    "subject": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind"],
+      "properties": {
+        "kind": { "enum": ["file", "package", "application", "container", "host"] },
+        "file": { "$ref": "#/$defs/file_identity" },
+        "package": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "manager": { "type": "string" },
+            "name": { "type": "string" },
+            "version": { "type": "string" },
+            "arch": { "type": "string" },
+            "purl": { "type": "string" }
+          }
+        },
+        "application": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "bundle_id": { "type": "string" },
+            "version": { "type": "string" },
+            "team_id": { "type": "string" },
+            "root_path_class": { "type": "string" }
+          }
+        },
+        "container": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "runtime": { "enum": ["docker", "podman", "containerd", "other"] },
+            "image_digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+            "layer_digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+            "repo_tags": { "type": "array", "items": { "type": "string" } }
+          }
+        }
+      },
+      "allOf": [
+        { "if": { "properties": { "kind": { "const": "file" } } }, "then": { "required": ["file"] } },
+        { "if": { "properties": { "kind": { "const": "package" } } }, "then": { "required": ["package"] } },
+        { "if": { "properties": { "kind": { "const": "application" } } }, "then": { "required": ["application"] } },
+        { "if": { "properties": { "kind": { "const": "container" } } }, "then": { "required": ["container"] } }
+      ]
+    },
+
+    "file_identity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "device", "inode", "size", "mtime_ns", "hashes", "file_type"],
+      "properties": {
+        "path": { "type": "string", "description": "Home directory replaced by ~ before leaving the host. Path is an identifier of where the file was seen, never evidence of origin." },
+        "path_was_symlink": { "type": "boolean" },
+        "resolved_path": { "type": "string" },
+        "device": { "type": "integer", "minimum": 0 },
+        "inode": { "type": "integer", "minimum": 0 },
+        "size": { "type": "integer", "minimum": 0 },
+        "mode": { "type": "string", "pattern": "^[0-7]{3,6}$" },
+        "uid_class": { "enum": ["root", "admin", "user", "other", "unknown"] },
+        "mtime_ns": { "type": "integer" },
+        "ctime_ns": { "type": "integer" },
+        "birthtime_ns": { "type": "integer" },
+        "hashes": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["sha256"],
+          "properties": {
+            "sha256": { "$ref": "#/$defs/sha256" },
+            "sha512": { "$ref": "#/$defs/sha512" },
+            "computed_at": { "type": "string", "format": "date-time" },
+            "stable_during_read": { "type": "boolean", "description": "True if (device, inode, size, mtime_ns) were identical before and after hashing, with the file opened once without following symlinks." }
+          }
+        },
+        "file_type": { "enum": ["macho", "macho_fat", "elf", "pe", "script", "app_bundle", "pkg", "dmg", "archive", "appimage", "jar", "wheel_or_sdist", "text", "other", "unknown"] },
+        "architecture": { "type": "string" },
+        "code_signature_summary": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "present": { "type": "boolean" },
+            "kind": { "enum": ["ADHOC", "DEVELOPER_ID", "APPLE_PLATFORM", "MAC_APP_STORE", "THIRD_PARTY_OTHER", "NONE"] },
+            "team_id": { "type": "string" },
+            "identifier": { "type": "string" }
+          }
+        }
+      }
+    },
+
+    "chain_link": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["level", "resolution"],
+      "properties": {
+        "level": { "enum": ["file", "package", "manager", "repository", "source"] },
+        "resolution": { "enum": ["RESOLVED", "UNRESOLVED", "NOT_QUERYABLE", "CONFLICT"] },
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "version": { "type": "string" },
+        "arch": { "type": "string" },
+        "evidence_ids": { "$ref": "#/$defs/evidence_ids" },
+        "note": { "type": "string" }
+      }
+    },
+
+    "base_assessment": {
+      "type": "object",
+      "properties": {
+        "basis": { "$ref": "#/$defs/evidence_ids" },
+        "contradicted_by": { "$ref": "#/$defs/evidence_ids" },
+        "missing": { "type": "array", "items": { "type": "string" }, "description": "Evidence that was looked for and is absent or not obtainable. Absence is recorded, not hidden." },
+        "reasons": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+
+    "content_origin": {
+      "$ref": "#/$defs/base_assessment",
+      "type": "object",
+      "unevaluatedProperties": false,
+      "required": ["value", "claim_basis"],
+      "properties": {
+        "value": {
+          "enum": [
+            "OS_VENDOR",
+            "REGISTERED_REPOSITORY",
+            "THIRD_PARTY_REPOSITORY",
+            "VENDOR_DIRECT",
+            "USER_DOWNLOAD_RECORDED",
+            "LOCAL_BUILD",
+            "CONTAINER_IMAGE",
+            "UNKNOWN"
+          ],
+          "description": "Where the bytes came from, not how they were installed and not whether they are unmodified."
+        },
+        "claim_basis": {
+          "enum": ["VERIFIED_BINDING", "DECLARED_BY_MANAGER", "DECLARED_BY_WRITABLE_METADATA", "INFERRED", "NONE"],
+          "description": "VERIFIED_BINDING = a signature/attestation/reference ties these exact bytes to the source. DECLARED_* = somebody wrote it down and it could be edited. INFERRED = engine reasoning without a record. NONE is required with UNKNOWN."
+        },
+        "source": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "repository_id": { "type": "string" },
+            "publisher": { "type": "string" },
+            "team_id": { "type": "string" },
+            "url_host": { "type": "string" },
+            "recorded_by": { "type": "string" }
+          }
+        }
+      },
+      "allOf": [
+        { "if": { "properties": { "value": { "const": "UNKNOWN" } } }, "then": { "properties": { "claim_basis": { "const": "NONE" } } } },
+        { "if": { "properties": { "claim_basis": { "const": "VERIFIED_BINDING" } } }, "then": { "required": ["basis"], "properties": { "basis": { "minItems": 1 } } } }
+      ]
+    },
+
+    "installation_method": {
+      "$ref": "#/$defs/base_assessment",
+      "type": "object",
+      "unevaluatedProperties": false,
+      "required": ["value"],
+      "properties": {
+        "value": {
+          "enum": [
+            "SYSTEM_PACKAGE_MANAGER",
+            "THIRD_PARTY_PACKAGE_MANAGER",
+            "LANGUAGE_PACKAGE_MANAGER",
+            "PKG_INSTALLER",
+            "APP_BUNDLE_COPY",
+            "SELF_CONTAINED_BUNDLE",
+            "SOURCE_INSTALL",
+            "CONTAINER_RUNTIME",
+            "MANUAL_COPY",
+            "SCRIPT_OR_PIPE_UNRECORDED",
+            "UNKNOWN"
+          ]
+        },
+        "manager": { "type": "string", "description": "e.g. dpkg, rpm, pacman, brew, brew-cask, pip, npm, cargo, go, flatpak, snap, pkgutil, mas" },
+        "installer_version": { "type": "string" },
+        "installed_at": { "type": "string", "format": "date-time" },
+        "installed_at_basis": { "enum": ["MANAGER_RECORD", "LOG", "FILESYSTEM_TIMESTAMP", "NONE"] }
+      }
+    },
+
+    "package_ownership": {
+      "$ref": "#/$defs/base_assessment",
+      "type": "object",
+      "unevaluatedProperties": false,
+      "required": ["value"],
+      "properties": {
+        "value": {
+          "enum": [
+            "OWNED_BY_PACKAGE",
+            "OWNED_BY_MULTIPLE_PACKAGES",
+            "GENERATED_BY_PACKAGE_SCRIPT",
+            "NOT_OWNED",
+            "OWNERSHIP_NOT_QUERYABLE",
+            "UNKNOWN"
+          ],
+          "description": "NOT_OWNED only when every applicable manager database was queried successfully and returned no owner. If a database could not be read, the value is OWNERSHIP_NOT_QUERYABLE or UNKNOWN."
+        },
+        "queried_managers": { "type": "array", "items": { "type": "string" } },
+        "unqueryable_managers": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+
+    "integrity_status": {
+      "$ref": "#/$defs/base_assessment",
+      "type": "object",
+      "unevaluatedProperties": false,
+      "required": ["value", "reference"],
+      "properties": {
+        "value": {
+          "enum": [
+            "VERIFIED_INTACT",
+            "MODIFIED",
+            "PARTIALLY_VERIFIED",
+            "REFERENCE_UNTRUSTED",
+            "NO_REFERENCE",
+            "UNKNOWN"
+          ],
+          "description": "A computed SHA-256 alone is NO_REFERENCE. VERIFIED_INTACT and MODIFIED both need a reference."
+        },
+        "reference": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["kind"],
+          "properties": {
+            "kind": {
+              "enum": [
+                "PACKAGE_DB_CHECKSUM",
+                "PACKAGE_DB_METADATA_ONLY",
+                "CODE_SIGNATURE",
+                "SIGNED_MANIFEST",
+                "LOCKFILE_INTEGRITY",
+                "RECORD_FILE_HASH",
+                "ATTESTATION_SUBJECT_DIGEST",
+                "UPSTREAM_ARTIFACT_COMPARISON",
+                "NONE"
+              ]
+            },
+            "authority": { "type": "string", "description": "Who produced the reference, e.g. 'dpkg md5sums', 'Developer ID team X', 'registry'." },
+            "strength": { "enum": ["CRYPTOGRAPHIC_SIGNED", "CRYPTOGRAPHIC_UNSIGNED", "WEAK_HASH", "METADATA_ONLY", "NONE"], "description": "WEAK_HASH covers MD5/CRC and any hash stored next to the file it protects without a signature." },
+            "reference_location_writable_by_attacker": { "type": "boolean", "description": "True if the reference lives where the same actor that could modify the file could also modify the reference." },
+            "scope": { "enum": ["WHOLE_FILE_CONTENT", "CODE_PAGES_ONLY", "METADATA_ONLY", "PACKAGE_ARCHIVE_NOT_INSTALLED_FILE"] }
+          }
+        }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "value": { "enum": ["VERIFIED_INTACT", "MODIFIED", "PARTIALLY_VERIFIED"] } } },
+          "then": { "properties": { "reference": { "properties": { "kind": { "not": { "const": "NONE" } } } } } }
+        },
+        {
+          "if": { "properties": { "value": { "enum": ["NO_REFERENCE", "UNKNOWN"] } } },
+          "then": { "properties": { "reference": { "properties": { "kind": { "const": "NONE" } } } } }
+        }
+      ]
+    },
+
+    "provenance_confidence": {
+      "$ref": "#/$defs/base_assessment",
+      "type": "object",
+      "unevaluatedProperties": false,
+      "required": ["value", "contradicted"],
+      "properties": {
+        "value": {
+          "enum": ["UNKNOWN", "LOW", "MEDIUM", "HIGH", "VERY_HIGH"],
+          "description": "Confidence in the content_origin + package_ownership claims together. UNKNOWN: nothing recorded. LOW: one declarative or writable-metadata source. MEDIUM: two independent declarative sources agree, or one authoritative record without a content reference. HIGH: an authoritative local record AND a reference check on the bytes agree. VERY_HIGH: a signature or attestation binds these bytes to the source identity and verified end to end."
+        },
+        "contradicted": { "type": "boolean" },
+        "capped_from": { "enum": ["LOW", "MEDIUM", "HIGH", "VERY_HIGH"], "description": "Level before contradiction caps were applied." },
+        "cap_rule_ids": { "type": "array", "items": { "type": "string" } },
+        "independent_sources": { "type": "integer", "minimum": 0, "description": "Number of independence groups in supporting evidence." }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "value": { "enum": ["HIGH", "VERY_HIGH"] } } },
+          "then": { "properties": { "contradicted": { "const": false }, "contradicted_by": { "maxItems": 0 } } }
+        },
+        {
+          "if": { "properties": { "contradicted": { "const": true } } },
+          "then": { "required": ["contradicted_by"], "properties": { "contradicted_by": { "minItems": 1 } } }
+        },
+        {
+          "if": { "properties": { "value": { "enum": ["MEDIUM", "HIGH", "VERY_HIGH"] } } },
+          "then": { "required": ["basis"], "properties": { "basis": { "minItems": 1 }, "independent_sources": { "minimum": 1 } } }
+        }
+      ]
+    },
+
+    "detection_status": {
+      "$ref": "#/$defs/base_assessment",
+      "type": "object",
+      "unevaluatedProperties": false,
+      "required": ["value"],
+      "properties": {
+        "value": {
+          "enum": ["NOT_SCANNED", "SCANNED_NO_MATCH", "MATCHED", "SCAN_ERROR", "SCAN_PARTIAL", "RESULT_STALE", "UNKNOWN"],
+          "description": "Result of YARA/AV/IOC scanning only. SCANNED_NO_MATCH means 'these rules found nothing in these bytes at that time', not 'safe', and says nothing about provenance."
+        },
+        "detection_ids": { "type": "array", "items": { "type": "string" } },
+        "ruleset_versions": { "type": "array", "items": { "type": "string" } },
+        "scanned_sha256": { "$ref": "#/$defs/sha256" }
+      }
+    },
+
+    "evidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "kind", "source", "observed_at", "trust", "present"],
+      "properties": {
+        "id": { "$ref": "#/$defs/evidence_id" },
+        "kind": {
+          "enum": [
+            "PACKAGE_DB_OWNER",
+            "PACKAGE_DB_CHECKSUM_MATCH",
+            "PACKAGE_DB_CHECKSUM_MISMATCH",
+            "PACKAGE_DB_METADATA_MATCH",
+            "PACKAGE_DB_METADATA_MISMATCH",
+            "MANAGER_INSTALL_RECEIPT",
+            "MANAGER_HISTORY_ENTRY",
+            "REPOSITORY_SIGNATURE_VERIFIED",
+            "PACKAGE_SIGNATURE_VERIFIED",
+            "PACKAGE_SIGNATURE_INVALID",
+            "CODE_SIGNATURE_VALID",
+            "CODE_SIGNATURE_INVALID",
+            "CODE_SIGNATURE_ADHOC",
+            "NOTARIZATION_ACCEPTED",
+            "GATEKEEPER_REJECTED",
+            "APP_STORE_RECEIPT",
+            "QUARANTINE_XATTR",
+            "WHERE_FROMS_XATTR",
+            "PROVENANCE_XATTR",
+            "PKG_RECEIPT_OWNER",
+            "LOCKFILE_INTEGRITY_MATCH",
+            "LOCKFILE_INTEGRITY_MISMATCH",
+            "RECORD_HASH_MATCH",
+            "RECORD_HASH_MISMATCH",
+            "DIRECT_URL_RECORD",
+            "BUILD_INFO",
+            "INSTALL_MANIFEST",
+            "VCS_STATE",
+            "ATTESTATION_VERIFIED",
+            "ATTESTATION_UNVERIFIED",
+            "ATTESTATION_FAILED",
+            "UPSTREAM_ARTIFACT_COMPARISON",
+            "CONTAINER_IMAGE_DIGEST",
+            "CONTAINER_LABELS",
+            "HASH_ONLY",
+            "PATH_LOCATION",
+            "TIMESTAMP_CORRELATION",
+            "NAME_COLLISION_NOTE",
+            "OTHER"
+          ]
+        },
+        "present": { "type": "boolean", "description": "false = this evidence was looked for and is absent (or the lookup found nothing). Absence is evidence of a gap, not of safety." },
+        "source": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["type"],
+          "properties": {
+            "type": { "enum": ["PACKAGE_DB", "XATTR", "CODE_SIGNATURE", "MANAGER_METADATA", "LOCKFILE", "LOG", "OS_API", "REGISTRY_NETWORK", "COMPUTED", "USER_SUPPLIED"] },
+            "command_or_api": { "type": "string", "description": "Exact read-only command or API used, without personal paths." },
+            "scope": { "type": "string" },
+            "exit_status": { "type": "integer" },
+            "needs_root": { "type": "boolean" },
+            "needs_network": { "type": "boolean" }
+          }
+        },
+        "observed_at": { "type": "string", "format": "date-time" },
+        "trust": {
+          "enum": ["CRYPTOGRAPHIC", "SYSTEM_AUTHORITATIVE", "MANAGER_DECLARED", "WRITABLE_METADATA", "HEURISTIC"],
+          "description": "CRYPTOGRAPHIC: verified signature chain or attestation. SYSTEM_AUTHORITATIVE: OS-protected database or API. MANAGER_DECLARED: file written by a manager but editable by the same account. WRITABLE_METADATA: xattrs, user-writable logs, lockfiles. HEURISTIC: engine inference."
+        },
+        "independence_group": { "type": "string", "description": "Evidence sharing a group (same database, same writer) counts once toward independent_sources." },
+        "supports": { "type": "array", "items": { "$ref": "#/$defs/claim" } },
+        "contradicts": { "type": "array", "items": { "$ref": "#/$defs/claim" } },
+        "summary": { "type": "string" },
+        "raw_digest": { "$ref": "#/$defs/sha256" }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "kind": { "enum": ["HASH_ONLY", "PATH_LOCATION", "NAME_COLLISION_NOTE", "TIMESTAMP_CORRELATION"] } } },
+          "then": { "properties": { "supports": { "maxItems": 0 }, "trust": { "const": "HEURISTIC" } } }
+        },
+        {
+          "if": { "properties": { "present": { "const": false } } },
+          "then": { "properties": { "supports": { "maxItems": 0 } } }
+        },
+        {
+          "if": { "properties": { "kind": { "enum": ["QUARANTINE_XATTR", "WHERE_FROMS_XATTR", "PROVENANCE_XATTR"] } } },
+          "then": { "properties": { "trust": { "const": "WRITABLE_METADATA" } } }
+        }
+      ]
+    },
+
+    "claim": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["field", "value"],
+      "properties": {
+        "field": { "$ref": "#/$defs/field_name" },
+        "value": { "type": "string" },
+        "weight": { "enum": ["WEAK", "MODERATE", "STRONG"] }
+      }
+    },
+
+    "history_entry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["at", "change", "known_via", "reliability"],
+      "properties": {
+        "at": { "type": "string", "format": "date-time" },
+        "at_precision": { "enum": ["EXACT", "DAY", "BOUNDED_BEFORE", "BOUNDED_AFTER", "UNKNOWN"] },
+        "change": { "enum": ["FIRST_SEEN_BY_ENGINE", "PACKAGE_INSTALLED", "PACKAGE_UPGRADED", "PACKAGE_REMOVED", "CONTENT_CHANGED", "METADATA_CHANGED", "OWNER_CHANGED", "FILE_REMOVED", "FILE_REAPPEARED"] },
+        "known_via": { "enum": ["ENGINE_SNAPSHOT_DIFF", "PACKAGE_MANAGER_LOG", "MANAGER_HISTORY_DB", "FILESYSTEM_TIMESTAMP", "INFERRED"] },
+        "reliability": { "enum": ["HIGH", "MEDIUM", "LOW"], "description": "HIGH only for ENGINE_SNAPSHOT_DIFF (two observations with hashes). Logs can be truncated or rotated; timestamps can be set by any process." },
+        "from_sha256": { "$ref": "#/$defs/sha256" },
+        "to_sha256": { "$ref": "#/$defs/sha256" },
+        "evidence_ids": { "$ref": "#/$defs/evidence_ids" },
+        "detail": { "type": "string" }
+      }
+    },
+
+    "attestation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "availability"],
+      "properties": {
+        "kind": { "enum": ["SLSA_PROVENANCE", "SIGSTORE_BUNDLE", "PEP740", "NPM_PROVENANCE", "GITHUB_ATTESTATION", "APT_RELEASE_SIGNATURE", "RPM_SIGNATURE", "NOTARIZATION_TICKET", "COSIGN_SIGNATURE", "SBOM", "OTHER"] },
+        "availability": { "enum": ["AVAILABLE_VERIFIED", "AVAILABLE_UNVERIFIED", "VERIFICATION_FAILED", "NOT_FOUND", "NOT_CHECKED", "NOT_APPLICABLE"] },
+        "subject_digest": { "type": "string" },
+        "subject_matches_file": { "type": "boolean" },
+        "verifier": { "type": "string" },
+        "evidence_id": { "$ref": "#/$defs/evidence_id" }
+      }
+    },
+
+    "detection_link": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "engine", "result"],
+      "properties": {
+        "id": { "type": "string" },
+        "engine": { "enum": ["yara", "antivirus", "ioc", "other"] },
+        "ruleset_version": { "type": "string" },
+        "result": { "enum": ["MATCH", "NO_MATCH", "ERROR", "PARTIAL"] },
+        "scanned_sha256": { "$ref": "#/$defs/sha256" },
+        "at": { "type": "string", "format": "date-time" }
+      }
+    },
+
+    "vulnerability_link": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "source", "match_basis", "match_confidence"],
+      "properties": {
+        "id": { "type": "string" },
+        "source": { "type": "string" },
+        "match_basis": { "enum": ["PACKAGE_VERSION_VERIFIED_OWNER", "PURL", "CPE", "FILE_HASH", "NAME_ONLY"] },
+        "match_confidence": { "enum": ["LOW", "MEDIUM", "HIGH"] },
+        "note": { "type": "string", "description": "A vulnerability is linked through a package identity only when package_ownership is OWNED_BY_PACKAGE; NAME_ONLY matches are always LOW." }
+      }
+    }
+  }
+}

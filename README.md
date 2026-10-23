@@ -60,6 +60,9 @@ Markdown in `docs-src/{es,en}/` + shared diagrams in `docs-src/diagrams/` → `s
 ## Apps
 `DMGTrustAuditor/` holds the macOS app and the `macguard-audit` CLI/TUI, which share one engine (`Core/`). See `DMGTrustAuditor/DMGTrustAuditor/CLI/README.md` and `docs/ADR-0001-sigstore-verification.md`.
 
+## mgctl, the MacGuard command
+`bin/mgctl` (package `mgctl/`, Python 3.9+, standard library only) is the canonical command of the suite. It is a front end: it delegates to `macguard-audit` (which is unchanged and keeps working) and to `scripts/verify_public_release.py`, and it never simulates a check. Implemented: `version`, `help`, `doctor`, `scan`, `audit file` (experimental: hash, integrity and YARA run; provenance and vulnerabilities have no engine yet and are reported `not_implemented`), `audit --tui`, `evidence verify`, `intelligence status|update|verify`, `alias`. Planned (they exit 4 and say so): `inventory`, `provenance`, `audit system`, `baseline *`, `attest verify`, `report`, `agent`, `cloud`. `mg` is only an opt-in alias (`mgctl alias enable`) because other software owns that name. Guide: `docs/cli/mgctl.md`; install: `docs/cli/mgctl-install.md`; tests: `python3 -m unittest tests.test_mgctl`.
+
 ## Tests
 `python3 -m unittest discover -s tests` (log, stats, catalog, release metadata); `scripts/web_check.sh` (real pages in headless Chrome, including tamper cases); `tests/tui_pty_check.py` (TUI in a pseudo-terminal); Xcode scheme `DMGTrustAuditor` (engine, installer failure matrix, Merkle consistency, `.app` bundles, responsiveness).
 

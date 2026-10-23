@@ -1,0 +1,43 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.macguard.example/cloud/audit-request/1",
+  "title": "Remote audit request (PLANNED, v1)",
+  "description": "DESIGN ONLY. MacGuard Cloud does not exist. A request that an enrolled agent performs a bounded, read-only audit. The agent pulls requests (the service never connects inbound to a host), validates the signature and scope, and may refuse. An audit request can never ask for file contents or for arbitrary command execution.",
+  "allOf": [{ "$ref": "cloud-common.schema.json#/$defs/record_header" }],
+  "type": "object",
+  "properties": {
+    "request_id": { "$ref": "cloud-common.schema.json#/$defs/id" },
+    "requested_by": { "$ref": "cloud-common.schema.json#/$defs/id" },
+    "target": {
+      "type": "object",
+      "properties": {
+        "host_ids": { "type": "array", "items": { "$ref": "cloud-common.schema.json#/$defs/id" } },
+        "host_group_id": { "$ref": "cloud-common.schema.json#/$defs/id" }
+      },
+      "minProperties": 1,
+      "additionalProperties": false
+    },
+    "checks": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": { "enum": ["inventory", "baseline_compare", "signature_check", "yara_scan_selected_paths", "attestation"] }
+    },
+    "paths": { "type": "array", "items": { "$ref": "cloud-common.schema.json#/$defs/path_ref" }, "description": "Optional allow-list of paths to audit, in the tenant's path mode." },
+    "baseline_id": { "$ref": "cloud-common.schema.json#/$defs/id" },
+    "limits": {
+      "type": "object",
+      "properties": {
+        "max_files": { "type": "integer", "minimum": 1 },
+        "max_duration_seconds": { "type": "integer", "minimum": 1, "maximum": 86400 }
+      },
+      "required": ["max_duration_seconds"],
+      "additionalProperties": false
+    },
+    "not_before_utc": { "$ref": "cloud-common.schema.json#/$defs/utc_datetime" },
+    "expires_utc": { "$ref": "cloud-common.schema.json#/$defs/utc_datetime", "description": "An expired request is ignored by the agent." },
+    "service_signature": { "$ref": "cloud-common.schema.json#/$defs/signature_envelope" }
+  },
+  "required": ["request_id", "requested_by", "target", "checks", "limits", "expires_utc", "service_signature"],
+  "unevaluatedProperties": false
+}

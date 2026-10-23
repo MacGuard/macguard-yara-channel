@@ -1,0 +1,51 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.macguard.example/cloud/host-attestation/1",
+  "title": "Host attestation (PLANNED, v1)",
+  "description": "DESIGN ONLY. MacGuard Cloud does not exist. What a host says about itself at a point in time: agent and tool versions, the intelligence release it holds (identified by the existing rules_root / manifest hash), and the result of local self-checks. It is a CLAIM signed by the agent key; the Cloud records it, it does not turn it into proof of host integrity. Hardware-rooted attestation is out of scope for v1.",
+  "allOf": [{ "$ref": "cloud-common.schema.json#/$defs/record_header" }],
+  "type": "object",
+  "properties": {
+    "host_id": { "$ref": "cloud-common.schema.json#/$defs/id" },
+    "agent_id": { "$ref": "cloud-common.schema.json#/$defs/id" },
+    "nonce": { "type": "string", "minLength": 16, "description": "Service-issued, single use; prevents replay of an old attestation." },
+    "platform": {
+      "type": "object",
+      "properties": {
+        "os": { "enum": ["macos", "linux", "windows"] },
+        "os_version": { "type": "string" },
+        "arch": { "type": "string" }
+      },
+      "required": ["os"],
+      "additionalProperties": false
+    },
+    "tools": { "type": "object", "additionalProperties": { "type": "string" }, "description": "e.g. mgctl, macguard-audit, yara engine; versions as reported." },
+    "intelligence": {
+      "type": "object",
+      "properties": {
+        "release_tag": { "type": "string" },
+        "rules_root": { "$ref": "cloud-common.schema.json#/$defs/sha256" },
+        "manifest_sha256": { "$ref": "cloud-common.schema.json#/$defs/sha256" },
+        "locally_verified": { "type": "boolean", "description": "True only if the local verifier reported success for this release." }
+      },
+      "required": ["locally_verified"],
+      "additionalProperties": false
+    },
+    "self_checks": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "name": { "type": "string" },
+          "result": { "enum": ["pass", "fail", "skip", "not_implemented"], "description": "A skip is never reported as a pass." },
+          "detail": { "type": "string", "maxLength": 500 }
+        },
+        "required": ["name", "result"],
+        "additionalProperties": false
+      }
+    },
+    "signature": { "$ref": "cloud-common.schema.json#/$defs/signature_envelope" }
+  },
+  "required": ["host_id", "agent_id", "nonce", "platform", "tools", "signature"],
+  "unevaluatedProperties": false
+}

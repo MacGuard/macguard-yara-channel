@@ -1,0 +1,50 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.macguard.example/cloud/audit-result/1",
+  "title": "Remote audit result (PLANNED, v1)",
+  "description": "DESIGN ONLY. MacGuard Cloud does not exist. Result of one audit on one host. Every check ends in pass, fail, skip, error or not_implemented; a skip is never counted as a pass. Findings carry hashes and rule identifiers, never file contents.",
+  "allOf": [{ "$ref": "cloud-common.schema.json#/$defs/record_header" }],
+  "type": "object",
+  "properties": {
+    "result_id": { "$ref": "cloud-common.schema.json#/$defs/id" },
+    "request_id": { "$ref": "cloud-common.schema.json#/$defs/id", "description": "Absent for a locally initiated audit that is uploaded afterwards." },
+    "host_id": { "$ref": "cloud-common.schema.json#/$defs/id" },
+    "agent_id": { "$ref": "cloud-common.schema.json#/$defs/id" },
+    "started_utc": { "$ref": "cloud-common.schema.json#/$defs/utc_datetime" },
+    "finished_utc": { "$ref": "cloud-common.schema.json#/$defs/utc_datetime" },
+    "tools": { "type": "object", "additionalProperties": { "type": "string" } },
+    "intelligence_rules_root": { "$ref": "cloud-common.schema.json#/$defs/sha256" },
+    "checks": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "name": { "type": "string" },
+          "outcome": { "enum": ["pass", "fail", "skip", "error", "not_implemented"] },
+          "reason": { "type": "string", "maxLength": 500, "description": "Required in practice for skip, error and not_implemented." }
+        },
+        "required": ["name", "outcome"],
+        "additionalProperties": false
+      }
+    },
+    "findings": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "kind": { "enum": ["baseline_drift", "signature_invalid", "rule_match", "unexpected_file", "missing_file"] },
+          "path": { "$ref": "cloud-common.schema.json#/$defs/path_ref" },
+          "sha256": { "$ref": "cloud-common.schema.json#/$defs/sha256" },
+          "rule_id": { "type": "string", "description": "Rule or check identifier, e.g. a YARA rule name." },
+          "severity": { "enum": ["info", "low", "medium", "high", "critical"] }
+        },
+        "required": ["kind", "severity"],
+        "additionalProperties": false
+      }
+    },
+    "overall": { "enum": ["pass", "fail", "incomplete"], "description": "incomplete whenever any check is skip, error or not_implemented." },
+    "submission_signature": { "$ref": "cloud-common.schema.json#/$defs/signature_envelope" }
+  },
+  "required": ["result_id", "host_id", "agent_id", "started_utc", "finished_utc", "checks", "overall", "submission_signature"],
+  "unevaluatedProperties": false
+}
