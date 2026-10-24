@@ -1,0 +1,62 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.macguard.example/cloud/common/1",
+  "title": "MacGuard Cloud common definitions (PLANNED, v1)",
+  "description": "DESIGN ONLY. MacGuard Cloud does not exist. Shared definitions referenced by the other cloud-*.schema.json files. Compatibility rule: additive changes (new optional properties, new enum values only where the consumer is told to ignore unknown values) keep /1; removing or renaming a property, tightening a type, or making an optional property required is a breaking change and requires a new id ending in /2.",
+  "$defs": {
+    "schema_version": { "type": "integer", "const": 1, "description": "Major version of the contract; equals the trailing /N of the $id." },
+    "tenant_id": { "type": "string", "pattern": "^ten_[0-9a-f]{32}$", "description": "Opaque tenant identifier. Every record carries it; a record without it is rejected." },
+    "id": { "type": "string", "pattern": "^[a-z]{2,6}_[0-9a-f]{32}$", "description": "Opaque identifier with a type prefix (org_, hg_, usr_, host_, agt_, req_, res_, evd_, bsl_, att_, flt_). Random, not derived from personal data." },
+    "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "utc_datetime": { "type": "string", "format": "date-time", "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]+)?Z$", "description": "RFC 3339 in UTC, always with the Z suffix." },
+    "status_badge": { "type": "string", "enum": ["planned", "experimental", "operational"], "description": "Every contract document is 'planned' until an implementation and its tests exist in this repository." },
+    "path_ref": {
+      "type": "object",
+      "description": "A file path is never sent in clear unless the tenant policy says so. 'hashed' = HMAC-SHA-256 with a per-tenant key; 'encrypted' = AEAD ciphertext under a per-tenant key; 'clear' needs an explicit tenant policy value.",
+      "properties": {
+        "mode": { "enum": ["hashed", "encrypted", "clear"] },
+        "value": { "type": "string", "description": "Hex HMAC, base64 ciphertext, or the path, according to mode." },
+        "key_id": { "type": "string", "description": "Identifier of the per-tenant key used (never the key)." }
+      },
+      "required": ["mode", "value"],
+      "additionalProperties": false
+    },
+    "signature_envelope": {
+      "type": "object",
+      "description": "Detached signature over the RFC 8785 (JCS) canonical form of the document with this property removed. Agents sign with a per-agent key enrolled at opt-in; the service signs its own results with a service key.",
+      "properties": {
+        "alg": { "enum": ["ed25519"] },
+        "key_id": { "type": "string" },
+        "signature": { "type": "string", "description": "base64 signature" },
+        "signed_sha256": { "$ref": "#/$defs/sha256", "description": "SHA-256 of the canonical bytes that were signed." }
+      },
+      "required": ["alg", "key_id", "signature", "signed_sha256"],
+      "additionalProperties": false
+    },
+    "trusted_timestamp": {
+      "type": "object",
+      "description": "Independent proof of time. Primary: RFC 3161 TimeStampToken over the SHA-256 of the canonical document. Alternative: a Sigstore Rekor signed entry timestamp when the artefact is itself publicly logged.",
+      "properties": {
+        "type": { "enum": ["rfc3161", "rekor-set"] },
+        "tsa": { "type": "string", "description": "TSA name or URL (rfc3161) or log URL (rekor-set)." },
+        "message_imprint_sha256": { "$ref": "#/$defs/sha256" },
+        "token": { "type": "string", "description": "base64 DER TimeStampToken (rfc3161) or base64 SET (rekor-set)." },
+        "gen_time": { "$ref": "#/$defs/utc_datetime", "description": "Time asserted by the TSA, not by the agent." }
+      },
+      "required": ["type", "tsa", "message_imprint_sha256", "token", "gen_time"],
+      "additionalProperties": false
+    },
+    "record_header": {
+      "type": "object",
+      "properties": {
+        "schema": { "type": "string", "format": "uri" },
+        "schema_version": { "$ref": "#/$defs/schema_version" },
+        "tenant_id": { "$ref": "#/$defs/tenant_id" },
+        "idempotency_key": { "type": "string", "pattern": "^[0-9a-f]{64}$", "description": "SHA-256 of the canonical document body (without signature and idempotency_key). Re-sending the same document is a no-op." },
+        "created_utc": { "$ref": "#/$defs/utc_datetime" },
+        "status": { "$ref": "#/$defs/status_badge" }
+      },
+      "required": ["schema", "schema_version", "tenant_id", "created_utc"]
+    }
+  }
+}

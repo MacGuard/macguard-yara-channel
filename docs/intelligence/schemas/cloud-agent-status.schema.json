@@ -1,0 +1,50 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.macguard.example/cloud/agent-status/1",
+  "title": "Agent status and capabilities (PLANNED, v1)",
+  "description": "DESIGN ONLY. MacGuard Cloud and the agent do not exist (mgctl 'agent' and 'cloud' are planned and exit 4 today, see mgctl/tree.py and README.md). Capabilities are declared honestly: a capability the agent lacks is reported as unsupported, never omitted-and-assumed.",
+  "allOf": [{ "$ref": "cloud-common.schema.json#/$defs/record_header" }],
+  "type": "object",
+  "properties": {
+    "agent_id": { "$ref": "cloud-common.schema.json#/$defs/id" },
+    "host_id": { "$ref": "cloud-common.schema.json#/$defs/id" },
+    "agent_version": { "type": "string" },
+    "state": { "enum": ["enrolling", "online", "idle", "busy", "degraded", "offline", "revoked"] },
+    "last_seen_utc": { "$ref": "cloud-common.schema.json#/$defs/utc_datetime" },
+    "capabilities": {
+      "type": "object",
+      "description": "Per check name.",
+      "propertyNames": { "enum": ["inventory", "baseline_compare", "signature_check", "yara_scan_selected_paths", "attestation", "provenance"] },
+      "additionalProperties": {
+        "type": "object",
+        "properties": {
+          "support": { "enum": ["supported", "experimental", "unsupported"] },
+          "engine_version": { "type": "string" },
+          "note": { "type": "string", "maxLength": 300 }
+        },
+        "required": ["support"],
+        "additionalProperties": false
+      }
+    },
+    "opt_in": {
+      "type": "object",
+      "properties": {
+        "enabled": { "type": "boolean" },
+        "granted_utc": { "$ref": "cloud-common.schema.json#/$defs/utc_datetime" }
+      },
+      "required": ["enabled"],
+      "additionalProperties": false
+    },
+    "queue": {
+      "type": "object",
+      "properties": {
+        "pending_submissions": { "type": "integer", "minimum": 0 },
+        "oldest_pending_utc": { "$ref": "cloud-common.schema.json#/$defs/utc_datetime" }
+      },
+      "additionalProperties": false
+    },
+    "signature": { "$ref": "cloud-common.schema.json#/$defs/signature_envelope" }
+  },
+  "required": ["agent_id", "host_id", "agent_version", "state", "last_seen_utc", "capabilities", "opt_in", "signature"],
+  "unevaluatedProperties": false
+}
