@@ -8,7 +8,7 @@ summary: What is implemented, what is only proposed, what is blocked and the kno
 |---|---|
 | Collection, static and dynamic validation, decision, signing, publication, site | **CURRENT**: proven in production with automatic publication (`AUTO_PUBLISH=true`). |
 | Public verifier | **CURRENT**: 29 tests and run against the real releases. |
-| Quarantine service and panel | Implemented and tested locally; **not deployed**. |
+| Quarantine service and panel | **CURRENT**: deployed. Policies, audit anchors and source proposals (migrations 0003 to 0005) are in `main` and **not deployed**. |
 | Automatic Cloudflare Pages | **CURRENT**: deployed by the workflow and verified with `verify_live.py`. |
 | Independent macOS virtual machine | **Not available**: needs a self-hosted physical Mac. |
 | Developer ID signing and notarization of the app | Pending. |
@@ -20,7 +20,7 @@ summary: What is implemented, what is only proposed, what is blocked and the kno
 
 Registered separately; this documentation describes the real behaviour and does not silently fix them.
 
-- Ten files of the first release have been withheld since the second: 6 fail static classification (reproduced outside CI) and 4 depend on a library file that the CI review excluded; that exclusion could not be reproduced locally and the detailed reason only exists in the private store, which is not deployed yet.
+- Ten files of the first release have been withheld since the second: 6 fail static classification (reproduced outside CI) and 4 depend on a library file that the CI review excluded; that exclusion could not be reproduced locally and the detailed reason only exists in the private store.
 - The Linux gate uses Ubuntu YARA 4.5.0 and the app {{tool.yara}}: static classification matches with both, so the engine difference does not explain those 4 files.
 - `manifest.rejected` is always empty in new releases: rejections are counted in the log, not in the manifest.
 - The first cataloged release has no `checkpoint.txt` or signature among its artifacts; the verifier falls back to the repository checkpoint.
@@ -30,7 +30,7 @@ Registered separately; this documentation describes the real behaviour and does 
 
 ## Blocked and waiting for a person
 
-- Workers and D1 credentials and a GitHub OAuth app to deploy the private panel; then the `QUARANTINE_URL` variable.
+- Applying migrations 0003 to 0005 and deploying the matching Worker version (policies, audit anchors, source proposals) to the private panel.
 - Developer ID certificate and notarization.
 - Enabling immutable releases.
 - A self-hosted physical Mac for the independent virtual machine test.

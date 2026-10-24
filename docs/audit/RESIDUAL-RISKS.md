@@ -1,5 +1,7 @@
 # Residual risks (open after the final audit)
 
+> **Note (2026-10-22): superseded in part.** RR-03 ("the private quarantine service is not deployed") describes 2026-10-19. The service and panel were deployed afterwards (recorded by the owner on 2026-10-21); the real OAuth, rate-limit and production-security evidence listed in RR-03 should be re-checked by the owner before the row is closed. RR-13 follows RR-03. See `docs-src/en/limits.md`.
+
 "Blocking" means it prevents a GO under the criteria of the audit brief. Owners are roles, not people.
 
 | ID | Risk | Why it remains | Blocking | What closes it |

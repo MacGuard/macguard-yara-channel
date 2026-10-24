@@ -12,7 +12,7 @@ Nothing in the pipeline needs Claude, a Mac or an interactive session. It runs o
 | 3. Compare with the latest release | `daily.yml` (`scripts/changes.py`) | effective change = a rule file added, modified or removed |
 | 4. No change → log `candidate.unchanged`, stop | `daily.yml` | no release, no approval request |
 | 5. Change → request `publish.yml` | `daily.yml` | `precheck` job re-compares and skips duplicates before asking anyone |
-| 6. **Human approval** (`stable-signing` environment) | `publish.yml` | required reviewer, `main` only |
+| 6. **Approval environment**: `stable-signing-auto` while the repository variable `AUTO_PUBLISH=true` (no required reviewer, so no person approves); `stable-signing` (required reviewer) otherwise | `publish.yml` | `main` only; publication also requires the `macos` measurement job of `daily.yml` to succeed before `request-publish` |
 | 7. Seal manifest, sign manifest and checkpoint (Sigstore keyless), inclusion proof | `publish.yml` | identity `publish.yml@refs/heads/main` |
 | 8. Metadata: `release.json`, `changes.json`, `CHANGELOG.md`, `consistency.json`, checkpoint | `publish.yml` (`scripts/release_meta.py`) | |
 | 9. Verify the artifacts, then create a **draft** release, attach everything, publish | `publish.yml` | the release is never visible half-uploaded |
@@ -37,7 +37,7 @@ Both serve the same bytes: `scripts/verify_live.py <base URL> --identity … --r
 
 ## Configure (one-time, human)
 1. Settings → Pages → GitHub Actions.
-2. Protected environment `stable-signing` with a required reviewer and `main`-only deployments.
+2. Protected environments, both `main`-only: `stable-signing` with a required reviewer (used when `AUTO_PUBLISH` is not `true`) and `stable-signing-auto` without one (used while `AUTO_PUBLISH=true`).
 3. **Recommended:** enable GitHub *immutable releases* (`gh api -X PUT repos/<owner>/<repo>/immutable-releases`). The workflow already creates the release as a draft and publishes it after all assets are attached, which is the flow that setting requires. It is a repository security setting, so it is not changed automatically.
 4. Cloudflare (optional mirror). The project `macguard-rules` lives in the account whose id is in `config/cloudflare_account_id.txt` (`9e96e19f…`, login `mac_guard@proton.me`; an earlier manual mirror lived in `070e63e8…`). CI needs two secrets from THAT account: `CLOUDFLARE_ACCOUNT_ID` (that id) and `CLOUDFLARE_API_TOKEN` (a custom token, Account → Cloudflare Pages → Edit). The mirror is deployed by `site.yml` itself (after each release, on web/doc changes and every 24 h at 04:17 UTC); no manual `wrangler` step is needed. `scripts/cf_preflight.sh` classifies a bad credential (format, account id, validity, permission) without printing it and the deploy is skipped, never retried blindly.
 

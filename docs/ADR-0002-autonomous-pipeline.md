@@ -2,6 +2,8 @@
 
 Status: accepted for implementation; **autonomous publication is OFF** until the evidence below is produced in production.
 
+> **Note (2026-10-22): superseded in part.** Autonomous publication is no longer OFF: the owner switched `AUTO_PUBLISH=true` on (RR-16, decided 2026-10-19; see `docs/audit/RESIDUAL-RISKS.md`), so `publish.yml` uses `stable-signing-auto` (no required reviewer). The decision record below is kept as written.
+
 ## What runs where
 | Stage | Where | Output |
 |---|---|---|

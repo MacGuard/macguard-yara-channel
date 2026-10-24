@@ -85,10 +85,12 @@ The manual recomputation of `rules_root` is in [Merkle trees](page:merkle). The 
 The `verify_public_release.py` script does all of the above in one go (Python standard library and `cosign`). Download it **to a file**, read it and run it; do not pipe it into an interpreter.
 
 ```bash
-curl -fsSLo verify_public_release.py https://raw.githubusercontent.com/{{repo}}/main/scripts/verify_public_release.py
+curl -fsSLo verify_public_release.py https://raw.githubusercontent.com/{{repo}}/<COMMIT_SHA>/scripts/verify_public_release.py
 less verify_public_release.py
 python3 verify_public_release.py --latest
 ```
+
+To verify without trusting a moving branch, replace `main` with a reviewed commit SHA (`<COMMIT_SHA>`): `main` is not a fixed version. No release tag contains the script today; once one does, use that tag.
 
 Options: `--latest`, `--tag TAG`, `--directory DIR` (already downloaded artifacts), `--json`, `--previous-checkpoint FILE` or `--trust-state FILE` (rollback protection), `--token` or the `GITHUB_TOKEN` variable (optional). It works without a token: the anonymous GitHub API allows 60 requests per hour per IP address; if that runs out (HTTP 403 with `X-RateLimit-Remaining: 0`) the verifier says so with the reset time and, without using the API, resolves `latest` through the `github.com` redirect and downloads the same artifacts (`Content-Length` is checked, not the API size) and notes it in the report. A 403 with no exhausted quota (firewall, proxy) is reported as such. Real output, abridged, on the latest release:
 

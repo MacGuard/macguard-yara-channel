@@ -32,6 +32,7 @@ Until then the pipeline reports the service as unavailable and publishes only wh
 * If the service is unreachable or `QUARANTINE_URL` is unset, no pending rule is incorporated.
 * Credentials: deploying the service needs a Workers Scripts + D1 token that stays with a person (never a CI secret, never used to approve rules); CI holds only the separate Pages token. Approving needs only a GitHub login with push or admin on the repository.
 * Still required before calling V1 complete: the service deployed and its real OAuth/D1 acceptance (`admin/worker/STAGING.md`), and, with the owner's authorization, immutable releases and the repository rulesets (`docs/audit/repo-hardening/`). Reverting automatic publication is deleting the variable.
+  * Note (2026-10-22): superseded in part. The service and panel were deployed afterwards (production check recorded by the owner on 2026-10-21; `QUARANTINE_URL` is set). Policies, audit anchors and source proposals (migrations 0003 to 0005) are in `main` and not deployed. See `docs-src/en/limits.md`.
 
 ## Resolving a quarantined rule
 Open the panel → Quarantine → the rule. Read the reasons, resources and source. Approve (only judgement findings can be waived) or reject with a reason. Approved rules go through the technical checks again in the next run; if they fail they return to PENDING with the reason. Rejected content never returns; an edited upstream version appears as a new candidate linked to the old one.
