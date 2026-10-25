@@ -13,7 +13,7 @@ export const ROOT_DEFAULT = join(homedir(), 'macguard-backups', 'gateway');
 const sha = (b) => createHash('sha256').update(b).digest('hex'), now = (d) => d.toISOString().replace(/\.\d{3}Z$/, 'Z'), stampOf = (d) => now(d).replace(/[-:]/g, '');
 export const isTemp = (p) => /^(\/tmp|\/private\/tmp|\/var\/folders)|scratchpad/.test(resolve(p));
 
-export async function runBackup({ exportFn, root = ROOT_DEFAULT, recipient = null, clock = () => new Date(), meta = {}, ageBin = 'age' }) {
+export async function runBackup({ exportFn, root = ROOT_DEFAULT, recipient = null, clock = () => new Date(), meta = {}, ageBin = 'age', verify = verifyRestore, counts = rowCounts, schema = 'macguard.gateway-backup/2' }) {   // verify/counts/schema: a different database brings its own isolated-restore check
   root = resolve(root); if (isTemp(root)) throw new Error('refusing to keep backups in a temporary directory');
   mkdirSync(root, { recursive: true, mode: 0o700 }); chmodSync(root, 0o700);
   const status = existsSync(join(root, 'status.json')) ? JSON.parse(readFileSync(join(root, 'status.json'), 'utf8')) : {}, started = clock();
@@ -24,8 +24,8 @@ export async function runBackup({ exportFn, root = ROOT_DEFAULT, recipient = nul
     try { await exportFn(plain); } catch (e) { return fail('export', e); }
     const sql = readFileSync(plain, 'utf8'), scratch = new DatabaseSync(':memory:'); scratch.exec('PRAGMA foreign_keys = OFF');
     try { scratch.exec(sql); } catch (e) { return fail('load', e); }
-    const manifest = { schema: 'macguard.gateway-backup/2', created_at: now(started), ...meta, plaintext_sha256: sha(sql), plaintext_bytes: Buffer.byteLength(sql), row_counts: rowCounts(scratch), encrypted: !!recipient };
-    const v = await verifyRestore(sql, { manifest }); if (!v.ok) return fail('verify', new Error(v.checks.filter((c) => !c.ok).map((c) => c.name).join('; ')));
+    const manifest = { schema, created_at: now(started), ...meta, plaintext_sha256: sha(sql), plaintext_bytes: Buffer.byteLength(sql), row_counts: counts(scratch), encrypted: !!recipient };
+    const v = await verify(sql, { manifest }); if (!v.ok) return fail('verify', new Error(v.checks.filter((c) => !c.ok).map((c) => c.name).join('; ')));
     const dir = join(root, stampOf(started)); mkdirSync(dir, { mode: 0o700 }); chmodSync(dir, 0o700);
     let name = 'd1-export.sql';
     if (recipient) {

@@ -109,3 +109,12 @@ test('validateEvent is pure and strict', () => {
   assert.deepEqual(validateEvent({ event: 'step_done', procedure: 'drill', step: 'machine_os', run, via: 'output' }, 'ADMIN').detail, { run, step: 'machine_os', via: 'output', procedure_version: 1 });
   assert.equal(procedureBundle().version, 1);
 });
+
+test('the panel database is protected by the same pipeline but reported on its own: gateway indicators ignore panel runs and the other way round; inventory rows carry their service', () => {
+  const titled = (r, title) => ({ ...r, display_title: title }), panelJobs = fullJobs();
+  const st = buildRecoveryStatus({ runs: [titled(run(21, 1), 'backup panel'), titled(run(20, 2), 'backup gateway'), run(19, 50, 'success')], jobs: { 21: panelJobs, 20: fullJobs({ write_r2: 'failure' }), 19: fullJobs() }, evidence: [], trust: TRUST }, NOW);
+  assert.equal(by(st, 'panel_last_backup').state, 'VERIFIED'); assert.equal(by(st, 'panel_copies_verified').value, 3); assert.equal(by(st, 'copies_verified').value, 2, 'the gateway run with a failed R2 write is not hidden by a good panel run'); assert.equal(by(st, 'last_backup').value, 20);
+  assert.deepEqual([...new Set(st.inventory.map((r) => r.service))].sort(), ['gateway', 'panel']); assert.equal(st.inventory.filter((r) => r.service === 'panel').length, 3);
+  const none = buildRecoveryStatus({ runs: [run(1, 1)], jobs: { 1: fullJobs() }, evidence: [], trust: TRUST }, NOW); assert.equal(by(none, 'panel_last_backup').state, 'NOT_RUN'); assert.equal(by(none, 'panel_copies_verified').state, 'NOT_RUN');
+  const down = buildRecoveryStatus({ runs: null, jobs: {}, evidence: null, trust: null }, NOW); assert.equal(by(down, 'panel_last_backup').state, 'UNKNOWN');
+});

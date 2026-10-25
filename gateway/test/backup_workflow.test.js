@@ -14,24 +14,24 @@ test('the pinned Sigstore identity is exactly this workflow on main and passes t
 });
 
 test('jobs and environments: one environment per job, per provider and direction; the export job holds no storage credential; redundancy and selftest hold no environment', () => {
-  assert.deepEqual(names, ['fetch', 'export', 'write', 'read', 'redundancy', 'selftest']);
+  assert.deepEqual(names, ['fetch', 'export', 'write', 'read', 'redundancy', 'record', 'selftest']);
   assert.match(job('fetch'), /environment: archive-\$\{\{ matrix\.provider \}\}-read/); assert.match(job('write'), /environment: archive-\$\{\{ matrix\.provider \}\}-write/); assert.match(job('read'), /environment: archive-\$\{\{ matrix\.provider \}\}-read/);
-  assert.match(job('export'), /environment: macguard-backup-production/); assert.ok(!/environment:/.test(job('redundancy') + job('selftest')));
+  assert.match(job('export'), /environment: macguard-backup-production/); assert.ok(!/environment:/.test(job('redundancy') + job('record') + job('selftest')));
   for (const j of ['fetch', 'write', 'read']) assert.match(job(j), /provider: \[b2, scaleway, r2\]/);
   assert.deepEqual(Object.keys(dest.destinations).sort(), ['b2', 'r2', 'scaleway'].sort());
-  assert.ok(!/ARCHIVE_|MG_ARCHIVE_PROVIDER/.test(job('export') + job('redundancy') + job('selftest')), 'no storage credential outside the provider jobs');
+  assert.ok(!/ARCHIVE_|MG_ARCHIVE_PROVIDER/.test(job('export') + job('redundancy') + job('record') + job('selftest')), 'no storage credential outside the provider jobs');
 });
 
 test('secrets reach only the jobs that need them: storage keys only in the matrix jobs of their own environment, the Cloudflare token only in the export job', () => {
   const secretsIn = (n) => [...job(n).matchAll(/secrets\.([A-Z0-9_]+)/g)].map((m) => m[1]);
   for (const j of ['fetch', 'write', 'read']) assert.deepEqual([...new Set(secretsIn(j))].sort(), ['ARCHIVE_ACCESS_KEY_ID', 'ARCHIVE_SECRET_ACCESS_KEY'], j);
-  assert.deepEqual([...new Set(secretsIn('export'))].sort(), ['CLOUDFLARE_API_TOKEN']); assert.deepEqual(secretsIn('redundancy').concat(secretsIn('selftest')), []);
+  assert.deepEqual([...new Set(secretsIn('export'))].sort(), ['CLOUDFLARE_API_TOKEN']); assert.deepEqual(secretsIn('redundancy').concat(secretsIn('selftest'), secretsIn('record')), []);
   assert.ok(!/needs\.[a-z-]+\.outputs\.[a-z_]*(key|secret|token)/i.test(wf), 'no secret travels through outputs'); assert.deepEqual([...wf.matchAll(/^      ([a-z]+): \$\{\{ steps\./gm)].map((m) => m[1]).sort(), ['sequence', 'stamp']);
 });
 
 test('the workflow runs only from main with minimal permissions: id-token only on export and selftest, nothing writable, only manual and scheduled triggers', () => {
   assert.match(wf, /^permissions: \{\}$/m); assert.equal((wf.match(/id-token: write/g) ?? []).length, 2); assert.ok(/id-token: write/.test(job('export')) && /id-token: write/.test(job('selftest')));
-  assert.ok(!/contents: write|actions: write|packages: write|pull-requests: write/.test(wf)); assert.ok(!/pull_request|push:|workflow_run/.test(wf.split('\njobs:')[0]));
+  assert.equal((wf.match(/contents: write/g) ?? []).length, 1, 'only the record job writes, and only the repository'); assert.ok(/contents: write/.test(job('record'))); assert.ok(!/actions: write|packages: write|pull-requests: write/.test(wf)); assert.ok(!/pull_request|push:|workflow_run/.test(wf.split('\njobs:')[0]));
   for (const j of ['fetch', 'export', 'selftest']) assert.match(job(j), /github\.ref == 'refs\/heads\/main'/);
 });
 
@@ -50,4 +50,11 @@ test('it never references the retired signing key or the age identity, never del
 
 test('the selftest job is credential-free and cannot run from the schedule or another ref', () => {
   const st = job('selftest'); assert.ok(st.length > 100 && !/environment:|secrets\./.test(st)); assert.match(st, /github\.event_name == 'workflow_dispatch' && inputs\.mode == 'selftest'/);
+});
+
+test('the record job writes only the evidence file, under the shared lock, with no environment and no secret; the restore recorder needs an admin and passes inputs through env, never inline', () => {
+  const rec = job('record'); assert.match(rec, /group: macguard-log/); assert.ok(!/environment:|secrets\./.test(rec)); assert.match(rec, /commit_evidence\.sh/); assert.match(rec, /backup_record\.mjs backup/);
+  const rr = readFileSync(new URL('../../.github/workflows/record-restore.yml', import.meta.url), 'utf8'); assert.match(rr, /^permissions: \{\}$/m); assert.match(rr, /\[ "\$P" = admin \]/); assert.ok(!/secrets\.|environment:|id-token/.test(rr));
+  assert.ok(!/\$\{\{ *inputs\./.test(rr.replace(/^\s+(RUN_ID|PROVIDER|SHA|DUR|MODE): \$\{\{ inputs\.[a-z_0-9]+ \}\}$/gm, '')), 'inputs reach the shell only through env: lines');
+  for (const m of rr.matchAll(/uses: ([^\s@]+)@(\S+)/g)) assert.match(m[2], /^[0-9a-f]{40}$/); assert.match(rr, /group: macguard-log/);
 });

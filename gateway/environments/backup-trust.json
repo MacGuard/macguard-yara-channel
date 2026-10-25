@@ -15,5 +15,11 @@
   "identity": "https://github.com/MacGuard/macguard-yara-channel/.github/workflows/backup.yml@refs/heads/main",
   "repository": "MacGuard/macguard-yara-channel",
   "issuer": "https://token.actions.githubusercontent.com"
+ },
+ "resources": {
+  "panel": {
+   "ed25519_max_sequence": 0,
+   "note": "a resource born after the Sigstore migration has no historical Ed25519 range: every sequence from 1 is keyless"
+  }
  }
 }

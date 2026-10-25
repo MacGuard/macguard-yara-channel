@@ -1,0 +1,10 @@
+# Minimal config used ONLY to export the panel's D1 (macguard-quarantine) for backups. It deploys nothing: the panel Worker is deployed from admin/worker with its own untracked production copy.
+# The account and database ids are identifiers, not secrets.
+name = "macguard-quarantine-backup"
+account_id = "9e96e19f6dc0ccdd53e02f7c3b5cacab"
+compatibility_date = "2026-08-01"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "macguard-quarantine"
+database_id = "4c9f258a-8dd3-41eb-a840-2d0ff84c238d"

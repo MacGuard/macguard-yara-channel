@@ -1,0 +1,71 @@
+name: Record a restore (owner attestation checked against the signed manifest)
+
+# The owner restores a backup on their own machine with the age identity (gateway/tools/restore_from_run.sh) and reports it here. The record is accepted ONLY for a run that has a backup record, for a provider that wrote and
+# read back that backup, and only if the reported plaintext SHA-256 equals the one the signed manifest announced: a copy that was merely downloaded is never recorded as restored. The dispatcher must be a repository admin.
+on:
+  workflow_dispatch:
+    inputs:
+      run_id:
+        description: 'GitHub Actions run ID of the backup (the number in the run URL)'
+        required: true
+        type: string
+      provider:
+        description: 'Provider whose copy was restored'
+        required: true
+        type: choice
+        options: [b2, scaleway, r2]
+      plaintext_sha256:
+        description: 'SHA-256 of the decrypted SQL (restore_from_run.sh prints it)'
+        required: true
+        type: string
+      duration_s:
+        description: 'Seconds the restore took, from download to verified (for the observed RTO)'
+        required: true
+        type: string
+      mode:
+        description: 'drill = isolated rehearsal; real = restore into production'
+        required: true
+        type: choice
+        options: [drill, real]
+        default: drill
+
+permissions: {}
+
+concurrency:
+  group: macguard-log
+  cancel-in-progress: false
+
+jobs:
+  record:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: write
+    steps:
+      - name: The dispatcher is a repository admin
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ACTOR: ${{ github.actor }}
+        run: |
+          set -eu
+          P=$(gh api "repos/$GITHUB_REPOSITORY/collaborators/$ACTOR/permission" --jq .permission)
+          [ "$P" = admin ] || { echo "::error::$ACTOR has permission '$P'; a restore is recorded only by a repository admin"; exit 1; }
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: main
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: '22'
+      - name: Validate against the backup record and append
+        env:
+          RUN_ID: ${{ inputs.run_id }}
+          PROVIDER: ${{ inputs.provider }}
+          SHA: ${{ inputs.plaintext_sha256 }}
+          DUR: ${{ inputs.duration_s }}
+          MODE: ${{ inputs.mode }}
+          ACTOR: ${{ github.actor }}
+        run: |
+          set -eu
+          node gateway/tools/backup_record.mjs restore --run-id "$RUN_ID" --provider "$PROVIDER" --plaintext-sha256 "$SHA" --duration-s "$DUR" --mode "$MODE" --by "$ACTOR"
+          sh gateway/tools/commit_evidence.sh "restore of run $RUN_ID from $PROVIDER ($MODE) recorded"

@@ -24,12 +24,13 @@ const jobsOf = (jobs) => {
 };
 
 /** One run, classified. `jobs` may be null when GitHub could not be asked (the run is then only a bare record). */
+export const resourceOf = (run) => (/^backup panel\b/.test(run.display_title || run.name || '') ? 'panel' : 'gateway');   // run-name of backup.yml: "backup <resource>[ (selftest)]"
 export function classifyRun(run, jobs) {
   const j = jobs ? jobsOf(jobs) : null;
   const kind = !j ? 'unknown' : j.selftest && j.selftest.conclusion === 'success' && (!j.export || j.export.conclusion === 'skipped') ? 'selftest' : j.export && j.export.conclusion !== 'skipped' ? 'backup' : 'skipped';
   const done = run.status === 'completed';
   const jr = (job) => (!job ? null : job.status !== 'completed' ? 'running' : job.conclusion);
-  const out = { id: run.id, url: run.html_url, event: run.event, created_at: run.created_at, finished_at: done ? run.updated_at : null, status: run.status, conclusion: run.conclusion, kind,
+  const out = { id: run.id, url: run.html_url, event: run.event, created_at: run.created_at, finished_at: done ? run.updated_at : null, status: run.status, conclusion: run.conclusion, kind, resource: resourceOf(run),
     export: j ? jr(j.export) : null, signed: j && j.sign ? (j.sign.conclusion === 'success') : null, redundancy: j ? jr(j.redundancy) : null, providers: {} };
   for (const p of PROVIDERS) out.providers[p] = { fetch: j ? jr(j.fetch(p)) : null, write: j ? jr(j.write(p)) : null, read: j ? jr(j.read(p)) : null, read_at: j && j.read(p) && j.read(p).completed_at || null, write_at: j && j.write(p) && j.write(p).completed_at || null };
   return out;
@@ -40,7 +41,7 @@ const ind = (id, state, value, observed_at, source, note = '') => ({ id, state, 
 /** inputs: {runs, jobs (run id -> jobs array), evidence (parsed records) or null, trust or null, tools [{path, present}] or null}. Any may be null when its source could not be read. */
 export function buildRecoveryStatus(inputs, nowMs) {
   const runs = (inputs.runs || []).slice().sort((a, b) => ms(b.created_at) - ms(a.created_at)).map((r) => classifyRun(r, inputs.jobs && inputs.jobs[r.id] ? inputs.jobs[r.id] : null));
-  const backups = runs.filter((r) => r.kind === 'backup'), evidence = inputs.evidence || [], trust = inputs.trust || null;
+  const allBackups = runs.filter((r) => r.kind === 'backup'), backups = allBackups.filter((r) => r.resource === 'gateway'), panelBackups = allBackups.filter((r) => r.resource === 'panel'), evidence = inputs.evidence || [], trust = inputs.trust || null;
   const last = backups[0] || null, lastExportOk = backups.find((r) => r.export === 'success') || null, lastSigned = backups.find((r) => r.signed === true) || null;
   const fresh = (at) => at && nowMs - ms(at) <= STALE_HOURS * HOUR;
   const verifiedState = (r) => (!r ? null : fresh(r.finished_at || r.created_at) ? 'VERIFIED' : 'STALE');
@@ -85,18 +86,23 @@ export function buildRecoveryStatus(inputs, nowMs) {
   // inventory: one row per (backup run, provider); the fields only an evidence record can give stay UNKNOWN
   const evByRun = new Map(evidence.filter((e) => e.kind === 'backup').map((e) => [String(e.run_id), e]));
   const inventory = [];
-  for (const r of backups.slice(0, 10)) for (const p of PROVIDERS) {
+  for (const r of [...backups.slice(0, 10), ...panelBackups.slice(0, 10)]) for (const p of PROVIDERS) {
     const pr = r.providers[p], ev = evByRun.get(String(r.id)) || null, rest = restores.find((e) => e.ok === true && e.provider === p && ev && e.stamp === ev.stamp) || null;
     const authenticated = pr.write === 'success' && pr.read === 'success' && r.signed === true;
-    inventory.push({ run_id: r.id, run_url: r.url, at: r.finished_at || r.created_at, provider: p, id: ev ? ev.stamp : null, stamp: ev ? ev.stamp : null, sequence: ev ? ev.sequence : null, bytes: ev ? ev.files && ev.files['d1-export.sql.age'] && ev.files['d1-export.sql.age'].bytes : null, sha256: ev ? ev.files && ev.files['d1-export.sql.age'] && ev.files['d1-export.sql.age'].sha256 : null,
+    inventory.push({ service: r.resource, run_id: r.id, run_url: r.url, at: r.finished_at || r.created_at, provider: p, id: ev ? ev.stamp : null, stamp: ev ? ev.stamp : null, sequence: ev ? ev.sequence : null, bytes: ev ? ev.files && ev.files['d1-export.sql.age'] && ev.files['d1-export.sql.age'].bytes : null, sha256: ev ? ev.files && ev.files['d1-export.sql.age'] && ev.files['d1-export.sql.age'].sha256 : null,
       signature_type: r.signed === true ? 'sigstore' : r.signed === false ? 'failed' : null, signer_identity: r.signed === true ? (ev && ev.signer && ev.signer.identity) || (trust && trust.sigstore && trust.sigstore.identity) || null : null,
       sigstore_state: r.signed === true ? 'VERIFIED' : r.signed === false ? 'FAILED' : 'NOT_RUN', transparency_log: ev && ev.signer && ev.signer.tlog_index != null ? { state: 'VERIFIED', index: ev.signer.tlog_index } : { state: 'UNKNOWN', index: null },
       checkpoint_state: r.signed === true ? 'VERIFIED' : 'NOT_RUN', last_download: pr.read === 'success' ? pr.read_at : null, last_restore: rest ? rest.at : null, last_drill: rest ? { ok: true, at: rest.at, duration_s: rest.duration_s ?? null } : null,
       schema_version: ev ? ev.schema_version || null : null, provider_state: pr.write === 'success' && pr.read === 'success' ? 'VERIFIED' : pr.write === 'success' ? 'FAILED' : pr.write === null || pr.write === 'skipped' ? 'NOT_RUN' : 'FAILED',
       recoverable: rest ? 'PROVEN' : authenticated ? 'AUTHENTICATED' : pr.write === 'failure' || pr.read === 'failure' ? 'FAILED' : 'NOT_VERIFIED' });
   }
+  // the panel's own database (macguard-quarantine): same pipeline, its own prefix, chain and evidence
+  const pLast = panelBackups[0] || null, pOk = panelBackups.find((r) => r.export === 'success') || null, pSigned = panelBackups.find((r) => r.signed === true) || null, pAll = pOk ? PROVIDERS.filter((p) => pOk.providers[p].write === 'success' && pOk.providers[p].read === 'success').length : 0;
+  indicators.push(!panelBackups.length ? ind('panel_last_backup', 'NOT_RUN', null, null, 'GitHub Actions: backup.yml (panel)', 'the panel database has never been backed up by the pipeline') : pOk ? ind('panel_last_backup', verifiedState(pOk), pOk.id, pOk.finished_at, src(pOk), pLast.id !== pOk.id ? `the latest attempt (run ${pLast.id}) ended ${pLast.conclusion || pLast.status}` : '') : ind('panel_last_backup', 'FAILED', null, pLast.finished_at || pLast.created_at, src(pLast), `every panel backup attempt failed; the latest ended ${pLast.conclusion || pLast.status}`));
+  indicators.push(!panelBackups.length ? ind('panel_last_signed', 'NOT_RUN', null, null, 'GitHub Actions: backup.yml (panel)', '') : pSigned ? ind('panel_last_signed', verifiedState(pSigned), pSigned.id, pSigned.finished_at, src(pSigned), '') : ind('panel_last_signed', pOk ? 'FAILED' : 'NOT_RUN', null, null, src(pLast), 'no panel backup reached the signing step'));
+  indicators.push(!panelBackups.length ? ind('panel_copies_verified', 'NOT_RUN', null, null, 'GitHub Actions: backup.yml (panel)', '') : ind('panel_copies_verified', pAll === 3 && fresh(pOk.finished_at) ? 'VERIFIED' : pAll === 3 ? 'STALE' : 'FAILED', pAll, pOk ? pOk.finished_at : null, 'GitHub Actions: backup.yml (panel)', pAll === 3 ? 'three independent copies written and read back' : `${pAll} of 3`));
   if (inputs.runs === null || inputs.runs === undefined) {                                   // GitHub could not be read: absence of evidence is UNKNOWN, never NOT_RUN or FAILED
-    const derived = new Set(['last_backup', 'last_signed', 'checkpoint_produced', 'rpo_observed', 'copies_verified', 'signature_chain', ...PROVIDERS.map((p) => `provider_${p}`)]);
+    const derived = new Set(['last_backup', 'last_signed', 'checkpoint_produced', 'rpo_observed', 'copies_verified', 'signature_chain', 'panel_last_backup', 'panel_last_signed', 'panel_copies_verified', ...PROVIDERS.map((p) => `provider_${p}`)]);
     for (const i of indicators) if (derived.has(i.id)) Object.assign(i, { state: 'UNKNOWN', value: null, observed_at: null, note: 'GitHub Actions could not be read just now' });
     for (const p of PROVIDERS) providers[p] = { state: 'UNKNOWN', write: null, read: null, observed_at: null, run_id: null, note: 'GitHub Actions could not be read just now' };
   }
