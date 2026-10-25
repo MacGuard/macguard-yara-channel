@@ -7,7 +7,8 @@ import * as restore from './restore.js';
 import * as proposals from './proposals.js';
 import { fetchPublication } from './publication.js';
 import * as policies from './policies.js';
-import * as publishedRules from './published_rules.js';   // policy: persistent administrative withdrawals (migration 0003)
+import * as publishedRules from './published_rules.js';
+import * as intelFamilies from './intel_families.js';   // policy: persistent administrative withdrawals (migration 0003)
 import { REAUTH, STATE_COOKIE, openToken, resolveGithubAccount, clearCookie, clearStateCookie, createSession, destroySession, effectiveRole, finishLogin, getSession, parseCookies, sessionCookie, startLogin, stateCookie, timingSafeEqual, verifyActionsToken } from './auth.js';
 
 export const HEADERS = {
@@ -119,6 +120,10 @@ export async function handle(request, env, deps) {
         }
         return { inv };
       };
+      if (method === 'GET' && path === '/api/intel/families') {   // REVIEWER and above: states and causes of every intelligence family (licence and publication decisions are internal)
+        if (!atLeast(role, 'REVIEWER')) return err(403, 'reviewer role required');
+        const got = await inventory(); return json(await intelFamilies.loadFamilies(env, deps, got.inv || null), 200, { 'Cache-Control': 'private, no-store' });
+      }
       if (method === 'GET' && path === '/api/published/file') {   // one published rule: manifest identity, signed content, provenance, record, policy; any signed-in role
         const got = await inventory(); if (got.error) return got.error;
         const d = await publishedRules.publishedRuleDetail(db, env, deps, got.inv, url.searchParams.get('path') || ''); if (d.status !== 200) return err(d.status, d.error);

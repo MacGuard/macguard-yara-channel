@@ -311,3 +311,4 @@ a > .ic, .runline .ic { display: inline-block; vertical-align: -.15em; margin-le
 .rs-modes { display: flex; flex-wrap: wrap; gap: 8px; } .rs-why { color: var(--text); font-weight: 600; } .rs-step-link.st-read .ic { color: var(--ok); }
 .alert-card { border-left: 4px solid var(--warn); } .alert-card.sev-bad { border-left-color: var(--bad); } .alert-card.sev-warn { border-left-color: var(--warn); }
 .alert-card .ba-what, .alert-card .ba-fix { margin: 8px 0; } .kv-tight { margin: 8px 0; row-gap: 4px; }
+.in-table { min-width: 960px; } .in-counts, .in-causes { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; } .in-table td, .in-table th { vertical-align: top; }
