@@ -24,6 +24,10 @@ export async function viewedRecently(db, actor, target, nowIso, seconds = 600) {
   const since = new Date(Date.parse(nowIso) - seconds * 1000).toISOString();
   return !!(await db.prepare("SELECT 1 AS x FROM audit WHERE action = 'access.view' AND actor = ? AND target = ? AND at > ? LIMIT 1").bind(actor, target, since).first());
 }
+/** Has this exact event (same actor, action, target and detail) been recorded already? Makes retries of an audited recovery event idempotent. */
+export async function auditExists(db, { actor, action, target, detail }) {
+  return !!(await db.prepare('SELECT 1 AS x FROM audit WHERE actor = ? AND action = ? AND target = ? AND detail = ? LIMIT 1').bind(actor, action, target, J(detail)).first());
+}
 export async function purgeExpired(db, now) {
   await db.prepare('DELETE FROM oauth_states WHERE expires_at < ?').bind(now).run();
   await db.prepare('DELETE FROM sessions WHERE expires_at < ?').bind(now).run();

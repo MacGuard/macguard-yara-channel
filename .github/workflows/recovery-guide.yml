@@ -1,0 +1,54 @@
+name: Recovery guide package (offline, signed)
+
+# Builds the offline recovery package (self-contained HTML guide, runbook, public trust policy, hashes of the verifier tools) from the same data the panel serves, and signs SHA256SUMS with Sigstore keyless using this
+# workflow's own identity. The package holds no secret. The owner keeps copies off the Mac and off the backup buckets (see admin/worker/tools/build_recovery_guide.mjs and the README inside the package).
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'admin/worker/src/restore_procedures.js'
+      - 'admin/worker/public/restore/**'
+      - 'admin/worker/tools/**'
+      - 'gateway/environments/backup-trust.json'
+      - 'gateway/tools/**'
+      - '.github/workflows/recovery-guide.yml'
+
+permissions: {}
+
+concurrency:
+  group: recovery-guide
+  cancel-in-progress: false
+
+jobs:
+  package:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      id-token: write   # keyless Sigstore signing with the workflow identity
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: main
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: '22'
+      - uses: sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6 # v4.1.2
+      - name: Build the package
+        run: node admin/worker/tools/build_recovery_guide.mjs "$RUNNER_TEMP/package" --commit "$GITHUB_SHA"
+      - name: Sign SHA256SUMS with Sigstore keyless and verify it for the pinned identity
+        run: |
+          set -eu
+          cd "$RUNNER_TEMP/package"
+          cosign sign-blob --yes --bundle SHA256SUMS.sigstore.json SHA256SUMS
+          cosign verify-blob --bundle SHA256SUMS.sigstore.json --certificate-identity "${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/.github/workflows/recovery-guide.yml@refs/heads/main" --certificate-oidc-issuer https://token.actions.githubusercontent.com --certificate-github-workflow-repository "$GITHUB_REPOSITORY" SHA256SUMS
+          shasum -a 256 -c SHA256SUMS
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: recovery-package
+          path: ${{ runner.temp }}/package/
+          retention-days: 90
+          if-no-files-found: error
