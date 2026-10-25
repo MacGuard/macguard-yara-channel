@@ -1,36 +1,53 @@
-// Static invariants of .github/workflows/backup.yml and the trust file: what the workflow may touch, which identity signs, and what it must never reference.
+// Static invariants of .github/workflows/backup.yml and the trust file: one GitHub environment per provider and per direction, what each job may touch, which identity signs, and what must never appear.
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { sigstorePolicyError } from '../tools/backup_anchor.mjs';
 
-const wf = readFileSync(new URL('../../.github/workflows/backup.yml', import.meta.url), 'utf8'), trust = JSON.parse(readFileSync(new URL('../environments/backup-trust.json', import.meta.url), 'utf8'));
+const wf = readFileSync(new URL('../../.github/workflows/backup.yml', import.meta.url), 'utf8'), trust = JSON.parse(readFileSync(new URL('../environments/backup-trust.json', import.meta.url), 'utf8')), dest = JSON.parse(readFileSync(new URL('../environments/backup-destinations.json', import.meta.url), 'utf8'));
+const body = wf.slice(wf.indexOf('\njobs:') + 6), names = [...body.matchAll(/^  ([a-z-]+):\n/gm)].map((m) => m[1]);
+const job = (n) => { const i = body.indexOf(`\n  ${n}:\n`); const rest = body.slice(i + 1); const m = rest.slice(1).search(/\n  [a-z-]+:\n/); return m < 0 ? rest : rest.slice(0, m + 1); };
 
 test('the pinned Sigstore identity is exactly this workflow on main and passes the strict policy; the Ed25519 freeze point is recorded', () => {
   assert.equal(trust.sigstore.identity, `https://github.com/${trust.sigstore.repository}/.github/workflows/backup.yml@refs/heads/main`); assert.equal(sigstorePolicyError(trust.sigstore, trust.ed25519.max_sequence), null);
   assert.equal(trust.ed25519.max_sequence, 1); assert.match(trust.ed25519.public_key, /^ssh-ed25519 [A-Za-z0-9+/]{43,}$/); assert.match(trust.age_recipient, /^age1[a-z0-9]{50,}$/); assert.ok(!/AGE-SECRET-KEY|PRIVATE KEY/.test(JSON.stringify(trust)));
 });
 
-test('the workflow runs only from main, in the backup environment, with id-token only on the signing job and nothing else writable', () => {
-  assert.match(wf, /if: github\.ref == 'refs\/heads\/main'/); assert.equal((wf.match(/environment: macguard-backup-production/g) ?? []).length, 2);
-  assert.equal((wf.match(/id-token: write/g) ?? []).length, 2, 'the backup job and the credential-free selftest only'); assert.ok(!/contents: write|actions: write|packages: write|pull-requests: write/.test(wf)); assert.match(wf, /^permissions: \{\}$/m);
-  assert.ok(!/pull_request|push:|workflow_run/.test(wf.split('\njobs:')[0]), 'only manual and scheduled triggers');
+test('jobs and environments: one environment per job, per provider and direction; the export job holds no storage credential; redundancy and selftest hold no environment', () => {
+  assert.deepEqual(names, ['fetch', 'export', 'write', 'read', 'redundancy', 'selftest']);
+  assert.match(job('fetch'), /environment: archive-\$\{\{ matrix\.provider \}\}-read/); assert.match(job('write'), /environment: archive-\$\{\{ matrix\.provider \}\}-write/); assert.match(job('read'), /environment: archive-\$\{\{ matrix\.provider \}\}-read/);
+  assert.match(job('export'), /environment: macguard-backup-production/); assert.ok(!/environment:/.test(job('redundancy') + job('selftest')));
+  for (const j of ['fetch', 'write', 'read']) assert.match(job(j), /provider: \[b2, scaleway, r2\]/);
+  assert.deepEqual(Object.keys(dest.destinations).sort(), ['b2', 'r2', 'scaleway'].sort());
+  assert.ok(!/ARCHIVE_|MG_ARCHIVE_PROVIDER/.test(job('export') + job('redundancy') + job('selftest')), 'no storage credential outside the provider jobs');
 });
 
-test('it never references the retired signing key or the age identity, never deletes or overwrites, and every action is pinned by commit SHA', () => {
+test('secrets reach only the jobs that need them: storage keys only in the matrix jobs of their own environment, the Cloudflare token only in the export job', () => {
+  const secretsIn = (n) => [...job(n).matchAll(/secrets\.([A-Z0-9_]+)/g)].map((m) => m[1]);
+  for (const j of ['fetch', 'write', 'read']) assert.deepEqual([...new Set(secretsIn(j))].sort(), ['ARCHIVE_ACCESS_KEY_ID', 'ARCHIVE_SECRET_ACCESS_KEY'], j);
+  assert.deepEqual([...new Set(secretsIn('export'))].sort(), ['CLOUDFLARE_API_TOKEN']); assert.deepEqual(secretsIn('redundancy').concat(secretsIn('selftest')), []);
+  assert.ok(!/needs\.[a-z-]+\.outputs\.[a-z_]*(key|secret|token)/i.test(wf), 'no secret travels through outputs'); assert.deepEqual([...wf.matchAll(/^      ([a-z]+): \$\{\{ steps\./gm)].map((m) => m[1]).sort(), ['sequence', 'stamp']);
+});
+
+test('the workflow runs only from main with minimal permissions: id-token only on export and selftest, nothing writable, only manual and scheduled triggers', () => {
+  assert.match(wf, /^permissions: \{\}$/m); assert.equal((wf.match(/id-token: write/g) ?? []).length, 2); assert.ok(/id-token: write/.test(job('export')) && /id-token: write/.test(job('selftest')));
+  assert.ok(!/contents: write|actions: write|packages: write|pull-requests: write/.test(wf)); assert.ok(!/pull_request|push:|workflow_run/.test(wf.split('\njobs:')[0]));
+  for (const j of ['fetch', 'export', 'selftest']) assert.match(job(j), /github\.ref == 'refs\/heads\/main'/);
+});
+
+test('artifacts: only ciphertext and public statements, kept one day (the repository is public); the selftest artifact is synthetic', () => {
+  const arts = [...wf.matchAll(/name: ((?:prev|read)-\$\{\{ matrix\.provider \}\}|package|sigstore-selftest)\n\s+path: ([^\n]+)\n\s+retention-days: (\d+)/g)].map((m) => ({ name: m[1], path: m[2], days: +m[3] }));
+  assert.deepEqual(arts.map((a) => a.name).sort(), ['package', 'prev-${{ matrix.provider }}', 'read-${{ matrix.provider }}', 'sigstore-selftest'].sort());
+  for (const a of arts) assert.ok(a.days <= (a.name === 'sigstore-selftest' ? 30 : 1), `${a.name} retention`);
+  assert.match(job('export'), /not age ciphertext/); assert.match(job('export'), /plaintext or configuration found in the package/); assert.ok(!/\*\.sql\b[^\n]*upload|path: [^\n]*\.sql/.test(wf));
+});
+
+test('it never references the retired signing key or the age identity, never deletes or overwrites, never skips a hook, and every action is pinned by commit SHA', () => {
   assert.ok(!/MACGUARD_BACKUP_SIGNING_KEY|ssh-keygen|signing-key|AGE-SECRET-KEY|BACKUP_AGE_IDENTITY|age -d|--identity/.test(wf));
-  assert.ok(!/ rm -|--force|push --force|s3 rm|delete-object|lifecycle|DeleteObject/.test(wf));
+  assert.ok(!/ rm -|--force|push --force|s3 rm|delete-object|lifecycle|DeleteObject|--no-verify/.test(wf));
   for (const m of wf.matchAll(/uses: ([^\s@]+)@(\S+)/g)) assert.match(m[2], /^[0-9a-f]{40}$/, `${m[1]} must be pinned by SHA`);
 });
 
-test('the selftest job holds no environment and no secret and cannot run from the schedule or another ref', () => {
-  const st = wf.slice(wf.indexOf('\n  selftest:'), wf.indexOf('\n  verify-providers:')); assert.ok(st.length > 100);
-  assert.ok(!/environment:|secrets\./.test(st)); assert.match(st, /github\.ref == 'refs\/heads\/main' && github\.event_name == 'workflow_dispatch' && inputs\.mode == 'selftest'/);
-});
-
-test('provider credentials reach only the steps that talk to the destinations; the Cloudflare token only the export; the verification job gets one provider each', () => {
-  const steps = wf.split(/\n      - /); const withSecret = (name) => steps.filter((s) => new RegExp(`secrets\\.${name}\\b`).test(s));
-  assert.equal(withSecret('CLOUDFLARE_API_TOKEN').length, 2, 'presence check + export'); assert.ok(withSecret('CLOUDFLARE_API_TOKEN').every((s) => /Trust anchors|Export D1/.test(s)));
-  for (const n of ['MG_B2_SECRET', 'MG_SCW_SECRET', 'MG_R2_SECRET']) assert.ok(withSecret(n).every((s) => /Trust anchors|predecessor|Plan, then copy|Re-read|Download the newest backup/.test(s)), n);
-  assert.match(wf, /MG_B2_SECRET: \$\{\{ matrix\.provider == 'b2' && secrets\.MG_B2_SECRET \|\| '' \}\}/); assert.match(wf, /MG_R2_SECRET: \$\{\{ matrix\.provider == 'r2' && secrets\.MG_R2_SECRET \|\| '' \}\}/);
+test('the selftest job is credential-free and cannot run from the schedule or another ref', () => {
+  const st = job('selftest'); assert.ok(st.length > 100 && !/environment:|secrets\./.test(st)); assert.match(st, /github\.event_name == 'workflow_dispatch' && inputs\.mode == 'selftest'/);
 });
