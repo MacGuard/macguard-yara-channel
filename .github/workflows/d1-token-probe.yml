@@ -1,0 +1,40 @@
+name: D1 export token probe (manual, read-only diagnosis)
+
+# Diagnoses WHY the backup export is refused, without printing the token: which kind of token it is, whether it is valid and until when, the names of its permission groups, and the exact HTTP status and Cloudflare error
+# code of three calls: read the database, run a SELECT, and ONE export request (the call the backup makes). The export is requested at most once per run: D1 can be briefly unavailable while it runs. Nothing is written.
+on:
+  workflow_dispatch:
+
+permissions: {}
+
+concurrency:
+  group: macguard-d1-probe
+  cancel-in-progress: false
+
+jobs:
+  probe:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    environment: macguard-backup-production
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      ACCOUNT: 9e96e19f6dc0ccdd53e02f7c3b5cacab
+      DB: 92207c74-13f0-4613-bef3-85e30ca5b09a
+    steps:
+      - name: Probe (token never printed)
+        run: |
+          set -u
+          api() { curl -sS -o "$RUNNER_TEMP/b.json" -w '%{http_code}' -X "$1" -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" -H 'Content-Type: application/json' ${3:+--data "$3"} "https://api.cloudflare.com/client/v4$2" 2>/dev/null; }
+          show() { jq -c '{success, errors: [.errors[]? | {code, message}]}' "$RUNNER_TEMP/b.json" 2>/dev/null || echo '(non-JSON answer)'; }
+          [ -n "$CLOUDFLARE_API_TOKEN" ] || { echo "no CLOUDFLARE_API_TOKEN reaches this job"; exit 1; }
+          echo "token length: ${#CLOUDFLARE_API_TOKEN} (a Cloudflare API token is about 40 characters)"
+          echo "--- 1. which kind of token is it and is it valid"
+          for p in "/accounts/$ACCOUNT/tokens/verify" "/user/tokens/verify"; do c=$(api GET "$p"); echo "GET $p -> HTTP $c"; show; if [ "$c" = 200 ]; then jq -c '.result | {status, not_before, expires_on}' "$RUNNER_TEMP/b.json"; TID=$(jq -r '.result.id' "$RUNNER_TEMP/b.json"); KIND=${p%%/tokens*}; break; fi; done
+          if [ -n "${TID:-}" ]; then echo "--- 2. permission groups of this token (names only)"; q="$KIND/tokens/$TID"; c=$(api GET "$q"); echo "GET ${q%/*}/<id> -> HTTP $c"; show; jq -c '[.result.policies[]? | {effect, resources: (.resources | keys), groups: [.permission_groups[]?.name]}]' "$RUNNER_TEMP/b.json" 2>/dev/null; fi
+          echo "--- 3. read the database"; c=$(api GET "/accounts/$ACCOUNT/d1/database/$DB"); echo "GET database -> HTTP $c"; show; jq -c '.result | {name, version}' "$RUNNER_TEMP/b.json" 2>/dev/null
+          echo "--- 4. SELECT 1"; c=$(api POST "/accounts/$ACCOUNT/d1/database/$DB/query" '{"sql":"SELECT 1 AS ok"}'); echo "POST query -> HTTP $c"; show
+          echo "--- 5. ONE export request (the call the backup makes)"; c=$(api POST "/accounts/$ACCOUNT/d1/database/$DB/export" '{"output_format":"polling"}'); echo "POST export -> HTTP $c"; show; jq -c '.result | {status, at_bookmark, error}' "$RUNNER_TEMP/b.json" 2>/dev/null
+          echo "--- done. No retry was made."
