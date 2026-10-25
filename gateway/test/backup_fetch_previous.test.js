@@ -6,8 +6,8 @@ import { createHash, createHmac } from 'node:crypto';
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { signBackup } from '../tools/backup_anchor.mjs';
-import { fetchPrevious, s3Client, DEFAULT_CONFIG } from '../tools/backup_objstore.mjs';
+import { signBackup, chooseHead } from '../tools/backup_anchor.mjs';
+import { fetchPrevious, probeReadOnly, s3Client, DEFAULT_CONFIG } from '../tools/backup_objstore.mjs';
 
 let HAVE = true; try { execFileSync('ssh-keygen', ['-Y', 'find-principals'], { stdio: 'pipe' }); } catch (e) { HAVE = !/unknown option|illegal option|usage: ssh-keygen/i.test(String(e.stderr)) || /find-principals/.test(String(e.stderr)); }
 const skip = { skip: !HAVE && 'ssh-keygen with -Y support is needed' };
@@ -53,4 +53,27 @@ test('ListObjectsV2 is signed over a sorted, RFC 3986 encoded query that matches
   const hostCanon = ['GET', '/bkt', 'continuation-token=tok%2Fen%2B1&list-type=2&prefix=gateway-d1%2F', `host:s3.example.test\nx-amz-content-sha256:${payload}\nx-amz-date:${amz}\n`, 'host;x-amz-content-sha256;x-amz-date', payload].join('\n');
   const sts = ['AWS4-HMAC-SHA256', amz, `${day}/eu-test-1/s3/aws4_request`, sha(hostCanon)].join('\n'), sig = createHmac('sha256', hm(hm(hm(hm('AWS4SECRETEXAMPLE', day), 'eu-test-1'), 's3'), 'aws4_request')).update(sts).digest('hex');
   assert.ok(calls[1].init.headers.authorization.endsWith(`Signature=${sig}`), 'the Authorization header equals an independent computation'); assert.ok(canon.length > 0);
+});
+
+test('statement-only fetch leaves the ciphertext behind; chooseHead takes the highest valid statement, ignores forgeries and refuses equivocation', skip, async () => {
+  const w = ws(); try {
+    const owner = w.key('owner'), attacker = w.key('attacker'), trust = { publicKey: owner.pub }, good = w.backup('20261024T050235Z', owner), forged = w.backup('20261025T050235Z', attacker, 'forged'), other = w.backup('20261024T050235Z', owner, 'OTHER');
+    const out = w.out(), r = await fetchPrevious({ trust, outDir: out, keep: 'statement', clientOverride: { b2: w.put(w.store(), '20261024T050235Z', good) } });
+    assert.deepEqual(readdirSync(join(out, r.stamp)).sort(), ['ANCHOR.json', 'ANCHOR.json.sig']);
+    const dirOf = (name, files) => { const d = join(w.root, 'cand', name); mkdirSync(d, { recursive: true }); for (const [f, b] of Object.entries(files)) if (f.startsWith('ANCHOR')) writeFileSync(join(d, f), b); return { name, dir: d }; };
+    const c = chooseHead({ candidates: [dirOf('a', good), dirOf('forged', forged)], publicKey: owner.pub }); assert.equal(c.stamp, '20261024T050235Z'); assert.equal(c.rejected.length, 1); assert.match(c.rejected[0].reason, /does not verify/);
+    assert.throws(() => chooseHead({ candidates: [dirOf('a2', good), dirOf('b2', other)], publicKey: owner.pub }), /equivocation/); assert.throws(() => chooseHead({ candidates: [dirOf('f2', forged)], publicKey: owner.pub }), /no candidate statement verifies/);
+  } finally { w.done(); }
+});
+
+test('a READ credential must read and must not write: a refused PUT passes, an accepted PUT fails, an unreadable bucket fails', async () => {
+  const mk = (writable, bucket = 'EXISTS') => ({ async bucket() { return bucket; }, async list() { return ['gateway-d1/x/y']; }, async put() { if (!writable) throw new Error('PUT 403'); } });
+  const r = await probeReadOnly({ clientOverride: { b2: mk(false), scaleway: mk(true), r2: mk(false, 'DENIED') } });
+  assert.deepEqual([r.b2.ok, r.scaleway.ok, r.r2.ok], [true, false, false]); assert.match(r.scaleway.reason, /could write/); assert.match(r.r2.reason, /DENIED/);
+});
+
+test('a GitHub environment holds ONE provider under generic names: they are used for that provider only', async () => {
+  const seen = []; const fetchImpl = async (url, init) => { seen.push(init.headers.authorization.match(/Credential=([^/]+)/)[1]); return { status: 200, ok: true, arrayBuffer: async () => Buffer.from('<ListBucketResult></ListBucketResult>') }; };
+  const env = { MG_ARCHIVE_PROVIDER: 'scaleway', ARCHIVE_ACCESS_KEY_ID: 'SCWKEYID', ARCHIVE_SECRET_ACCESS_KEY: 'secretvalue' };
+  const r = await probeReadOnly({ env, fetchImpl, only: ['b2', 'scaleway'] }); assert.match(r.b2.reason, /are not set/); assert.ok(seen.every((x) => x === 'SCWKEYID') && seen.length > 0, 'only the scaleway client was built, with the generic credential');
 });

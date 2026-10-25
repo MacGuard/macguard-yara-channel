@@ -73,7 +73,8 @@ function clientFor(name, cfg, { env = process.env, fetchImpl, clientOverride } =
   const d = cfg.destinations[name];
   if (!d) return { state: 'UNCONFIGURED', reason: 'not in the destinations file' };
   if (!d.bucket) return { state: 'UNCONFIGURED', reason: 'no bucket named for this destination' };
-  const id = env[d.key_id_env], secret = env[d.secret_env];
+  const viaEnvironment = env.MG_ARCHIVE_PROVIDER === name;                                         // a GitHub environment holds ONE provider's credential under generic names (ARCHIVE_ACCESS_KEY_ID / ARCHIVE_SECRET_ACCESS_KEY)
+  const id = env[d.key_id_env] ?? (viaEnvironment ? env.ARCHIVE_ACCESS_KEY_ID : undefined), secret = env[d.secret_env] ?? (viaEnvironment ? env.ARCHIVE_SECRET_ACCESS_KEY : undefined);
   if (clientOverride?.[name]) return { state: 'READY', client: clientOverride[name] };
   if (!id || !secret) return { state: 'UNCONFIGURED', reason: `${d.key_id_env}/${d.secret_env} are not set in this environment` };
   return { state: 'READY', client: s3Client({ endpoint: d.endpoint, region: d.region, bucket: d.bucket, accessKeyId: id, secretAccessKey: secret, fetchImpl }) };
@@ -182,7 +183,7 @@ async function drillCore({ root = ROOT_DEFAULT, config = DEFAULT_CONFIG, name, i
 
 // The newest signed backup that the destinations hold, downloaded into `outDir/<stamp>/` (so that the next backup can name it as its predecessor and a sync heals any destination that is behind). Every candidate is
 // verified with the pinned policy first; destinations that disagree at the same sequence are an error (equivocation); nothing is written to any destination.
-export async function fetchPrevious({ config = DEFAULT_CONFIG, trust, outDir, only = PROVIDERS, env, fetchImpl, clientOverride } = {}) {
+export async function fetchPrevious({ config = DEFAULT_CONFIG, trust, outDir, only = PROVIDERS, keep = 'all', env, fetchImpl, clientOverride } = {}) {
   const found = {}, detail = {};
   for (const name of only) {
     const c = clientFor(name, config, { env, fetchImpl, clientOverride });
@@ -203,8 +204,25 @@ export async function fetchPrevious({ config = DEFAULT_CONFIG, trust, outDir, on
   if (!cmp.newest) throw new Error('no destination holds a signed backup that verifies: ' + JSON.stringify(detail));
   const [name, top] = Object.entries(found).find(([, f]) => f.v.anchor.sequence === cmp.newest);
   const dir = join(resolve(outDir), top.stamp); if (existsSync(dir)) throw new Error('the previous backup directory already exists: nothing is overwritten');
-  mkdirSync(dir, { recursive: true, mode: 0o700 }); for (const [f, b] of Object.entries(top.files)) writeFileSync(join(dir, f), b, { mode: 0o600 });
+  mkdirSync(dir, { recursive: true, mode: 0o700 }); for (const [f, b] of Object.entries(top.files)) if (keep === 'all' || f.startsWith('ANCHOR')) writeFileSync(join(dir, f), b, { mode: 0o600 });          // keep: 'statement' leaves the ciphertext behind
   return { stamp: top.stamp, sequence: cmp.newest, head_sha256: top.v.head_sha256, taken_from: name, current: cmp.current, behind: cmp.stale, detail };
+}
+
+// A READ credential must read and must NOT write. Reads the bucket and lists the prefix; then tries to PUT one tiny object under `_probe/` and expects the provider to refuse. If the provider accepts, the credential is
+// too powerful (reported as a failure; the stray object is a few bytes and nothing is deleted here).
+export async function probeReadOnly({ config = DEFAULT_CONFIG, only = PROVIDERS, env, fetchImpl, clientOverride, runId = 'probe' } = {}) {
+  const out = {};
+  for (const name of only) {
+    const c = clientFor(name, config, { env, fetchImpl, clientOverride });
+    if (c.state !== 'READY') { out[name] = { ok: false, reason: c.reason }; continue; }
+    try {
+      const bucket = await c.client.bucket(), listed = (await c.client.list(config.prefix + '/')).length;
+      if (bucket !== 'EXISTS') { out[name] = { ok: false, reason: `the bucket answered ${bucket}` }; continue; }
+      let wrote = true; try { await c.client.put(`_probe/readonly-check-${runId}`, Buffer.from('read-only credential probe')); } catch { wrote = false; }
+      out[name] = wrote ? { ok: false, reason: 'the READ credential could write: it is not read-only', objects_listed: listed } : { ok: true, read: true, write_refused: true, objects_listed: listed };
+    } catch (e) { out[name] = { ok: false, reason: String(e.message).slice(0, 100) }; }
+  }
+  return out;
 }
 
 // Which destinations hold the current signed head of `stamp`, which are behind, which disagree, which are gone. Needs only the trusted public key (no local copy); nothing is written.
@@ -253,11 +271,12 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   try {
     const SS = () => arg('--sigstore-identity') ? { identity: arg('--sigstore-identity'), repository: arg('--sigstore-repo'), trustedRoot: arg('--trusted-root') } : null, ED = () => arg('--ed25519-max-sequence') != null ? +arg('--ed25519-max-sequence') : null;
     const config = loadConfig(arg('--config')), show = (r) => console.log(JSON.stringify(r, null, 1)), telemetry = outboxFromEnv();
-    if (cmd === 'plan' || cmd === 'sync') { const r = await syncAll({ root, config, apply: cmd === 'sync' && process.argv.includes('--apply'), telemetry }); show(r); if (cmd === 'sync' && !process.argv.includes('--apply')) console.log('DRY RUN: add --apply to upload'); process.exit(Object.values(r.destinations).every((d) => d.state === 'READY' ? d.ok !== false : true) ? 0 : 1); }
+    if (cmd === 'plan' || cmd === 'sync') { const r = await syncAll({ root, config, apply: cmd === 'sync' && process.argv.includes('--apply'), only: arg('--only') ? arg('--only').split(',') : PROVIDERS, telemetry }); show(r); if (cmd === 'sync' && !process.argv.includes('--apply')) console.log('DRY RUN: add --apply to upload'); process.exit(Object.values(r.destinations).every((d) => d.state === 'READY' ? d.ok !== false : true) ? 0 : 1); }
     else if (cmd === 'verify') { const r = await verifyAll({ root, config, telemetry }); show(r); process.exit(Object.values(r.destinations).every((d) => d.ok) ? 0 : 1); }
     else if (cmd === 'heads') { const tk = arg('--trust-key'); if (!tk || !arg('--stamp')) { console.error('heads needs --stamp and --trust-key'); process.exit(2); } const pk = existsSync(tk) ? readFileSync(tk, 'utf8').trim().split('\n')[0] : tk, cps = arg('--checkpoint-dir'), cp = cps ? loadCheckpoint(cps.split(','), pk, { maxAgeDays: arg('--max-age-days') ? +arg('--max-age-days') : null, sigstore: SS(), ed25519MaxSequence: ED() }) : null; if (cp && !cp.ok) { show(cp); process.exit(1); } const r = await headsAll({ config, stamp: arg('--stamp'), trust: { publicKey: pk, sigstore: SS(), ed25519MaxSequence: ED(), minSequence: +arg('--min-sequence', 0), checkpoint: cp?.checkpoint ?? null } }); show({ ...r, checkpoint_stale: cp?.stale ?? null }); process.exit(r.current.length && !r.stale.length && !r.conflicts.length && !r.failed.length && !r.rollback_everywhere ? 0 : 1); }
     else if (cmd === 'drill') { const tk = arg('--trust-key'), pk0 = tk ? (existsSync(tk) ? readFileSync(tk, 'utf8').trim().split('\n')[0] : tk) : null, cps0 = arg('--checkpoint-dir'), cp0 = tk && cps0 ? loadCheckpoint(cps0.split(','), pk0, { maxAgeDays: arg('--max-age-days') ? +arg('--max-age-days') : null, sigstore: SS(), ed25519MaxSequence: ED() }) : null; if (cp0 && !cp0.ok) { show(cp0); process.exit(1); } const trust = tk ? { publicKey: pk0, sigstore: SS(), ed25519MaxSequence: ED(), minSequence: +arg('--min-sequence', 0), checkpoint: cp0?.checkpoint ?? null } : null; const out = []; for (const n of PROVIDERS) out.push(await drillOne({ root, config, name: n, identityFile: arg('--identity'), telemetry, trust })); show(out); process.exit(out.every((x) => x.ok) ? 0 : 1); }
-    else if (cmd === 'fetch-previous') { const tk = arg('--trust-key'); if (!tk || !arg('--out')) { console.error('fetch-previous needs --trust-key and --out'); process.exit(2); } const pk = existsSync(tk) ? readFileSync(tk, 'utf8').trim().split('\n')[0] : tk; show(await fetchPrevious({ config, only: arg('--only') ? arg('--only').split(',') : PROVIDERS, outDir: arg('--out'), trust: { publicKey: pk, sigstore: SS(), ed25519MaxSequence: ED() } })); }
+    else if (cmd === 'fetch-previous') { const tk = arg('--trust-key'); if (!tk || !arg('--out')) { console.error('fetch-previous needs --trust-key and --out'); process.exit(2); } const pk = existsSync(tk) ? readFileSync(tk, 'utf8').trim().split('\n')[0] : tk; show(await fetchPrevious({ config, only: arg('--only') ? arg('--only').split(',') : PROVIDERS, keep: process.argv.includes('--statement-only') ? 'statement' : 'all', outDir: arg('--out'), trust: { publicKey: pk, sigstore: SS(), ed25519MaxSequence: ED() } })); }
+    else if (cmd === 'probe-readonly') { const r = await probeReadOnly({ config, only: arg('--only') ? arg('--only').split(',') : PROVIDERS, runId: process.env.GITHUB_RUN_ID ?? 'local' }); show(r); process.exit(Object.values(r).every((x) => x.ok) ? 0 : 1); }
     else if (cmd === 'check') { const a = objstoreCheck({ root, config }); show(a); process.exit(a.some((x) => x.state === 'FIRING') ? 1 : 0); }
     else { console.error('usage: backup_objstore.mjs plan|sync|verify|drill|check ...'); process.exit(2); }
   } catch (e) { console.error('refused: ' + e.message); process.exit(2); }

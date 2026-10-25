@@ -17,7 +17,7 @@
 //   node tools/backup_anchor.mjs checkpoint-sigstore --dir BACKUP_DIR --out CHECKPOINT_DIR <sigstore flags>
 import { createHash } from 'node:crypto';
 import { execFileSync } from 'node:child_process';
-import { chmodSync, existsSync, linkSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from 'node:fs';
+import { chmodSync, copyFileSync, existsSync, linkSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 
@@ -122,7 +122,8 @@ export function signBackupSigstore({ dir, sigstore, ed25519MaxSequence, previous
 }
 
 // `files`: Map or object name -> Buffer as fetched from ONE place (a bucket or a directory). Returns { ok, reason, anchor, head_sha256 }.
-export function verifyAnchor({ files, publicKey = null, principal = PRINCIPAL, minSequence = 0, expectedStamp = null, sigstore = null, ed25519MaxSequence = null, sshKeygen = 'ssh-keygen' }) {
+// Signature of the statement ONLY (no check of the backup files): enough to read a predecessor's sequence and head.
+export function verifyStatement({ files, publicKey = null, principal = PRINCIPAL, sigstore = null, ed25519MaxSequence = null, sshKeygen = 'ssh-keygen' }) {
   const get = (n) => (files instanceof Map ? files.get(n) : files[n]), fail = (reason) => ({ ok: false, reason });
   const a = get('ANCHOR.json'); if (!Buffer.isBuffer(a)) return fail('the backup carries no signed anchor');
   let scheme = 'ed25519', seq = null;
@@ -149,10 +150,36 @@ export function verifyAnchor({ files, publicKey = null, principal = PRINCIPAL, m
   let anchor; try { anchor = JSON.parse(a.toString('utf8')); } catch { return fail('the signed statement is not valid JSON'); }
   if (a.toString('utf8') !== canonical(anchor)) return fail('the signed statement is not in canonical form');
   if (anchor.schema !== SCHEMA) return fail('unknown statement schema');
+  if (!Number.isInteger(anchor.sequence) || anchor.sequence < 1) return fail('the signed statement has no valid sequence');
+  return { ok: true, anchor, head_sha256: headSha(a), scheme };
+}
+
+export function verifyAnchor({ files, publicKey = null, principal = PRINCIPAL, minSequence = 0, expectedStamp = null, sigstore = null, ed25519MaxSequence = null, sshKeygen = 'ssh-keygen' }) {
+  const get = (n) => (files instanceof Map ? files.get(n) : files[n]), fail = (reason) => ({ ok: false, reason });
+  const st = verifyStatement({ files, publicKey, principal, sigstore, ed25519MaxSequence, sshKeygen }); if (!st.ok) return st;
+  const a = get('ANCHOR.json'), scheme = st.scheme;
+  let anchor; try { anchor = JSON.parse(a.toString('utf8')); } catch { return fail('the signed statement is not valid JSON'); }
+  if (a.toString('utf8') !== canonical(anchor)) return fail('the signed statement is not in canonical form');
+  if (anchor.schema !== SCHEMA) return fail('unknown statement schema');
   if (expectedStamp && anchor.stamp !== expectedStamp) return fail(`the signed statement is for ${anchor.stamp}, not for ${expectedStamp}`);
   for (const f of BACKED) { const b = get(f); if (!Buffer.isBuffer(b)) return fail(`${f} is missing`); if (anchor.files?.[f] !== sha(b)) return fail(`${f} does not match the signed statement`); }
   if (!Number.isInteger(anchor.sequence) || anchor.sequence < minSequence) return fail(`rollback: sequence ${anchor.sequence} is older than the newest known (${minSequence})`);
   return { ok: true, anchor, head_sha256: headSha(a), scheme };
+}
+
+// The predecessor of the next backup: among directories that each hold ONE copy of a statement (ANCHOR.json + its signature or bundle), the valid one with the highest sequence. Statements that do not verify with the
+// pinned policy are ignored and reported; two valid statements with the same sequence and different heads are equivocation and stop everything.
+export function chooseHead({ candidates, publicKey = null, sigstore = null, ed25519MaxSequence = null, sshKeygen = 'ssh-keygen' }) {
+  const ok = [], rejected = [];
+  for (const { name, dir } of candidates) {
+    const files = {}; for (const f of ['ANCHOR.json', 'ANCHOR.json.sig', ANCHOR_BUNDLE]) { const x = join(resolve(dir), f); if (existsSync(x)) files[f] = readFileSync(x); }
+    if (!files['ANCHOR.json']) { rejected.push({ name, reason: 'no statement' }); continue; }
+    const v = verifyStatement({ files, publicKey, sigstore, ed25519MaxSequence, sshKeygen }); if (v.ok) ok.push({ name, dir: resolve(dir), v }); else rejected.push({ name, reason: v.reason });
+  }
+  if (!ok.length) throw new Error('no candidate statement verifies with the pinned policy: ' + JSON.stringify(rejected));
+  const top = Math.max(...ok.map((x) => x.v.anchor.sequence)), tops = ok.filter((x) => x.v.anchor.sequence === top);
+  if (new Set(tops.map((x) => x.v.head_sha256)).size > 1) throw new Error(`two valid statements carry sequence ${top} with different heads (equivocation)`);
+  return { dir: tops[0].dir, stamp: tops[0].v.anchor.stamp, sequence: top, head_sha256: tops[0].v.head_sha256, scheme: tops[0].v.scheme, agree: tops.map((x) => x.name), behind: ok.filter((x) => x.v.anchor.sequence < top).map((x) => x.name), rejected };
 }
 
 // ---- external checkpoint -------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -270,9 +297,15 @@ if (import.meta.url === `file://${process.argv[1]}`) {
     else if (cmd === 'sign-sigstore' || cmd === 'checkpoint-sigstore') {
       need('--sigstore-identity', 'the exact workflow identity that is allowed to sign'); need('--sigstore-repo', 'OWNER/REPO'); need('--ed25519-max-sequence', 'the frozen Ed25519 range, so that no downgrade is possible');
       if (cmd === 'sign-sigstore') {
-        if (arg('--previous')) { need('--public-key', 'the previous statement is verified before it is extended'); const pd = resolve(arg('--previous')), pv = verifyAnchor({ files: load(pd, [...BACKED, 'ANCHOR.json', 'ANCHOR.json.sig', ANCHOR_BUNDLE]), publicKey: arg('--public-key'), sigstore: policy(), ed25519MaxSequence: frozen() }); if (!pv.ok) throw new Error('the previous statement does not verify, nothing was signed: ' + pv.reason); }
+        if (arg('--previous')) { need('--public-key', 'the previous statement is verified before it is extended'); const pd = resolve(arg('--previous')), pv = verifyStatement({ files: load(pd, ['ANCHOR.json', 'ANCHOR.json.sig', ANCHOR_BUNDLE]), publicKey: arg('--public-key'), sigstore: policy(), ed25519MaxSequence: frozen() }); if (!pv.ok) throw new Error('the previous statement does not verify, nothing was signed: ' + pv.reason); }
         out(signBackupSigstore({ dir: arg('--dir'), sigstore: policy(), ed25519MaxSequence: frozen(), previousDir: arg('--previous'), sequence: arg('--sequence') ? +arg('--sequence') : null }));
       } else out(signCheckpointSigstore({ backupDir: arg('--dir'), outDir: arg('--out'), sigstore: policy(), ed25519MaxSequence: frozen() }));
+    }
+    else if (cmd === 'choose-previous') {
+      need('--candidates', 'comma-separated directories holding a statement each'); need('--out', 'where the chosen statement is copied'); need('--sigstore-identity', 'the exact workflow identity'); need('--sigstore-repo', 'OWNER/REPO'); need('--ed25519-max-sequence', 'the frozen Ed25519 range'); need('--public-key', 'the historical Ed25519 key');
+      const r = chooseHead({ candidates: arg('--candidates').split(',').filter(Boolean).map((d) => ({ name: d.split('/').filter(Boolean).slice(-2).join('/'), dir: d })), publicKey: arg('--public-key'), sigstore: policy(), ed25519MaxSequence: frozen() });
+      const dest = join(resolve(arg('--out')), r.stamp); mkdirSync(dest, { recursive: true }); for (const f of ['ANCHOR.json', 'ANCHOR.json.sig', ANCHOR_BUNDLE]) if (existsSync(join(r.dir, f))) copyFileSync(join(r.dir, f), join(dest, f));
+      out({ ...r, dir: dest });
     }
     else if (cmd === 'verify-checkpoint') { const d = resolve(arg('--dir')), r = verifyCheckpoint({ files: load(d, ['CHECKPOINT.json', 'CHECKPOINT.json.sig', CHECKPOINT_BUNDLE]), publicKey: arg('--public-key'), sigstore: policy(), ed25519MaxSequence: frozen(), maxAgeDays: arg('--max-age-days') ? +arg('--max-age-days') : null }); out({ ok: r.ok, reason: r.reason ?? null, scheme: r.scheme ?? null, sequence: r.checkpoint?.sequence ?? null, head_sha256: r.checkpoint?.head_sha256 ?? null, stale: r.stale ?? null, age_days: r.age_days ?? null }); process.exit(r.ok ? 0 : 1); }
     else if (cmd === 'verify') { const dir = resolve(arg('--dir')), r = verifyAnchor({ files: load(dir, [...BACKED, 'ANCHOR.json', 'ANCHOR.json.sig', ANCHOR_BUNDLE]), publicKey: arg('--public-key'), sigstore: policy(), ed25519MaxSequence: frozen(), principal: arg('--principal', PRINCIPAL), minSequence: +arg('--min-sequence', 0) }); out({ ok: r.ok, reason: r.reason ?? null, scheme: r.scheme ?? null, sequence: r.anchor?.sequence ?? null, head_sha256: r.head_sha256 ?? null }); process.exit(r.ok ? 0 : 1); }
