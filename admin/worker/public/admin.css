@@ -307,3 +307,5 @@ a > .ic, .runline .ic { display: inline-block; vertical-align: -.15em; margin-le
 .rs-risk { display: block; } .rs-nav { justify-content: space-between; }
 @media (max-width: 860px) { .rs-split, .rs-cmp { grid-template-columns: 1fr; } .rs-steps { max-height: 260px; } .rs-dl { grid-template-columns: 1fr; } }
 @media (prefers-reduced-motion: no-preference) { .rs-step-link, .rs-tab { transition: background-color .15s, border-color .15s; } }
+
+.rs-modes { display: flex; flex-wrap: wrap; gap: 8px; } .rs-why { color: var(--text); font-weight: 600; } .rs-step-link.st-read .ic { color: var(--ok); }

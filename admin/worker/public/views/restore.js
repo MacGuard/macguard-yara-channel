@@ -18,7 +18,7 @@ const dur = (s) => (s === null || s === undefined ? dash : s >= 86400 ? `${(s / 
 // ---- stored progress: identifiers, parameter values and step states only (never output text, never a secret) ----
 const KEY = (p) => `mg_restore_v1_${p}`;
 const load = (p) => { try { const v = JSON.parse(localStorage.getItem(KEY(p)) || 'null'); return v && typeof v === 'object' && v.steps ? v : null; } catch { return null; } };
-const save = (p, s) => { try { localStorage.setItem(KEY(p), JSON.stringify({ run: s.run, values: s.values, steps: s.steps, idx: s.idx })); } catch { /* progress just will not survive a reload */ } };
+const save = (p, s) => { try { localStorage.setItem(KEY(p), JSON.stringify({ run: s.run, values: s.values, steps: s.steps, idx: s.idx, read: s.read || {}, mode: s.mode || 'guide' })); } catch { /* progress just will not survive a reload */ } };
 const newRun = () => (crypto.randomUUID ? crypto.randomUUID() : `r${Date.now().toString(36)}${Math.random().toString(36).slice(2, 10)}`);
 
 export async function renderRestore(ctx) {
@@ -103,15 +103,16 @@ function assistantView({ bundle, status, me, query, panel }) {
   }
   function runView(pid) {
     const proc = procedures[pid], list = engine.stepsOf(pid), readOnly = proc.protected && RANK[me.role] < 3;
-    const st = load(pid) || { run: newRun(), values: {}, steps: {}, idx: 0 }; st.out = {}; st.posted = {};
+    const st = load(pid) || { run: newRun(), values: {}, steps: {}, idx: 0 }; st.out = {}; st.posted = {}; st.read = st.read || {}; st.mode = st.mode || (Object.keys(st.steps).length ? 'run' : 'guide');
+    const canRun = !readOnly, isGuide = () => st.mode === 'guide' || !canRun;      // GUIDE: read through, nothing executes and nothing is recorded as done. RUN (drill or real recovery): each step needs its real evidence
     const done = () => st.steps; const isDone = (id) => st.steps[id] && (st.steps[id].state === 'done');
     const post = async (event, step, via) => { const r = await api('POST', '/api/restore/event', { event, procedure: pid, run: st.run, ...(step ? { step } : {}), ...(via ? { via } : {}) }); if (r.status !== 200) { toast(`${t('rs_not_recorded')}: ${failure(r, '')}`, true); return false; } return true; };
     const persist = () => save(pid, st);
     const main = h('div', { class: 'rs-run' }), nav = h('ol', { class: 'rs-steps', 'aria-label': t('rs_steps') }), detail = h('section', { class: 'rs-detail', 'aria-live': 'polite' }), bar = h('progress', { class: 'rs-progress', max: list.length, value: 0, 'aria-label': t('rs_progress') });
     const count = h('span', { class: 'note' });
-    function summary() { const n = list.filter((s) => done()[s.id] && (done()[s.id].state === 'done' || done()[s.id].state === 'skipped')).length; bar.value = n; count.textContent = `${n} / ${list.length}`; }
+    function summary() { const n = isGuide() ? list.filter((s) => st.read[s.id]).length : list.filter((s) => done()[s.id] && (done()[s.id].state === 'done' || done()[s.id].state === 'skipped')).length; bar.value = n; count.textContent = `${n} / ${list.length}`; }
     function drawNav() {
-      put(nav, list.map((s, i) => { const x = done()[s.id], state = x ? x.state : engine.blockedBy(pid, s.id, done()).length ? 'blocked' : 'todo'; const a = h('button', { type: 'button', class: `rs-step-link st-${state}`, 'aria-current': i === st.idx ? 'step' : null }, h('span', { class: 'rs-n', text: String(i + 1) }), h('span', { text: L(s.title) }), h('span', { class: 'sr', text: ` — ${t(`rs_s_${state}`)}` }), state === 'done' ? icon('check') : state === 'failed' ? icon('x') : state === 'blocked' ? icon('pause') : null);
+      put(nav, list.map((s, i) => { const x = done()[s.id], state = isGuide() ? (st.read[s.id] ? 'read' : 'todo') : x ? x.state : engine.blockedBy(pid, s.id, done()).length ? 'blocked' : 'todo'; const a = h('button', { type: 'button', class: `rs-step-link st-${state}`, 'aria-current': i === st.idx ? 'step' : null }, h('span', { class: 'rs-n', text: String(i + 1) }), h('span', { text: L(s.title) }), h('span', { class: 'sr', text: ` — ${t(`rs_s_${state}`)}` }), state === 'done' || state === 'read' ? icon('check') : state === 'failed' ? icon('x') : state === 'blocked' ? icon('pause') : null);
         a.addEventListener('click', () => { st.idx = i; persist(); drawNav(); drawStep(); }); return h('li', {}, a); }));
     }
     function paramsBlock(s) {
@@ -137,7 +138,8 @@ function assistantView({ bundle, status, me, query, panel }) {
       if (state === 'failed') await post('step_failed', s.id);
     }
     function checkBlock(s) {
-      const x = done()[s.id]; if (readOnly) return h('p', { class: 'alert alert-info', role: 'note' }, icon('alert'), t('rs_readonly'));
+      const x = done()[s.id];
+      if (isGuide()) { if (st.read[s.id]) return h('p', { class: 'alert alert-ok', role: 'status' }, icon('check'), t('rs_read_ok')); const rb = h('button', { type: 'button', class: 'btn btn-primary', id: 'rs-read' }, icon('check'), t('rs_read')); rb.addEventListener('click', () => { st.read[s.id] = true; persist(); summary(); drawNav(); drawStep(); }); return h('div', {}, h('p', { class: 'alert alert-info', role: 'note' }, icon('alert'), readOnly ? t('rs_readonly') : t('rs_guide_note')), rb); }
       if (x && x.state === 'done') return h('p', { class: 'alert alert-ok', role: 'status' }, icon('check'), `${t('rs_s_done')} · ${when(x.at)}`, x.via ? ` · ${t(`rs_via_${x.via}`)}` : '');
       if (s.check.kind === 'output') {
         const ta = h('textarea', { id: `ob-${s.id}`, class: 'input rs-obs', rows: 5, spellcheck: 'false', 'aria-describedby': `ob-${s.id}-h`, placeholder: t('rs_paste_ph') }); ta.value = st.out[s.id] || '';
@@ -165,22 +167,25 @@ function assistantView({ bundle, status, me, query, panel }) {
     }
     function drawStep() {
       const ae = document.activeElement, keep = ae && ae.id && detail.contains(ae) ? { id: ae.id, a: ae.selectionStart, b: ae.selectionEnd } : null;      // typing re-renders the command: keep the caret where it was
-      const s = list[st.idx], blocked = engine.blockedBy(pid, s.id, done()), x = done()[s.id];
-      const nextOk = x && (x.state === 'done' || x.state === 'skipped'), skip = h('button', { type: 'button', class: 'btn btn-ghost btn-sm', disabled: s.gate || readOnly ? true : null, title: s.gate ? t('rs_cannot_skip') : '' }, t('rs_skip')); skip.addEventListener('click', () => finish(s, 'skipped'));
+      const s = list[st.idx], blocked = isGuide() ? [] : engine.blockedBy(pid, s.id, done()), x = done()[s.id];
+      const nextOk = isGuide() ? !!st.read[s.id] : x && (x.state === 'done' || x.state === 'skipped'), last = st.idx >= list.length - 1;
+      const why = nextOk ? (last ? t('rs_nx_last') : '') : last ? t('rs_nx_last') : isGuide() ? t('rs_nx_guide') : blocked.length ? t('rs_nx_blocked') : s.check.kind === 'output' ? t('rs_nx_output') : s.check.kind === 'attest' ? t('rs_nx_attest') : t('rs_nx_manual');
+      const kind = s.check.kind === 'attest' ? 'approval' : s.check.kind === 'output' ? (s.id.includes('restore') ? 'restore' : 'check') : s.command ? 'local' : 'info';
+      const skip = h('button', { type: 'button', class: 'btn btn-ghost btn-sm', disabled: s.gate || readOnly ? true : null, title: s.gate ? t('rs_cannot_skip') : '' }, t('rs_skip')); skip.addEventListener('click', () => finish(s, 'skipped'));
       const prev = h('button', { type: 'button', class: 'btn', disabled: st.idx === 0 ? true : null }, icon('back'), t('rs_prev')); prev.addEventListener('click', () => { st.idx--; persist(); drawNav(); drawStep(); detail.focus(); });
-      const next = h('button', { type: 'button', class: 'btn btn-primary', disabled: nextOk && st.idx < list.length - 1 ? null : true, 'aria-describedby': 'rs-next-h' }, t('rs_next')); next.addEventListener('click', () => { st.idx++; persist(); drawNav(); drawStep(); detail.focus(); });
+      const next = h('button', { type: 'button', class: 'btn btn-primary', disabled: nextOk && !last ? null : true, 'aria-describedby': 'rs-next-h' }, t('rs_next')); next.addEventListener('click', () => { st.idx++; persist(); drawNav(); drawStep(); detail.focus(); });
       put(detail, h('div', { class: 'rs-step-head' }, h('p', { class: 'note', text: `${t('rs_step')} ${st.idx + 1} / ${list.length} · ${t(`rs_ph_${s.phase}`)}` }), h('h2', { id: 'rs-step-title', tabindex: '-1', text: L(s.title) }),
-        h('p', { class: 'rs-badges' }, h('span', { class: `badge badge-day-${s.danger === 'destructive' ? 'bad' : s.danger === 'caution' ? 'warn' : 'ok'}`, text: t(`rs_danger_${s.danger}`) }), s.gate ? h('span', { class: 'badge badge-day-info', text: t('rs_gate') }) : null, h('span', { class: 'badge badge-day-neutral', text: s.os.map((o) => (o === 'macos' ? 'macOS' : 'Linux')).join(' · ') }))),
+        h('p', { class: 'rs-badges' }, h('span', { class: `badge badge-day-${s.danger === 'destructive' ? 'bad' : s.danger === 'caution' ? 'warn' : 'ok'}`, text: t(`rs_danger_${s.danger}`) }), s.gate ? h('span', { class: 'badge badge-day-info', text: t('rs_gate') }) : null, h('span', { class: 'badge badge-day-info', text: t(`rs_kind_${kind}`) }), h('span', { class: 'badge badge-day-neutral', text: s.os.map((o) => (o === 'macos' ? 'macOS' : 'Linux')).join(' · ') }))),
         blocked.length ? h('p', { class: 'alert alert-warn', role: 'status' }, icon('pause'), t('rs_blocked', { list: blocked.map((b) => L(STEPS[b].title)).join('; ') })) : null,
         h('h3', { text: t('rs_goal') }), h('p', { text: L(s.goal) }), h('h3', { text: t('rs_explain') }), h('p', { text: L(s.explain) }),
         s.prereq.length ? h('p', { class: 'note' }, `${t('rs_prereq')}: ${s.prereq.filter((p) => procedures[pid].steps.includes(p)).map((p) => L(STEPS[p].title)).join('; ') || dash}`) : null,
         s.risks.length ? h('div', { class: 'alert alert-warn' }, icon('alert'), h('div', {}, h('strong', { text: `${t('rs_risks')}: ` }), s.risks.map((r) => h('span', { class: 'rs-risk', text: L(r) })))) : null,
         s.cwd ? h('p', { class: 'note' }, `${t('rs_cwd')}: `, L(s.cwd)) : null,
-        blocked.length ? (s.command ? h('p', { class: 'note', text: t('rs_locked_cmd') }) : null) : [paramsBlock(s), commandBlock(s),
+        blocked.length && !isGuide() ? (s.command ? h('p', { class: 'note', text: t('rs_locked_cmd') }) : null) : [paramsBlock(s), commandBlock(s),
           s.expected ? h('div', {}, h('strong', { text: t('rs_expected') }), h('pre', { class: 'rs-code' }, h('code', { text: s.expected.text }))) : null, checkBlock(s)],
         h('p', { class: 'note' }, `${t('rs_evidence')}: ${L(s.evidence)}`),
         s.onFail && L(s.onFail) ? h('details', { class: 'rs-fix' }, h('summary', { text: t('rs_if_fails') }), h('p', { text: L(s.onFail) })) : null,
-        h('div', { class: 'actions rs-nav' }, prev, next, !s.gate && !readOnly ? skip : null), h('p', { id: 'rs-next-h', class: 'note', text: t('rs_next_help') }));
+        h('div', { class: 'actions rs-nav' }, prev, next, !s.gate && !isGuide() ? skip : null), h('p', { id: 'rs-next-h', class: nextOk ? 'note' : 'rs-why', text: why }));
       if (keep) { const n = detail.querySelector(`#${CSS.escape(keep.id)}`); if (n) { n.focus({ preventScroll: true }); try { n.setSelectionRange(keep.a, keep.b); } catch { /* not a text field */ } } }
     }
     const back = h('button', { type: 'button', class: 'btn' }, icon('back'), t('rs_all_procs')); back.addEventListener('click', () => { procId = null; history.replaceState(null, '', '#/restore?tab=assistant'); redraw(); });
@@ -188,8 +193,14 @@ function assistantView({ bundle, status, me, query, panel }) {
     const exp = h('button', { type: 'button', class: 'btn' }, icon('export'), t('rs_export')); exp.addEventListener('click', () => {
       const rep = { schema: 'macguard.restore-report/1', procedure: pid, procedure_version: bundle.version, run: st.run, operator: me.login, role: me.role, exported_at: new Date().toISOString(), values: st.values, steps: list.map((s) => ({ id: s.id, title: L(s.title), state: (done()[s.id] || {}).state || 'todo', at: (done()[s.id] || {}).at || null, via: (done()[s.id] || {}).via || null, observed_output: st.out[s.id] ? String(st.out[s.id]).slice(0, 2000) : null })), note: 'No secrets and no SQL are stored; outputs are those pasted in this session only.' };
       const a = h('a', { href: URL.createObjectURL(new Blob([JSON.stringify(rep, null, 2)], { type: 'application/json' })), download: `restore-report-${pid}-${st.run.slice(0, 8)}.json` }); document.body.append(a); a.click(); a.remove(); });
-    put(main, h('div', { class: 'rs-run-head' }, back, h('h2', { text: L(proc.title) }), h('div', { class: 'rs-prog' }, bar, count)), h('div', { class: 'actions' }, exp, restart), h('div', { class: 'rs-split' }, h('nav', { 'aria-label': t('rs_steps') }, nav), detail));
-    persist(); summary(); drawNav(); drawStep(); return main;
+    const modeBox = h('div', { class: 'rs-modes', role: 'group', 'aria-label': t('rs_mode') }), modeNote = h('p', { class: 'note', id: 'rs-mode-note' });
+    function drawMode() {
+      const runLabel = proc.protected ? t('rs_mode_real') : t('rs_mode_drill');
+      const mk = (m, label, off) => { const b = h('button', { type: 'button', class: 'pill', 'aria-pressed': String(st.mode === m || (m === 'guide' && !canRun)), disabled: off ? true : null }, label); b.addEventListener('click', () => { st.mode = m; persist(); summary(); drawMode(); drawNav(); drawStep(); }); return b; };
+      put(modeBox, mk('guide', t('rs_mode_guide')), mk('run', runLabel, !canRun)); modeNote.textContent = !canRun ? t('rs_mode_admin_only') : isGuide() ? t('rs_mode_guide_h') : proc.protected ? t('rs_mode_real_h') : t('rs_mode_drill_h');
+    }
+    put(main, h('div', { class: 'rs-run-head' }, back, h('h2', { text: L(proc.title) }), h('div', { class: 'rs-prog' }, bar, count), modeBox, modeNote), h('div', { class: 'actions' }, exp, restart), h('div', { class: 'rs-split' }, h('nav', { 'aria-label': t('rs_steps') }, nav), detail));
+    persist(); drawMode(); summary(); drawNav(); drawStep(); return main;
   }
   redraw(); return wrap;
 }
