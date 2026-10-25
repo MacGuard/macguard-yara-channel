@@ -86,3 +86,18 @@ test('a chosen stamp is fetched exactly; a stamp the provider does not hold is r
     await assert.rejects(() => fetchPrevious({ trust, outDir: w.out(), stamp: '20261111T000000Z', clientOverride: { b2: st } }), /no destination holds a signed backup/);
   } finally { w.done(); }
 });
+
+test('an EMPTY resource may start its chain, but a store that holds only forgeries, an unreachable store or a missing one is never read as empty; two resources never mix', skip, async () => {
+  const w = ws(); try {
+    const owner = w.key('owner'), attacker = w.key('attacker'), trust = { publicKey: owner.pub }, forged = w.backup('20261025T050235Z', attacker, 'forged'), good = w.backup('20261024T050235Z', owner);
+    const empty = { b2: w.store(), scaleway: w.store(), r2: w.store() };
+    assert.deepEqual((await fetchPrevious({ trust, outDir: w.out(), allowEmpty: true, clientOverride: empty })).none, true);
+    await assert.rejects(() => fetchPrevious({ trust, outDir: w.out(), allowEmpty: true, clientOverride: { ...empty, r2: w.put(w.store(), '20261025T050235Z', forged) } }), /no destination holds a signed backup that verifies/);
+    await assert.rejects(() => fetchPrevious({ trust, outDir: w.out(), allowEmpty: true, clientOverride: { b2: w.store(), scaleway: w.store() } }), /no destination holds/);
+    await assert.rejects(() => fetchPrevious({ trust, outDir: w.out(), clientOverride: empty }), /no destination holds/, 'without --allow-empty an empty resource is an error');
+    const both = { b2: w.put(w.put(w.store(), '20261024T050235Z', good), '20261024T050235Z', {}) };
+    const panelCfg = { ...CFG, prefix: 'panel-d1' }, st = w.store(); for (const [f, b] of Object.entries(good)) st.m.set(`gateway-d1/20261024T050235Z/${f}`, b);
+    assert.equal((await fetchPrevious({ trust, outDir: w.out(), config: CFG, clientOverride: { b2: st } })).stamp, '20261024T050235Z'); assert.equal((await fetchPrevious({ trust, outDir: w.out(), config: panelCfg, allowEmpty: true, clientOverride: { b2: st, scaleway: w.store(), r2: w.store() }, only: ['b2', 'scaleway', 'r2'] })).none, true, 'the gateway chain is invisible to the panel prefix');
+    void both;
+  } finally { w.done(); }
+});

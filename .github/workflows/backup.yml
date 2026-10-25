@@ -16,8 +16,16 @@ on:
         type: choice
         options: [backup, selftest]
         default: backup
+      resource:
+        description: 'which database to protect (separate prefix, chain, manifests and evidence per resource)'
+        type: choice
+        options: [gateway, panel]
+        default: gateway
   schedule:
-    - cron: '23 3 * * *'
+    - cron: '23 3 * * *'   # gateway
+    - cron: '53 3 * * *'   # panel (the panel's own D1: macguard-quarantine)
+
+run-name: backup ${{ inputs.resource || (github.event.schedule == '53 3 * * *' && 'panel' || 'gateway') }}${{ inputs.mode == 'selftest' && ' (selftest)' || '' }}
 
 permissions: {}
 
@@ -27,6 +35,7 @@ concurrency:
 
 env:
   WORK: ${{ github.workspace }}/.backup-work
+  RESOURCE: ${{ inputs.resource || (github.event.schedule == '53 3 * * *' && 'panel' || 'gateway') }}
 
 jobs:
   fetch:
@@ -65,9 +74,10 @@ jobs:
       - name: Newest signed statement held by this provider (statement only; the ciphertext is left where it is)
         run: |
           set -eu
-          T=gateway/environments/backup-trust.json
+          eval "$(sh gateway/tools/ci_profile.sh "$RESOURCE" --shell)"
           mkdir -p "$WORK/prev"
-          if node gateway/tools/backup_objstore.mjs fetch-previous --only '${{ matrix.provider }}' --statement-only --trust-key "$(jq -r .ed25519.public_key $T)" --sigstore-identity "$(jq -r .sigstore.identity $T)" --sigstore-repo "$(jq -r .sigstore.repository $T)" --ed25519-max-sequence "$(jq -r .ed25519.max_sequence $T)" --out "$WORK/prev" > "$WORK/fetched.json"; then jq -c . "$WORK/fetched.json"; else echo "This provider holds no verified signed backup yet."; fi
+          # an EMPTY resource may start its chain; a statement that fails verification, an unreachable or unconfigured provider fails this job
+          node gateway/tools/backup_objstore.mjs fetch-previous --only '${{ matrix.provider }}' --statement-only --allow-empty --prefix "$PREFIX" --trust-key "$ED_PUB" --sigstore-identity "$SIG_ID" --sigstore-repo "$SIG_REPO" --ed25519-max-sequence "$ED_MAX" --out "$WORK/prev" | tee "$WORK/fetched.json" | jq -c .
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: prev-${{ matrix.provider }}
@@ -98,22 +108,15 @@ jobs:
       - uses: sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6 # v4.1.2
       - name: Install age
         run: sudo apt-get update -qq && sudo apt-get install -y -qq age
-      - name: Trust anchors
+      - name: Trust anchors and the profile of this resource
         env:
           HAS_CF: ${{ secrets.CLOUDFLARE_API_TOKEN != '' }}
         run: |
           set -eu
-          T=gateway/environments/backup-trust.json
           IDENT="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/.github/workflows/backup.yml@${GITHUB_REF}"
-          [ "$(jq -r .sigstore.identity $T)" = "$IDENT" ] || { echo "::error::the pinned Sigstore identity in $T is not this workflow's identity"; exit 1; }
+          sh gateway/tools/ci_profile.sh "$RESOURCE" >> "$GITHUB_ENV"
+          [ "$(sh gateway/tools/ci_profile.sh "$RESOURCE" | grep '^SIG_ID=' | cut -d= -f2-)" = "$IDENT" ] || { echo "::error::the pinned Sigstore identity in backup-trust.json is not this workflow's identity"; exit 1; }
           [ "$HAS_CF" = true ] || { echo "::error::BLOCKED: no CLOUDFLARE_API_TOKEN is available to the export job (environment macguard-backup-production or repository)"; exit 1; }
-          {
-            echo "ED_PUB=$(jq -r .ed25519.public_key $T)"
-            echo "ED_MAX=$(jq -r .ed25519.max_sequence $T)"
-            echo "SIG_ID=$IDENT"
-            echo "SIG_REPO=$(jq -r .sigstore.repository $T)"
-            echo "RECIPIENT=$(jq -r .age_recipient $T)"
-          } >> "$GITHUB_ENV"
       - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
         with:
           pattern: prev-*
@@ -123,12 +126,16 @@ jobs:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
         run: |
           mkdir -p "$WORK/backups" && chmod 700 "$WORK/backups"
-          node gateway/tools/d1_backup.mjs --env gateway/environments/production.wrangler.toml --root "$WORK/backups" --age-recipient "$RECIPIENT"
-      - name: Choose the predecessor among the statements the providers hold (and the repository's genesis), verified with the pinned policy
+          node gateway/tools/d1_backup.mjs --resource "$RESOURCE" --root "$WORK/backups" --age-recipient "$RECIPIENT"
+      - name: Choose the predecessor among the statements the providers hold (and the resource's genesis), verified with the pinned policy
         id: prev
         run: |
           set -eu
-          CANDS=$( { find "$WORK/fetched" -mindepth 2 -maxdepth 2 -type d; find gateway/environments/backup-genesis -mindepth 1 -maxdepth 1 -type d; } | sort | paste -sd, -)
+          CANDS=$( { find "$WORK/fetched" -mindepth 2 -maxdepth 2 -type d 2>/dev/null; [ -n "$GENESIS" ] && find "$GENESIS" -mindepth 1 -maxdepth 1 -type d; true; } | sort | paste -sd, -)
+          if [ -z "$CANDS" ]; then
+            [ "$ED_MAX" = 0 ] || { echo "::error::no signed predecessor exists for $RESOURCE and its Ed25519 range is not empty: refusing to start a chain"; exit 1; }
+            echo "No statement exists yet for $RESOURCE: this backup starts its chain (sequence 1, signed keyless)."; echo "stamp=" >> "$GITHUB_OUTPUT"; exit 0
+          fi
           node gateway/tools/backup_anchor.mjs choose-previous --candidates "$CANDS" --out "$WORK/predecessor" --public-key "$ED_PUB" --sigstore-identity "$SIG_ID" --sigstore-repo "$SIG_REPO" --ed25519-max-sequence "$ED_MAX" | tee "$RUNNER_TEMP/prev.json"
           echo "stamp=$(jq -r .stamp "$RUNNER_TEMP/prev.json")" >> "$GITHUB_OUTPUT"
       - name: Sign ANCHOR.json and CHECKPOINT.json with Sigstore keyless (nothing is kept unless it verifies for the pinned identity)
@@ -137,8 +144,10 @@ jobs:
           set -eu
           PREV='${{ steps.prev.outputs.stamp }}'
           NEW=$(find "$WORK/backups" -mindepth 1 -maxdepth 1 -type d -printf '%f\n' | grep -E '^[0-9]{8}T[0-9]{6}Z$' | sort | tail -1)
-          [ -n "$NEW" ] && [ "$NEW" \> "$PREV" ] || { echo "::error::the new backup is not newer than the predecessor"; exit 1; }
-          node gateway/tools/backup_anchor.mjs sign-sigstore --dir "$WORK/backups/$NEW" --previous "$WORK/predecessor/$PREV" --public-key "$ED_PUB" --sigstore-identity "$SIG_ID" --sigstore-repo "$SIG_REPO" --ed25519-max-sequence "$ED_MAX" | tee "$RUNNER_TEMP/signed.json"
+          [ -n "$NEW" ] || { echo "::error::no new backup was produced"; exit 1; }
+          if [ -n "$PREV" ]; then [ "$NEW" \> "$PREV" ] || { echo "::error::the new backup is not newer than the predecessor"; exit 1; }; PREVARG="--previous $WORK/predecessor/$PREV"; else PREVARG=""; fi
+          # shellcheck disable=SC2086
+          node gateway/tools/backup_anchor.mjs sign-sigstore --dir "$WORK/backups/$NEW" $PREVARG --public-key "$ED_PUB" --sigstore-identity "$SIG_ID" --sigstore-repo "$SIG_REPO" --ed25519-max-sequence "$ED_MAX" | tee "$RUNNER_TEMP/signed.json"
           node gateway/tools/backup_anchor.mjs checkpoint-sigstore --dir "$WORK/backups/$NEW" --out "$WORK/package/checkpoint" --sigstore-identity "$SIG_ID" --sigstore-repo "$SIG_REPO" --ed25519-max-sequence "$ED_MAX"
           node gateway/tools/backup_anchor.mjs verify --dir "$WORK/backups/$NEW" --public-key "$ED_PUB" --sigstore-identity "$SIG_ID" --sigstore-repo "$SIG_REPO" --ed25519-max-sequence "$ED_MAX"
           node gateway/tools/backup_anchor.mjs verify-checkpoint --dir "$WORK/package/checkpoint" --public-key "$ED_PUB" --sigstore-identity "$SIG_ID" --sigstore-repo "$SIG_REPO" --ed25519-max-sequence "$ED_MAX"
@@ -197,8 +206,9 @@ jobs:
           [ "$V_BUCKET" = "$(jq -r ".destinations.$P.bucket" gateway/environments/backup-destinations.json)" ] || { echo "::error::ARCHIVE_BUCKET of the environment is not the bucket in backup-destinations.json"; exit 1; }
       - name: Plan, then copy write-once (an existing key with other bytes is a conflict, never overwritten)
         run: |
-          node gateway/tools/backup_objstore.mjs plan --root "$WORK/package/backups"
-          node gateway/tools/backup_objstore.mjs sync --apply --only '${{ matrix.provider }}' --root "$WORK/package/backups"
+          eval "$(sh gateway/tools/ci_profile.sh "$RESOURCE" --shell)"
+          node gateway/tools/backup_objstore.mjs plan --prefix "$PREFIX" --root "$WORK/package/backups"
+          node gateway/tools/backup_objstore.mjs sync --apply --only '${{ matrix.provider }}' --prefix "$PREFIX" --root "$WORK/package/backups"
       - name: The statement and checkpoint travel with the copy
         run: echo "uploaded ${{ needs.export.outputs.stamp }} to ${{ matrix.provider }}" >> "$GITHUB_STEP_SUMMARY"
 
@@ -236,11 +246,10 @@ jobs:
       - name: Download the newest backup from this provider and verify it as a clean machine would
         run: |
           set -eu
-          T=gateway/environments/backup-trust.json
-          ED_PUB=$(jq -r .ed25519.public_key $T); ED_MAX=$(jq -r .ed25519.max_sequence $T); SIG_ID=$(jq -r .sigstore.identity $T); SIG_REPO=$(jq -r .sigstore.repository $T)
+          eval "$(sh gateway/tools/ci_profile.sh "$RESOURCE" --shell)"
           STAMP='${{ needs.export.outputs.stamp }}'
           mkdir -p "$WORK/dl"
-          node gateway/tools/backup_objstore.mjs fetch-previous --only '${{ matrix.provider }}' --trust-key "$ED_PUB" --sigstore-identity "$SIG_ID" --sigstore-repo "$SIG_REPO" --ed25519-max-sequence "$ED_MAX" --out "$WORK/dl" | tee "$WORK/fetched.json"
+          node gateway/tools/backup_objstore.mjs fetch-previous --only '${{ matrix.provider }}' --prefix "$PREFIX" --trust-key "$ED_PUB" --sigstore-identity "$SIG_ID" --sigstore-repo "$SIG_REPO" --ed25519-max-sequence "$ED_MAX" --out "$WORK/dl" | tee "$WORK/fetched.json"
           [ "$(jq -r .stamp "$WORK/fetched.json")" = "$STAMP" ] || { echo "::error::${{ matrix.provider }} serves $(jq -r .stamp "$WORK/fetched.json"), not the backup just made (lag or rollback)"; exit 1; }
           for f in d1-export.sql.age manifest.json SHA256SUMS ANCHOR.json ANCHOR.json.sigstore.json; do cmp "$WORK/dl/$STAMP/$f" "$WORK/package/backups/$STAMP/$f" || { echo "::error::$f differs from the package that was uploaded"; exit 1; }; done
           MG_CHECKPOINT_DIRS="$WORK/package/checkpoint" MG_SIGSTORE_IDENTITY="$SIG_ID" MG_SIGSTORE_REPO="$SIG_REPO" MG_ED25519_MAX_SEQUENCE="$ED_MAX" sh gateway/tools/recover_verify.sh "$WORK/dl/$STAMP" "$ED_PUB" "$(jq -r .sequence "$WORK/fetched.json")"
@@ -271,6 +280,41 @@ jobs:
             echo "| write (b2, scaleway, r2) | $WRITE |"; echo "| read-back and clean verification (b2, scaleway, r2) | $READ |"
           } >> "$GITHUB_STEP_SUMMARY"
           if [ "$WRITE" = success ] && [ "$READ" = success ]; then echo "THREE VERIFIED COPIES of $STAMP" | tee -a "$GITHUB_STEP_SUMMARY"; else echo "::error::NOT three verified copies: write=$WRITE read=$READ (see the per-provider jobs)"; exit 1; fi
+
+  record:
+    # Writes the evidence record of this run (stamp, sequence, hashes, signer identity, Rekor index, per-provider write and read-back) to evidence/backups.jsonl on main, append-only. It holds no environment and no
+    # secret of its own: only the repository token, able to write this one file, and one writer at a time (the same lock the log writers use).
+    needs: [export, write, read]
+    if: ${{ always() && needs.export.result == 'success' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    concurrency:
+      group: macguard-log
+      cancel-in-progress: false
+    permissions:
+      contents: write
+      actions: read
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: main
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: '22'
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: package
+          path: ${{ github.workspace }}/.backup-work/package
+      - name: Per-provider results of this run, then the record
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_ID: ${{ github.run_id }}
+        run: |
+          set -eu
+          gh api "repos/$GITHUB_REPOSITORY/actions/runs/$RUN_ID/jobs?per_page=100" --paginate --jq '.jobs[] | {name, conclusion, completed_at}' > "$RUNNER_TEMP/jobs.ndjson"
+          PROV=$(jq -s -c 'def r(n): (map(select(.name == n)) | .[0]) // {}; {b2: {write: r("write (b2)").conclusion, read: r("read (b2)").conclusion, write_at: r("write (b2)").completed_at, read_at: r("read (b2)").completed_at}, scaleway: {write: r("write (scaleway)").conclusion, read: r("read (scaleway)").conclusion, write_at: r("write (scaleway)").completed_at, read_at: r("read (scaleway)").completed_at}, r2: {write: r("write (r2)").conclusion, read: r("read (r2)").conclusion, write_at: r("write (r2)").completed_at, read_at: r("read (r2)").completed_at}}' "$RUNNER_TEMP/jobs.ndjson")
+          node gateway/tools/backup_record.mjs backup --resource "$RESOURCE" --package "$WORK/package" --run-id "$RUN_ID" --run-url "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$RUN_ID" --providers "$PROV"
+          sh gateway/tools/commit_evidence.sh "$RESOURCE backup run $RUN_ID"
 
   selftest:
     # Proves the keyless path with this very identity and no credentials: a SYNTHETIC statement (stamp 20000101T000000Z, files of fixed text) is signed, verified and published as an artifact. It touches no provider.
