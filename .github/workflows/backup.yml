@@ -5,6 +5,12 @@ name: Encrypted backup (D1, age, Sigstore, B2 + Scaleway + R2)
 # Nothing is ever deleted or overwritten. The second job downloads the copy from EACH destination on its own and verifies it with the clean-machine script. Restoring (decrypting) happens off GitHub, with the identity.
 on:
   workflow_dispatch:
+    inputs:
+      mode:
+        description: 'backup = the real backup; selftest = sign a SYNTHETIC statement with this workflow identity, no credentials, no copy (proves the keyless path)'
+        type: choice
+        options: [backup, selftest]
+        default: backup
   schedule:
     - cron: '23 3 * * *'
 
@@ -21,7 +27,7 @@ env:
 jobs:
   backup:
     # The Sigstore identity is the workflow file on main: a run from any other ref could not sign and is not started.
-    if: github.ref == 'refs/heads/main'
+    if: github.ref == 'refs/heads/main' && (github.event_name != 'workflow_dispatch' || inputs.mode == 'backup')
     runs-on: ubuntu-24.04
     environment: macguard-backup-production
     timeout-minutes: 30
@@ -128,6 +134,32 @@ jobs:
           name: backup-statements-${{ steps.sign.outputs.stamp }}
           path: .backup-work/public/
           retention-days: 90
+          if-no-files-found: error
+
+  selftest:
+    # Proves the keyless path with this very identity and no credentials: a SYNTHETIC statement (stamp 20000101T000000Z, files of fixed text) is signed, verified and published as an artifact. It touches no provider.
+    if: github.ref == 'refs/heads/main' && github.event_name == 'workflow_dispatch' && inputs.mode == 'selftest'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: main
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: '22'
+      - uses: sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6 # v4.1.2
+      - name: Sign a synthetic anchor and checkpoint with the workflow identity and verify them
+        run: node gateway/tools/backup_selftest.mjs "$RUNNER_TEMP/selftest" gateway/environments/backup-trust.json
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: sigstore-selftest
+          path: ${{ runner.temp }}/selftest/public/
+          retention-days: 30
           if-no-files-found: error
 
   verify-providers:

@@ -13,7 +13,7 @@ test('the pinned Sigstore identity is exactly this workflow on main and passes t
 
 test('the workflow runs only from main, in the backup environment, with id-token only on the signing job and nothing else writable', () => {
   assert.match(wf, /if: github\.ref == 'refs\/heads\/main'/); assert.equal((wf.match(/environment: macguard-backup-production/g) ?? []).length, 2);
-  assert.equal((wf.match(/id-token: write/g) ?? []).length, 1); assert.ok(!/contents: write|actions: write|packages: write|pull-requests: write/.test(wf)); assert.match(wf, /^permissions: \{\}$/m);
+  assert.equal((wf.match(/id-token: write/g) ?? []).length, 2, 'the backup job and the credential-free selftest only'); assert.ok(!/contents: write|actions: write|packages: write|pull-requests: write/.test(wf)); assert.match(wf, /^permissions: \{\}$/m);
   assert.ok(!/pull_request|push:|workflow_run/.test(wf.split('\njobs:')[0]), 'only manual and scheduled triggers');
 });
 
@@ -21,6 +21,11 @@ test('it never references the retired signing key or the age identity, never del
   assert.ok(!/MACGUARD_BACKUP_SIGNING_KEY|ssh-keygen|signing-key|AGE-SECRET-KEY|BACKUP_AGE_IDENTITY|age -d|--identity/.test(wf));
   assert.ok(!/ rm -|--force|push --force|s3 rm|delete-object|lifecycle|DeleteObject/.test(wf));
   for (const m of wf.matchAll(/uses: ([^\s@]+)@(\S+)/g)) assert.match(m[2], /^[0-9a-f]{40}$/, `${m[1]} must be pinned by SHA`);
+});
+
+test('the selftest job holds no environment and no secret and cannot run from the schedule or another ref', () => {
+  const st = wf.slice(wf.indexOf('\n  selftest:'), wf.indexOf('\n  verify-providers:')); assert.ok(st.length > 100);
+  assert.ok(!/environment:|secrets\./.test(st)); assert.match(st, /github\.ref == 'refs\/heads\/main' && github\.event_name == 'workflow_dispatch' && inputs\.mode == 'selftest'/);
 });
 
 test('provider credentials reach only the steps that talk to the destinations; the Cloudflare token only the export; the verification job gets one provider each', () => {
