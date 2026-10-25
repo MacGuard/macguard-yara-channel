@@ -8,7 +8,8 @@ import * as proposals from './proposals.js';
 import { fetchPublication } from './publication.js';
 import * as policies from './policies.js';
 import * as publishedRules from './published_rules.js';
-import * as intelFamilies from './intel_families.js';   // policy: persistent administrative withdrawals (migration 0003)
+import * as intelFamilies from './intel_families.js';
+import * as intelData from './intel_data.js';   // policy: persistent administrative withdrawals (migration 0003)
 import { REAUTH, STATE_COOKIE, openToken, resolveGithubAccount, clearCookie, clearStateCookie, createSession, destroySession, effectiveRole, finishLogin, getSession, parseCookies, sessionCookie, startLogin, stateCookie, timingSafeEqual, verifyActionsToken } from './auth.js';
 
 export const HEADERS = {
@@ -120,9 +121,19 @@ export async function handle(request, env, deps) {
         }
         return { inv };
       };
-      if (method === 'GET' && path === '/api/intel/families') {   // REVIEWER and above: states and causes of every intelligence family (licence and publication decisions are internal)
+      if (path === '/api/intel' || path.startsWith('/api/intel/')) {   // REVIEWER and above: licence and publication decisions are internal. Read only.
         if (!atLeast(role, 'REVIEWER')) return err(403, 'reviewer role required');
-        const got = await inventory(); return json(await intelFamilies.loadFamilies(env, deps, got.inv || null), 200, { 'Cache-Control': 'private, no-store' });
+        if (method !== 'GET') return err(405, 'method not allowed');
+        const NS = { 'Cache-Control': 'private, no-store' }, sp = url.searchParams, send = (r) => json(r.body, r.status, NS);
+        if (path === '/api/intel/families') { const got = await inventory(); return json(await intelFamilies.loadFamilies(env, deps, got.inv || null), 200, NS); }
+        if (!env.INTEL) return send(intelData.unavailable());
+        if (path === '/api/intel/sources') return json(await intelData.listSources(env.INTEL), 200, NS);
+        if (path === '/api/intel/runs') return send(await intelData.listRuns(env.INTEL, sp));
+        if (path === '/api/intel/records') return send(await intelData.listRecords(env.INTEL, sp));
+        if (path === '/api/intel/stats') return json(await intelData.stats(env.INTEL), 200, { 'Cache-Control': 'private, max-age=60' });
+        if (path === '/api/intel/events') return send(await intelData.listEvents(env.INTEL, sp));
+        const rm = path.match(/^\/api\/intel\/records\/(.+)$/); if (rm) { let id; try { id = decodeURIComponent(rm[1]); } catch { return err(400, 'invalid id'); } return send(await intelData.getRecord(env.INTEL, id)); }
+        return err(404, 'unknown endpoint');
       }
       if (method === 'GET' && path === '/api/published/file') {   // one published rule: manifest identity, signed content, provenance, record, policy; any signed-in role
         const got = await inventory(); if (got.error) return got.error;

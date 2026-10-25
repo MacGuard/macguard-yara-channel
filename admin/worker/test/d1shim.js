@@ -1,9 +1,9 @@
 // A D1-compatible wrapper over node:sqlite so the tests run the real SQL, including batches as one transaction.
 import { DatabaseSync } from 'node:sqlite';
 import { readFileSync } from 'node:fs';
-export function newDb() {
+export function newDb(schemaFile = '../schema.sql') {
   const db = new DatabaseSync(':memory:');
-  db.exec(readFileSync(new URL('../schema.sql', import.meta.url), 'utf8'));
+  db.exec(readFileSync(new URL(schemaFile, import.meta.url), 'utf8'));
   const stmt = (sql) => {
     let args = [];
     const s = { bind(...a) { args = a.map((x) => (x === undefined ? null : x)); return s; },

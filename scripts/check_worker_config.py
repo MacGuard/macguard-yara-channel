@@ -13,7 +13,7 @@ import tomllib
 
 HOST = "panel.mac-guard.com"
 URL = f"https://{HOST}"
-KNOWN_PLACEHOLDERS = {"REPLACE-WITH-ADMIN-HOSTNAME", "REPLACE-WITH-D1-ID"}
+KNOWN_PLACEHOLDERS = {"REPLACE-WITH-ADMIN-HOSTNAME", "REPLACE-WITH-D1-ID", "REPLACE-WITH-INTEL-D1-ID"}
 PLACEHOLDER = re.compile(r"REPLACE|EXAMPLE|CHANGEME|TODO|<[^>]*>|YOUR[-_]", re.I)
 UUID = re.compile(r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$")
 REQUIRED_VARS = {"REPO": "MacGuard/macguard-yara-channel", "PIPELINE_WORKFLOWS": "daily.yml,publish.yml"}
@@ -62,6 +62,15 @@ def problems(cfg, template):
         out.append("D1 database_name must be macguard-quarantine")
     elif not template and not UUID.match(str(d1[0].get("database_id", ""))):
         out.append("D1 database_id is not a UUID")
+    intel = [d for d in cfg.get("d1_databases", []) if d.get("binding") == "INTEL"]
+    if len(intel) != 1:
+        out.append("exactly one D1 binding named INTEL is required")
+    elif intel[0].get("database_name") != "macguard-intel":
+        out.append("INTEL database_name must be macguard-intel")
+    elif not template and not UUID.match(str(intel[0].get("database_id", ""))):
+        out.append("INTEL database_id is not a UUID")
+    elif d1 and len(d1) == 1 and intel[0].get("database_id") == d1[0].get("database_id"):
+        out.append("INTEL must be a different database from DB")
     if cfg.get("assets", {}).get("binding") != "ASSETS" or not cfg.get("assets", {}).get("directory"):
         out.append("the ASSETS binding with its directory is required")
     return out

@@ -312,3 +312,21 @@ a > .ic, .runline .ic { display: inline-block; vertical-align: -.15em; margin-le
 .alert-card { border-left: 4px solid var(--warn); } .alert-card.sev-bad { border-left-color: var(--bad); } .alert-card.sev-warn { border-left-color: var(--warn); }
 .alert-card .ba-what, .alert-card .ba-fix { margin: 8px 0; } .kv-tight { margin: 8px 0; row-gap: 4px; }
 .in-table { min-width: 960px; } .in-counts, .in-causes { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; } .in-table td, .in-table th { vertical-align: top; }
+
+/* ---- dense data tables, toolbar and side sheet (Intelligence, logs) ---- */
+.dt-wrap { overflow: auto; border: 1px solid var(--line); border-radius: var(--radius-sm); background: var(--surface); max-height: 68vh; }
+.dt { border-collapse: separate; border-spacing: 0; width: 100%; font-size: .8125rem; line-height: 1.35; }
+.dt th, .dt td { text-align: left; padding: 5px 10px; border-bottom: 1px solid var(--line); vertical-align: top; }
+.dt thead th { position: sticky; top: 0; z-index: 1; background: var(--surface-2); font-weight: 600; color: var(--muted); white-space: nowrap; }
+.dt tbody tr:hover { background: var(--surface-2); }
+.dt-sel tbody tr { cursor: pointer; } .dt-sel tbody tr[aria-selected="true"] { background: var(--accent-soft); }
+.dt .num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; } .dt .nowrap { white-space: nowrap; } .dt .clip { max-width: 360px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dt .empty-cell { text-align: center; color: var(--muted); padding: 18px; }
+.in-wide { min-width: 1500px; }
+.toolbar { display: flex; gap: 12px; align-items: end; flex-wrap: wrap; } .toolbar .grow { flex: 1 1 260px; }
+.master-detail { display: grid; grid-template-columns: minmax(0, 1fr); gap: 12px; align-items: start; }
+.master-detail:has(.sheet-side:not([hidden])) { grid-template-columns: minmax(0, 1fr) minmax(320px, 440px); }
+.sheet-side { border: 1px solid var(--line); border-radius: var(--radius-sm); background: var(--surface); padding: 12px; max-height: 78vh; overflow: auto; position: sticky; top: 8px; }
+@media (max-width: 900px) { .master-detail:has(.sheet-side:not([hidden])) { grid-template-columns: minmax(0, 1fr); } .sheet-side { position: static; max-height: none; } }
+.vd { font-size: .75rem; font-weight: 600; } .vd-validated, .vd-approved { color: var(--ok); } .vd-failed, .vd-fail { color: var(--bad); } .vd-notrun, .vd-inconclusive, .vd-na { color: var(--muted); }
+details.tight summary { cursor: pointer; font-size: .75rem; color: var(--muted); }
