@@ -105,7 +105,7 @@ for (const name of WANT) {
     test('a reviewer decides in a batch: exact count, mandatory reason, versions sent, nothing without a reason; approving only changes state', async () => {
       const s = await startServer(); const page = await newPage(browser, s, 'reviewer', VIEWPORTS.desktop);
       try {
-        await goto(page, s, '/#/quarantine'); await page.waitForSelector('.rule'); assert.deepEqual(await page.locator('.sidebar .nav a').allInnerTexts(), ['Panel', 'Cuarentena', 'Publicadas', 'Actividad', 'Fuentes', 'Restauración', 'Auditoría']);
+        await goto(page, s, '/#/quarantine'); await page.waitForSelector('.rule'); assert.deepEqual(await page.locator('.sidebar .nav a').allInnerTexts(), ['Panel', 'Cuarentena', 'Publicadas', 'Inteligencia', 'Actividad', 'Fuentes', 'Restauración', 'Auditoría']);
         const posts = []; page.on('request', (r) => { if (r.method() === 'POST') posts.push(r); });
         await page.locator('.rule input[type=checkbox]').nth(0).check(); await page.locator('.rule input[type=checkbox]').nth(1).check(); await page.waitForSelector('.bulkbar');
         assert.ok((await page.locator('.bulkbar').innerText()).includes('2 seleccionadas'));
