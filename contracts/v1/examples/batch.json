@@ -1,0 +1,156 @@
+{
+  "schema": "macguard.event-batch/1",
+  "events": [
+    {
+      "schema": "macguard.event/1",
+      "event_id": "mg-77b9a54fb9862aebf439ca5cc7590fae7e59a10f",
+      "type": "cron.run.failed",
+      "occurred_at": "2026-10-24T06:00:00Z",
+      "tenant_id": "macguard",
+      "source": {
+        "kind": "gateway",
+        "id": "macguard-gateway"
+      },
+      "source_channel": "gateway",
+      "status": "error",
+      "data": {
+        "severity": "high",
+        "internal_type": "gateway.incident",
+        "component": "github-collector",
+        "code": "github_rate_limited"
+      }
+    },
+    {
+      "schema": "macguard.event/1",
+      "event_id": "mg-891cb659ae6bfffae167bd39cc6debead56b2183",
+      "type": "download.failed",
+      "occurred_at": "2026-10-24T06:00:00Z",
+      "tenant_id": "macguard",
+      "source": {
+        "kind": "gateway",
+        "id": "macguard-gateway"
+      },
+      "source_channel": "gateway",
+      "status": "error",
+      "data": {
+        "severity": "high",
+        "internal_type": "gateway.incident",
+        "component": "origin",
+        "code": "r2_error"
+      }
+    },
+    {
+      "schema": "macguard.event/1",
+      "event_id": "mg-5e0d77cedcfe9d56abd768050f778ac535a2134a",
+      "type": "gateway.error",
+      "occurred_at": "2026-10-24T06:00:00Z",
+      "tenant_id": "macguard",
+      "source": {
+        "kind": "gateway",
+        "id": "macguard-gateway"
+      },
+      "source_channel": "gateway",
+      "status": "error",
+      "data": {
+        "severity": "high",
+        "internal_type": "stripe.failure",
+        "stage": "meter",
+        "status": 500
+      }
+    },
+    {
+      "schema": "macguard.event/1",
+      "event_id": "mg-f318ded35411190c43b33d70e0835745d9b80bec",
+      "type": "saturation.detected",
+      "occurred_at": "2026-10-24T06:00:00Z",
+      "tenant_id": "macguard",
+      "source": {
+        "kind": "gateway",
+        "id": "macguard-gateway"
+      },
+      "source_channel": "gateway",
+      "status": "error",
+      "data": {
+        "severity": "medium",
+        "internal_type": "api.saturated",
+        "scope": "minute"
+      }
+    },
+    {
+      "schema": "macguard.event/1",
+      "event_id": "mg-b8f5e9784388fce179ccce0f1647c96947244722",
+      "type": "security.incident",
+      "occurred_at": "2026-10-24T06:00:00Z",
+      "tenant_id": "macguard",
+      "source": {
+        "kind": "gateway",
+        "id": "macguard-gateway"
+      },
+      "source_channel": "gateway",
+      "status": "error",
+      "data": {
+        "severity": "high",
+        "internal_type": "abuse.detected",
+        "signal": "shared_link"
+      }
+    },
+    {
+      "schema": "macguard.event/1",
+      "event_id": "mg-55cac1516750f5d1212ea259c2c696a1fc677edd",
+      "type": "integrity.error",
+      "occurred_at": "2026-10-24T06:00:00Z",
+      "tenant_id": "macguard",
+      "source": {
+        "kind": "gateway",
+        "id": "macguard-gateway"
+      },
+      "source_channel": "gateway",
+      "status": "error",
+      "data": {
+        "severity": "critical",
+        "internal_type": "signature.invalid",
+        "release_id": "prem-1",
+        "stage": "verify"
+      }
+    },
+    {
+      "schema": "macguard.event/1",
+      "event_id": "mg-03408cddfd453e4cf2430bc1d327ad5daaad860a",
+      "type": "backup.failed",
+      "occurred_at": "2026-10-24T06:00:00Z",
+      "tenant_id": "macguard",
+      "source": {
+        "kind": "agent",
+        "id": "backup-check"
+      },
+      "status": "error",
+      "data": {
+        "severity": "high",
+        "rule_id": "backup.stale",
+        "state": "FIRING",
+        "message": "Last successful backup 40.0 h ago.",
+        "value": 40
+      }
+    },
+    {
+      "schema": "macguard.event/1",
+      "event_id": "mg-metrics-2026-10-24",
+      "type": "metrics.snapshot",
+      "occurred_at": "2026-10-24T06:00:00Z",
+      "tenant_id": "macguard",
+      "source": {
+        "kind": "gateway",
+        "id": "macguard-gateway"
+      },
+      "status": "ok",
+      "data": {
+        "day": "2026-10-23",
+        "requests": 0,
+        "server_errors": 0,
+        "error_rate": null,
+        "collector_runs_24h": 0,
+        "collector_ok_24h": 0
+      }
+    }
+  ]
+}

@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- TEMPLATE, NOT INSTALLED. Daily encrypted backup of the gateway D1 plus the alarm check. Replace the three @...@ values, copy to ~/Library/LaunchAgents/, then (owner) `launchctl bootstrap gui/$(id -u) <file>`.
+     The job runs as the logged-in user so it can read the Keychain and wrangler's login; it needs the machine to be awake at the scheduled time (launchd runs a missed job at wake).
+     The check exits non-zero when an alarm FIRES: wire that exit status or the log to a notification you actually receive before relying on it. -->
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0"><dict>
+  <key>Label</key><string>com.macguard.gateway-backup</string>
+  <key>ProgramArguments</key><array>
+    <string>/bin/zsh</string><string>-lc</string>
+    <string>cd @REPO@/gateway &amp;&amp; MACGUARD_BACKUP_AGE_RECIPIENT="$(cat $HOME/macguard-backups/gateway/recipient.txt)" node tools/d1_backup.mjs --env environments/production.wrangler.toml; node tools/backup_check.mjs --max-age-hours 30 &gt;/dev/null</string>
+  </array>
+  <key>StartCalendarInterval</key><dict><key>Hour</key><integer>3</integer><key>Minute</key><integer>40</integer></dict>
+  <key>StandardOutPath</key><string>@HOME@/macguard-backups/gateway/backup.log</string>
+  <key>StandardErrorPath</key><string>@HOME@/macguard-backups/gateway/backup.log</string>
+  <key>EnvironmentVariables</key><dict><key>PATH</key><string>/usr/local/bin:/opt/homebrew/bin:/usr/bin:/bin</string></dict>
+</dict></plist>

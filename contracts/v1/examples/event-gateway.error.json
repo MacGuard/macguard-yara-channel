@@ -1,0 +1,19 @@
+{
+  "schema": "macguard.event/1",
+  "event_id": "mg-5e0d77cedcfe9d56abd768050f778ac535a2134a",
+  "type": "gateway.error",
+  "occurred_at": "2026-10-24T06:00:00Z",
+  "tenant_id": "macguard",
+  "source": {
+    "kind": "gateway",
+    "id": "macguard-gateway"
+  },
+  "source_channel": "gateway",
+  "status": "error",
+  "data": {
+    "severity": "high",
+    "internal_type": "stripe.failure",
+    "stage": "meter",
+    "status": 500
+  }
+}

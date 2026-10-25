@@ -1,0 +1,111 @@
+{
+ "$schema": "https://json-schema.org/draft/2020-12/schema",
+ "title": "Escalation policy",
+ "description": "macguard.escalation-policy/1. Versioned contract: additive changes keep the number, any other change takes a new one.",
+ "type": "object",
+ "additionalProperties": false,
+ "required": [
+  "schema",
+  "policy_id",
+  "tenant_id",
+  "timer_origin",
+  "steps"
+ ],
+ "properties": {
+  "schema": {
+   "const": "macguard.escalation-policy/1"
+  },
+  "policy_id": {
+   "type": "string",
+   "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$"
+  },
+  "tenant_id": {
+   "type": "string",
+   "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$"
+  },
+  "timezone": {
+   "type": "string",
+   "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$"
+  },
+  "timer_origin": {
+   "type": "string",
+   "enum": [
+    "incident_opened",
+    "previous_step"
+   ],
+   "description": "every wait_seconds counts either from the moment the incident opened or from the previous step firing; there is no default"
+  },
+  "steps": {
+   "type": "array",
+   "minItems": 1,
+   "maxItems": 50,
+   "items": {
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+     "step_id",
+     "wait_seconds",
+     "contacts",
+     "channels"
+    ],
+    "properties": {
+     "step_id": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$"
+     },
+     "wait_seconds": {
+      "type": "integer",
+      "minimum": 0
+     },
+     "contacts": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 50,
+      "items": {
+       "type": "string",
+       "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$"
+      }
+     },
+     "channels": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+       "type": "string",
+       "enum": [
+        "push",
+        "telegram",
+        "teams",
+        "whatsapp",
+        "sms",
+        "email",
+        "voice",
+        "webhook"
+       ]
+      }
+     },
+     "max_retries": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 10
+     },
+     "retry_backoff_seconds": {
+      "type": "integer",
+      "minimum": 0
+     }
+    }
+   }
+  },
+  "ack_deadline_seconds": {
+   "type": "integer",
+   "minimum": 0
+  },
+  "resolve_deadline_seconds": {
+   "type": "integer",
+   "minimum": 0
+  },
+  "contingency_contact": {
+   "type": "string",
+   "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$"
+  }
+ }
+}

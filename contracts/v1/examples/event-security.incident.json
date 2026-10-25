@@ -1,0 +1,18 @@
+{
+  "schema": "macguard.event/1",
+  "event_id": "mg-b8f5e9784388fce179ccce0f1647c96947244722",
+  "type": "security.incident",
+  "occurred_at": "2026-10-24T06:00:00Z",
+  "tenant_id": "macguard",
+  "source": {
+    "kind": "gateway",
+    "id": "macguard-gateway"
+  },
+  "source_channel": "gateway",
+  "status": "error",
+  "data": {
+    "severity": "high",
+    "internal_type": "abuse.detected",
+    "signal": "shared_link"
+  }
+}

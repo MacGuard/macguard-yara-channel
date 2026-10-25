@@ -1,0 +1,215 @@
+{
+ "$schema": "https://json-schema.org/draft/2020-12/schema",
+ "title": "Normalised event",
+ "description": "macguard.event/1. Versioned contract: additive changes keep the number, any other change takes a new one.",
+ "type": "object",
+ "additionalProperties": false,
+ "required": [
+  "schema",
+  "event_id",
+  "type",
+  "occurred_at",
+  "tenant_id",
+  "source"
+ ],
+ "properties": {
+  "schema": {
+   "const": "macguard.event/1"
+  },
+  "event_id": {
+   "type": "string",
+   "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$"
+  },
+  "type": {
+   "type": "string",
+   "enum": [
+    "api.request.received",
+    "api.request.authorized",
+    "api.request.completed",
+    "api.request.failed",
+    "mcp.tool.called",
+    "mcp.tool.completed",
+    "mcp.tool.failed",
+    "download.requested",
+    "download.authorized",
+    "download.started",
+    "download.partial",
+    "download.completed",
+    "download.failed",
+    "github.asset.observed",
+    "cost.entry.recorded",
+    "pipeline.stage.completed",
+    "pipeline.stage.failed",
+    "probe.completed",
+    "probe.failed",
+    "incident.opened",
+    "incident.state_changed",
+    "gateway.error",
+    "cron.run.failed",
+    "integrity.error",
+    "backup.failed",
+    "security.incident",
+    "saturation.detected",
+    "metrics.snapshot"
+   ]
+  },
+  "occurred_at": {
+   "type": "string",
+   "pattern": "^\\d{4}-\\d\\d-\\d\\dT\\d\\d:\\d\\d:\\d\\d(\\.\\d{1,3})?Z$"
+  },
+  "received_at": {
+   "type": "string",
+   "pattern": "^\\d{4}-\\d\\d-\\d\\dT\\d\\d:\\d\\d:\\d\\d(\\.\\d{1,3})?Z$"
+  },
+  "tenant_id": {
+   "type": "string",
+   "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$"
+  },
+  "project_id": {
+   "type": "string",
+   "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$"
+  },
+  "source": {
+   "type": "object",
+   "additionalProperties": false,
+   "required": [
+    "kind",
+    "id"
+   ],
+   "properties": {
+    "kind": {
+     "type": "string",
+     "enum": [
+      "gateway",
+      "github",
+      "pipeline",
+      "probe",
+      "agent",
+      "manual",
+      "import"
+     ]
+    },
+    "id": {
+     "type": "string",
+     "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$"
+    }
+   }
+  },
+  "actor": {
+   "type": "object",
+   "additionalProperties": false,
+   "required": [
+    "kind"
+   ],
+   "properties": {
+    "kind": {
+     "type": "string",
+     "enum": [
+      "authenticated_human",
+      "authenticated_service",
+      "api_key_client",
+      "device_identity",
+      "anonymous_request",
+      "unknown"
+     ]
+    },
+    "id_hash": {
+     "type": "string",
+     "pattern": "^[0-9a-f]{16,64}$",
+     "description": "keyed hash of the actor, never the raw identifier, an IP address or a fingerprint"
+    }
+   }
+  },
+  "request_id": {
+   "type": "string",
+   "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$"
+  },
+  "api_key_id": {
+   "type": "string",
+   "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$"
+  },
+  "source_channel": {
+   "type": "string",
+   "enum": [
+    "rest",
+    "mcp",
+    "github",
+    "gateway",
+    "x402",
+    "internal"
+   ]
+  },
+  "product": {
+   "type": "string",
+   "enum": [
+    "community",
+    "premium",
+    "api",
+    "platform"
+   ]
+  },
+  "operation": {
+   "type": "string",
+   "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$"
+  },
+  "tool_name": {
+   "type": "string",
+   "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$"
+  },
+  "status": {
+   "type": "string",
+   "enum": [
+    "ok",
+    "refused",
+    "error",
+    "partial",
+    "unknown"
+   ]
+  },
+  "http_status": {
+   "type": "integer",
+   "minimum": 100,
+   "maximum": 599
+  },
+  "units": {
+   "type": "integer",
+   "minimum": 0
+  },
+  "bytes": {
+   "type": "integer",
+   "minimum": 0
+  },
+  "duration_ms": {
+   "type": "integer",
+   "minimum": 0
+  },
+  "commercial_mode": {
+   "type": "string",
+   "enum": [
+    "FREE_LAUNCH",
+    "FREEMIUM",
+    "PAID"
+   ]
+  },
+  "policy_version": {
+   "type": "integer",
+   "minimum": 0
+  },
+  "estimated_price_micros": {
+   "type": "integer",
+   "minimum": 0
+  },
+  "billable_micros": {
+   "type": "integer",
+   "minimum": 0
+  },
+  "idempotency_key": {
+   "type": "string",
+   "pattern": "^[A-Za-z0-9._:-]{8,128}$"
+  },
+  "data": {
+   "type": "object",
+   "description": "small, non-sensitive facts only; never payloads, secrets, addresses or file contents"
+  }
+ }
+}

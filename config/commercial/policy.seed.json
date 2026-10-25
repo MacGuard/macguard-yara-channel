@@ -1,0 +1,71 @@
+{
+  "schema": "macguard.commercial-policy/1",
+  "mode": "FREE_LAUNCH",
+  "scheduled": null,
+  "products": {
+    "premium": {
+      "mode": null
+    },
+    "api": {
+      "mode": null
+    }
+  },
+  "launch": {
+    "features": [
+      "premium",
+      "intel",
+      "intel.enrich",
+      "mcp"
+    ],
+    "quotas": {
+      "minute": 30,
+      "day": 1000,
+      "month": 20000,
+      "downloads_month": 10,
+      "bytes_month": 524288000
+    }
+  },
+  "freemium": {
+    "features": [
+      "premium",
+      "intel",
+      "mcp"
+    ],
+    "quotas": {
+      "minute": 20,
+      "day": 500,
+      "month": 5000,
+      "downloads_month": 3,
+      "bytes_month": 104857600
+    },
+    "metered_free_units_month": 0
+  },
+  "overrides": [],
+  "offers": [],
+  "billing": {
+    "live": false,
+    "terms_version": "2026-10-draft",
+    "allow_checkout": false,
+    "notice_days": 30,
+    "on_unaccepted": "freemium",
+    "pricing": {
+      "version": "2026-10-example-1",
+      "approved": false,
+      "currency": "EUR",
+      "unit_micros": {
+        "intel.enrich": 5000
+      }
+    },
+    "pricing_version_note": "acceptance is recorded per billing.pricing.version"
+  },
+  "theoretical_prices_micros": {
+    "premium.releases.list": 0,
+    "premium.releases.latest": 0,
+    "premium.download": 20000,
+    "intel.hash": 200,
+    "intel.cve": 200,
+    "intel.ioc.search": 1000,
+    "intel.enrich": 5000
+  },
+  "_comment": "Commercial settings only. No secret belongs here: keys and tokens are environment secrets. Prices are EXAMPLES until the owner approves a pricing_version."
+}

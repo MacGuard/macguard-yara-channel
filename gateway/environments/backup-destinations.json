@@ -1,0 +1,27 @@
+{
+ "schema": "macguard.backup-destinations/1",
+ "prefix": "gateway-d1",
+ "destinations": {
+  "b2": {
+   "endpoint": "https://s3.eu-central-003.backblazeb2.com",
+   "region": "eu-central-003",
+   "bucket": "macguard-archive-b2",
+   "key_id_env": "MG_B2_KEY_ID",
+   "secret_env": "MG_B2_SECRET"
+  },
+  "scaleway": {
+   "endpoint": "https://s3.fr-par.scw.cloud",
+   "region": "fr-par",
+   "bucket": "macguard-archive-scw",
+   "key_id_env": "MG_SCW_KEY_ID",
+   "secret_env": "MG_SCW_SECRET"
+  },
+  "r2": {
+   "endpoint": "https://9e96e19f6dc0ccdd53e02f7c3b5cacab.r2.cloudflarestorage.com",
+   "region": "auto",
+   "bucket": "macguard-archive-r2",
+   "key_id_env": "MG_R2_KEY_ID",
+   "secret_env": "MG_R2_SECRET"
+  }
+ }
+}

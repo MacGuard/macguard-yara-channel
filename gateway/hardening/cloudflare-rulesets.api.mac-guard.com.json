@@ -1,0 +1,134 @@
+{
+  "host": "api.mac-guard.com",
+  "access": {
+    "applied": false,
+    "note": "Prepared payload for POST /accounts/{account_id}/access/apps. Replace OWNER_EMAIL_PLACEHOLDER. Not applied.",
+    "app": {
+      "name": "macguard-gateway admin",
+      "type": "self_hosted",
+      "domain": "api.mac-guard.com/admin",
+      "session_duration": "12h",
+      "allowed_idps": [],
+      "auto_redirect_to_identity": false,
+      "http_only_cookie_attribute": true,
+      "same_site_cookie_attribute": "strict"
+    },
+    "policies": [
+      {
+        "name": "owner only",
+        "decision": "allow",
+        "include": [
+          {
+            "email": {
+              "email": "OWNER_EMAIL_PLACEHOLDER"
+            }
+          }
+        ],
+        "require": [],
+        "exclude": []
+      }
+    ],
+    "never_behind_access": [
+      "/stripe/webhook",
+      "/mcp",
+      "/v1/",
+      "/x402/"
+    ]
+  },
+  "applied": false,
+  "note": "Prepared payload. Not applied. Confirm the account plan allows this many rate-limiting rules and these periods before applying.",
+  "phases": {
+    "http_request_firewall_custom": [
+      {
+        "ref": "admin-methods",
+        "description": "Administrator routes accept GET, POST and PUT only",
+        "expression": "http.host eq \"api.mac-guard.com\" and (starts_with(http.request.uri.path, \"/admin/\")) and not http.request.method in {\"GET\" \"POST\" \"PUT\"}",
+        "action": "block",
+        "enabled": true
+      },
+      {
+        "ref": "webhook-method",
+        "description": "The Stripe webhook is POST only",
+        "expression": "http.host eq \"api.mac-guard.com\" and (starts_with(http.request.uri.path, \"/stripe/webhook\")) and not http.request.method in {\"POST\"}",
+        "action": "block",
+        "enabled": true
+      },
+      {
+        "ref": "mcp-method",
+        "description": "/mcp is POST only (the Worker also answers 405)",
+        "expression": "http.host eq \"api.mac-guard.com\" and (starts_with(http.request.uri.path, \"/mcp\")) and not http.request.method in {\"POST\"}",
+        "action": "block",
+        "enabled": true
+      },
+      {
+        "ref": "unexpected-methods",
+        "description": "TRACE, CONNECT and similar are never needed on the API",
+        "expression": "http.host eq \"api.mac-guard.com\" and (starts_with(http.request.uri.path, \"/\")) and http.request.method in {\"TRACE\" \"CONNECT\" \"TRACK\"}",
+        "action": "block",
+        "enabled": true
+      }
+    ],
+    "http_ratelimit": [
+      {
+        "ref": "admin-rate",
+        "description": "Administrator routes: 20 requests per minute per IP, blocked for 10 minutes (stops key/TOTP guessing)",
+        "expression": "http.host eq \"api.mac-guard.com\" and (starts_with(http.request.uri.path, \"/admin/\"))",
+        "action": "block",
+        "ratelimit": {
+          "requests": 20,
+          "period": 60,
+          "mitigation_timeout": 600,
+          "characteristics": [
+            "ip.src"
+          ]
+        },
+        "enabled": true
+      },
+      {
+        "ref": "webhook-rate",
+        "description": "Stripe webhook: 120 requests per minute per IP (signature verification is the real control)",
+        "expression": "http.host eq \"api.mac-guard.com\" and (starts_with(http.request.uri.path, \"/stripe/webhook\"))",
+        "action": "block",
+        "ratelimit": {
+          "requests": 120,
+          "period": 60,
+          "mitigation_timeout": 60,
+          "characteristics": [
+            "ip.src"
+          ]
+        },
+        "enabled": true
+      },
+      {
+        "ref": "mcp-rate",
+        "description": "MCP: 300 requests per minute per IP (per-key quotas apply on top)",
+        "expression": "http.host eq \"api.mac-guard.com\" and (starts_with(http.request.uri.path, \"/mcp\"))",
+        "action": "block",
+        "ratelimit": {
+          "requests": 300,
+          "period": 60,
+          "mitigation_timeout": 60,
+          "characteristics": [
+            "ip.src"
+          ]
+        },
+        "enabled": true
+      },
+      {
+        "ref": "api-rate",
+        "description": "Authenticated REST (/v1/ except the public paths): 600 requests per minute per IP",
+        "expression": "http.host eq \"api.mac-guard.com\" and (starts_with(http.request.uri.path, \"/v1/\")) and not starts_with(http.request.uri.path, \"/v1/community/\") and not starts_with(http.request.uri.path, \"/v1/health\")",
+        "action": "block",
+        "ratelimit": {
+          "requests": 600,
+          "period": 60,
+          "mitigation_timeout": 60,
+          "characteristics": [
+            "ip.src"
+          ]
+        },
+        "enabled": true
+      }
+    ]
+  }
+}

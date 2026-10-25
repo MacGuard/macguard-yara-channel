@@ -1,0 +1,33 @@
+# Production environment of the commercial gateway (Intelligence REST/MCP, analytics, monetization). Contains identifiers only, NO secret: secrets live in the Cloudflare Worker and in the macOS Keychain service
+# `macguard-gateway-prod`. Deploy from the gateway folder: CLOUDFLARE_ACCOUNT_ID=<account_id> npx wrangler@4.149.0 deploy --config environments/<file>. Pin the account id: this machine's Cloudflare MCP can see another account.
+# TARGET: the gateway on api.mac-guard.com only (after the migration is complete and the old hostname is released).
+name = "macguard-gateway"
+main = "../src/index.js"
+account_id = "9e96e19f6dc0ccdd53e02f7c3b5cacab"
+compatibility_date = "2026-08-01"
+workers_dev = false
+routes = [{ pattern = "api.mac-guard.com", custom_domain = true }]
+
+[vars]
+PUBLIC_BASE = "https://api.mac-guard.com"
+COMMUNITY_ORIGIN = "https://macguard.github.io/macguard-yara-channel"
+COMMUNITY_DOWNLOAD_BASE = "https://github.com/MacGuard/macguard-yara-channel/releases/download"
+COMMUNITY_DEFAULT_ASSET = "rules-release.tar.gz"
+MCP_ALLOWED_ORIGINS = ""
+DOWNLOAD_TTL_SECONDS = "120"
+GRACE_DAYS = "3"
+X402_ENABLED = "false"
+ALLOWED_HOSTS = "api.mac-guard.com"          # the Worker answers only on these hostnames (404 elsewhere)
+
+[[d1_databases]]
+binding = "DB"
+database_name = "macguard-gateway"
+database_id = "92207c74-13f0-4613-bef3-85e30ca5b09a"
+migrations_dir = "../migrations"          # `wrangler d1 migrations apply macguard-gateway --remote --config environments/<file>` (applies 0001..000N once each)
+
+[[r2_buckets]]
+binding = "PREMIUM"
+bucket_name = "macguard-premium-private"
+
+[triggers]
+crons = ["17 * * * *"]

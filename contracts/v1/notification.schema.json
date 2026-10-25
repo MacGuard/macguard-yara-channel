@@ -1,0 +1,89 @@
+{
+ "$schema": "https://json-schema.org/draft/2020-12/schema",
+ "title": "Notification attempt",
+ "description": "macguard.notification/1. Versioned contract: additive changes keep the number, any other change takes a new one.",
+ "type": "object",
+ "additionalProperties": false,
+ "required": [
+  "schema",
+  "notification_id",
+  "incident_id",
+  "step_id",
+  "channel",
+  "state",
+  "attempt",
+  "idempotency_key"
+ ],
+ "properties": {
+  "schema": {
+   "const": "macguard.notification/1"
+  },
+  "notification_id": {
+   "type": "string",
+   "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$"
+  },
+  "incident_id": {
+   "type": "string",
+   "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$"
+  },
+  "step_id": {
+   "type": "string",
+   "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$"
+  },
+  "channel": {
+   "type": "string",
+   "enum": [
+    "push",
+    "telegram",
+    "teams",
+    "whatsapp",
+    "sms",
+    "email",
+    "voice",
+    "webhook"
+   ]
+  },
+  "recipient_ref": {
+   "type": "string",
+   "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$"
+  },
+  "state": {
+   "type": "string",
+   "enum": [
+    "QUEUED",
+    "SENT",
+    "DELIVERED",
+    "FAILED",
+    "UNKNOWN_DELIVERY",
+    "CANCELLED"
+   ]
+  },
+  "attempt": {
+   "type": "integer",
+   "minimum": 1
+  },
+  "idempotency_key": {
+   "type": "string",
+   "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$"
+  },
+  "provider": {
+   "type": "string",
+   "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$"
+  },
+  "simulated": {
+   "type": "boolean"
+  },
+  "sent_at": {
+   "type": "string",
+   "pattern": "^\\d{4}-\\d\\d-\\d\\dT\\d\\d:\\d\\d:\\d\\d(\\.\\d{1,3})?Z$"
+  },
+  "delivered_at": {
+   "type": "string",
+   "pattern": "^\\d{4}-\\d\\d-\\d\\dT\\d\\d:\\d\\d:\\d\\d(\\.\\d{1,3})?Z$"
+  },
+  "error_code": {
+   "type": "string",
+   "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$"
+  }
+ }
+}

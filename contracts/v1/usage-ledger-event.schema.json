@@ -1,0 +1,123 @@
+{
+ "$schema": "https://json-schema.org/draft/2020-12/schema",
+ "title": "Usage ledger entry (gateway usage_events)",
+ "description": "macguard.usage-ledger-event/1. Versioned contract: additive changes keep the number, any other change takes a new one.",
+ "type": "object",
+ "additionalProperties": false,
+ "required": [
+  "schema",
+  "usage_event_id",
+  "tenant_id",
+  "api_key_id",
+  "request_id",
+  "operation",
+  "pricing_version",
+  "units",
+  "billable_micros",
+  "theoretical_micros",
+  "currency",
+  "request_status",
+  "billing_status",
+  "commercial_mode",
+  "policy_version",
+  "created_at"
+ ],
+ "properties": {
+  "schema": {
+   "const": "macguard.usage-ledger-event/1"
+  },
+  "usage_event_id": {
+   "type": "string",
+   "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$"
+  },
+  "tenant_id": {
+   "type": "string",
+   "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$"
+  },
+  "customer_id": {
+   "type": [
+    "string",
+    "null"
+   ]
+  },
+  "api_key_id": {
+   "type": "string",
+   "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$"
+  },
+  "request_id": {
+   "type": "string",
+   "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$"
+  },
+  "operation": {
+   "type": "string",
+   "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$"
+  },
+  "pricing_version": {
+   "type": "string",
+   "minLength": 1
+  },
+  "units": {
+   "type": "integer",
+   "minimum": 0
+  },
+  "unit_price_micros": {
+   "type": "integer",
+   "minimum": 0
+  },
+  "billable_micros": {
+   "type": "integer",
+   "minimum": 0
+  },
+  "theoretical_micros": {
+   "type": "integer",
+   "minimum": 0
+  },
+  "currency": {
+   "type": "string",
+   "pattern": "^[A-Z]{3}$"
+  },
+  "request_status": {
+   "type": "string",
+   "enum": [
+    "received",
+    "authorized",
+    "processed",
+    "completed",
+    "failed"
+   ]
+  },
+  "billing_status": {
+   "type": "string",
+   "enum": [
+    "none",
+    "included",
+    "pending",
+    "billed",
+    "not_billable",
+    "refunded"
+   ]
+  },
+  "commercial_mode": {
+   "type": "string",
+   "enum": [
+    "FREE_LAUNCH",
+    "FREEMIUM",
+    "PAID"
+   ]
+  },
+  "policy_version": {
+   "type": "integer",
+   "minimum": 0
+  },
+  "created_at": {
+   "type": "string",
+   "pattern": "^\\d{4}-\\d\\d-\\d\\dT\\d\\d:\\d\\d:\\d\\d(\\.\\d{1,3})?Z$"
+  },
+  "completed_at": {
+   "type": [
+    "string",
+    "null"
+   ]
+  }
+ }
+}

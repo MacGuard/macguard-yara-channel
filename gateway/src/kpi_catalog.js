@@ -1,0 +1,35 @@
+// Canonical KPI definitions. Every number the analytics API returns carries one of these metric_ids; contracts/v1/kpi-catalog.json is generated from this file
+// (tools/gen_kpi_catalog.mjs) and a test fails if they drift. A KPI that cannot be computed honestly is listed here with its accuracy UNKNOWN and says why.
+export const ACCURACY = ['EXACT', 'RECONCILED', 'ESTIMATED', 'PARTIAL', 'UNKNOWN'];
+export const STATES = ['REAL_VERIFIED', 'NO_DATA', 'NOT_INSTRUMENTED', 'SOURCE_UNAVAILABLE', 'QUERY_ERROR', 'SYNTHETIC_ONLY', 'PARTIAL_COVERAGE', 'NOT_APPLICABLE', 'NOT_YET_OBSERVABLE'];
+const ACTOR = 'An actor is an API key (a service, client or device); it is NOT a person. Humans are not instrumented.';
+const K = (metric_id, definition, numerator, denominator, time_window, source, accuracy, limitations, owner = 'analytics') => ({ metric_id, definition, numerator, denominator, time_window, source, accuracy, limitations, owner });
+
+export const KPI_CATALOG = [
+  K('dau', 'Distinct authenticated actors with at least one request on the day, by actor kind.', 'distinct actor_hash', null, '1 UTC day', 'activity_daily', 'EXACT', `${ACTOR} Only since telemetry started; refused requests from a valid key count.`),
+  K('wau', 'Distinct authenticated actors active in the 7 UTC days ending on the as-of day.', 'distinct actor_hash', null, '7 UTC days', 'activity_daily', 'EXACT', ACTOR),
+  K('mau', 'Distinct authenticated actors active in the 30 UTC days ending on the as-of day.', 'distinct actor_hash', null, '30 UTC days', 'activity_daily', 'EXACT', ACTOR),
+  K('active_humans', 'Active people.', null, null, 'n/a', 'none', 'UNKNOWN', 'No human identity is collected: Community is anonymous and the gateway authenticates keys. Not inferred from downloads or IPs.'),
+  K('active_orgs_30d', 'Distinct tenants with at least one authenticated request in 30 days.', 'distinct tenant_id', null, '30 UTC days', 'activity_daily', 'EXACT', 'A tenant is an account, not necessarily a company.'),
+  K('recurring_actors_30d', 'Actors active on two or more distinct days in 30 days.', 'actors with >=2 active days', 'actors with >=1 active day', '30 UTC days', 'activity_daily', 'EXACT', ACTOR),
+  K('retention_d7', 'Share of actors first seen on a cohort day that are active exactly 7 days later.', 'cohort actors active on day+7', 'cohort actors', 'cohort day .. +7', 'actor_first_seen, activity_daily', 'EXACT', 'Cohorts whose day+7 is not yet a complete UTC day, and the first telemetry day (left-censored: everyone looks new), are excluded. Returns NOT_YET_OBSERVABLE when no cohort qualifies.'),
+  K('retention_d30', 'Same as retention_d7 for day+30.', 'cohort actors active on day+30', 'cohort actors', 'cohort day .. +30', 'actor_first_seen, activity_daily', 'EXACT', 'As retention_d7.'),
+  K('retention_d90', 'Same as retention_d7 for day+90.', 'cohort actors active on day+90', 'cohort actors', 'cohort day .. +90', 'actor_first_seen, activity_daily', 'EXACT', 'As retention_d7.'),
+  K('monthly_retention', 'Share of actors active in the previous calendar month that are also active in the as-of month.', 'active in both months', 'active in previous month', 'two calendar months', 'activity_daily', 'EXACT', 'The as-of month is partial until it ends, so the figure is a lower bound; needs the previous month to be fully covered by telemetry.'),
+  K('churned_orgs_30d', 'Tenants active before the last 30 days that had no request in the last 30 days.', 'tenants with earlier activity and none in 30d', 'tenants with earlier activity', '30 UTC days', 'activity_daily', 'EXACT', 'Silence is not a cancellation: this is inactivity, not a lost customer.'),
+  K('reactivated_orgs_30d', 'Tenants active in the last 30 days, silent in the 30 days before, with earlier activity.', 'tenants matching', null, '60 UTC days', 'activity_daily', 'EXACT', 'Needs 60+ days of telemetry to be meaningful.'),
+  K('time_to_first_use_days', 'Median days from tenant creation to its first authenticated request.', null, null, 'all time', 'tenants, tenant_first_seen', 'EXACT', 'Tenants created before telemetry started are excluded.'),
+  K('premium_actors_30d', 'Actors with a successful Premium/API operation in 30 days (free during FREE_LAUNCH).', 'distinct actors with premium=1', null, '30 UTC days', 'activity_daily', 'EXACT', 'premium usage is NOT a paying customer.'),
+  K('premium_orgs_30d', 'Tenants with a successful Premium/API operation in 30 days.', 'distinct tenants with premium=1', null, '30 UTC days', 'activity_daily', 'EXACT', 'premium usage is NOT a paying customer.'),
+  K('premium_adoption_rate', 'Premium actors over active actors in 30 days.', 'premium_actors_30d', 'mau', '30 UTC days', 'activity_daily', 'EXACT', 'Null when there are no active actors.'),
+  K('paid_customers', 'Tenants with an active paid plan.', 'tenants.plan != community AND active', null, 'now', 'tenants (set by verified Stripe webhooks)', 'EXACT', 'NOT_APPLICABLE while the commercial mode is FREE_LAUNCH.', 'billing'),
+  K('requests_by_channel', 'Requests per channel (rest, mcp, download).', 'sum requests', null, 'window', 'analytics_daily', 'EXACT', 'Telemetry is best-effort and runs after the response: a lost write undercounts. It is not the billing source (usage_events is).'),
+  K('error_rate', 'Share of requests ending 5xx or as a tool error.', '5xx + tool_error requests', 'requests', 'window', 'analytics_daily', 'EXACT', '4xx are caller mistakes and are reported separately.'),
+  K('latency_ms', 'p50/p95/p99 request latency from a fixed histogram.', null, null, 'window', 'analytics_daily buckets', 'ESTIMATED', 'Upper edge of the bucket holding the quantile; shown only with >=100 requests. Measured inside the Worker: excludes network time.'),
+  K('units_consumed', 'Metered units consumed.', 'sum units', null, 'window', 'analytics_daily', 'RECONCILED', 'Reconcilable with usage_events; replays are not counted twice.', 'billing'),
+  K('theoretical_value_micros', 'Value of the consumption at the example price list.', 'sum theoretical_micros', null, 'window', 'analytics_daily', 'ESTIMATED', 'NOT revenue and NOT receivable: during FREE_LAUNCH nothing is billed.', 'billing'),
+  K('billed_micros', 'Amount actually billed.', 'sum billable_micros', null, 'window', 'analytics_daily', 'EXACT', 'Zero during FREE_LAUNCH.', 'billing'),
+  K('funnel', 'Tenants per conversion state.', 'tenants per state', null, 'all time', 'tenants, tenant_first_seen, activity_daily', 'PARTIAL', 'VISITOR is not instrumented (no web analytics without consent). Payment states are NOT_APPLICABLE in FREE_LAUNCH and need verified Stripe data afterwards.'),
+  K('github_bundle_downloads', 'Observed increase of the cumulative GitHub download counter of bundle assets.', 'sum of deltas between observations of the same asset_id', null, 'window', 'gh_observations', 'PARTIAL', 'Counts requests GitHub served, not people, devices, countries or completed transfers; history before the first observation is unknown; includes our own and CI downloads.', 'downloads'),
+];
+export const KPI_IDS = new Set(KPI_CATALOG.map((k) => k.metric_id));

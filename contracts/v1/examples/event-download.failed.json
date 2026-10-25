@@ -1,0 +1,19 @@
+{
+  "schema": "macguard.event/1",
+  "event_id": "mg-891cb659ae6bfffae167bd39cc6debead56b2183",
+  "type": "download.failed",
+  "occurred_at": "2026-10-24T06:00:00Z",
+  "tenant_id": "macguard",
+  "source": {
+    "kind": "gateway",
+    "id": "macguard-gateway"
+  },
+  "source_channel": "gateway",
+  "status": "error",
+  "data": {
+    "severity": "high",
+    "internal_type": "gateway.incident",
+    "component": "origin",
+    "code": "r2_error"
+  }
+}

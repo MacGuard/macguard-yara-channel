@@ -1,0 +1,19 @@
+{
+  "schema": "macguard.event/1",
+  "event_id": "mg-03408cddfd453e4cf2430bc1d327ad5daaad860a",
+  "type": "backup.failed",
+  "occurred_at": "2026-10-24T06:00:00Z",
+  "tenant_id": "macguard",
+  "source": {
+    "kind": "agent",
+    "id": "backup-check"
+  },
+  "status": "error",
+  "data": {
+    "severity": "high",
+    "rule_id": "backup.stale",
+    "state": "FIRING",
+    "message": "Last successful backup 40.0 h ago.",
+    "value": 40
+  }
+}

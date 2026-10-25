@@ -1,0 +1,31 @@
+# MacGuard gateway (Premium, API, MCP). A TEMPLATE: nothing here is deployed, no resource exists yet, and every REPLACE-WITH value must be filled in the untracked per-environment copy.
+# Deploying needs the owner's authorisation (see docs/monetization/ACTIVATION-CONDITIONS.md). No secret belongs in this file.
+name = "macguard-gateway"
+main = "src/index.js"
+compatibility_date = "2026-08-01"
+workers_dev = false                      # no *.workers.dev address: the only way in is the custom domain below, in the untracked copy
+
+[vars]                                    # settings, not secrets
+PUBLIC_BASE = "https://REPLACE-WITH-GATEWAY-HOST"
+COMMUNITY_ORIGIN = "https://macguard.github.io/macguard-yara-channel"
+COMMUNITY_DOWNLOAD_BASE = "https://github.com/MacGuard/macguard-yara-channel/releases/download"   # where /v1/community/releases/{id}/download redirects to
+COMMUNITY_DEFAULT_ASSET = "rules-release.tar.gz"
+MCP_ALLOWED_ORIGINS = ""                  # browsers' origins allowed to call /mcp; empty = none (native agents send no Origin)
+DOWNLOAD_TTL_SECONDS = "120"
+GRACE_DAYS = "3"
+X402_ENABLED = "false"                    # experimental adapter, off
+# PRICE_MAP / PRICE_IDS (Stripe price ids -> plans) are plain settings too, filled in the per-environment copy.
+
+[[d1_databases]]
+binding = "DB"
+database_name = "macguard-gateway"
+database_id = "REPLACE-WITH-D1-ID"
+
+[[r2_buckets]]                            # PRIVATE bucket: no public access, no custom domain, no presigned-URL feature enabled; reachable only through this binding
+binding = "PREMIUM"
+bucket_name = "REPLACE-WITH-PRIVATE-BUCKET"
+
+[triggers]
+crons = ["17 * * * *"]                    # expire grace periods and report charged usage (a no-op while billing is not live)
+
+# Secrets (wrangler secret put ...; never in this file): KEY_PEPPER, ADMIN_PEPPER, TOTP_SEAL_KEY (each >= 32 random characters), STRIPE_API_KEY, STRIPE_WEBHOOK_SECRETS (comma separated while rolling).

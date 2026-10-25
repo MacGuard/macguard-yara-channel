@@ -1,0 +1,29 @@
+# STAGING environment of the commercial gateway: a separate Worker, a separate D1 and NO custom domain, so deploying it touches no DNS, no production hostname and no production data.
+# It is a TEMPLATE: `database_id` is filled in after `wrangler d1 create macguard-gateway-staging` (a remote write that needs the owner's go-ahead). Secrets for staging are NEW random values,
+# never the production ones (tools/set_worker_secret.mjs --env environments/staging.wrangler.toml). See docs/analytics/STAGING-SEQUENCE.md.
+name = "macguard-gateway-staging"
+main = "../src/index.js"
+account_id = "9e96e19f6dc0ccdd53e02f7c3b5cacab"
+compatibility_date = "2026-08-01"
+workers_dev = true                      # reachable at <name>.<account subdomain>.workers.dev only; no route, no Custom Domain
+
+[vars]
+PUBLIC_BASE = "https://macguard-gateway-staging.workers.dev"
+COMMUNITY_ORIGIN = "https://macguard.github.io/macguard-yara-channel"
+COMMUNITY_DOWNLOAD_BASE = "https://github.com/MacGuard/macguard-yara-channel/releases/download"
+COMMUNITY_DEFAULT_ASSET = "rules-release.tar.gz"
+MCP_ALLOWED_ORIGINS = ""
+DOWNLOAD_TTL_SECONDS = "120"
+GRACE_DAYS = "3"
+X402_ENABLED = "false"
+# No ALLOWED_HOSTS here on purpose: the workers.dev name is the only name this Worker has.
+
+[[d1_databases]]
+binding = "DB"
+database_name = "macguard-gateway-staging"
+database_id = "REPLACE-AFTER-d1-create"
+migrations_dir = "../migrations"
+
+# No R2 binding: staging never reads the private Premium bucket. Premium routes answer "not configured", which is what the smoke test expects there.
+
+# No [triggers]: the hourly collector does not run in staging (it would spend GitHub's per-IP allowance that the production collector needs).
