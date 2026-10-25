@@ -1,0 +1,106 @@
+{
+ "$schema": "https://json-schema.org/draft/2020-12/schema",
+ "title": "Normalised alert evaluation",
+ "description": "macguard.alert/1. An alert is EVALUATED data; delivery and escalation belong to an incident engine (GuardOps). Additive changes keep the number.",
+ "type": "object",
+ "additionalProperties": false,
+ "required": [
+  "schema",
+  "rule_id",
+  "category",
+  "severity",
+  "state",
+  "dedupe_key",
+  "evaluated_at",
+  "source",
+  "message"
+ ],
+ "properties": {
+  "schema": {
+   "const": "macguard.alert/1"
+  },
+  "rule_id": {
+   "type": "string",
+   "pattern": "^[a-z0-9][a-z0-9._:-]{0,127}$"
+  },
+  "category": {
+   "type": "string",
+   "enum": [
+    "availability",
+    "traffic",
+    "performance",
+    "telemetry",
+    "cost",
+    "security",
+    "integrity"
+   ]
+  },
+  "severity": {
+   "type": "string",
+   "enum": [
+    "low",
+    "medium",
+    "high",
+    "critical"
+   ]
+  },
+  "state": {
+   "type": "string",
+   "enum": [
+    "FIRING",
+    "OK",
+    "INSUFFICIENT_DATA"
+   ]
+  },
+  "value": {
+   "type": [
+    "number",
+    "null"
+   ]
+  },
+  "threshold": {
+   "type": [
+    "number",
+    "null"
+   ]
+  },
+  "message": {
+   "type": "string",
+   "maxLength": 500
+  },
+  "dedupe_key": {
+   "type": "string",
+   "pattern": "^[a-z0-9][a-z0-9._:-]{0,127}$"
+  },
+  "evaluated_at": {
+   "type": "string",
+   "pattern": "^\\d{4}-\\d\\d-\\d\\dT\\d\\d:\\d\\d:\\d\\dZ$"
+  },
+  "source": {
+   "type": "object",
+   "additionalProperties": false,
+   "required": [
+    "kind",
+    "id"
+   ],
+   "properties": {
+    "kind": {
+     "type": "string",
+     "enum": [
+      "gateway",
+      "github",
+      "pipeline",
+      "probe",
+      "agent",
+      "manual",
+      "import"
+     ]
+    },
+    "id": {
+     "type": "string",
+     "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$"
+    }
+   }
+  }
+ }
+}

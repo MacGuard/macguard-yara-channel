@@ -1,0 +1,97 @@
+{
+ "$schema": "https://json-schema.org/draft/2020-12/schema",
+ "title": "Incident",
+ "description": "macguard.incident/1. Versioned contract: additive changes keep the number, any other change takes a new one.",
+ "type": "object",
+ "additionalProperties": false,
+ "required": [
+  "schema",
+  "incident_id",
+  "tenant_id",
+  "fingerprint",
+  "category",
+  "state",
+  "opened_at"
+ ],
+ "properties": {
+  "schema": {
+   "const": "macguard.incident/1"
+  },
+  "incident_id": {
+   "type": "string",
+   "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$"
+  },
+  "tenant_id": {
+   "type": "string",
+   "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$"
+  },
+  "project_id": {
+   "type": "string",
+   "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$"
+  },
+  "resource_id": {
+   "type": "string",
+   "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$"
+  },
+  "fingerprint": {
+   "type": "string",
+   "pattern": "^[0-9a-f]{16,64}$"
+  },
+  "category": {
+   "type": "string",
+   "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$"
+  },
+  "severity": {
+   "type": "integer",
+   "minimum": 0
+  },
+  "priority": {
+   "type": "integer",
+   "minimum": 0
+  },
+  "state": {
+   "type": "string",
+   "enum": [
+    "OPEN",
+    "NOTIFIED",
+    "ACKNOWLEDGED",
+    "IN_PROGRESS",
+    "RESOLVED",
+    "CLOSED",
+    "ESCALATION_EXHAUSTED"
+   ]
+  },
+  "opened_at": {
+   "type": "string",
+   "pattern": "^\\d{4}-\\d\\d-\\d\\dT\\d\\d:\\d\\d:\\d\\d(\\.\\d{1,3})?Z$"
+  },
+  "acknowledged_at": {
+   "type": "string",
+   "pattern": "^\\d{4}-\\d\\d-\\d\\dT\\d\\d:\\d\\d:\\d\\d(\\.\\d{1,3})?Z$"
+  },
+  "resolved_at": {
+   "type": "string",
+   "pattern": "^\\d{4}-\\d\\d-\\d\\dT\\d\\d:\\d\\d:\\d\\d(\\.\\d{1,3})?Z$"
+  },
+  "closed_at": {
+   "type": "string",
+   "pattern": "^\\d{4}-\\d\\d-\\d\\dT\\d\\d:\\d\\d:\\d\\d(\\.\\d{1,3})?Z$"
+  },
+  "escalation_policy_id": {
+   "type": "string",
+   "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$"
+  },
+  "event_count": {
+   "type": "integer",
+   "minimum": 0
+  },
+  "suppressed_until": {
+   "type": "string",
+   "pattern": "^\\d{4}-\\d\\d-\\d\\dT\\d\\d:\\d\\d:\\d\\d(\\.\\d{1,3})?Z$"
+  },
+  "title": {
+   "type": "string",
+   "maxLength": 300
+  }
+ }
+}

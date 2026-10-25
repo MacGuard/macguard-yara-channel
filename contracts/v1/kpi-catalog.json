@@ -1,0 +1,298 @@
+{
+  "schema": "macguard.kpi-catalog/1",
+  "accuracy": [
+    "EXACT",
+    "RECONCILED",
+    "ESTIMATED",
+    "PARTIAL",
+    "UNKNOWN"
+  ],
+  "states": [
+    "REAL_VERIFIED",
+    "NO_DATA",
+    "NOT_INSTRUMENTED",
+    "SOURCE_UNAVAILABLE",
+    "QUERY_ERROR",
+    "SYNTHETIC_ONLY",
+    "PARTIAL_COVERAGE",
+    "NOT_APPLICABLE",
+    "NOT_YET_OBSERVABLE"
+  ],
+  "metrics": [
+    {
+      "metric_id": "dau",
+      "definition": "Distinct authenticated actors with at least one request on the day, by actor kind.",
+      "numerator": "distinct actor_hash",
+      "denominator": null,
+      "time_window": "1 UTC day",
+      "source": "activity_daily",
+      "accuracy": "EXACT",
+      "limitations": "An actor is an API key (a service, client or device); it is NOT a person. Humans are not instrumented. Only since telemetry started; refused requests from a valid key count.",
+      "owner": "analytics"
+    },
+    {
+      "metric_id": "wau",
+      "definition": "Distinct authenticated actors active in the 7 UTC days ending on the as-of day.",
+      "numerator": "distinct actor_hash",
+      "denominator": null,
+      "time_window": "7 UTC days",
+      "source": "activity_daily",
+      "accuracy": "EXACT",
+      "limitations": "An actor is an API key (a service, client or device); it is NOT a person. Humans are not instrumented.",
+      "owner": "analytics"
+    },
+    {
+      "metric_id": "mau",
+      "definition": "Distinct authenticated actors active in the 30 UTC days ending on the as-of day.",
+      "numerator": "distinct actor_hash",
+      "denominator": null,
+      "time_window": "30 UTC days",
+      "source": "activity_daily",
+      "accuracy": "EXACT",
+      "limitations": "An actor is an API key (a service, client or device); it is NOT a person. Humans are not instrumented.",
+      "owner": "analytics"
+    },
+    {
+      "metric_id": "active_humans",
+      "definition": "Active people.",
+      "numerator": null,
+      "denominator": null,
+      "time_window": "n/a",
+      "source": "none",
+      "accuracy": "UNKNOWN",
+      "limitations": "No human identity is collected: Community is anonymous and the gateway authenticates keys. Not inferred from downloads or IPs.",
+      "owner": "analytics"
+    },
+    {
+      "metric_id": "active_orgs_30d",
+      "definition": "Distinct tenants with at least one authenticated request in 30 days.",
+      "numerator": "distinct tenant_id",
+      "denominator": null,
+      "time_window": "30 UTC days",
+      "source": "activity_daily",
+      "accuracy": "EXACT",
+      "limitations": "A tenant is an account, not necessarily a company.",
+      "owner": "analytics"
+    },
+    {
+      "metric_id": "recurring_actors_30d",
+      "definition": "Actors active on two or more distinct days in 30 days.",
+      "numerator": "actors with >=2 active days",
+      "denominator": "actors with >=1 active day",
+      "time_window": "30 UTC days",
+      "source": "activity_daily",
+      "accuracy": "EXACT",
+      "limitations": "An actor is an API key (a service, client or device); it is NOT a person. Humans are not instrumented.",
+      "owner": "analytics"
+    },
+    {
+      "metric_id": "retention_d7",
+      "definition": "Share of actors first seen on a cohort day that are active exactly 7 days later.",
+      "numerator": "cohort actors active on day+7",
+      "denominator": "cohort actors",
+      "time_window": "cohort day .. +7",
+      "source": "actor_first_seen, activity_daily",
+      "accuracy": "EXACT",
+      "limitations": "Cohorts whose day+7 is not yet a complete UTC day, and the first telemetry day (left-censored: everyone looks new), are excluded. Returns NOT_YET_OBSERVABLE when no cohort qualifies.",
+      "owner": "analytics"
+    },
+    {
+      "metric_id": "retention_d30",
+      "definition": "Same as retention_d7 for day+30.",
+      "numerator": "cohort actors active on day+30",
+      "denominator": "cohort actors",
+      "time_window": "cohort day .. +30",
+      "source": "actor_first_seen, activity_daily",
+      "accuracy": "EXACT",
+      "limitations": "As retention_d7.",
+      "owner": "analytics"
+    },
+    {
+      "metric_id": "retention_d90",
+      "definition": "Same as retention_d7 for day+90.",
+      "numerator": "cohort actors active on day+90",
+      "denominator": "cohort actors",
+      "time_window": "cohort day .. +90",
+      "source": "actor_first_seen, activity_daily",
+      "accuracy": "EXACT",
+      "limitations": "As retention_d7.",
+      "owner": "analytics"
+    },
+    {
+      "metric_id": "monthly_retention",
+      "definition": "Share of actors active in the previous calendar month that are also active in the as-of month.",
+      "numerator": "active in both months",
+      "denominator": "active in previous month",
+      "time_window": "two calendar months",
+      "source": "activity_daily",
+      "accuracy": "EXACT",
+      "limitations": "The as-of month is partial until it ends, so the figure is a lower bound; needs the previous month to be fully covered by telemetry.",
+      "owner": "analytics"
+    },
+    {
+      "metric_id": "churned_orgs_30d",
+      "definition": "Tenants active before the last 30 days that had no request in the last 30 days.",
+      "numerator": "tenants with earlier activity and none in 30d",
+      "denominator": "tenants with earlier activity",
+      "time_window": "30 UTC days",
+      "source": "activity_daily",
+      "accuracy": "EXACT",
+      "limitations": "Silence is not a cancellation: this is inactivity, not a lost customer.",
+      "owner": "analytics"
+    },
+    {
+      "metric_id": "reactivated_orgs_30d",
+      "definition": "Tenants active in the last 30 days, silent in the 30 days before, with earlier activity.",
+      "numerator": "tenants matching",
+      "denominator": null,
+      "time_window": "60 UTC days",
+      "source": "activity_daily",
+      "accuracy": "EXACT",
+      "limitations": "Needs 60+ days of telemetry to be meaningful.",
+      "owner": "analytics"
+    },
+    {
+      "metric_id": "time_to_first_use_days",
+      "definition": "Median days from tenant creation to its first authenticated request.",
+      "numerator": null,
+      "denominator": null,
+      "time_window": "all time",
+      "source": "tenants, tenant_first_seen",
+      "accuracy": "EXACT",
+      "limitations": "Tenants created before telemetry started are excluded.",
+      "owner": "analytics"
+    },
+    {
+      "metric_id": "premium_actors_30d",
+      "definition": "Actors with a successful Premium/API operation in 30 days (free during FREE_LAUNCH).",
+      "numerator": "distinct actors with premium=1",
+      "denominator": null,
+      "time_window": "30 UTC days",
+      "source": "activity_daily",
+      "accuracy": "EXACT",
+      "limitations": "premium usage is NOT a paying customer.",
+      "owner": "analytics"
+    },
+    {
+      "metric_id": "premium_orgs_30d",
+      "definition": "Tenants with a successful Premium/API operation in 30 days.",
+      "numerator": "distinct tenants with premium=1",
+      "denominator": null,
+      "time_window": "30 UTC days",
+      "source": "activity_daily",
+      "accuracy": "EXACT",
+      "limitations": "premium usage is NOT a paying customer.",
+      "owner": "analytics"
+    },
+    {
+      "metric_id": "premium_adoption_rate",
+      "definition": "Premium actors over active actors in 30 days.",
+      "numerator": "premium_actors_30d",
+      "denominator": "mau",
+      "time_window": "30 UTC days",
+      "source": "activity_daily",
+      "accuracy": "EXACT",
+      "limitations": "Null when there are no active actors.",
+      "owner": "analytics"
+    },
+    {
+      "metric_id": "paid_customers",
+      "definition": "Tenants with an active paid plan.",
+      "numerator": "tenants.plan != community AND active",
+      "denominator": null,
+      "time_window": "now",
+      "source": "tenants (set by verified Stripe webhooks)",
+      "accuracy": "EXACT",
+      "limitations": "NOT_APPLICABLE while the commercial mode is FREE_LAUNCH.",
+      "owner": "billing"
+    },
+    {
+      "metric_id": "requests_by_channel",
+      "definition": "Requests per channel (rest, mcp, download).",
+      "numerator": "sum requests",
+      "denominator": null,
+      "time_window": "window",
+      "source": "analytics_daily",
+      "accuracy": "EXACT",
+      "limitations": "Telemetry is best-effort and runs after the response: a lost write undercounts. It is not the billing source (usage_events is).",
+      "owner": "analytics"
+    },
+    {
+      "metric_id": "error_rate",
+      "definition": "Share of requests ending 5xx or as a tool error.",
+      "numerator": "5xx + tool_error requests",
+      "denominator": "requests",
+      "time_window": "window",
+      "source": "analytics_daily",
+      "accuracy": "EXACT",
+      "limitations": "4xx are caller mistakes and are reported separately.",
+      "owner": "analytics"
+    },
+    {
+      "metric_id": "latency_ms",
+      "definition": "p50/p95/p99 request latency from a fixed histogram.",
+      "numerator": null,
+      "denominator": null,
+      "time_window": "window",
+      "source": "analytics_daily buckets",
+      "accuracy": "ESTIMATED",
+      "limitations": "Upper edge of the bucket holding the quantile; shown only with >=100 requests. Measured inside the Worker: excludes network time.",
+      "owner": "analytics"
+    },
+    {
+      "metric_id": "units_consumed",
+      "definition": "Metered units consumed.",
+      "numerator": "sum units",
+      "denominator": null,
+      "time_window": "window",
+      "source": "analytics_daily",
+      "accuracy": "RECONCILED",
+      "limitations": "Reconcilable with usage_events; replays are not counted twice.",
+      "owner": "billing"
+    },
+    {
+      "metric_id": "theoretical_value_micros",
+      "definition": "Value of the consumption at the example price list.",
+      "numerator": "sum theoretical_micros",
+      "denominator": null,
+      "time_window": "window",
+      "source": "analytics_daily",
+      "accuracy": "ESTIMATED",
+      "limitations": "NOT revenue and NOT receivable: during FREE_LAUNCH nothing is billed.",
+      "owner": "billing"
+    },
+    {
+      "metric_id": "billed_micros",
+      "definition": "Amount actually billed.",
+      "numerator": "sum billable_micros",
+      "denominator": null,
+      "time_window": "window",
+      "source": "analytics_daily",
+      "accuracy": "EXACT",
+      "limitations": "Zero during FREE_LAUNCH.",
+      "owner": "billing"
+    },
+    {
+      "metric_id": "funnel",
+      "definition": "Tenants per conversion state.",
+      "numerator": "tenants per state",
+      "denominator": null,
+      "time_window": "all time",
+      "source": "tenants, tenant_first_seen, activity_daily",
+      "accuracy": "PARTIAL",
+      "limitations": "VISITOR is not instrumented (no web analytics without consent). Payment states are NOT_APPLICABLE in FREE_LAUNCH and need verified Stripe data afterwards.",
+      "owner": "analytics"
+    },
+    {
+      "metric_id": "github_bundle_downloads",
+      "definition": "Observed increase of the cumulative GitHub download counter of bundle assets.",
+      "numerator": "sum of deltas between observations of the same asset_id",
+      "denominator": null,
+      "time_window": "window",
+      "source": "gh_observations",
+      "accuracy": "PARTIAL",
+      "limitations": "Counts requests GitHub served, not people, devices, countries or completed transfers; history before the first observation is unknown; includes our own and CI downloads.",
+      "owner": "downloads"
+    }
+  ]
+}

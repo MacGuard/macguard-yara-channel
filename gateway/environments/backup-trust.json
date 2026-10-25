@@ -1,0 +1,19 @@
+{
+ "schema": "macguard.backup-trust/1",
+ "note": "Public trust anchors for the backups. Nothing here is secret. The offline recovery kit carries the same facts; a change to this file is a change to what verifiers accept and needs a reviewed pull request.",
+ "age_recipient": "age1a2zctslrq22y3gpqndgcq7f46g49lagl2xvvvrdsjrvyqttp890swhjfay",
+ "ed25519": {
+  "public_key": "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAILMgiwF7TijI98VktSbpYg3Ff3LLtCNmK3wfbZOxF6od",
+  "fingerprint": "SHA256:O+m9SDdUH6cLko7//d4uktHJOSKxDjp5mdyBQH7hw9o",
+  "max_sequence": 1,
+  "namespaces": [
+   "macguard-backup/1",
+   "macguard-backup-checkpoint/1"
+  ]
+ },
+ "sigstore": {
+  "identity": "https://github.com/MacGuard/macguard-yara-channel/.github/workflows/backup.yml@refs/heads/main",
+  "repository": "MacGuard/macguard-yara-channel",
+  "issuer": "https://token.actions.githubusercontent.com"
+ }
+}

@@ -1,0 +1,19 @@
+{
+  "schema": "macguard.event/1",
+  "event_id": "mg-55cac1516750f5d1212ea259c2c696a1fc677edd",
+  "type": "integrity.error",
+  "occurred_at": "2026-10-24T06:00:00Z",
+  "tenant_id": "macguard",
+  "source": {
+    "kind": "gateway",
+    "id": "macguard-gateway"
+  },
+  "source_channel": "gateway",
+  "status": "error",
+  "data": {
+    "severity": "critical",
+    "internal_type": "signature.invalid",
+    "release_id": "prem-1",
+    "stage": "verify"
+  }
+}

@@ -1,0 +1,19 @@
+{
+  "schema": "macguard.event/1",
+  "event_id": "mg-77b9a54fb9862aebf439ca5cc7590fae7e59a10f",
+  "type": "cron.run.failed",
+  "occurred_at": "2026-10-24T06:00:00Z",
+  "tenant_id": "macguard",
+  "source": {
+    "kind": "gateway",
+    "id": "macguard-gateway"
+  },
+  "source_channel": "gateway",
+  "status": "error",
+  "data": {
+    "severity": "high",
+    "internal_type": "gateway.incident",
+    "component": "github-collector",
+    "code": "github_rate_limited"
+  }
+}

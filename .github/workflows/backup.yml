@@ -1,0 +1,173 @@
+name: Encrypted backup (D1, age, Sigstore, B2 + Scaleway + R2)
+
+# Exports the production D1, verifies the export in an isolated restore, encrypts it with age to the PUBLIC recipient in gateway/environments/backup-trust.json (the private identity is never in GitHub),
+# signs the statement ANCHOR.json and the CHECKPOINT.json with Sigstore keyless (this workflow's own OIDC identity, pinned to backup.yml on main), and copies the result, write-once, to the three destinations.
+# Nothing is ever deleted or overwritten. The second job downloads the copy from EACH destination on its own and verifies it with the clean-machine script. Restoring (decrypting) happens off GitHub, with the identity.
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '23 3 * * *'
+
+permissions: {}
+
+concurrency:
+  group: macguard-backup
+  cancel-in-progress: false
+
+env:
+  BACKUP_ROOT: ${{ github.workspace }}/.backup-work/backups
+  CHECKPOINT_DIR: ${{ github.workspace }}/.backup-work/checkpoint
+
+jobs:
+  backup:
+    # The Sigstore identity is the workflow file on main: a run from any other ref could not sign and is not started.
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    environment: macguard-backup-production
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      id-token: write   # keyless Sigstore signing with the workflow identity
+    outputs:
+      stamp: ${{ steps.sign.outputs.stamp }}
+      sequence: ${{ steps.sign.outputs.sequence }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: main
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: '22'
+      - uses: sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6 # v4.1.2
+      - name: Install age
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq age
+      - name: Trust anchors and configuration (names only, never values)
+        id: trust
+        env:
+          HAS_CF: ${{ secrets.CLOUDFLARE_API_TOKEN != '' }}
+          HAS_B2: ${{ secrets.MG_B2_KEY_ID != '' && secrets.MG_B2_SECRET != '' }}
+          HAS_SCW: ${{ secrets.MG_SCW_KEY_ID != '' && secrets.MG_SCW_SECRET != '' }}
+          HAS_R2: ${{ secrets.MG_R2_KEY_ID != '' && secrets.MG_R2_SECRET != '' }}
+        run: |
+          set -eu
+          T=gateway/environments/backup-trust.json
+          IDENT="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/.github/workflows/backup.yml@${GITHUB_REF}"
+          [ "$(jq -r .sigstore.identity $T)" = "$IDENT" ] || { echo "::error::the pinned Sigstore identity in $T is not this workflow's identity"; exit 1; }
+          missing=""
+          [ "$HAS_CF" = true ]  || missing="$missing CLOUDFLARE_API_TOKEN"
+          [ "$HAS_B2" = true ]  || missing="$missing MG_B2_KEY_ID/MG_B2_SECRET"
+          [ "$HAS_SCW" = true ] || missing="$missing MG_SCW_KEY_ID/MG_SCW_SECRET"
+          [ "$HAS_R2" = true ]  || missing="$missing MG_R2_KEY_ID/MG_R2_SECRET"
+          [ -z "$missing" ] || { echo "::error::BLOCKED: the environment macguard-backup-production lacks:$missing"; exit 1; }
+          {
+            echo "ED_PUB=$(jq -r .ed25519.public_key $T)"
+            echo "ED_MAX=$(jq -r .ed25519.max_sequence $T)"
+            echo "SIG_ID=$IDENT"
+            echo "SIG_REPO=$(jq -r .sigstore.repository $T)"
+            echo "RECIPIENT=$(jq -r .age_recipient $T)"
+          } >> "$GITHUB_ENV"
+      - name: Export D1, verify in an isolated restore, encrypt with age
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+        run: |
+          mkdir -p "$BACKUP_ROOT" && chmod 700 "$BACKUP_ROOT"
+          node gateway/tools/d1_backup.mjs --env gateway/environments/production.wrangler.toml --root "$BACKUP_ROOT" --age-recipient "$RECIPIENT"
+      - name: Find the predecessor on the destinations (signed, verified with the pinned policy)
+        id: prev
+        env:
+          MG_B2_KEY_ID: ${{ secrets.MG_B2_KEY_ID }}
+          MG_B2_SECRET: ${{ secrets.MG_B2_SECRET }}
+          MG_SCW_KEY_ID: ${{ secrets.MG_SCW_KEY_ID }}
+          MG_SCW_SECRET: ${{ secrets.MG_SCW_SECRET }}
+          MG_R2_KEY_ID: ${{ secrets.MG_R2_KEY_ID }}
+          MG_R2_SECRET: ${{ secrets.MG_R2_SECRET }}
+        run: |
+          node gateway/tools/backup_objstore.mjs fetch-previous --trust-key "$ED_PUB" --sigstore-identity "$SIG_ID" --sigstore-repo "$SIG_REPO" --ed25519-max-sequence "$ED_MAX" --out "$BACKUP_ROOT" | tee "$RUNNER_TEMP/prev.json"
+          echo "stamp=$(jq -r .stamp "$RUNNER_TEMP/prev.json")" >> "$GITHUB_OUTPUT"
+      - name: Sign ANCHOR.json with Sigstore keyless (nothing is kept unless it verifies for the pinned identity)
+        id: sign
+        run: |
+          set -eu
+          PREV='${{ steps.prev.outputs.stamp }}'
+          NEW=$(find "$BACKUP_ROOT" -mindepth 1 -maxdepth 1 -type d -printf '%f\n' | grep -E '^[0-9]{8}T[0-9]{6}Z$' | grep -v "^$PREV$" | sort | tail -1)
+          [ -n "$NEW" ] && [ "$NEW" \> "$PREV" ] || { echo "::error::the new backup is not newer than the predecessor"; exit 1; }
+          node gateway/tools/backup_anchor.mjs sign-sigstore --dir "$BACKUP_ROOT/$NEW" --previous "$BACKUP_ROOT/$PREV" --public-key "$ED_PUB" --sigstore-identity "$SIG_ID" --sigstore-repo "$SIG_REPO" --ed25519-max-sequence "$ED_MAX" | tee "$RUNNER_TEMP/signed.json"
+          node gateway/tools/backup_anchor.mjs checkpoint-sigstore --dir "$BACKUP_ROOT/$NEW" --out "$CHECKPOINT_DIR" --sigstore-identity "$SIG_ID" --sigstore-repo "$SIG_REPO" --ed25519-max-sequence "$ED_MAX"
+          node gateway/tools/backup_anchor.mjs verify --dir "$BACKUP_ROOT/$NEW" --public-key "$ED_PUB" --sigstore-identity "$SIG_ID" --sigstore-repo "$SIG_REPO" --ed25519-max-sequence "$ED_MAX"
+          node gateway/tools/backup_anchor.mjs verify-checkpoint --dir "$CHECKPOINT_DIR" --public-key "$ED_PUB" --sigstore-identity "$SIG_ID" --sigstore-repo "$SIG_REPO" --ed25519-max-sequence "$ED_MAX"
+          echo "stamp=$NEW" >> "$GITHUB_OUTPUT"; echo "sequence=$(jq -r .sequence "$RUNNER_TEMP/signed.json")" >> "$GITHUB_OUTPUT"
+      - name: Plan, then copy write-once to B2, Scaleway and R2
+        env:
+          MG_B2_KEY_ID: ${{ secrets.MG_B2_KEY_ID }}
+          MG_B2_SECRET: ${{ secrets.MG_B2_SECRET }}
+          MG_SCW_KEY_ID: ${{ secrets.MG_SCW_KEY_ID }}
+          MG_SCW_SECRET: ${{ secrets.MG_SCW_SECRET }}
+          MG_R2_KEY_ID: ${{ secrets.MG_R2_KEY_ID }}
+          MG_R2_SECRET: ${{ secrets.MG_R2_SECRET }}
+        run: |
+          node gateway/tools/backup_objstore.mjs plan --root "$BACKUP_ROOT"
+          node gateway/tools/backup_objstore.mjs sync --apply --root "$BACKUP_ROOT"
+      - name: Re-read every object from every destination and compare
+        env:
+          MG_B2_KEY_ID: ${{ secrets.MG_B2_KEY_ID }}
+          MG_B2_SECRET: ${{ secrets.MG_B2_SECRET }}
+          MG_SCW_KEY_ID: ${{ secrets.MG_SCW_KEY_ID }}
+          MG_SCW_SECRET: ${{ secrets.MG_SCW_SECRET }}
+          MG_R2_KEY_ID: ${{ secrets.MG_R2_KEY_ID }}
+          MG_R2_SECRET: ${{ secrets.MG_R2_SECRET }}
+        run: node gateway/tools/backup_objstore.mjs verify --root "$BACKUP_ROOT"
+      - name: Public statements (anchor, checkpoint) as an artifact and in the summary
+        run: |
+          mkdir -p .backup-work/public
+          cp "$BACKUP_ROOT/${{ steps.sign.outputs.stamp }}"/ANCHOR.json* .backup-work/public/
+          cp "$CHECKPOINT_DIR"/CHECKPOINT.json* .backup-work/public/
+          { echo "### Backup ${{ steps.sign.outputs.stamp }} (sequence ${{ steps.sign.outputs.sequence }})"; echo; cat "$RUNNER_TEMP/signed.json"; echo; echo "Signed by \`$SIG_ID\`. The checkpoint and the anchor are in the artifact; their Rekor entries are in the bundles."; } >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: backup-statements-${{ steps.sign.outputs.stamp }}
+          path: .backup-work/public/
+          retention-days: 90
+          if-no-files-found: error
+
+  verify-providers:
+    needs: backup
+    runs-on: ubuntu-24.04
+    environment: macguard-backup-production
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        provider: [b2, scaleway, r2]
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: main
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: '22'
+      - uses: sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6 # v4.1.2
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: backup-statements-${{ needs.backup.outputs.stamp }}
+          path: checkpoint-copy
+      - name: Download the newest backup from ${{ matrix.provider }} alone and verify it as a clean machine would
+        env:
+          MG_B2_KEY_ID: ${{ matrix.provider == 'b2' && secrets.MG_B2_KEY_ID || '' }}
+          MG_B2_SECRET: ${{ matrix.provider == 'b2' && secrets.MG_B2_SECRET || '' }}
+          MG_SCW_KEY_ID: ${{ matrix.provider == 'scaleway' && secrets.MG_SCW_KEY_ID || '' }}
+          MG_SCW_SECRET: ${{ matrix.provider == 'scaleway' && secrets.MG_SCW_SECRET || '' }}
+          MG_R2_KEY_ID: ${{ matrix.provider == 'r2' && secrets.MG_R2_KEY_ID || '' }}
+          MG_R2_SECRET: ${{ matrix.provider == 'r2' && secrets.MG_R2_SECRET || '' }}
+        run: |
+          set -eu
+          T=gateway/environments/backup-trust.json
+          ED_PUB=$(jq -r .ed25519.public_key $T); ED_MAX=$(jq -r .ed25519.max_sequence $T); SIG_ID=$(jq -r .sigstore.identity $T); SIG_REPO=$(jq -r .sigstore.repository $T)
+          mkdir dl
+          node gateway/tools/backup_objstore.mjs fetch-previous --only '${{ matrix.provider }}' --trust-key "$ED_PUB" --sigstore-identity "$SIG_ID" --sigstore-repo "$SIG_REPO" --ed25519-max-sequence "$ED_MAX" --out dl | tee fetched.json
+          STAMP=$(jq -r .stamp fetched.json); SEQ=$(jq -r .sequence fetched.json)
+          [ "$STAMP" = '${{ needs.backup.outputs.stamp }}' ] || { echo "::error::${{ matrix.provider }} serves $STAMP, not the backup just made (rollback or lag)"; exit 1; }
+          MG_CHECKPOINT_DIRS="$PWD/checkpoint-copy" MG_SIGSTORE_IDENTITY="$SIG_ID" MG_SIGSTORE_REPO="$SIG_REPO" MG_ED25519_MAX_SEQUENCE="$ED_MAX" sh gateway/tools/recover_verify.sh "dl/$STAMP" "$ED_PUB" "$SEQ"

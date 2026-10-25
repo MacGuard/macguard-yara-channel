@@ -1,0 +1,18 @@
+{
+  "schema": "macguard.event/1",
+  "event_id": "mg-f318ded35411190c43b33d70e0835745d9b80bec",
+  "type": "saturation.detected",
+  "occurred_at": "2026-10-24T06:00:00Z",
+  "tenant_id": "macguard",
+  "source": {
+    "kind": "gateway",
+    "id": "macguard-gateway"
+  },
+  "source_channel": "gateway",
+  "status": "error",
+  "data": {
+    "severity": "medium",
+    "internal_type": "api.saturated",
+    "scope": "minute"
+  }
+}

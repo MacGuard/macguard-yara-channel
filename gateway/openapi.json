@@ -1,0 +1,1627 @@
+{
+ "openapi": "3.1.0",
+ "info": {
+  "title": "MacGuard gateway API",
+  "version": "1.0.0-draft",
+  "description": "Premium, Intelligence API and MCP. Draft: nothing is deployed. Community files are NOT served by this API."
+ },
+ "servers": [
+  {
+   "url": "https://REPLACE-WITH-GATEWAY-HOST"
+  }
+ ],
+ "paths": {
+  "/mcp": {
+   "post": {
+    "operationId": "mcp",
+    "summary": "MCP endpoint, Streamable HTTP, protocol revision 2026-07-28 (earlier revisions accepted without sessions)",
+    "security": [
+     {
+      "ApiKey": []
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "JSON-RPC response"
+     },
+     "202": {
+      "description": "notification accepted"
+     },
+     "400": {
+      "description": "protocol error"
+     },
+     "401": {
+      "description": "Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Error"
+        }
+       }
+      }
+     },
+     "403": {
+      "description": "origin not allowed"
+     }
+    }
+   }
+  },
+  "/stripe/webhook": {
+   "post": {
+    "operationId": "stripe.webhook",
+    "summary": "Stripe events (signature verified, deduplicated by event id)",
+    "security": [],
+    "responses": {
+     "200": {
+      "description": "received"
+     },
+     "400": {
+      "description": "Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Error"
+        }
+       }
+      }
+     },
+     "503": {
+      "description": "Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Error"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/v1/account/analytics": {
+   "get": {
+    "operationId": "account.analytics",
+    "summary": "Your own usage analytics (30 days)",
+    "tags": [
+     "account"
+    ],
+    "security": [
+     {
+      "ApiKey": []
+     }
+    ],
+    "x-macguard-class": "free",
+    "x-macguard-scope": "account.read",
+    "x-macguard-feature": null,
+    "parameters": [],
+    "responses": {
+     "200": {
+      "description": "OK"
+     },
+     "400": {
+      "description": "Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Error"
+        }
+       }
+      }
+     },
+     "401": {
+      "description": "Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Error"
+        }
+       }
+      }
+     },
+     "403": {
+      "description": "Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Error"
+        }
+       }
+      }
+     },
+     "429": {
+      "description": "Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Error"
+        }
+       }
+      },
+      "headers": {
+       "Retry-After": {
+        "schema": {
+         "type": "integer"
+        }
+       }
+      }
+     },
+     "502": {
+      "description": "Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Error"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/v1/account/checkout": {
+   "post": {
+    "operationId": "account.checkout",
+    "summary": "Start a Stripe Checkout session (409 while paid plans are not open)",
+    "security": [
+     {
+      "ApiKey": []
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "OK"
+     },
+     "409": {
+      "description": "Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Error"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/v1/account/commercial": {
+   "get": {
+    "operationId": "account.commercial",
+    "summary": "Current commercial mode, pricing, notice of changes and terms status",
+    "security": [
+     {
+      "ApiKey": []
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "OK"
+     },
+     "401": {
+      "description": "Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Error"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/v1/account/commercial/accept": {
+   "post": {
+    "operationId": "account.accept",
+    "summary": "Accept a pricing and terms version (required before anything can be charged)",
+    "security": [
+     {
+      "ApiKey": []
+     }
+    ],
+    "requestBody": {
+     "required": true,
+     "content": {
+      "application/json": {
+       "schema": {
+        "type": "object",
+        "required": [
+         "pricing_version",
+         "terms_version"
+        ],
+        "properties": {
+         "pricing_version": {
+          "type": "string"
+         },
+         "terms_version": {
+          "type": "string"
+         }
+        },
+        "additionalProperties": false
+       }
+      }
+     }
+    },
+    "responses": {
+     "200": {
+      "description": "OK"
+     },
+     "409": {
+      "description": "Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Error"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/v1/account/entitlements": {
+   "get": {
+    "operationId": "account.entitlements",
+    "summary": "Plan, features, quotas and key scopes",
+    "tags": [
+     "account"
+    ],
+    "security": [
+     {
+      "ApiKey": []
+     }
+    ],
+    "x-macguard-class": "free",
+    "x-macguard-scope": "account.read",
+    "x-macguard-feature": null,
+    "parameters": [],
+    "responses": {
+     "200": {
+      "description": "OK"
+     },
+     "400": {
+      "description": "Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Error"
+        }
+       }
+      }
+     },
+     "401": {
+      "description": "Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Error"
+        }
+       }
+      }
+     },
+     "403": {
+      "description": "Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Error"
+        }
+       }
+      }
+     },
+     "429": {
+      "description": "Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Error"
+        }
+       }
+      },
+      "headers": {
+       "Retry-After": {
+        "schema": {
+         "type": "integer"
+        }
+       }
+      }
+     },
+     "502": {
+      "description": "Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Error"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/v1/account/usage": {
+   "get": {
+    "operationId": "account.usage",
+    "summary": "Usage and spend this month",
+    "tags": [
+     "account"
+    ],
+    "security": [
+     {
+      "ApiKey": []
+     }
+    ],
+    "x-macguard-class": "free",
+    "x-macguard-scope": "account.read",
+    "x-macguard-feature": null,
+    "parameters": [],
+    "responses": {
+     "200": {
+      "description": "OK"
+     },
+     "400": {
+      "description": "Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Error"
+        }
+       }
+      }
+     },
+     "401": {
+      "description": "Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Error"
+        }
+       }
+      }
+     },
+     "403": {
+      "description": "Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Error"
+        }
+       }
+      }
+     },
+     "429": {
+      "description": "Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Error"
+        }
+       }
+      },
+      "headers": {
+       "Retry-After": {
+        "schema": {
+         "type": "integer"
+        }
+       }
+      }
+     },
+     "502": {
+      "description": "Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Error"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/v1/community/releases": {
+   "get": {
+    "operationId": "community.releases.list",
+    "summary": "List Community releases",
+    "tags": [
+     "community"
+    ],
+    "security": [],
+    "x-macguard-class": "free",
+    "x-macguard-scope": null,
+    "x-macguard-feature": null,
+    "parameters": [],
+    "responses": {
+     "200": {
+      "description": "OK"
+     },
+     "400": {
+      "description": "Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Error"
+        }
+       }
+      }
+     },
+     "429": {
+      "description": "Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Error"
+        }
+       }
+      },
+      "headers": {
+       "Retry-After": {
+        "schema": {
+         "type": "integer"
+        }
+       }
+      }
+     },
+     "502": {
+      "description": "Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Error"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/v1/community/releases/{id}/download": {
+   "get": {
+    "operationId": "community.releases.download",
+    "summary": "Redirect to a Community release asset (default: the bundle)",
+    "tags": [
+     "community"
+    ],
+    "security": [],
+    "x-macguard-class": "free",
+    "x-macguard-scope": null,
+    "x-macguard-feature": null,
+    "parameters": [
+     {
+      "name": "id",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "OK"
+     },
+     "400": {
+      "description": "Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Error"
+        }
+       }
+      }
+     },
+     "429": {
+      "description": "Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Error"
+        }
+       }
+      },
+      "headers": {
+       "Retry-After": {
+        "schema": {
+         "type": "integer"
+        }
+       }
+      }
+     },
+     "502": {
+      "description": "Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Error"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/v1/community/releases/{id}/manifest": {
+   "get": {
+    "operationId": "community.releases.manifest",
+    "summary": "Redirect to the signed manifest of a Community release",
+    "tags": [
+     "community"
+    ],
+    "security": [],
+    "x-macguard-class": "free",
+    "x-macguard-scope": null,
+    "x-macguard-feature": null,
+    "parameters": [
+     {
+      "name": "id",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "OK"
+     },
+     "400": {
+      "description": "Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Error"
+        }
+       }
+      }
+     },
+     "429": {
+      "description": "Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Error"
+        }
+       }
+      },
+      "headers": {
+       "Retry-After": {
+        "schema": {
+         "type": "integer"
+        }
+       }
+      }
+     },
+     "502": {
+      "description": "Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Error"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/v1/community/releases/latest": {
+   "get": {
+    "operationId": "community.releases.latest",
+    "summary": "Latest Community release",
+    "tags": [
+     "community"
+    ],
+    "security": [],
+    "x-macguard-class": "free",
+    "x-macguard-scope": null,
+    "x-macguard-feature": null,
+    "parameters": [],
+    "responses": {
+     "200": {
+      "description": "OK"
+     },
+     "400": {
+      "description": "Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Error"
+        }
+       }
+      }
+     },
+     "429": {
+      "description": "Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Error"
+        }
+       }
+      },
+      "headers": {
+       "Retry-After": {
+        "schema": {
+         "type": "integer"
+        }
+       }
+      }
+     },
+     "502": {
+      "description": "Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Error"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/v1/dl/{token}": {
+   "get": {
+    "operationId": "premium.transfer",
+    "summary": "Transfer an authorised Premium file (same API key that asked for it; supports Range)",
+    "security": [
+     {
+      "ApiKey": []
+     }
+    ],
+    "parameters": [
+     {
+      "name": "token",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string"
+      }
+     },
+     {
+      "name": "Range",
+      "in": "header",
+      "schema": {
+       "type": "string"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "file"
+     },
+     "206": {
+      "description": "partial content"
+     },
+     "403": {
+      "description": "Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Error"
+        }
+       }
+      }
+     },
+     "404": {
+      "description": "Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Error"
+        }
+       }
+      }
+     },
+     "410": {
+      "description": "Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Error"
+        }
+       }
+      }
+     },
+     "416": {
+      "description": "Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Error"
+        }
+       }
+      }
+     },
+     "429": {
+      "description": "Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Error"
+        }
+       }
+      }
+     },
+     "503": {
+      "description": "Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Error"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/v1/health": {
+   "get": {
+    "operationId": "health",
+    "summary": "Liveness",
+    "security": [],
+    "responses": {
+     "200": {
+      "description": "OK"
+     }
+    }
+   }
+  },
+  "/v1/intelligence/cve/{id}": {
+   "get": {
+    "operationId": "intel.cve",
+    "summary": "Look up a CVE (KEV, EPSS, EUVD where licensed)",
+    "tags": [
+     "intel"
+    ],
+    "security": [
+     {
+      "ApiKey": []
+     }
+    ],
+    "x-macguard-class": "included",
+    "x-macguard-scope": "intel.query",
+    "x-macguard-feature": "intel",
+    "parameters": [
+     {
+      "name": "id",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "OK"
+     },
+     "400": {
+      "description": "Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Error"
+        }
+       }
+      }
+     },
+     "401": {
+      "description": "Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Error"
+        }
+       }
+      }
+     },
+     "403": {
+      "description": "Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Error"
+        }
+       }
+      }
+     },
+     "429": {
+      "description": "Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Error"
+        }
+       }
+      },
+      "headers": {
+       "Retry-After": {
+        "schema": {
+         "type": "integer"
+        }
+       }
+      }
+     },
+     "502": {
+      "description": "Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Error"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/v1/intelligence/enrich": {
+   "post": {
+    "operationId": "intel.enrich",
+    "summary": "Enrich and correlate indicators",
+    "tags": [
+     "intel"
+    ],
+    "security": [
+     {
+      "ApiKey": []
+     }
+    ],
+    "x-macguard-class": "metered",
+    "x-macguard-scope": "intel.enrich",
+    "x-macguard-feature": "intel.enrich",
+    "parameters": [
+     {
+      "name": "Idempotency-Key",
+      "in": "header",
+      "required": true,
+      "schema": {
+       "type": "string"
+      },
+      "description": "Required: a retry with the same key is never counted twice."
+     }
+    ],
+    "requestBody": {
+     "required": true,
+     "content": {
+      "application/json": {
+       "schema": {
+        "type": "object",
+        "properties": {
+         "indicators": {
+          "type": "array",
+          "items": {
+           "type": "string",
+           "minLength": 1,
+           "maxLength": 2048
+          },
+          "minItems": 1,
+          "maxItems": 50
+         }
+        },
+        "required": [
+         "indicators"
+        ],
+        "additionalProperties": false
+       }
+      }
+     }
+    },
+    "responses": {
+     "200": {
+      "description": "OK"
+     },
+     "400": {
+      "description": "Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Error"
+        }
+       }
+      }
+     },
+     "401": {
+      "description": "Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Error"
+        }
+       }
+      }
+     },
+     "402": {
+      "description": "Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Error"
+        }
+       }
+      }
+     },
+     "403": {
+      "description": "Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Error"
+        }
+       }
+      }
+     },
+     "429": {
+      "description": "Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Error"
+        }
+       }
+      },
+      "headers": {
+       "Retry-After": {
+        "schema": {
+         "type": "integer"
+        }
+       }
+      }
+     },
+     "502": {
+      "description": "Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Error"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/v1/intelligence/hash/{sha256}": {
+   "get": {
+    "operationId": "intel.hash",
+    "summary": "Look up a file hash",
+    "tags": [
+     "intel"
+    ],
+    "security": [
+     {
+      "ApiKey": []
+     }
+    ],
+    "x-macguard-class": "included",
+    "x-macguard-scope": "intel.query",
+    "x-macguard-feature": "intel",
+    "parameters": [
+     {
+      "name": "sha256",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "OK"
+     },
+     "400": {
+      "description": "Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Error"
+        }
+       }
+      }
+     },
+     "401": {
+      "description": "Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Error"
+        }
+       }
+      }
+     },
+     "403": {
+      "description": "Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Error"
+        }
+       }
+      }
+     },
+     "429": {
+      "description": "Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Error"
+        }
+       }
+      },
+      "headers": {
+       "Retry-After": {
+        "schema": {
+         "type": "integer"
+        }
+       }
+      }
+     },
+     "502": {
+      "description": "Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Error"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/v1/intelligence/ioc/search": {
+   "post": {
+    "operationId": "intel.ioc.search",
+    "summary": "Search indicators",
+    "tags": [
+     "intel"
+    ],
+    "security": [
+     {
+      "ApiKey": []
+     }
+    ],
+    "x-macguard-class": "included",
+    "x-macguard-scope": "intel.query",
+    "x-macguard-feature": "intel",
+    "parameters": [],
+    "requestBody": {
+     "required": true,
+     "content": {
+      "application/json": {
+       "schema": {
+        "type": "object",
+        "properties": {
+         "value": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 2048
+         },
+         "values": {
+          "type": "array",
+          "items": {
+           "type": "string",
+           "minLength": 1,
+           "maxLength": 2048
+          },
+          "minItems": 1,
+          "maxItems": 50
+         },
+         "type": {
+          "type": "string",
+          "enum": [
+           "sha256",
+           "sha1",
+           "md5",
+           "ipv4",
+           "domain",
+           "url"
+          ]
+         }
+        },
+        "additionalProperties": false
+       }
+      }
+     }
+    },
+    "responses": {
+     "200": {
+      "description": "OK"
+     },
+     "400": {
+      "description": "Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Error"
+        }
+       }
+      }
+     },
+     "401": {
+      "description": "Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Error"
+        }
+       }
+      }
+     },
+     "403": {
+      "description": "Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Error"
+        }
+       }
+      }
+     },
+     "429": {
+      "description": "Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Error"
+        }
+       }
+      },
+      "headers": {
+       "Retry-After": {
+        "schema": {
+         "type": "integer"
+        }
+       }
+      }
+     },
+     "502": {
+      "description": "Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Error"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/v1/premium/releases": {
+   "get": {
+    "operationId": "premium.releases.list",
+    "summary": "List Premium releases",
+    "tags": [
+     "premium"
+    ],
+    "security": [
+     {
+      "ApiKey": []
+     }
+    ],
+    "x-macguard-class": "included",
+    "x-macguard-scope": "premium.read",
+    "x-macguard-feature": "premium",
+    "parameters": [],
+    "responses": {
+     "200": {
+      "description": "OK"
+     },
+     "400": {
+      "description": "Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Error"
+        }
+       }
+      }
+     },
+     "401": {
+      "description": "Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Error"
+        }
+       }
+      }
+     },
+     "403": {
+      "description": "Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Error"
+        }
+       }
+      }
+     },
+     "429": {
+      "description": "Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Error"
+        }
+       }
+      },
+      "headers": {
+       "Retry-After": {
+        "schema": {
+         "type": "integer"
+        }
+       }
+      }
+     },
+     "502": {
+      "description": "Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Error"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/v1/premium/releases/{id}/download": {
+   "get": {
+    "operationId": "premium.download",
+    "summary": "Authorise a Premium download",
+    "tags": [
+     "premium"
+    ],
+    "security": [
+     {
+      "ApiKey": []
+     }
+    ],
+    "x-macguard-class": "included",
+    "x-macguard-scope": "premium.download",
+    "x-macguard-feature": "premium",
+    "parameters": [
+     {
+      "name": "id",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string"
+      }
+     },
+     {
+      "name": "Idempotency-Key",
+      "in": "header",
+      "required": false,
+      "schema": {
+       "type": "string"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "OK"
+     },
+     "400": {
+      "description": "Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Error"
+        }
+       }
+      }
+     },
+     "401": {
+      "description": "Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Error"
+        }
+       }
+      }
+     },
+     "403": {
+      "description": "Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Error"
+        }
+       }
+      }
+     },
+     "429": {
+      "description": "Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Error"
+        }
+       }
+      },
+      "headers": {
+       "Retry-After": {
+        "schema": {
+         "type": "integer"
+        }
+       }
+      }
+     },
+     "502": {
+      "description": "Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Error"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/v1/premium/releases/latest": {
+   "get": {
+    "operationId": "premium.releases.latest",
+    "summary": "Latest Premium release",
+    "tags": [
+     "premium"
+    ],
+    "security": [
+     {
+      "ApiKey": []
+     }
+    ],
+    "x-macguard-class": "included",
+    "x-macguard-scope": "premium.read",
+    "x-macguard-feature": "premium",
+    "parameters": [],
+    "responses": {
+     "200": {
+      "description": "OK"
+     },
+     "400": {
+      "description": "Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Error"
+        }
+       }
+      }
+     },
+     "401": {
+      "description": "Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Error"
+        }
+       }
+      }
+     },
+     "403": {
+      "description": "Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Error"
+        }
+       }
+      }
+     },
+     "429": {
+      "description": "Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Error"
+        }
+       }
+      },
+      "headers": {
+       "Retry-After": {
+        "schema": {
+         "type": "integer"
+        }
+       }
+      }
+     },
+     "502": {
+      "description": "Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Error"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/v1/usage/estimate": {
+   "post": {
+    "operationId": "usage.estimate",
+    "summary": "Estimate the cost of planned operations",
+    "tags": [
+     "usage"
+    ],
+    "security": [
+     {
+      "ApiKey": []
+     }
+    ],
+    "x-macguard-class": "free",
+    "x-macguard-scope": "usage.estimate",
+    "x-macguard-feature": null,
+    "parameters": [],
+    "requestBody": {
+     "required": true,
+     "content": {
+      "application/json": {
+       "schema": {
+        "type": "object",
+        "properties": {
+         "operations": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 50,
+          "items": {
+           "type": "object",
+           "properties": {
+            "operation": {
+             "type": "string",
+             "enum": [
+              "community.releases.list",
+              "community.releases.latest",
+              "community.releases.download",
+              "community.releases.manifest",
+              "premium.releases.list",
+              "premium.releases.latest",
+              "premium.download",
+              "intel.hash",
+              "intel.cve",
+              "intel.ioc.search",
+              "intel.enrich",
+              "usage.estimate",
+              "account.usage",
+              "account.analytics",
+              "account.entitlements"
+             ]
+            },
+            "count": {
+             "type": "integer",
+             "minimum": 1,
+             "maximum": 1000000
+            }
+           },
+           "required": [
+            "operation"
+           ],
+           "additionalProperties": false
+          }
+         }
+        },
+        "required": [
+         "operations"
+        ],
+        "additionalProperties": false
+       }
+      }
+     }
+    },
+    "responses": {
+     "200": {
+      "description": "OK"
+     },
+     "400": {
+      "description": "Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Error"
+        }
+       }
+      }
+     },
+     "401": {
+      "description": "Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Error"
+        }
+       }
+      }
+     },
+     "403": {
+      "description": "Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Error"
+        }
+       }
+      }
+     },
+     "429": {
+      "description": "Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Error"
+        }
+       }
+      },
+      "headers": {
+       "Retry-After": {
+        "schema": {
+         "type": "integer"
+        }
+       }
+      }
+     },
+     "502": {
+      "description": "Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Error"
+        }
+       }
+      }
+     }
+    }
+   }
+  }
+ },
+ "components": {
+  "securitySchemes": {
+   "ApiKey": {
+    "type": "http",
+    "scheme": "bearer",
+    "bearerFormat": "mgk_<id>_<secret>"
+   }
+  },
+  "schemas": {
+   "Error": {
+    "type": "object",
+    "required": [
+     "error"
+    ],
+    "properties": {
+     "error": {
+      "type": "object",
+      "required": [
+       "code",
+       "message",
+       "request_id"
+      ],
+      "properties": {
+       "code": {
+        "type": "string"
+       },
+       "message": {
+        "type": "string"
+       },
+       "request_id": {
+        "type": "string"
+       }
+      },
+      "additionalProperties": true
+     }
+    }
+   }
+  }
+ }
+}

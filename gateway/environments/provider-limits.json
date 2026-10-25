@@ -1,0 +1,34 @@
+{
+  "schema": "macguard.provider-limits/1",
+  "read_on": "2026-10-25",
+  "note": "Prices and free allowances as published on the provider pages on the date above. They change; re-read before relying on them. Nothing here is a quote or a commitment.",
+  "providers": {
+    "b2": {
+      "source": "https://www.backblaze.com/cloud-storage/pricing",
+      "storage_usd_per_gb_month": 0.00695,
+      "free_storage_gb": 10,
+      "egress": "free up to 3x the average monthly storage, then 0.01 USD per GB",
+      "requests": "class A, B and C free; class D 0.004 USD per 10,000 with 2,500 per day free",
+      "minimums": "no minimum object size and no minimum storage duration stated"
+    },
+    "scaleway": {
+      "source": "https://www.scaleway.com/en/pricing/storage/",
+      "storage_eur_per_gb_month": 0.01606,
+      "storage_class": "Standard Multi-AZ (Paris)",
+      "free_storage_gb": 0,
+      "egress": "75 GB free per month, then 0.01 EUR per GB",
+      "requests": "included",
+      "minimums": "billed per started GB-hour: the page's own example bills 1 KB stored for 1 second as 1 GB-hour, so a bucket far below 1 GB should be expected to bill about one GB of storage (about 0.016 EUR a month)"
+    },
+    "r2": {
+      "source": "https://developers.cloudflare.com/r2/pricing/",
+      "storage_usd_per_gb_month": 0.015,
+      "free_storage_gb": 10,
+      "class_a_free_per_month": 1000000,
+      "class_b_free_per_month": 10000000,
+      "egress": "free",
+      "requests": "class A 4.50 USD per million, class B 0.36 USD per million; DeleteObject and AbortMultipartUpload free",
+      "minimums": "none stated for Standard storage"
+    }
+  }
+}

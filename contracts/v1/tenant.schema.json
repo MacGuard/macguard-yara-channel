@@ -1,0 +1,100 @@
+{
+ "$schema": "https://json-schema.org/draft/2020-12/schema",
+ "title": "Tenant hierarchy",
+ "description": "macguard.tenant/1. Versioned contract: additive changes keep the number, any other change takes a new one.",
+ "type": "object",
+ "additionalProperties": false,
+ "required": [
+  "schema",
+  "tenant_id",
+  "name",
+  "status"
+ ],
+ "properties": {
+  "schema": {
+   "const": "macguard.tenant/1"
+  },
+  "tenant_id": {
+   "type": "string",
+   "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$"
+  },
+  "name": {
+   "type": "string",
+   "minLength": 1,
+   "maxLength": 200
+  },
+  "status": {
+   "type": "string",
+   "enum": [
+    "active",
+    "suspended",
+    "closed"
+   ]
+  },
+  "organizations": {
+   "type": "array",
+   "items": {
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+     "organization_id",
+     "name"
+    ],
+    "properties": {
+     "organization_id": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$"
+     },
+     "name": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 200
+     },
+     "projects": {
+      "type": "array",
+      "items": {
+       "type": "object",
+       "additionalProperties": false,
+       "required": [
+        "project_id",
+        "name"
+       ],
+       "properties": {
+        "project_id": {
+         "type": "string",
+         "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$"
+        },
+        "name": {
+         "type": "string",
+         "minLength": 1,
+         "maxLength": 200
+        },
+        "environments": {
+         "type": "array",
+         "items": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$"
+         }
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "roles": {
+   "type": "array",
+   "items": {
+    "type": "string",
+    "enum": [
+     "platform_admin",
+     "organization_admin",
+     "project_admin",
+     "operator",
+     "reviewer",
+     "read_only"
+    ]
+   }
+  }
+ }
+}
