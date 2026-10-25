@@ -309,3 +309,5 @@ a > .ic, .runline .ic { display: inline-block; vertical-align: -.15em; margin-le
 @media (prefers-reduced-motion: no-preference) { .rs-step-link, .rs-tab { transition: background-color .15s, border-color .15s; } }
 
 .rs-modes { display: flex; flex-wrap: wrap; gap: 8px; } .rs-why { color: var(--text); font-weight: 600; } .rs-step-link.st-read .ic { color: var(--ok); }
+.alert-card { border-left: 4px solid var(--warn); } .alert-card.sev-bad { border-left-color: var(--bad); } .alert-card.sev-warn { border-left-color: var(--warn); }
+.alert-card .ba-what, .alert-card .ba-fix { margin: 8px 0; } .kv-tight { margin: 8px 0; row-gap: 4px; }

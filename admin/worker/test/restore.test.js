@@ -118,3 +118,16 @@ test('the panel database is protected by the same pipeline but reported on its o
   const none = buildRecoveryStatus({ runs: [run(1, 1)], jobs: { 1: fullJobs() }, evidence: [], trust: TRUST }, NOW); assert.equal(by(none, 'panel_last_backup').state, 'NOT_RUN'); assert.equal(by(none, 'panel_copies_verified').state, 'NOT_RUN');
   const down = buildRecoveryStatus({ runs: null, jobs: {}, evidence: null, trust: null }, NOW); assert.equal(by(down, 'panel_last_backup').state, 'UNKNOWN');
 });
+
+test('a failed export is ONE failure with its cause; the jobs that did not run are NOT_RUN, never three corrupt copies; an annotation of the wrong shape is ignored', async () => {
+  const { parseDiagnosis, failureOf } = await import('../src/restore.js'); const { parseAnnotation } = await import('../../../gateway/tools/backup_diagnose.mjs');
+  const msg = 'macguard-backup: resource=gateway phase=export kind=cloudflare_auth code=10000';
+  const failed = [{ id: 901, ...job('export', 'failure', at(3), [{ name: 'Export D1', conclusion: 'failure' }]) }, ...PROVIDERS.flatMap((p) => [job(`fetch (${p})`, 'success'), job(`write (${p})`, 'skipped'), job(`read (${p})`, 'skipped')])];
+  const st = buildRecoveryStatus({ runs: [run(8, 3, 'failure')], jobs: { 8: failed }, evidence: [], trust: TRUST, tools: [], diagnoses: { 8: parseDiagnosis(msg) } }, NOW);
+  assert.equal(st.failures.length, 1); const f = st.failures[0];
+  assert.deepEqual([f.run_id, f.failed_jobs.map((j) => j.name), f.failed_jobs[0].failed_step, f.cause_known, f.diagnosis.kind, f.diagnosis.code], [8, ['export'], 'Export D1', true, 'cloudflare_auth', '10000']);
+  assert.equal(f.not_run_jobs.length, 6, 'write and read of every provider did not run'); assert.equal(st.inventory.filter((r) => r.recoverable === 'FAILED').length, 0, 'no copy is reported corrupt');
+  assert.equal(failureOf(run(9, 1, 'success'), [], null), null, 'a good run has no failure'); assert.equal(failureOf(run(8, 3, 'failure'), failed, null).cause_known, false, 'without an annotation the cause is unknown, not guessed');
+  for (const bad of ['', 'macguard-backup: kind=evil phase=export', msg + ' <script>', 'x']) assert.equal(parseDiagnosis(bad), null, bad);
+  for (const m of [msg, `${msg} http=401`, 'macguard-backup: phase=write kind=timeout', 'macguard-backup: resource=panel phase=verify kind=verify_failed']) assert.deepEqual(parseDiagnosis(m), parseAnnotation(m), 'the Worker and the workflow parse the same way');
+});

@@ -1,5 +1,6 @@
 // "Restauración y recuperación": recovery status from real records, the step-by-step assistant and the inventory of copies. The panel shows instructions and records progress; it executes nothing and never receives a private key:
 // commands are run by the operator on their own machine, step outputs are checked here against what the real verifiers print, and only identifiers (procedure, step, a random run id) reach the server's audit log.
+import { backupAlertCard } from './backup_alerts.js';
 import { t, getLang } from '../i18n.js';
 import { h, icon, put, fmtDateTime, copyButton, toast, bytes, shortSha, modal } from '../ui.js';
 import { api, failure } from '../api.js';
@@ -58,6 +59,7 @@ function statusView(s, err, refresh) {
   return h('div', { class: 'grid-10' },
     h('p', { class: 'freshness note' }, `${t('rs_generated')}: ${when(s.generated_at)}`, ' · ', s.cache && s.cache.hit ? t('fr_cached', { s: s.cache.age_s }) : t('fr_live'), ' · ', h('button', { type: 'button', class: 'btn btn-ghost btn-sm', onclick: refresh }, icon('refresh'), t('rs_refresh'))),
     miss.length ? h('p', { class: 'alert alert-warn', role: 'status' }, icon('alert'), t('rs_partial', { list: miss.join(', ') })) : null,
+    ...(s.failures || []).map((f) => backupAlertCard(f, s)),
     h('ul', { class: 'rs-grid', 'aria-label': t('rs_tab_status') }, cards),
     h('p', { class: 'note', text: t('rs_legend') }),
     s.policy ? h('section', { class: 'card', 'aria-labelledby': 'rs-pol' }, h('h2', { id: 'rs-pol', text: t('rs_policy') }), h('dl', { class: 'rs-dl' },

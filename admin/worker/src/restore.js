@@ -39,6 +39,21 @@ export function classifyRun(run, jobs) {
 const ind = (id, state, value, observed_at, source, note = '') => ({ id, state, value, observed_at: observed_at || null, source, note });
 
 /** inputs: {runs, jobs (run id -> jobs array), evidence (parsed records) or null, trust or null, tools [{path, present}] or null}. Any may be null when its source could not be read. */
+// ---- why the latest backup of each resource failed: the failed job, what was skipped because of it, and the cause the workflow annotated (fixed vocabulary, repeated from gateway/tools/backup_diagnose.mjs; a test keeps both in step) ----
+const DIAG_KINDS = ['cloudflare_auth', 'cloudflare_permission', 'cloudflare_not_found', 'rate_limited', 'timeout', 'network', 'verify_failed', 'encrypt_failed', 'unknown'], DIAG_PHASES = ['export', 'verify', 'encrypt', 'sign', 'write', 'read'];
+export function parseDiagnosis(message) {
+  const m = String(message || '').match(/^macguard-backup: ((?:[a-z_]+=[A-Za-z0-9_]+ ?)+)$/); if (!m) return null;
+  const o = Object.fromEntries(m[1].trim().split(' ').map((p) => p.split('='))); if (!DIAG_KINDS.includes(o.kind) || !DIAG_PHASES.includes(o.phase)) return null;
+  return { resource: o.resource === 'panel' ? 'panel' : 'gateway', phase: o.phase, kind: o.kind, code: /^\d{3,6}$/.test(o.code || '') ? o.code : null, http: /^\d{3}$/.test(o.http || '') ? o.http : null };
+}
+/** The latest backup run of one resource, when it failed: which job failed, which jobs did not run because of it (skipped is NOT_RUN, never corruption), and the annotated cause if there is one. */
+export function failureOf(run, jobs, diagnosis) {
+  if (!run || !['failure', 'timed_out', 'startup_failure'].includes(run.conclusion)) return null;
+  const js = jobs || [], failed = js.filter((j) => j.conclusion === 'failure' || j.conclusion === 'timed_out'), skipped = js.filter((j) => j.conclusion === 'skipped');
+  return { run_id: run.id, run_url: run.url, resource: run.resource, at: run.finished_at || run.created_at, failed_jobs: failed.map((j) => ({ id: j.id ?? null, name: j.name, failed_step: ((j.steps || []).find((x) => x.conclusion === 'failure') || {}).name || null })), not_run_jobs: skipped.map((j) => j.name),
+    diagnosis: diagnosis || null, cause_known: !!diagnosis };
+}
+
 export function buildRecoveryStatus(inputs, nowMs) {
   const runs = (inputs.runs || []).slice().sort((a, b) => ms(b.created_at) - ms(a.created_at)).map((r) => classifyRun(r, inputs.jobs && inputs.jobs[r.id] ? inputs.jobs[r.id] : null));
   const allBackups = runs.filter((r) => r.kind === 'backup'), backups = allBackups.filter((r) => r.resource === 'gateway'), panelBackups = allBackups.filter((r) => r.resource === 'panel'), evidence = inputs.evidence || [], trust = inputs.trust || null;
@@ -107,7 +122,8 @@ export function buildRecoveryStatus(inputs, nowMs) {
     for (const p of PROVIDERS) providers[p] = { state: 'UNKNOWN', write: null, read: null, observed_at: null, run_id: null, note: 'GitHub Actions could not be read just now' };
   }
   const policy = trust ? { ed25519: { fingerprint: trust.ed25519 && trust.ed25519.fingerprint, frozen_at_sequence: trust.ed25519 && trust.ed25519.max_sequence, namespaces: trust.ed25519 && trust.ed25519.namespaces }, sigstore: trust.sigstore || null, age_recipient: trust.age_recipient || null } : null;
-  return { indicators, providers, inventory, recent_runs: runs.slice(0, 12).map((r) => ({ id: r.id, url: r.url, event: r.event, kind: r.kind, created_at: r.created_at, conclusion: r.conclusion, status: r.status })), policy, tools: tools || [], definitions: { states: STATES, stale_hours: STALE_HOURS, providers: PROVIDERS } };
+  const failures = [backups[0], panelBackups[0]].filter(Boolean).map((r) => failureOf(r, inputs.jobs && inputs.jobs[r.id], inputs.diagnoses && inputs.diagnoses[r.id])).filter(Boolean);
+  return { failures, indicators, providers, inventory, recent_runs: runs.slice(0, 12).map((r) => ({ id: r.id, url: r.url, event: r.event, kind: r.kind, created_at: r.created_at, conclusion: r.conclusion, status: r.status })), policy, tools: tools || [], definitions: { states: STATES, stale_hours: STALE_HOURS, providers: PROVIDERS } };
 }
 
 const RECORD_KINDS = new Set(['backup', 'restore', 'checkpoint_confirmed']);
@@ -139,9 +155,13 @@ export async function loadRecoveryStatus(env, deps, token, nowMs) {
   let evidence = null; if (evR) { const text = await evR.text(); evidence = text.length > 2_000_000 ? (unavailable.push({ source: 'evidence', reason: 'too_large' }), null) : parseEvidence(text); }
   const runs = (runsBody && runsBody.workflow_runs) || null, jobs = {};
   await Promise.all((runs || []).slice(0, 8).filter((r) => r.status === 'completed' || r.status === 'in_progress').map(async (r) => { const jr = await get(`jobs:${r.id}`, `${api}/repos/${repo}/actions/runs/${r.id}/jobs?per_page=100`, gh); const b = await jsonOf(jr, `jobs:${r.id}`); if (b && Array.isArray(b.jobs)) jobs[r.id] = b.jobs; }));
+  const diagnoses = {};   // the cause of the latest failed backup of each resource, from the annotation the failing job wrote
+  const pre = buildRecoveryStatus({ runs, jobs, evidence, trust, tools: null }, nowMs);
+  await Promise.all((pre.failures || []).map(async (f) => { const j = f.failed_jobs.find((x) => x.id); if (!j) return; const ar = await get(`annotations:${f.run_id}`, `${api}/repos/${repo}/check-runs/${j.id}/annotations?per_page=50`, gh, { optional: true }); const list = await jsonOf(ar, `annotations:${f.run_id}`); if (!Array.isArray(list)) return;
+    for (const a of list) { const d = parseDiagnosis(a && a.message); if (d) { diagnoses[f.run_id] = d; break; } } }));
   const tools = VERIFIER_TOOLS.map((path, i) => ({ path, present: !!toolR[i] }));
   const toolsKnown = !unavailable.some((u) => u.source.startsWith('tool:'));
-  const status = buildRecoveryStatus({ runs, jobs, evidence, trust, tools: toolsKnown ? tools : null }, nowMs);
+  const status = buildRecoveryStatus({ runs, jobs, evidence, trust, tools: toolsKnown ? tools : null, diagnoses }, nowMs);
   return { ...status, generated_at: iso(nowMs), rate, unavailable, cache_seconds: CACHE_SECONDS };
 }
 

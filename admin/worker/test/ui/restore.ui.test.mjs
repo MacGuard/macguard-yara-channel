@@ -42,6 +42,19 @@ for (const name of WANT) {
       await page.getByRole('button', { name: 'EN' }).click(); await page.waitForSelector('h1:has-text("Restore and recovery")'); assert.match(await page.locator('.rs-ind').first().innerText(), /Last backup created|Verified/);
     });
 
+
+    test('a failed export reads as ONE actionable alert on the dashboard and the status tab: cause, since when, what is at risk, last recoverable copy, real links; the skipped phases are not corrupt copies', async () => {
+      const bad = await startServer([], { restoreFails: true }); try {
+        const page = await newPage(browser, bad, 'reviewer', VIEWPORTS.desktop); await goto(page, bad, '/#/dashboard'); await page.waitForSelector('.alert-card');
+        const card = page.locator('.alert-card').first(), txt = await card.innerText();
+        assert.match(txt, /Cloudflare rechazó la autenticación/); assert.match(txt, /código 10000/); assert.match(txt, /Account → D1 → Edit/); assert.match(txt, /Última copia recuperable/i); assert.match(txt, /no hay copias dañadas/); assert.match(txt, /Es seguro/);
+        assert.equal(await page.locator('.alert-card').count(), 1, 'one alert, not three corrupt copies'); assert.equal(await card.locator('a[href*="/actions/runs/5002"]').count(), 1); assert.equal(await card.locator('a[href*="d1-token-probe.yml"]').count(), 1);
+        assert.deepEqual(await axeViolations(page), [], 'dashboard with the alert meets WCAG 2.2 AA'); assert.deepEqual(page.errors, []);
+        await page.getByRole('link', { name: 'Restauración' }).click(); await page.waitForSelector('.alert-card'); assert.match(await page.locator('.alert-card').first().innerText(), /Base de datos D1 de la analítica/);
+        const viewer = await newPage(browser, bad, 'viewer', VIEWPORTS.desktop); await goto(viewer, bad, '/#/dashboard'); assert.equal(await viewer.locator('.alert-card').count(), 0, 'a viewer cannot read the recovery status');
+      } finally { bad.stop(); }
+    });
+
     test('GitHub unreadable: the run-derived indicators say UNKNOWN (never FAILED or NOT RUN) and the screen says which source is missing', async () => {
       const ctx = await openAs(browser, srvDown, 'reviewer', VIEWPORTS.desktop); const page = await ctx.newPage(); await page.goto(srvDown.base + '/#/restore'); await page.waitForSelector('.rs-ind');
       assert.match(await page.locator('.rs-ind', { has: page.getByRole('heading', { name: 'Último backup creado', exact: true }) }).innerText(), /Desconocido/); assert.match(await page.locator('[role=status].alert-warn').innerText(), /backup_runs/);
