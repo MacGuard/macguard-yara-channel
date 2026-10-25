@@ -38,3 +38,17 @@ See the matrix section appended by each run. Unit tests use a cosign stand-in fo
 
 ## Open items
 The D1 export token: no environment holds one; the export job falls back to the repository secret `CLOUDFLARE_API_TOKEN` (the Pages token), whose D1 scope is unknown until the job runs. `sh gateway/tools/set_backup_secrets.sh --report` lists what exists and asks only for what is missing. WRITE credentials that can also delete (B2 `macguard-b2-write` can delete and bypass governance; Scaleway cannot separate delete from write): compensating controls are the two other independent copies, the external checkpoint, the read-back verification and the bucket's file lock; not removed.
+
+## Evidence log (real runs)
+| Date | What | Run | Result |
+|---|---|---|---|
+| 2026-10-25 | keyless selftest (synthetic statement) | `actions/runs/40222126237` | success. `cosign verify-blob` OK for ANCHOR and CHECKPOINT with identity `https://github.com/MacGuard/macguard-yara-channel/.github/workflows/backup.yml@refs/heads/main`, issuer `https://token.actions.githubusercontent.com`; another workflow's identity is refused; certificate valid 10 minutes, one Rekor entry (log index 3465351221); our own verifier reports scheme `sigstore` |
+| 2026-10-25 | real backup, fetch x3 | `actions/runs/40222676654` | the three READ credentials authenticate and list their buckets (no signed backup yet) |
+| 2026-10-25 | real backup, export | same run | FAILED: `wrangler d1 export` answers an authentication error. The only Cloudflare token available is the Pages token of the repository; it cannot export D1. Needs `CLOUDFLARE_API_TOKEN` limited to D1 export of the gateway database in the environment `macguard-backup-production` |
+| 2026-10-25 | Pages | `actions/runs/40222787626` | success; https://macguard.github.io/macguard-yara-channel/ and its resources answer 200 |
+
+## Restoring what a run copied
+`sh gateway/tools/restore_from_run.sh RUN_ID` (owner machine, identity from the Keychain or a file): for each provider it takes the copy that its READ credential downloaded in the run, verifies Sigstore identity, hashes, sequence and checkpoint, decrypts to a private temp file, compares the SHA-256 with the manifest, runs the isolated SQLite restore check and finally compares the three plaintexts. It never touches production.
+
+## Durable external checkpoint
+The checkpoint of each real backup is signed and logged in Rekor, which is outside the Mac and the three buckets. The `package` artifact lasts one day: it is NOT the durable reference. The durable copy is the owner's: put `CHECKPOINT.json` and `CHECKPOINT.json.sigstore.json` of the newest confirmed run, with the recovery kit, in a Bitwarden secure note and on paper at another address. Until that is done the external reference is not operational.
