@@ -1,3 +1,4 @@
+import { gzipSync } from 'node:zlib';
 import { createHash } from 'node:crypto';
 import { handle } from '../src/index.js';
 import { newDb } from './d1shim.js';
@@ -76,14 +77,15 @@ export async function world() {
     },
     /** What GitHub shows about a public release: its API record and its manifest.json. `entries` are the (path, sha256, bytes) the release lists.
      *  Options break one thing at a time: draft, hidden (404), api down, tampered rules_root, wrong asset digest, manifest download failing, extra raw fields. */
-    async release(tag, entries, { draft = false, hidden = false, apiStatus = 200, tamperRoot = false, wrongDigest = false, manifestStatus = 200, noDigest = false, noManifestAsset = false, rawManifest = null, downloadUrl = null, lag = 0, publishedAt = '2026-10-21T03:40:00Z' } = {}) {
+    async release(tag, entries, { draft = false, hidden = false, apiStatus = 200, tamperRoot = false, wrongDigest = false, manifestStatus = 200, noDigest = false, noManifestAsset = false, rawManifest = null, downloadUrl = null, lag = 0, publishedAt = '2026-10-21T03:40:00Z', tarball = null, meta = null } = {}) {
       const files = entries.map((e) => ({ path: e.path, sha256: e.sha256, bytes: e.bytes ?? null, ...(e.source ? { source: e.source } : {}) }));
-      const manifestBytes = new TextEncoder().encode(rawManifest ?? JSON.stringify({ schema: 1, files, rules_root: tamperRoot ? '0'.repeat(64) : await rulesRoot(files) }));
+      const manifestBytes = new TextEncoder().encode(rawManifest ?? JSON.stringify({ schema: 1, ...(meta || {}), files, rules_root: tamperRoot ? '0'.repeat(64) : await rulesRoot(files) }));
       const dl = downloadUrl ?? `https://github.com/${REPO}/releases/download/${tag}/manifest.json`, digest = wrongDigest ? 'sha256:' + 'f'.repeat(64) : 'sha256:' + await sha256Hex(manifestBytes);
       const rel = { id: 4242, tag_name: tag, draft, published_at: draft ? null : publishedAt, assets: noManifestAsset ? [] : [{ name: 'manifest.json', browser_download_url: dl, ...(noDigest ? {} : { digest }) }] };
       const log = { api: 0, download: 0 };
       route(new RegExp(`/repos/${REPO}/releases/(tags/${tag}|latest)$`), () => { log.api++; return hidden || log.api <= lag ? new Response('{}', { status: 404 }) : apiStatus !== 200 ? new Response('x', { status: apiStatus }) : new Response(JSON.stringify(rel)); });
       route(/\/releases\/download\/.*\/manifest\.json$/, () => { log.download++; return log.download <= lag ? new Response('x', { status: 404 }) : manifestStatus !== 200 ? new Response('x', { status: manifestStatus }) : new Response(manifestBytes); });
+      if (tarball) { const gz = tarball instanceof Uint8Array ? tarball : makeTarGz(tarball); route(/\/releases\/download\/.*\/rules-release\.tar\.gz$/, () => { log.package = (log.package || 0) + 1; return new Response(gz); }); }
       return { tag, rel, manifestSha: await sha256Hex(manifestBytes), log, files };
     },
     async pipelineToken(workflow = 'daily.yml', claims = {}) { return actionsToken(key, { job_workflow_ref: `${REPO}/.github/workflows/${workflow}@refs/heads/main`, ...claims }); },
@@ -100,3 +102,17 @@ export const cand = (c, path = `rules/x/${c}.yar`, extra = {}) => {
   return { sha256: extra.sha256 ?? hashOf(Buffer.from(content_b64, 'base64')), path, source: 'nextron', commit: 'abc', reasons: ['costly-regex'], bytes: 120, metrics: { cpu_s: 1.2, rss_mb: 40 }, ...extra, content_b64 };
 };
 export const rid = () => 'req_' + Math.random().toString(36).slice(2).padEnd(20, 'x');
+
+/** A gzip-compressed tar (ustar; a path over 100 bytes goes in a pax header) holding `files` (path -> text). */
+export function makeTarGz(files, { pax = false } = {}) {
+  const blocks = []; const hdr = (name, size, type = '0') => { const b = Buffer.alloc(512); b.write(name.slice(0, 100), 0); b.write('0000644\0', 100); b.write('0000000\0', 108); b.write('0000000\0', 116); b.write(size.toString(8).padStart(11, '0') + '\0', 124); b.write('00000000000\0', 136); b.write('        ', 148); b.write(type, 156); b.write('ustar\0' + '00', 257);
+    let sum = 0; for (const x of b) sum += x; b.write(sum.toString(8).padStart(6, '0') + '\0 ', 148); return b; };
+  const body = (buf) => { blocks.push(buf); const pad = (512 - (buf.length % 512)) % 512; if (pad) blocks.push(Buffer.alloc(pad)); };
+  blocks.push(hdr('rules/', 0, '5'));
+  for (const [path, text] of Object.entries(files)) {
+    const data = Buffer.from(text);
+    if (pax) { const rec = ` path=${path}\n`; let len = rec.length + 1; len = (String(len) + rec).length; const px = Buffer.from(`${len}${rec}`); blocks.push(hdr('PaxHeader', px.length, 'x')); body(px); blocks.push(hdr('x', data.length)); } else blocks.push(hdr(path, data.length));
+    body(data);
+  }
+  blocks.push(Buffer.alloc(1024)); return new Uint8Array(gzipSync(Buffer.concat(blocks)));
+}

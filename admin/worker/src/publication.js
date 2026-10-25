@@ -50,5 +50,6 @@ export async function fetchPublication(env, deps, tag = null) {
   const manifestSha = await sha256Hex(bytes);
   if (digest && /^sha256:[0-9a-f]{64}$/.test(digest) && digest.slice(7) !== manifestSha) return fail(422, 'the downloaded manifest does not match the digest GitHub reports for the asset');
   const v = await verifyManifest(bytes); if (!v.ok) return fail(422, v.error);
-  return { ok: true, tag, release: { id: rel ? rel.id ?? null : null, published_at: rel ? rel.published_at : null, evidence: level, asset_digest_checked: !!(digest && level === 'api') }, manifest_sha256: manifestSha, rules_root: v.rules_root, files: v.files };
+  let meta = {}; try { const mj = JSON.parse(new TextDecoder().decode(bytes)); meta = { created_at: typeof mj.created_at === 'string' ? mj.created_at : null, sources: Array.isArray(mj.sources) ? mj.sources.filter((x) => x && typeof x.id === 'string').slice(0, 20) : [], validation: mj.validation && typeof mj.validation === 'object' ? mj.validation : null, evidence: mj.evidence && typeof mj.evidence === 'object' ? mj.evidence : null, stats: mj.stats && typeof mj.stats === 'object' ? mj.stats : null }; } catch { meta = {}; }
+  return { ok: true, tag, release: { id: rel ? rel.id ?? null : null, published_at: rel ? rel.published_at : null, evidence: level, asset_digest_checked: !!(digest && level === 'api') }, manifest_sha256: manifestSha, rules_root: v.rules_root, files: v.files, meta };
 }

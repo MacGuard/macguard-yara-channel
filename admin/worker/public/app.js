@@ -5,6 +5,7 @@ import { api, setCsrf } from './api.js';
 import { renderLogin } from './views/login.js';
 import { renderQuarantine } from './views/quarantine.js';
 import { renderPublished } from './views/published.js';
+import { renderPublishedRule } from './views/published_rule.js';
 import { renderDashboard } from './views/dashboard.js';
 import { renderActivity } from './views/activity.js';
 import { renderSources } from './views/sources.js';
@@ -58,6 +59,7 @@ async function route() {
     else if (seg === 'audit' && RANK[me.role] >= 2) await renderAudit(ctx);
     else if (seg === 'members' && RANK[me.role] >= 3) await renderMembers(ctx);
     else if (seg === 'quarantine') await renderQuarantine(ctx);
+    else if (path === '/published/rule') await renderPublishedRule(ctx);
     else if (seg === 'published') await renderPublished(ctx);
     else if (seg === 'activity') await renderActivity(ctx);
     else if (seg === 'sources') await renderSources(ctx);

@@ -13,7 +13,7 @@ const focused = (page) => page.evaluate(() => document.activeElement && document
 for (const name of WANT) {
   describe(name, () => {
     let browser, qsrv, psrv;
-    before(async () => { browser = await ENGINES[name].launch(); qsrv = await startServer(); psrv = await startServer(['--released']); });
+    before(async () => { browser = await ENGINES[name].launch(); qsrv = await startServer(); psrv = await startServer(['--published']); });
     after(async () => { await browser.close(); qsrv.stop(); psrv.stop(); });
 
     for (const [hash, sel] of ROUTES) {

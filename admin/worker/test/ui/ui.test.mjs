@@ -177,7 +177,7 @@ for (const name of WANT) {
         assert.equal(await page.locator('.pills button:has-text("Publicadas")').count(), 0, 'a published rule is not a quarantine state');
         assert.equal(await page.locator('.rule').count(), 6, 'the published rule is not in the quarantine list');
         await page.locator('[data-nav=published]').click(); await page.waitForSelector('#h-rel'); assert.equal(await page.locator('.rule').count(), 1);
-        await page.locator('.rule-title').first().click(); await page.waitForSelector('#h-dep');
+        await page.locator('.rule-title').first().click(); await page.waitForSelector('#pf-sheet'); await page.locator('#pf-sheet').click(); await page.waitForSelector('#h-dep');
         const txt = (await page.locator('main').innerText()).replace(/\s+/g, ' ');
         assert.ok(txt.includes('rules-20261021-900') && txt.includes('La pipeline la publicó tras superar los controles técnicos, sin decisión humana') && txt.includes('Manifiesto verificado') && txt.includes('Ejecución 900, intento 1'), txt.slice(0, 600));
         assert.ok(txt.includes('ya está publicada en una release firmada'));
@@ -242,9 +242,9 @@ for (const name of WANT) {
     test('withdrawal of a published rule: only an administrator is offered it, the reason is mandatory, the sheet and Published then say it is pending', async () => {
       const s = await startServer(['--released']); const rev = await newPage(browser, s, 'reviewer', VIEWPORTS.desktop); const page = await newPage(browser, s, 'admin', VIEWPORTS.desktop);
       try {
-        await goto(rev, s, '/#/published'); await rev.waitForSelector('.rule'); await rev.locator('.rule-title').first().click(); await rev.waitForSelector('#h-dep');
+        await goto(rev, s, '/#/published'); await rev.waitForSelector('.rule'); await rev.locator('.rule-title').first().click(); await rev.waitForSelector('#pf-sheet'); await rev.locator('#pf-sheet').click(); await rev.waitForSelector('#h-dep');
         assert.equal(await rev.getByRole('button', { name: 'Solicitar retirada' }).count(), 0, 'a reviewer is not offered the withdrawal');
-        await goto(page, s, '/#/published'); await page.waitForSelector('.rule'); await page.locator('.rule-title').first().click(); await page.waitForSelector('#h-pol');
+        await goto(page, s, '/#/published'); await page.waitForSelector('.rule'); await page.locator('.rule-title').first().click(); await page.waitForSelector('#pf-sheet'); await page.locator('#pf-sheet').click(); await page.waitForSelector('#h-pol');
         assert.deepEqual(await axeViolations(page), [], 'the sheet with the withdrawal card meets WCAG 2.2 AA');
         await page.getByRole('button', { name: 'Solicitar retirada' }).click(); const dlg = page.locator('dialog[open]'); await dlg.waitFor();
         assert.deepEqual(await axeViolations(page), [], 'the withdrawal dialog meets WCAG 2.2 AA');

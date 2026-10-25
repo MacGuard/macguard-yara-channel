@@ -31,11 +31,11 @@ if (process.argv.includes('--synthetic')) items.push(cand('z', 'synthetic-quaran
 if (many.length) items.push(cand('n', many[0].path, { source: 'community', reasons: ['costly-regex'] }));   // a newer version of a published file waits in quarantine
 if (!empty) await w.submit(items);
 if (process.argv.includes('--released') && !empty) {   // one pending rule that the pipeline then published: the release callback with the evidence GitHub serves
-  const first = items[0]; await w.release('rules-20261021-900', [first]);
+  const first = items[0]; await w.release('rules-20261021-900', [first], { tarball: { [first.path]: Buffer.from(first.content_b64, 'base64').toString() } });
   await w.call('POST', '/api/pipeline/released', { bearer: await w.pipelineToken('publish.yml', { run_id: '900', run_attempt: '1' }), body: { tag: 'rules-20261021-900', hashes: [first.sha256], run_url: `${w.env.PUBLIC_URL}/runs/900` } });
 }
 if (many.length && !empty) {   // the current signed release lists 120 files the panel never saw, plus one rule the pipeline published after it was quarantined
-  const first = items[0]; await w.release('rules-20261021-900', [{ path: first.path, sha256: first.sha256, bytes: first.bytes, source: first.source }, ...many]);
+  const first = items[0]; await w.release('rules-20261021-900', [{ path: first.path, sha256: first.sha256, bytes: first.bytes, source: first.source }, ...many], { tarball: { [first.path]: Buffer.from(first.content_b64, 'base64').toString(), ...Object.fromEntries(many.map((m, i) => [m.path, `published ${i}`])) }, meta: { sources: [{ id: 'community', repository: 'Yara-Rules/rules', commit: 'c'.repeat(40), license_check: { ok: true, detail: 'GPL-2.0: allowed-with-license-notice', redistribution: 'allowed-with-license-notice', spdx_reported: 'GPL-2.0' } }], validation: { checked: 121, engine: 'yara' } } });
   await w.call('POST', '/api/pipeline/released', { bearer: await w.pipelineToken('publish.yml', { run_id: '900', run_attempt: '1' }), body: { tag: 'rules-20261021-900', hashes: [first.sha256], run_url: `${w.env.PUBLIC_URL}/runs/900` } });
 }
 const sessions = {

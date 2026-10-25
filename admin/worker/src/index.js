@@ -6,7 +6,8 @@ import * as ops from './ops.js';
 import * as restore from './restore.js';
 import * as proposals from './proposals.js';
 import { fetchPublication } from './publication.js';
-import * as policies from './policies.js';   // policy: persistent administrative withdrawals (migration 0003)
+import * as policies from './policies.js';
+import * as publishedRules from './published_rules.js';   // policy: persistent administrative withdrawals (migration 0003)
 import { REAUTH, STATE_COOKIE, openToken, resolveGithubAccount, clearCookie, clearStateCookie, createSession, destroySession, effectiveRole, finishLogin, getSession, parseCookies, sessionCookie, startLogin, stateCookie, timingSafeEqual, verifyActionsToken } from './auth.js';
 
 export const HEADERS = {
@@ -106,15 +107,36 @@ export async function handle(request, env, deps) {
       if (method === 'GET' && path === '/api/candidates') {
         return json(await store.listCandidates(db, { state: url.searchParams.get('state') || undefined, q: url.searchParams.get('q') || undefined, source: url.searchParams.get('source') || undefined, synthetic: url.searchParams.get('synthetic') === '1', page: +url.searchParams.get('page') || 1, pageSize: +url.searchParams.get('pageSize') || 25 }));
       }
-      if (method === 'GET' && path === '/api/published') {   // the inventory of the current signed release, reconciled with D1 (a published file may have no record there)
+      const inventory = async () => {   // the current signed release as the Worker verified it, cached for ten minutes
         const key = new Request(`${env.PUBLIC_URL}/__cache/published-v1`);
         let inv = null; const hit = deps.cache ? await deps.cache.match(key) : null;
         if (hit) { try { inv = await hit.json(); } catch { inv = null; } }
+        if (inv && !inv.meta) inv = null;   // an entry cached before the manifest metadata was kept
         if (!inv) {
-          const pub = await fetchPublication(env, deps, null); if (!pub.ok) return err(pub.status, `the current release could not be read: ${pub.error}`);
-          inv = { tag: pub.tag, published_at: pub.release.published_at, evidence: pub.release.evidence, manifest_sha256: pub.manifest_sha256, rules_root: pub.rules_root, generated_at: new Date(now * 1000).toISOString(), files: [...pub.files] };
+          const pub = await fetchPublication(env, deps, null); if (!pub.ok) return { error: err(pub.status, `the current release could not be read: ${pub.error}`) };
+          inv = { tag: pub.tag, published_at: pub.release.published_at, evidence: pub.release.evidence, manifest_sha256: pub.manifest_sha256, rules_root: pub.rules_root, generated_at: new Date(now * 1000).toISOString(), files: [...pub.files], meta: pub.meta || {} };
           if (deps.cache) await deps.cache.put(key, new Response(JSON.stringify(inv), { headers: { 'Content-Type': 'application/json', 'Cache-Control': 'max-age=600' } }));
         }
+        return { inv };
+      };
+      if (method === 'GET' && path === '/api/published/file') {   // one published rule: manifest identity, signed content, provenance, record, policy; any signed-in role
+        const got = await inventory(); if (got.error) return got.error;
+        const d = await publishedRules.publishedRuleDetail(db, env, deps, got.inv, url.searchParams.get('path') || ''); if (d.status !== 200) return err(d.status, d.error);
+        const { status: _s, ...rest } = d;
+        const pol = rest.record ? await policies.candidateView(db, { id: rest.record.id, sha256: rest.file.sha256, path: rest.file.path, source: rest.file.source, state: rest.record.state }, iso) : await policies.candidateView(db, { id: '', sha256: rest.file.sha256, path: rest.file.path, source: rest.file.source, state: 'RELEASED' }, iso);
+        return json({ ...rest, publication: pol });
+      }
+      if (method === 'POST' && path === '/api/published/adopt') {   // ADMIN: register a published rule the panel never saw so that it can be withdrawn
+        if (!atLeast(role, 'ADMIN')) return err(403, 'admin role required');
+        const rd = await readJson(request, 2_000); if (rd.tooLarge || !rd.body || typeof rd.body.path !== 'string') return err(400, 'path required');
+        const got = await inventory(); if (got.error) return got.error;
+        const r = await publishedRules.adoptPublished(db, env, deps, got.inv, { path: rd.body.path, request_id: rd.body.request_id }, actor, iso, deps.uuid);
+        if (r.status !== 200) return err(r.status, r.error);
+        if (r.audit) await store.appendAudit(db, { actor: session.login, role, action: r.audit.action, target: r.audit.target, detail: r.audit.detail }, iso);
+        return json({ id: r.id, existing: r.existing });
+      }
+      if (method === 'GET' && path === '/api/published') {   // the inventory of the current signed release, reconciled with D1 (a published file may have no record there)
+        const got = await inventory(); if (got.error) return got.error; const inv = got.inv;
         const p = url.searchParams, status = p.get('status') || '';
         const view = reconcilePublished(new Map(inv.files), await store.reconcileRows(db), { q: p.get('q') || '', source: p.get('source') || '', status: PUBLISHED_STATUS.includes(status) ? status : '', page: +p.get('page') || 1, pageSize: +p.get('pageSize') || 50 });
         view.items = await policies.annotateItems(db, view.items);   // policy: withdrawal pending / confirmed / lifted next to each file
