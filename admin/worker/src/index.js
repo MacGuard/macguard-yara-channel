@@ -3,6 +3,7 @@ import { MAX_BATCH, RELEASE_TAG, reconcilePublished, PUBLISHED_STATUS, atLeast, 
 import * as store from './store.js';
 import { verifyAuditChain } from './anchor.js';
 import * as ops from './ops.js';
+import * as restore from './restore.js';
 import * as proposals from './proposals.js';
 import { fetchPublication } from './publication.js';
 import * as policies from './policies.js';   // policy: persistent administrative withdrawals (migration 0003)
@@ -154,6 +155,24 @@ export async function handle(request, env, deps) {
         const data = await ops.loadOverview(env, deps, tok, now * 1000, 30);
         if (deps.cache) await deps.cache.put(key, new Response(JSON.stringify(data), { headers: { 'Content-Type': 'application/json', 'Cache-Control': `max-age=${data.unavailable.length ? 60 : ops.CACHE_SECONDS}` } }));   // a partial answer is kept for a minute only
         return json({ ...data, cache: { hit: false, age_s: 0 } });
+      }
+      if (method === 'GET' && path === '/api/restore/status') {   // recovery status from public records only (GitHub Actions, the trust policy, repository files); REVIEWER and above
+        if (!atLeast(role, 'REVIEWER')) return err(403, 'reviewer role required');
+        const key = new Request(`${env.PUBLIC_URL}/__cache/restore-status-v1`);
+        const hit = deps.cache ? await deps.cache.match(key) : null;
+        if (hit) { const body = await hit.json(); return json({ ...body, cache: { hit: true, age_s: Math.max(0, now - Math.floor(Date.parse(body.generated_at) / 1000)) } }); }
+        const tok = await openToken(env, session.id, session.token); if (!tok) return json({ error: 'sign in again', code: 'reauth' }, 401, { 'Set-Cookie': clearCookie() });
+        const data = await restore.loadRecoveryStatus(env, deps, tok, now * 1000);
+        if (deps.cache) await deps.cache.put(key, new Response(JSON.stringify(data), { headers: { 'Content-Type': 'application/json', 'Cache-Control': `max-age=${data.unavailable.length ? 30 : restore.CACHE_SECONDS}` } }));
+        return json({ ...data, cache: { hit: false, age_s: 0 } });
+      }
+      if (method === 'GET' && path === '/api/restore/procedures') { if (!atLeast(role, 'REVIEWER')) return err(403, 'reviewer role required'); return json(restore.procedureBundle(), 200, { 'Cache-Control': 'private, no-store' }); }
+      if (method === 'POST' && path === '/api/restore/event') {   // audited progress of a recovery procedure: records, never executes
+        const read = await readJson(request, 2_000); if (read.tooLarge) return err(413, 'request body too large');
+        const v = restore.validateEvent(read.body, role); if (!v.ok) return err(v.status, v.error);
+        if (await store.auditExists(db, { actor: session.login, action: v.action, target: v.target, detail: v.detail })) return json({ ok: true, duplicate: true });
+        await store.appendAudit(db, { actor: session.login, role, action: v.action, target: v.target, detail: v.detail }, iso);
+        return json({ ok: true, duplicate: false });
       }
       if (method === 'GET' && path === '/api/stats') { const c = await store.counts(db); return json({ counts: c, sources: await store.sourceCounts(db), synthetic: await store.syntheticCount(db), public: publicStats(c) }); }
       if (method === 'POST' && path === '/api/decisions') {
