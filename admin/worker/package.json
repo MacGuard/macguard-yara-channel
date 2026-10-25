@@ -7,6 +7,9 @@
     "deploy": "python3 ../../scripts/check_worker_config.py --config \"$WRANGLER_CONFIG\" && npx wrangler -c \"$WRANGLER_CONFIG\" deploy",
     "test:runtime": "node --test test-runtime/*.test.mjs",
     "test:ui": "node --no-warnings --test --test-concurrency=1 test/ui/ui.test.mjs",
+    "test:ui:search": "node --no-warnings --test --test-concurrency=1 test/ui/search.ui.test.mjs",
+    "test:ui:rule": "node --no-warnings --test --test-concurrency=1 test/ui/published_rule.ui.test.mjs",
+    "test:ui:intel": "node --no-warnings --test --test-concurrency=1 test/ui/intel.ui.test.mjs",
     "test:ui:restore": "node --no-warnings --test --test-concurrency=1 test/ui/restore.ui.test.mjs"
   },
   "devDependencies": {

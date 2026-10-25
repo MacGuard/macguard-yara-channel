@@ -6,12 +6,12 @@ import { api, failure } from '../api.js';
 const rid = () => `req_${(crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).slice(2) + Date.now().toString(36)).replace(/[^A-Za-z0-9_-]/g, '')}`;
 export const polChip = (publication) => h('span', { class: publication === 'withdrawn' ? 'chip chip-bad' : 'chip chip-warn', text: t(`pol_chip_${publication}`) });
 
-async function requestWithdrawal(c, reload) {
+export async function requestWithdrawal(c, reload, preset = {}) {
   const pre = await api('GET', `/api/policies/preview?candidate_id=${encodeURIComponent(c.id)}&scope=path`);
   if (pre.status !== 200) { toast(t('failed', { msg: failure(pre, t('err_generic')) }), true); return; }
   const n = pre.data.collateral.length, reason = reasonField();
-  const scope = radioGroup(t('pol_scope'), 'pol-scope', [['path', t('pol_scope_path'), t('pol_scope_path_h')], ['content', t('pol_scope_content'), t('pol_scope_content_h')]], 'path');
-  const crit = radioGroup(t('pol_crit'), 'pol-crit', [['CRITICAL', t('pol_crit_critical'), t('pol_crit_critical_h')], ['STANDARD', t('pol_crit_standard'), t('pol_crit_standard_h')]], 'CRITICAL');
+  const scope = radioGroup(t('pol_scope'), 'pol-scope', [['path', t('pol_scope_path'), t('pol_scope_path_h')], ['content', t('pol_scope_content'), t('pol_scope_content_h')]], preset.scope || 'path');
+  const crit = radioGroup(t('pol_crit'), 'pol-crit', [['CRITICAL', t('pol_crit_critical'), t('pol_crit_critical_h')], ['STANDARD', t('pol_crit_standard'), t('pol_crit_standard_h')]], preset.crit || 'CRITICAL');
   const ack = h('input', { type: 'checkbox', id: 'pol-ack' });
   const collateral = n ? h('div', { class: 'field' }, h('p', { class: 'alert alert-info', text: t('pol_collateral', { n, list: pre.data.collateral.map((x) => x.path).join(', ') }) }), h('label', { class: 'radio', for: 'pol-ack' }, ack, h('span', {}, h('strong', { text: t('pol_collateral_ack', { n }) })))) : h('p', { class: 'note', text: t('pol_collateral_none') });
   modal({

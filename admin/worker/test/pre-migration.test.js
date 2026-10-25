@@ -34,3 +34,12 @@ test('only the new endpoints answer with an error before their migration; nothin
   const prop = await w.call('GET', '/api/source-proposals', { user: w.reviewer }); assert.ok(prop.status >= 400 || prop.status === 200);
   for (const t of ['policies', 'policy_lifts', 'policy_events', 'audit_anchor', 'source_proposals']) assert.equal(await w.db.prepare("SELECT name FROM sqlite_master WHERE name = ?").bind(t).first(), null, `${t} was not created by a read`);
 });
+
+test('before migration 0003 a withdrawal request fails clearly (503, says which migration), changes nothing, and the published sheet still opens', async () => {
+  const { w, items, ids } = await oldDatabase(); await w.release('rules-20261021-100', items.map((c) => ({ path: c.path, sha256: c.sha256, bytes: c.bytes, source: c.source })));
+  const ad = await w.call('POST', '/api/decisions', { user: w.reviewer, body: { action: 'approve', ids: [ids[0]], expect: { [ids[0]]: 1 }, reason: 'reviewed by a person', request_id: 'req_pre_migration_ok_1' } }); assert.equal(ad.status, 200);
+  await w.db.prepare("UPDATE candidates SET state = 'RELEASED' WHERE id = ?").bind(ids[0]).run();
+  const r = await w.call('POST', '/api/policies/withdrawals', { user: w.admin, body: { candidate_id: ids[0], scope: 'path', criticality: 'STANDARD', reason: 'withdraw before migration', request_id: 'req_pre_migration_wd_1', expect_version: 2, confirm_collateral: 0 } });
+  assert.equal(r.status, 503, JSON.stringify(r.data)); assert.match(JSON.stringify(r.data), /0003/); assert.equal((await w.db.prepare("SELECT state FROM candidates WHERE id = ?").bind(ids[0]).first()).state, 'RELEASED');
+  const d = await w.call('GET', `/api/published/file?path=${encodeURIComponent(items[0].path)}`, { user: w.reviewer }); assert.equal(d.status, 200, JSON.stringify(d.data)); assert.equal(d.data.publication.publication, 'published');
+});

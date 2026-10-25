@@ -31,18 +31,19 @@ if (process.argv.includes('--synthetic')) items.push(cand('z', 'synthetic-quaran
 if (many.length) items.push(cand('n', many[0].path, { source: 'community', reasons: ['costly-regex'] }));   // a newer version of a published file waits in quarantine
 if (!empty) await w.submit(items);
 if (process.argv.includes('--released') && !empty) {   // one pending rule that the pipeline then published: the release callback with the evidence GitHub serves
-  const first = items[0]; await w.release('rules-20261021-900', [first]);
+  const first = items[0]; await w.release('rules-20261021-900', [first], { tarball: { [first.path]: Buffer.from(first.content_b64, 'base64').toString() } });
   await w.call('POST', '/api/pipeline/released', { bearer: await w.pipelineToken('publish.yml', { run_id: '900', run_attempt: '1' }), body: { tag: 'rules-20261021-900', hashes: [first.sha256], run_url: `${w.env.PUBLIC_URL}/runs/900` } });
 }
 if (many.length && !empty) {   // the current signed release lists 120 files the panel never saw, plus one rule the pipeline published after it was quarantined
-  const first = items[0]; await w.release('rules-20261021-900', [{ path: first.path, sha256: first.sha256, bytes: first.bytes, source: first.source }, ...many]);
+  const first = items[0]; await w.release('rules-20261021-900', [{ path: first.path, sha256: first.sha256, bytes: first.bytes, source: first.source }, ...many], { tarball: { [first.path]: Buffer.from(first.content_b64, 'base64').toString(), ...Object.fromEntries(many.map((m, i) => [m.path, `published ${i}`])) }, meta: { sources: [{ id: 'community', repository: 'Yara-Rules/rules', commit: 'c'.repeat(40), license_check: { ok: true, detail: 'GPL-2.0: allowed-with-license-notice', redistribution: 'allowed-with-license-notice', spdx_reported: 'GPL-2.0' } }], validation: { checked: 121, engine: 'yara' } } });
   await w.call('POST', '/api/pipeline/released', { bearer: await w.pipelineToken('publish.yml', { run_id: '900', run_attempt: '1' }), body: { tag: 'rules-20261021-900', hashes: [first.sha256], run_url: `${w.env.PUBLIC_URL}/runs/900` } });
 }
 const sessions = {
   viewer: await w.login('vera', { pull: true }, { id: 11 }), reviewer: await w.login('rita', { push: true }, { id: 12 }), admin: await w.login('ada', { admin: true }, { id: 13 }),
   nobody: await w.login('sam', { pull: true }, { id: 14 }),   // signed in with GitHub but holds no role
 };
-installRestore(w, { down: (process.env.MG_RESTORE_DOWN || '').split(',').filter(Boolean) });
+w.route(/config\/intel-families\.json$/, () => new Response(readFileSync(new URL('../../../config/intel-families.json', import.meta.url), 'utf8')));   // the real versioned catalogue
+installRestore(w, { down: (process.env.MG_RESTORE_DOWN || '').split(',').filter(Boolean), latestFails: process.env.MG_RESTORE_FAILS === '1' });
 installOps(w, { down: (process.env.MG_OPS_DOWN || '').split(',').filter(Boolean) });   // pipeline records the panel reads (faked GitHub, site and raw files)
 w.account('newbie', 900); w.account('acme-org', 901, 'Organization');   // exist on the faked GitHub, for the add-member flow
 for (const u of Object.values(sessions)) await w.call('GET', '/api/me', { user: u });   // every session asks GitHub once, so the member list knows each repository permission

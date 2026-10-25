@@ -15,13 +15,17 @@ export async function renderPublished(ctx) {
   const refresh = h('button', { type: 'button', class: 'btn btn-sm', onclick: () => ctx.rerender() }, icon('refresh'), t('refresh'));
   const head = h('div'), pills = h('div'), srcPills = h('div'), listBox = h('div', { 'aria-live': 'polite' });
   const search = h('input', { class: 'input', id: 'p-search', type: 'search', autocomplete: 'off', value: f.q, placeholder: '' });
-  let timer; search.addEventListener('input', () => { clearTimeout(timer); timer = setTimeout(() => apply({ q: search.value.trim() }), 300); });
+  let timer; search.addEventListener('input', () => { clearTimeout(timer); timer = setTimeout(() => { f.q = search.value.trim(); f.page = 1; history.replaceState(null, '', hash(f)); load(); }, 300); });   // only the list reloads: the input keeps its node, focus, caret and selection
   put(root, h('div', { class: 'page-head' }, h('div', {}, h('h1', { id: 'page-title', tabindex: '-1', text: t('pub_title') }), h('p', { text: t('pub_lead') })), h('div', { class: 'actions' }, refresh)),
     head, pills, h('div', { class: 'field' }, h('label', { for: 'p-search', text: t('pub_search') }), search), srcPills, listBox);
 
+  let seq = 0;
+  async function load() {
+  const mine = ++seq;
   const q = new URLSearchParams({ page: f.page, pageSize: SIZE }); for (const k of ['status', 'q', 'source']) if (f[k]) q.set(k, f[k]);
   listBox.setAttribute('aria-busy', 'true'); put(listBox, ...[0, 1, 2].map(() => h('div', { class: 'skeleton sk-row' })));
   const r = await api('GET', `/api/published?${q}`);
+  if (mine !== seq) return;
   listBox.removeAttribute('aria-busy');
   if (r.status !== 200) { put(listBox, h('div', { class: 'alert alert-bad', role: 'alert' }, icon('alert'), h('span', {}, h('strong', { text: `${t('pub_err')}. ` }), failure(r, t('err_generic'))))); return; }
   const { release: rel, items, total, counts, sources } = r.data;
@@ -42,7 +46,7 @@ export async function renderPublished(ctx) {
   if (!items.length) { put(listBox, h('div', { class: 'card empty' }, icon('check'), h('h2', { text: t('pub_empty_h') }), h('p', { text: t('pub_empty_p') }), f.status || f.q || f.source ? h('button', { type: 'button', class: 'btn', text: t('q_clear'), onclick: () => apply({ status: '', q: '', source: '' }) }) : null)); return; }
   const rows = items.map((x) => {
     const name = x.path.split('/').pop();
-    const title = x.candidate_id ? h('a', { class: 'rule-title', href: `#/rules/${x.candidate_id}`, text: name }) : h('span', { class: 'rule-title', text: name });
+    const title = h('a', { class: 'rule-title', href: `#/published/rule?path=${encodeURIComponent(x.path)}`, text: name });
     return h('li', { class: 'rule' }, h('div', { class: 'rule-main' }, title, h('div', { class: 'rule-path', text: x.path }),
       h('div', { class: 'reasons' }, h('span', { class: x.status === 'published' ? 'chip chip-ok' : 'chip chip-warn', text: t(`pub_s_${x.status}`) }), h('span', { class: 'chip', text: x.candidate_id ? t('pub_recorded') : t('pub_norecord') }), x.policy ? polChip(x.policy.publication) : null),
       x.status === 'newer_in_review' ? h('p', { class: 'note', text: t('pub_in_quarantine') }) : null,
@@ -53,4 +57,6 @@ export async function renderPublished(ctx) {
   const prev = h('button', { type: 'button', class: 'btn btn-sm', disabled: f.page <= 1, onclick: () => go(hash({ ...f, page: f.page - 1 })) }, icon('back'), t('q_prev'));
   const next = h('button', { type: 'button', class: 'btn btn-sm', disabled: f.page >= pages, onclick: () => go(hash({ ...f, page: f.page + 1 })) }, t('q_next'), icon('chevron'));
   put(listBox, h('ul', { class: 'rules' }, rows), h('div', { class: 'pager mt-14' }, h('span', { text: t('pub_showing', { from, to: from + items.length - 1, total }) }), h('div', { class: 'flex-8' }, prev, next)));
+  }
+  await load();
 }

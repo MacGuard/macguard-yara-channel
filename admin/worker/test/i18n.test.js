@@ -27,3 +27,8 @@ test('every translation key used by the screens exists, including the dynamic fa
   const reasons = ['blocked-module', 'compile-dependency', 'compile-error', 'corrupt-encoding', 'costly-regex', 'dependency-not-validated', 'dynamic-failure', 'ends-mid-file', 'filesize-loop', 'license-changed', 'license-unchecked', 'many-loops', 'matches-benign-corpus', 'no-baseline', 'no-condition', 'previously-rejected', 'rejected-by-reviewer', 'waived-by-review', 'too-many-rules', 'unbalanced-braces', 'unclosed-rule', 'unknown-module', 'unterminated-comment', 'unterminated-regex', 'unterminated-string'];
   assert.deepEqual(reasons.map((r) => `why_${r.replace(/-/g, '_')}`).filter((k) => !(k in DICT.es) || !(k in DICT.en)), [], 'every reason code the pipeline emits is translated');
 });
+
+test('no key is defined twice inside one language: a later duplicate silently replaces the earlier text (it once turned the sign-in title into "Inteligencia")', () => {
+  const src = readFileSync(new URL('../public/i18n.js', import.meta.url), 'utf8'), parts = src.split(/\n  (?:es|en): \{/).slice(1), KNOWN = new Set(['confirm']);   // 'confirm' is two real keys that predate this check, kept visible rather than hidden
+  parts.forEach((p, i) => { const seen = new Map(); for (const m of p.matchAll(/(?:^|[\s,{])([a-z][A-Za-z0-9_]*):\s*['"`]/g)) seen.set(m[1], (seen.get(m[1]) || 0) + 1); const dup = [...seen].filter(([k, n]) => n > 1 && !KNOWN.has(k)).map(([k]) => k); assert.deepEqual(dup, [], `duplicate keys in language block ${i + 1}`); });
+});

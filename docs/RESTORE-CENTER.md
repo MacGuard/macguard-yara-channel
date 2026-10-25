@@ -17,6 +17,13 @@ What it is: a tab of `panel.mac-guard.com` (REVIEWER and ADMIN) with the recover
 
 Order that cannot be broken (tested): verify hashes, signature (Sigstore, or the frozen historical Ed25519), identity and external checkpoint -> authenticity gate -> decrypt -> isolated restore -> snapshot and explicit authorisation -> new D1 -> cutover. A valid signature does not prove clean content: the compromise procedure restores in isolation and inspects before anything is rebuilt.
 
+## Assistant modes (since the P0 fix of 2026-10-26)
+* **Guide** (default; the only mode for a reviewer on a protected procedure): every step can be read and confirmed with "I have read this step"; nothing is executed, no evidence is asked for and no step is recorded as done or sent to the audit chain. Every disabled "Next" says why.
+* **Drill / Real recovery**: each step counts only with its real evidence (pasted output that matches, or an attested confirmation); the audit chain records it. A protected procedure needs ADMIN. No mode runs anything from the browser.
+
+## Backup failures
+A failed backup shows as one alert per resource (dashboard and this screen): the failed job, the phase, the classified cause when the workflow annotated one (`macguard-backup: phase=… kind=…`, fixed vocabulary, no free text), the data at risk, the last recoverable copy and real links. Jobs skipped after the failure are NOT_RUN: they are never reported as corrupt copies.
+
 ## What the status can and cannot know
 It knows what GitHub Actions records: the last export, signing, copies per provider and read-back. It cannot know the owner's restores, the durable external copy of the checkpoint or the environment secrets: those are UNKNOWN or NOT_RUN until an evidence record exists. A copy that exists in a bucket is `AUTHENTICATED` at best; only a recorded restore makes it `PROVEN`.
 

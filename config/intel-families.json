@@ -1,0 +1,39 @@
+{
+  "schema": "macguard.intel-families/1",
+  "as_of": "2026-10-25",
+  "evidence": {
+    "doc": "docs/quality/RULE-STATUS-BY-FAMILY-2026-10-25.md",
+    "commit": "546c119",
+    "branch": "feat/community-telemetry",
+    "in_main": false,
+    "note": "first real local runs; the evidence chains live in ~/macguard-evidence/2026-10-25 and are not published"
+  },
+  "families": [
+    { "id": "yara_x", "group": "detections", "name": "YARA-X (compatibility engine)", "source": "VirusTotal/yara-x 1.22.0", "integration": "INTEGRATED_LOCAL", "publication": "NOT_APPLICABLE",
+      "counts": { "incompatible_files": 4, "files_with_warnings": 186 }, "causes": [], "evidence_head": null },
+    { "id": "suricata_et_open", "group": "detections", "name": "Suricata (ET Open)", "source": "Emerging Threats Open, engine Suricata 8.0.7", "integration": "INTEGRATED_LOCAL", "publication": "RETENIDA",
+      "counts": { "rules": 51537, "syntax_and_engine_load_pass": 51537, "syntax_fail": 1, "efficacy_verified": 0 }, "causes": ["no_per_rule_vectors", "fp_corpus_below_minimum", "budgets_unapproved", "owner_no_publication"], "evidence_head": "5e8c9fe5c6672801c06fb0d5d09d4c1e7bc48eba5c8899921b71d55f6b79ef41" },
+    { "id": "sigma_sigmahq", "group": "detections", "name": "Sigma (SigmaHQ, pySigma)", "source": "SigmaHQ release r2026-07-01", "integration": "INTEGRATED_LOCAL", "publication": "RETENIDA",
+      "counts": { "rules": 3302, "validate_pass": 3298, "reader_refused": 4, "efficacy_verified": 0 }, "causes": ["no_event_corpus", "owner_no_publication"], "evidence_head": "5e8c9fe5c6672801c06fb0d5d09d4c1e7bc48eba5c8899921b71d55f6b79ef41" },
+    { "id": "ioc_feodo", "group": "indicators", "name": "IOC (Feodo Tracker)", "source": "abuse.ch Feodo Tracker", "integration": "INTEGRATED_LOCAL", "publication": "NO_DATA",
+      "counts": { "current_records": 0 }, "causes": ["all_records_expired"], "evidence_head": null },
+    { "id": "hashes_malicious", "group": "indicators", "name": "Malicious hashes", "source": null, "integration": "NOT_INTEGRATED", "publication": "BLOCKED",
+      "counts": {}, "causes": ["no_connector"], "evidence_head": null },
+    { "id": "hashes_benign", "group": "indicators", "name": "Known-benign hashes", "source": null, "integration": "NOT_INTEGRATED", "publication": "BLOCKED",
+      "counts": {}, "causes": ["no_connector"], "evidence_head": null },
+    { "id": "nvd", "group": "vulnerabilities", "name": "NVD (CVE API 2.0)", "source": "NIST NVD", "integration": "INTEGRATED_LOCAL", "publication": "RETENIDA",
+      "counts": { "records": 4000, "declared_in_snapshot": 11179 }, "causes": ["snapshot_incomplete", "licence_not_approved", "budgets_unapproved"], "evidence_head": "ffcce8749ff9d7a86b431e2d49189fc7a3cd372a91ce9e1dab5c7a6586ffcea7" },
+    { "id": "osv", "group": "vulnerabilities", "name": "OSV (PyPI)", "source": "osv.dev", "integration": "INTEGRATED_LOCAL", "publication": "RETENIDA",
+      "counts": { "records": 114, "declared_in_snapshot": 119, "withdrawn_rejected": 5 }, "causes": ["licence_not_evaluated", "budgets_unapproved"], "evidence_head": "ffcce8749ff9d7a86b431e2d49189fc7a3cd372a91ce9e1dab5c7a6586ffcea7" },
+    { "id": "cisa_kev", "group": "vulnerabilities", "name": "CISA KEV", "source": "CISA Known Exploited Vulnerabilities, catalog 2026.10.23", "integration": "INTEGRATED_LOCAL", "publication": "RETENIDA",
+      "counts": { "records": 1756 }, "causes": ["budgets_unapproved", "owner_no_publication"], "evidence_head": "ffcce8749ff9d7a86b431e2d49189fc7a3cd372a91ce9e1dab5c7a6586ffcea7" },
+    { "id": "euvd", "group": "vulnerabilities", "name": "EUVD (ENISA)", "source": "ENISA EUVD, 60-day window", "integration": "INTEGRATED_LOCAL", "publication": "RETENIDA",
+      "counts": { "records": 4000 }, "causes": ["licence_pending_legal", "budgets_unapproved"], "evidence_head": "ffcce8749ff9d7a86b431e2d49189fc7a3cd372a91ce9e1dab5c7a6586ffcea7" },
+    { "id": "cert_eu", "group": "vulnerabilities", "name": "CERT-EU advisories", "source": "CERT-EU", "integration": "INTEGRATED_LOCAL", "publication": "RETENIDA",
+      "counts": { "records": 10 }, "causes": ["budgets_unapproved"], "evidence_head": "ffcce8749ff9d7a86b431e2d49189fc7a3cd372a91ce9e1dab5c7a6586ffcea7" },
+    { "id": "epss", "group": "context", "name": "EPSS (FIRST)", "source": "FIRST EPSS, model v2026.06.15", "integration": "INTEGRATED_LOCAL", "publication": "RETENIDA",
+      "counts": { "records": 395249 }, "causes": ["licence_not_reviewed", "budgets_unapproved"], "evidence_head": "ffcce8749ff9d7a86b431e2d49189fc7a3cd372a91ce9e1dab5c7a6586ffcea7" },
+    { "id": "mitre_attack", "group": "context", "name": "MITRE ATT&CK (techniques)", "source": "MITRE ATT&CK", "integration": "INTEGRATED_LOCAL", "publication": "RETENIDA",
+      "counts": { "records": 706 }, "causes": ["redistribution_pending_legal", "budgets_unapproved"], "evidence_head": "ffcce8749ff9d7a86b431e2d49189fc7a3cd372a91ce9e1dab5c7a6586ffcea7" }
+  ]
+}

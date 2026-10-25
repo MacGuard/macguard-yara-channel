@@ -17,7 +17,7 @@ export async function renderQuarantine(ctx) {
   const refresh = h('button', { type: 'button', class: 'btn btn-sm', onclick: () => ctx.rerender() }, icon('refresh'), t('refresh'));
   const pills = h('div'), srcPills = h('div'), synBox = h('div'), listBox = h('div', { 'aria-live': 'polite' }), bar = h('div');
   const search = h('input', { class: 'input', id: 'q-search', type: 'search', autocomplete: 'off', value: f.q, placeholder: '' });
-  let timer; search.addEventListener('input', () => { clearTimeout(timer); timer = setTimeout(() => apply({ q: search.value.trim() }), 300); });
+  let timer; search.addEventListener('input', () => { clearTimeout(timer); timer = setTimeout(() => { selection.clear(); f.q = search.value.trim(); f.page = 1; history.replaceState(null, '', hash(f)); load(); }, 300); });   // only the list reloads: the input keeps its node, focus, caret and selection
 
   put(root, 
     h('div', { class: 'page-head' }, h('div', {}, h('h1', { id: 'page-title', tabindex: '-1', text: t('q_title') }), h('p', { text: t('q_lead') })), h('div', { class: 'actions' }, refresh)),
@@ -33,9 +33,13 @@ export async function renderQuarantine(ctx) {
     if (names.length > 1) put(srcPills, h('div', { class: 'field' }, h('span', { text: t('q_source') }), pillGroup(t('q_source'), [['', t('q_all_sources')], ...names.map((s) => [s, s, stats.data.sources[s]])], f.source, (v) => apply({ source: v }))));
   }
 
+  let seq = 0;
+  async function load() {
+  const mine = ++seq;
   const q = new URLSearchParams({ page: f.page, pageSize: SIZE }); for (const k of ['state', 'q', 'source', 'synthetic']) if (f[k]) q.set(k, f[k]);
   listBox.setAttribute('aria-busy', 'true'); put(listBox, ...[0, 1, 2].map(() => h('div', { class: 'skeleton sk-row' })));
   const r = await api('GET', `/api/candidates?${q}`);
+  if (mine !== seq) return;
   listBox.removeAttribute('aria-busy');
   if (r.status !== 200) { put(listBox, h('div', { class: 'alert alert-bad', role: 'alert' }, icon('alert'), failure(r, t('err_generic')))); return; }
   const { items, total } = r.data;
@@ -73,4 +77,6 @@ export async function renderQuarantine(ctx) {
         h('button', { type: 'button', class: 'btn btn-sm', onclick: () => decide('hold', new Map(selection), done) }, icon('pause'), t('act_hold')))));
   }
   drawBar();
+  }
+  await load();
 }
