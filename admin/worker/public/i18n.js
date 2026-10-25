@@ -5,7 +5,7 @@ const D = {
     lang: 'Idioma', theme: 'Tema', theme_auto: 'Automático', theme_light: 'Claro', theme_dark: 'Oscuro', signout: 'Cerrar sesión', main_nav: 'Navegación principal', signed_as: 'Sesión de',
     nav_quarantine: 'Cuarentena', nav_audit: 'Auditoría', nav_members: 'Miembros',
     // sign-in
-    in_title: 'Acceso restringido', in_lead: 'Este panel es privado. El acceso está reservado a administradores y revisores autorizados del canal de reglas YARA de MacGuard.', in_btn: 'Continuar con GitHub', in_btn_going: 'Redirigiendo a GitHub…',
+    in_title: 'Acceso restringido', in_lead: 'Este panel es privado. El acceso está reservado a administradores y revisores autorizados del canal de inteligencia de amenazas de MacGuard: reglas YARA, IOCs, hashes, firmas, reglas Suricata y otras fuentes de detección.', in_btn: 'Continuar con GitHub', in_btn_going: 'Redirigiendo a GitHub…',
     in_note: 'Solo usamos tu identidad de GitHub para saber quién eres. Tus permisos se comprueban en el servidor, contra el repositorio, en cada petición.',
     in_h: 'Revisión humana de cada regla antes de publicarla.', in_p1: 'Acceso limitado a administradores y revisores autorizados.', in_p2: 'Permisos verificados contra GitHub en cada petición, nunca solo en tu navegador.', in_p3: 'Cada decisión queda registrada en una cadena de auditoría que no se puede editar.',
     in_expired: 'Tu sesión ha caducado', in_expired_p: 'Por seguridad la sesión dura unas horas. Vuelve a entrar para continuar.',
@@ -87,7 +87,7 @@ const D = {
     app: 'MacGuard Quarantine', app_sub: 'Quarantine panel', skip: 'Skip to content', menu: 'Menu', close: 'Close', cancel: 'Cancel', confirm: 'Confirm', retry: 'Retry', refresh: 'Refresh', loading: 'Loading…', copy: 'Copy', copied: 'Copied', none: 'None', yes: 'Yes', no: 'No', all: 'All', back: 'Back', save: 'Save', search: 'Search',
     lang: 'Language', theme: 'Theme', theme_auto: 'Automatic', theme_light: 'Light', theme_dark: 'Dark', signout: 'Sign out', main_nav: 'Main navigation', signed_as: 'Signed in as',
     nav_quarantine: 'Quarantine', nav_audit: 'Audit', nav_members: 'Members',
-    in_title: 'Restricted access', in_lead: 'This panel is private. Access is reserved for authorized administrators and reviewers of the MacGuard YARA rules channel.', in_btn: 'Continue with GitHub', in_btn_going: 'Redirecting to GitHub…',
+    in_title: 'Restricted access', in_lead: 'This panel is private. Access is reserved for authorized administrators and reviewers of the MacGuard threat-intelligence channel: YARA rules, IOCs, hashes, signatures, Suricata rules and other detection sources.', in_btn: 'Continue with GitHub', in_btn_going: 'Redirecting to GitHub…',
     in_note: 'We only use your GitHub identity to know who you are. Your permissions are checked on the server, against the repository, on every request.',
     in_h: 'Every rule gets a human review before it is published.', in_p1: 'Access limited to authorized administrators and reviewers.', in_p2: 'Permissions are verified against GitHub on every request, never only in your browser.', in_p3: 'Every decision is recorded in an audit chain that cannot be edited.',
     in_expired: 'Your session has expired', in_expired_p: 'For safety a session lasts a few hours. Sign in again to continue.',
