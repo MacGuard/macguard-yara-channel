@@ -77,3 +77,12 @@ test('a GitHub environment holds ONE provider under generic names: they are used
   const env = { MG_ARCHIVE_PROVIDER: 'scaleway', ARCHIVE_ACCESS_KEY_ID: 'SCWKEYID', ARCHIVE_SECRET_ACCESS_KEY: 'secretvalue' };
   const r = await probeReadOnly({ env, fetchImpl, only: ['b2', 'scaleway'] }); assert.match(r.b2.reason, /are not set/); assert.ok(seen.every((x) => x === 'SCWKEYID') && seen.length > 0, 'only the scaleway client was built, with the generic credential');
 });
+
+test('a chosen stamp is fetched exactly; a stamp the provider does not hold is reported, never replaced by another', skip, async () => {
+  const w = ws(); try {
+    const owner = w.key('owner'), trust = { publicKey: owner.pub }, old = w.backup('20261024T050235Z', owner, 'old'), newer = w.backup('20261025T050235Z', owner, 'new');
+    const st = w.put(w.put(w.store(), '20261024T050235Z', old), '20261025T050235Z', newer);
+    const r = await fetchPrevious({ trust, outDir: w.out(), stamp: '20261024T050235Z', clientOverride: { b2: st } }); assert.equal(r.stamp, '20261024T050235Z');
+    await assert.rejects(() => fetchPrevious({ trust, outDir: w.out(), stamp: '20261111T000000Z', clientOverride: { b2: st } }), /no destination holds a signed backup/);
+  } finally { w.done(); }
+});
