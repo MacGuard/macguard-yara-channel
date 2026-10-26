@@ -28,13 +28,13 @@ export function unify({ yara, intel, queue }) {
 }
 
 function requestDialog(ctx, preset) {
-  const f = (id, label, node, hint) => h('div', { class: 'field' }, h('label', { for: id, text: label }), node, hint ? h('p', { class: 'note', text: hint }) : null);
-  const sel = (id, opts, val, lab) => { const s = h('select', { class: 'input', id }, ...opts.map((o) => h('option', { value: o, text: lab(o) }))); s.value = val; return s; };
+  const f = (id, label, node, hint) => h('div', { class: 'field' }, id ? h('label', { for: id, text: label }) : h('span', { text: label }), node, hint ? h('p', { class: 'note', text: hint }) : null);
+  const sel = (id, opts, val, lab) => { let cur = val; const g = pillGroup(lab === famName ? t('ix_d_family') : id, opts.map((o) => [o, lab(o)]), cur, (v) => { cur = v; g.redraw(v); }); return { node: g, get value() { return cur; } }; };   // pills, not <select>: WebKit refuses the stylesheet of a native select under our CSP
   const retire = !!preset && preset.kind === 'RETIRE';
   const name = h('input', { class: 'input', id: 'sq-name', maxlength: '80', autocomplete: 'off', value: preset ? preset.name : '' }), url = h('input', { class: 'input', id: 'sq-url', type: 'url', autocomplete: 'off', spellcheck: 'false', placeholder: 'https://', value: preset && preset.url && okUrl(preset.url) ? preset.url : '' });
   const fam = sel('sq-fam', FAMILIES, preset ? preset.family : 'ioc', famName), fmt = sel('sq-fmt', FORMATS, 'json', (x) => t(`sq_fmt_${x}`)), auth = sel('sq-auth', AUTHS, 'none', (x) => t(`ix_auth_${x}`));
   const lic = h('input', { class: 'input', id: 'sq-lic', maxlength: '500', autocomplete: 'off' }), reason = reasonField();
-  const body = h('div', { class: 'grid-12' }, h('p', { class: 'alert alert-info' }, icon('info'), t(retire ? 'sq_retire_note' : 'sq_note')), f('sq-name', t('sq_name'), name), f('sq-url', t('sq_url'), url, t('sq_url_hint')), f('sq-fam', t('ix_d_family'), fam), retire ? null : f('sq-fmt', t('sq_format'), fmt), retire ? null : f('sq-auth', t('ix_h_auth'), auth), retire ? null : f('sq-lic', t('sq_license'), lic), reason.node);
+  const body = h('div', { class: 'grid-12' }, h('p', { class: 'alert alert-info' }, icon('info'), t(retire ? 'sq_retire_note' : 'sq_note')), f('sq-name', t('sq_name'), name), f('sq-url', t('sq_url'), url, t('sq_url_hint')), f(null, t('ix_d_family'), fam.node), retire ? null : f(null, t('sq_format'), fmt.node), retire ? null : f(null, t('ix_h_auth'), auth.node), retire ? null : f('sq-lic', t('sq_license'), lic), reason.node);
   modal({ title: t(retire ? 'sq_retire_h' : 'sq_add_h', { name: preset ? preset.name : '' }), body, confirmLabel: t(retire ? 'sq_retire' : 'sq_add'), variant: retire ? 'bad' : 'primary',
     validate: () => (name.value.trim().length < 2 ? t('sq_name_short') : !/^https:\/\//.test(url.value.trim()) ? t('sq_url_bad') : reason.value.length < 5 ? t('reason_short') : null),
     async submit() {

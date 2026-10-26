@@ -19,8 +19,7 @@ async function renderSystem(ctx) {
   const comp = pillGroup(t('lg_component'), [['', t('all')], ...comps.map((c) => [c.component, c.component, c.n])], f.component, (v) => { f.component = v; reload(); });
   const famNames = [...new Set(st.data.by_family.map((x) => x.family))], sources = st.data.by_source.map((x) => x.source_id);
   const fam = pillGroup(t('lg_family'), [['', t('all')], ...famNames.map((x) => [x, has(`ix_f_${x}`) ? t(`ix_f_${x}`) : x])], f.family, (v) => { f.family = v; fam.redraw(v); reload(); });
-  const src = h('select', { class: 'input', id: 'lg-source', 'aria-label': t('lg_source') }, h('option', { value: '', text: t('all') }), ...sources.map((x) => h('option', { value: x, text: x }))); src.value = sources.includes(f.source_id) ? f.source_id : ''; if (!sources.includes(f.source_id)) f.source_id = '';
-  src.addEventListener('change', () => { f.source_id = src.value; reload(); });
+  const srcPills = pillGroup(t('lg_source'), [['', t('all')], ...sources.map((x) => [x, x])], sources.includes(f.source_id) ? f.source_id : '', (v) => { f.source_id = v; srcPills.redraw(v); reload(); }); if (!sources.includes(f.source_id)) f.source_id = '';
   const search = h('input', { class: 'input', id: 'lg-q', type: 'search', autocomplete: 'off', placeholder: t('lg_q_ph'), 'aria-label': t('lg_q'), value: f.q }); let qt = null;
   search.addEventListener('input', () => { clearTimeout(qt); qt = setTimeout(() => { const v = search.value.trim(); if (v.length === 1) return; f.q = v; reload(); }, 300); });
   const status = h('p', { class: 'note', 'aria-live': 'off', id: 'lg-status' }), tbody = h('tbody', {}), more = h('div', { class: 'pager' }), sheet = h('aside', { class: 'sheet-side', hidden: true, 'aria-label': t('lg_detail') });
@@ -28,7 +27,7 @@ async function renderSystem(ctx) {
   const table = h('div', { class: 'dt-wrap', role: 'region', 'aria-label': t('lg_title'), tabindex: '0' }, h('table', { class: 'dt dt-sel log' }, h('caption', { class: 'sr', text: t('lg_title') }),
     h('thead', {}, h('tr', {}, ...['lg_h_ts', 'lg_h_level', 'lg_h_component', 'lg_h_module', 'lg_h_message', 'lg_h_run'].map((k) => h('th', { scope: 'col', text: t(k) })))), tbody));
   const fr = (lab, node) => h('div', { class: 'filter-row' }, h('span', { class: 'fl', text: lab }), node);
-  put(root, fr(t('lg_level'), lvl), fr(t('lg_family'), fam), fr(t('lg_component'), comp), h('div', { class: 'toolbar' }, h('label', { class: 'flex-8 center', for: 'lg-source' }, h('span', { text: t('lg_source') }), src), search, status, liveLabel), h('div', { class: 'master-detail' }, h('div', {}, table, more), sheet),
+  put(root, fr(t('lg_level'), lvl), fr(t('lg_family'), fam), fr(t('lg_source'), srcPills), fr(t('lg_component'), comp), h('div', { class: 'toolbar' }, search, status, liveLabel), h('div', { class: 'master-detail' }, h('div', {}, table, more), sheet),
     h('p', { class: 'note', text: t('lg_scope') }));
 
   let seq = 0, before = null, head_id = 0, selected = null, timer = null;

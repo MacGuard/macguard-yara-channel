@@ -82,7 +82,7 @@ for (const name of WANT) {
       await page.locator('tr[data-source]', { hasText: 'MalwareBazaar' }).click(); await page.waitForFunction(() => /MalwareBazaar/.test(document.querySelector('.sheet-side').innerText) && /clave API/.test(document.querySelector('.sheet-side').innerText));
       await page.getByRole('button', { name: 'Solicitar retirada' }).click(); const dlg = page.getByRole('dialog'); await dlg.waitFor(); await dlg.getByRole('button', { name: 'Solicitar retirada' }).click(); assert.match(await dlg.innerText(), /Mínimo|corto|5/i, 'no reason, no request');
       await dlg.locator('textarea').fill('upstream requires a key we will not buy'); await dlg.getByRole('button', { name: 'Solicitar retirada' }).click(); await dlg.waitFor({ state: 'detached' });
-      await page.waitForSelector('#h-sq'); assert.match(await page.locator('#h-sq').locator('..').innerText(), /Retirada[\s\S]*Pendiente/);
+      await page.waitForFunction(() => { const h = document.querySelector('#h-sq'); return h && /Retirada[\s\S]*Pendiente/.test(h.parentElement.innerText); });
       await page.getByRole('button', { name: 'Nueva fuente' }).click(); const d2 = page.getByRole('dialog'); await d2.waitFor(); await d2.locator('#sq-name').fill('URLhaus recent'); await d2.locator('#sq-url').fill('http://insecure.example.org/x');
       await d2.locator('textarea').fill('we need malicious URLs'); await d2.getByRole('button', { name: 'Solicitar' }).click(); assert.match(await d2.innerText(), /https/, 'a non-https address is refused before anything is sent');
       await d2.locator('#sq-url').fill('https://urlhaus.abuse.ch/downloads/csv_recent/'); await d2.getByRole('button', { name: 'Solicitar' }).click(); await d2.waitFor({ state: 'detached' });
