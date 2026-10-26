@@ -1,7 +1,7 @@
 // Daily calendar, 7/30-day charts and history of the daily review, from GitHub Actions and the pipeline's own records.
 import { t, has, getLang } from '../i18n.js';
 import { mergeDays } from './families_agg.js';
-import { h, icon, put, fmtDate, fmtDateTime, fmtTime, pillGroup } from '../ui.js';
+import { h, icon, put, fmtDate, fmtDateTime, fmtTime, pillGroup, can } from '../ui.js';
 import { chart } from './charts.js';
 import { api } from '../api.js';
 import { loadIntelStats, runsTable } from './intel_summary.js';
@@ -56,7 +56,7 @@ function dayDetail(d) {
 export async function renderActivity(ctx) {
   const { root, query, me } = ctx; const intelBox = h('div', { class: 'minw0' }); let fam = 'all', days = query.get('days') === '7' ? 7 : 30, selected = /^\d{4}-\d{2}-\d{2}$/.test(query.get('day') || '') ? query.get('day') : null;
   put(root, h('div', { class: 'page-head' }, h('div', {}, h('h1', { id: 'page-title', tabindex: '-1', text: t('ac_title' ) }), h('p', { text: t('ac_lead') }))), h('div', { class: 'skeleton sk-block', 'aria-hidden': 'true' }));
-  const [ops, ist, aud] = await Promise.all([loadOps(), loadIntelStats(me), me.role === 'VIEWER' ? Promise.resolve(null) : api('GET', '/api/audit?limit=200')]); const intelOk = !!(ist && !ist.error); { const n = runsTable(ist); if (n) put(intelBox, n); }
+  const [ops, ist, aud] = await Promise.all([loadOps(), loadIntelStats(me), can(me, 'audit.read') ? api('GET', '/api/audit?limit=200') : Promise.resolve(null)]); const intelOk = !!(ist && !ist.error); { const n = runsTable(ist); if (n) put(intelBox, n); }
   const head = h('div', { class: 'page-head' }, h('div', {}, h('h1', { id: 'page-title', tabindex: '-1', text: t('ac_title') }), h('p', { text: t('ac_lead') })), h('div', { class: 'actions' }, h('button', { type: 'button', class: 'btn btn-sm', onclick: () => ctx.rerender() }, icon('refresh'), t('refresh'))));
   if (!ops.ok) { put(root, head, h('p', { class: 'alert alert-bad', role: 'alert' }, icon('alert'), `${t('db_ops_fail')} ${ops.error}`)); return; }
   const o0 = ops.data, mdays = mergeDays(o0.days, intelOk ? ist.runs.items : [], o0.days.length, intelOk), o = { ...o0, days: o0.days.map((d, i) => ({ ...d, state: mdays[i].state, ops_state: d.state, cells: mdays[i].cells, attention: mdays[i].attention })) }, byDate = new Map(o.days.map((d) => [d.date, d]));

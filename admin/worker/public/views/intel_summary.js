@@ -1,13 +1,13 @@
 // Charts and summaries over the REAL promoted intelligence (from /api/intel/stats). Every chart says its period, unit, source, last update, scope and coverage; a series is drawn only
 // from stored facts (a point per real run), never extrapolated from a current count.
 import { t, has } from '../i18n.js';
-import { h, icon, fmtDateTime } from '../ui.js';
+import { h, icon, fmtDateTime, can } from '../ui.js';
 import { api } from '../api.js';
 import { hbars } from './charts.js';
 
 const num = (n) => Number(n).toLocaleString(document.documentElement.lang === 'en' ? 'en-US' : 'es-ES');
 const fam = (f) => (has(`ix_f_${f}`) ? t(`ix_f_${f}`) : f);
-export const loadIntelStats = async (me) => { if (!me || me.role === 'VIEWER') return null; const r = await api('GET', '/api/intel/stats'); return r.status === 200 ? r.data : { error: r.status === 503 ? 'unbound' : 'unreadable' }; };
+export const loadIntelStats = async (me) => { if (!can(me, 'intel.sources.read')) return null; const r = await api('GET', '/api/intel/stats'); return r.status === 200 ? r.data : { error: r.status === 503 ? 'unbound' : 'unreadable' }; };
 
 function caption(st, unit, coverage) {
   const from = (st.runs.first_run || '').slice(0, 10), to = (st.runs.last_run || '').slice(0, 10);

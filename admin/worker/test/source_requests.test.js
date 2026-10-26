@@ -48,3 +48,13 @@ test('each step is one entry in the hash chain; the list shows every request; th
   assert.equal((await verifyChain(await auditRows(w.db, 5000))).ok, true); assert.equal((await w.call('GET', '/api/source-requests', { user: rita })).data.items.length, 1);
   const up = readFileSync(new URL('../migrations/0007_source_requests.sql', import.meta.url), 'utf8'), schema = readFileSync(new URL('../schema.sql', import.meta.url), 'utf8'); const m = schema.match(/-- >>> 0007[^\n]*\n([\s\S]*?)-- <<< 0007/); assert.equal(m[1], up);
 });
+
+test('five roles and separation of duties: PUBLISHER and SECURITY_ADMIN read the requests but cannot ask or decide; an ADMIN cannot decide a request they made, another identity must', async () => {
+  const { w, ada, rita } = await setup(); const post = (user, b, p = '/api/source-requests') => w.call('POST', p, { user, body: b });
+  for (const [login, role, id] of [['pat', 'PUBLISHER', 21], ['sam', 'SECURITY_ADMIN', 22]]) { w.account(login, id); await w.grant(ada, login, role); const u = await w.login(login, { pull: true }, { id }); await w.call('GET', '/api/me', { user: u });
+    assert.equal((await w.call('GET', '/api/source-requests', { user: u })).status, 200, `${role} reads`); assert.equal((await post(u, body({ request_id: `req-source-request-9${id}` }))).status, 403, `${role} cannot ask`); }
+  const boss = await w.login('boss', { admin: true }, { id: 14 }); await w.call('GET', '/api/me', { user: boss });
+  const mine = (await post(ada, body({ request_id: 'req-source-request-0050' }))).data.request, act = (user, op, r) => post(user, { reason: 'checked licence and format', expect_version: r.version }, `/api/source-requests/${r.id}/${op}`);
+  const own = await act(ada, 'accept', mine); assert.equal(own.status, 403); assert.equal(own.data.code, 'same_identity'); assert.equal((await act(ada, 'reject', mine)).status, 403, 'nor reject');
+  assert.ok(w.db.raw.prepare("SELECT COUNT(*) AS n FROM audit WHERE action = 'authz.denied'").get().n >= 1, 'the refusal is audited'); assert.equal((await act(boss, 'accept', mine)).data.request.state, 'ACCEPTED'); assert.equal((await act(ada, 'cancel', { id: (await post(ada, body({ url: 'https://x.example.org/f', request_id: 'req-source-request-0051' }))).data.request.id, version: 1 })).data.request.state, 'CANCELLED', 'the requester may still withdraw their own');
+});

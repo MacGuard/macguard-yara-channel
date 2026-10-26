@@ -43,6 +43,7 @@ export async function world() {
         if (!p) return new Response('no', { status: 401 });
         return new Response(JSON.stringify({ permissions: p }));
       }
+      if (String(url).endsWith('/user')) { const tk = (init.headers?.Authorization || '').replace('Bearer ', ''), a = accounts[tk.replace(/^tok-/, '').toLowerCase()]; return a ? new Response(JSON.stringify(a)) : new Response('no', { status: 401 }); }   // who owns this token
       const byId = String(url).match(/\/user\/(\d+)$/), byLogin = String(url).match(/\/users\/([A-Za-z0-9-]+)$/);
       if (byId || byLogin) {
         const u = Object.values(accounts).find((a) => (byId ? a.id === +byId[1] : a.login.toLowerCase() === byLogin[1].toLowerCase()));
@@ -73,7 +74,7 @@ export async function world() {
     /** What the panel does: resolve the real account first, then save by immutable id with a reason. */
     async grant(admin, login, role, reason = 'access reviewed by an administrator', over = {}) {
       const l = await this.call('GET', `/api/members/lookup?login=${encodeURIComponent(login)}`, { user: admin }); if (l.status !== 200) return l;
-      return this.call('POST', '/api/members', { user: admin, body: { user_id: l.data.account.id, role, reason, ...over } });
+      return this.call('POST', '/api/members', { user: admin, body: { user_id: l.data.account.id, role, reason, confirm_login: login, ...over } });
     },
     /** What GitHub shows about a public release: its API record and its manifest.json. `entries` are the (path, sha256, bytes) the release lists.
      *  Options break one thing at a time: draft, hidden (404), api down, tampered rules_root, wrong asset digest, manifest download failing, extra raw fields. */

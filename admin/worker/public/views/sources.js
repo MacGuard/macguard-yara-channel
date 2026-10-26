@@ -2,7 +2,7 @@
 // quarantine and publication counts, its errors and its recent events. Adding or retiring a source is a request that an administrator decides (the Worker never fetches a typed address); a
 // retirement or any sensitive action asks for a reason and a confirmation. Nothing here is invented: a column with no data says so.
 import { t, has } from '../i18n.js';
-import { h, icon, put, fmtDateTime, copyButton, modal, reasonField, toast, bytes, pillGroup } from '../ui.js';
+import { h, icon, put, fmtDateTime, copyButton, modal, reasonField, toast, bytes, pillGroup, can } from '../ui.js';
 import { api, failure } from '../api.js';
 import { loadOps, freshness, ago } from './ops.js';
 import { proposalsSection } from './proposals.js';
@@ -55,10 +55,10 @@ function requestsSection(ctx, items, canDecide) {
 }
 
 export async function renderSources(ctx) {
-  const { root, me } = ctx, canAsk = me.role !== 'VIEWER', isAdmin = me.role === 'ADMIN';
+  const { root, me } = ctx, canAsk = can(me, 'sources.propose'), isAdmin = can(me, 'sources.review');
   const head = (extra) => h('div', { class: 'page-head' }, h('div', {}, h('h1', { id: 'page-title', tabindex: '-1', text: t('sr_title_all') }), h('p', { text: t('sr_lead_all') })), h('div', { class: 'actions' }, extra, h('button', { type: 'button', class: 'btn btn-sm', onclick: () => ctx.rerender() }, icon('refresh'), t('refresh'))));
   put(root, head(null), h('div', { class: 'skeleton sk-block', 'aria-hidden': 'true' }));
-  const [ops, stats, isrc, reqs] = await Promise.all([loadOps(), api('GET', '/api/stats'), canAsk ? api('GET', '/api/intel/sources') : Promise.resolve(null), canAsk ? api('GET', '/api/source-requests') : Promise.resolve(null)]);
+  const [ops, stats, isrc, reqs] = await Promise.all([loadOps(), api('GET', '/api/stats'), can(me, 'intel.sources.read') ? api('GET', '/api/intel/sources') : Promise.resolve(null), can(me, 'sources.requests.read') ? api('GET', '/api/source-requests') : Promise.resolve(null)]);
   const inq = (stats.status === 200 && stats.data.sources) || {};
   if (!ops.ok) { put(root, head(null), h('p', { class: 'alert alert-bad', role: 'alert' }, icon('alert'), `${t('db_ops_fail')} ${ops.error}`)); return; }
   const o = ops.data, rows = unify({ yara: o.sources, intel: isrc && isrc.status === 200 ? isrc.data.sources : [], queue: inq });

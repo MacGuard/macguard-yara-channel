@@ -1,6 +1,6 @@
 // One rule: what it is, why it is here, what was measured, its code, who decided what, and the safe ways to decide.
 import { t, has } from '../i18n.js';
-import { h, icon, stateBadge, reasonLabel, fmtDate, fmtDateTime, bytes, copyButton, shaFull, copyText, put } from '../ui.js';
+import { h, icon, stateBadge, reasonLabel, fmtDate, fmtDateTime, bytes, copyButton, shaFull, copyText, put, can } from '../ui.js';
 import { api, failure } from '../api.js';
 import { decide, retest } from './decide.js';
 import { policyCard } from './policy.js';
@@ -58,7 +58,7 @@ export async function renderRule(ctx, id) {
   const r = await api('GET', `/api/candidates/${encodeURIComponent(id)}`);
   const back = h('p', { class: 'crumbs' }, h('a', { href: '#/quarantine' }, icon('back'), t('nav_quarantine')));
   if (r.status !== 200) { put(root, back, h('div', { class: 'card empty' }, icon('file'), h('h1', { id: 'page-title', tabindex: '-1', text: r.status === 404 ? t('r_notfound') : failure(r, t('err_generic')) }))); return; }
-  const c = r.data, m = c.metrics || {}, canDecide = me.role !== 'VIEWER';
+  const c = r.data, m = c.metrics || {}, canDecide = can(me, 'quarantine.decide');
   const prevM = ((c.history || []).filter((x) => x.metrics && typeof x.metrics.cpu_s === 'number')[0] || {}).metrics || {};
   const reload = () => ctx.rerender();
 

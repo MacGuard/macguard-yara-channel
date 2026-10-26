@@ -9,6 +9,8 @@ const ID = /^[A-Za-z0-9][A-Za-z0-9:._-]{0,199}$/, REQID = /^[A-Za-z0-9_-]{16,80}
 const visible = (s) => String(s).replace(/[\s\p{Cf}]/gu, '').length;
 const bad = (status, error, extra = {}) => ({ status, body: { error, ...extra } });
 export const MAX_BATCH = 50;
+/** The RBAC permission an action needs. Unknown actions have none (default deny). */
+export const permissionForAction = (a) => (a === 'approve' ? 'intel.approve' : ['hold', 'quarantine', 'reject'].includes(a) ? 'intel.decide' : null);
 
 export function validate(b) {
   if (!b || typeof b !== 'object' || Array.isArray(b)) return { error: 'JSON body required' };
@@ -21,7 +23,7 @@ export function validate(b) {
 }
 
 /** intel: the INTEL database; panel: the panel database (audit). All-or-nothing: one blocked record changes nothing. */
-export async function decide({ intel, panel }, body, actor, now) {
+export async function decide({ intel, panel }, body, actor, now, mayRead = () => true) {
   const v = validate(body); if (v.error) return bad(400, v.error); const { action, ids, reason, request_id, expect } = v.value, to = ACTIONS[action];
   const done = (await intel.prepare('SELECT record_id, to_state FROM intel_decisions WHERE request_id = ? ORDER BY id').bind(request_id).all()).results;
   if (done.length) return done.map((x) => x.record_id).sort().join() === [...ids].sort().join() && done.every((x) => x.to_state === to) ? { status: 200, body: { replay: true, changed: done.length, action, to_state: to } } : bad(409, 'request id reused for a different request');
@@ -30,6 +32,7 @@ export async function decide({ intel, panel }, body, actor, now) {
     const r = await intel.prepare('SELECT r.id, r.family, r.held_back, r.doc, r.run_id, r.source_id, COALESCE(c.state, r.state) AS state FROM intel_records r LEFT JOIN intel_current c ON c.record_id = r.id WHERE r.id = ?').bind(id).first();
     if (!r) return bad(404, 'record not found', { id });
     if (!FAMILIES.includes(r.family) || r.family === 'yara') return bad(400, 'this family is decided elsewhere', { id });
+    if (!mayRead(r.family)) return bad(403, 'you may not act on records of this family', { id, code: 'forbidden' });   // deciding needs the family's own inspect permission
     if (expect && Object.hasOwn(expect, id) && expect[id] !== r.state) { stale.push({ id, state: r.state }); continue; }
     if (r.state === to) { unchanged.push(id); continue; }
     if (r.state === 'PUBLISHED') return bad(409, 'a published record is withdrawn through the publication workflow, not decided here', { id });

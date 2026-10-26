@@ -48,7 +48,8 @@ export async function decide(db, id, outcome, body, actor, now, isAdmin) {
   const row = await db.prepare('SELECT * FROM source_requests WHERE id = ?').bind(id).first(); if (!row) return bad(404, 'not found');
   if (!body || typeof body !== 'object' || typeof body.reason !== 'string' || visible(body.reason) < 5 || body.reason.length > 2000) return bad(400, 'a reason of 5 to 2000 visible characters is required');
   if (!Number.isInteger(body.expect_version)) return bad(400, 'expect_version (the version you saw) is required');
-  if (outcome === 'CANCELLED' ? !(isAdmin || row.requested_by_id === actor.id) : !isAdmin) return bad(403, outcome === 'CANCELLED' ? 'only the requester or an administrator may cancel' : 'administrator role required');
+  if (outcome !== 'CANCELLED' && isAdmin && row.requested_by_id === actor.id) return { status: 403, body: { error: 'the person who asked cannot also decide the request: another identity must', code: 'same_identity' } };
+  if (outcome === 'CANCELLED' ? !(isAdmin || row.requested_by_id === actor.id) : !isAdmin) return bad(403, outcome === 'CANCELLED' ? 'only the requester or an administrator may cancel' : 'the permission sources.review is required');
   if (row.state !== 'REQUESTED') return bad(409, `a request in state ${row.state} is final`); if (row.version !== body.expect_version) return bad(409, 'the request changed since you saw it');
   const r = await db.prepare("UPDATE source_requests SET state = ?, version = version + 1, decided_by = ?, decided_by_id = ?, decided_at = ?, decision_reason = ? WHERE id = ? AND version = ? AND state = 'REQUESTED'").bind(outcome, actor.login, actor.id, now, body.reason.trim(), id, row.version).run();
   if (!r.meta || r.meta.changes !== 1) return bad(409, 'the request changed while it was being decided; nothing was changed');

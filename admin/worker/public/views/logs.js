@@ -1,7 +1,7 @@
 // Structured operational events of the intelligence pipeline (timestamp, level, component, module, message, correlation ids). Real rows from /api/intel/events; live updates add new rows
 // without rebuilding the page, so the filters keep their focus. This is the OPERATIONAL log: the audit trail of people and decisions is a different record (Auditoría).
 import { t, has } from '../i18n.js';
-import { h, icon, put, pillGroup, fmtDateTime, shortSha } from '../ui.js';
+import { h, icon, put, pillGroup, fmtDateTime, shortSha, can } from '../ui.js';
 import { renderAudit } from './audit.js';
 import { api, failure } from '../api.js';
 
@@ -71,7 +71,7 @@ async function renderChain(ctx) {
   const { root, me } = ctx; put(root, h('div', { class: 'skeleton sk-block' }));
   const r = await api('GET', '/api/audit/anchors'); if (r.status !== 200) { put(root, h('p', { class: 'alert alert-bad', role: 'alert' }, icon('alert'), failure(r, t('err_generic')))); return; }
   const d = r.data, out = h('div', { role: 'status' });
-  const verify = me.role === 'ADMIN' ? h('button', { type: 'button', class: 'btn', onclick: async (ev) => {
+  const verify = can(me, 'audit.verify') ? h('button', { type: 'button', class: 'btn', onclick: async (ev) => {
     const b = ev.currentTarget; b.disabled = true; out.replaceChildren(h('p', { class: 'muted', text: t('a_verifying') })); const v = await api('GET', '/api/audit/verify'); b.disabled = false;
     out.replaceChildren(v.status !== 200 ? h('p', { class: 'alert alert-bad', role: 'alert' }, icon('alert'), failure(v, t('err_generic'))) : v.data.ok ? h('p', { class: 'alert alert-ok' }, icon('check'), t('a_ok', { n: v.data.entries, head: shortSha(v.data.head || '') })) : h('p', { class: 'alert alert-bad', role: 'alert' }, icon('alert'), t('lc_broken', { at: v.data.at ?? '?' })));
   } }, icon('lock'), t('a_verify')) : null;
@@ -83,7 +83,7 @@ async function renderChain(ctx) {
 }
 
 export async function renderLogs(ctx) {
-  const { root, query } = ctx, tabs = ['system', 'actions', 'chain'], cur = tabs.includes(query.get('tab')) ? query.get('tab') : 'system';
+  const { root, query, me } = ctx, tabs = ['system', 'actions', 'chain'].filter((k) => (k === 'system' ? can(me, 'logs.read') : can(me, 'audit.read'))), cur = tabs.includes(query.get('tab')) ? query.get('tab') : tabs[0];
   const body = h('div', { class: 'minw0' });
   const bar = h('nav', { class: 'rs-tabs', 'aria-label': t('lg_streams') }, ...tabs.map((k) => h('a', { class: `rs-tab${k === cur ? ' on' : ''}`, href: k === 'system' ? '#/logs' : `#/logs?tab=${k}`, 'aria-current': k === cur ? 'page' : null, text: t(`lg_tab_${k}`) })));
   put(root, h('div', { class: 'page-head' }, h('div', {}, h('h1', { id: 'page-title', tabindex: '-1', text: t('lg_title') }), h('p', { text: t('lg_lead') }))), bar, h('p', { class: 'note', text: t(`lg_about_${cur}`) }), body);

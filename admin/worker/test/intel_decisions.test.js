@@ -71,3 +71,11 @@ test('the quarantine and published scopes follow the effective state, so a decis
   assert.equal((await post(rita, body({ action: 'quarantine', ids: [id], request_id: RID(21), reason: 'withdrawn before release' }))).status, 200); assert.equal((await count('scope=published')).total, 0);
   assert.equal((await w.call('GET', '/api/intel/records?scope=weird', { user: rita })).status, 400);
 });
+
+test('five roles: only REVIEWER and ADMIN decide; PUBLISHER and SECURITY_ADMIN are refused and the refusal is audited; unknown actions get no permission', async () => {
+  const { w, ada, rita, post } = await setup(); const ids = ['ioc:ip:203.0.113.7'];
+  for (const [login, role, id] of [['pat', 'PUBLISHER', 21], ['sam', 'SECURITY_ADMIN', 22]]) { w.account(login, id); assert.equal((await w.grant(ada, login, role)).status, 200); const u = await w.login(login, { pull: true }, { id }); await w.call('GET', '/api/me', { user: u });
+    for (const action of ['quarantine', 'approve']) { const r = await post(u, body({ action, ids, request_id: RID(30 + id + action.length) })); assert.equal(r.status, 403, `${role} ${action}`); assert.equal(r.data.code, 'forbidden'); } }
+  assert.ok(w.db.raw.prepare("SELECT COUNT(*) AS n FROM audit WHERE action = 'authz.denied' AND target = '/api/intel/decisions'").get().n >= 4, 'the refusals are in the audit chain');
+  assert.equal((await post(rita, body({ action: 'publish' }))).status, 400, 'an unknown action has no permission and is refused'); assert.equal((await post(ada, body({ request_id: RID(40) }))).status, 200); assert.equal(w.env.INTEL.raw.prepare('SELECT COUNT(*) AS n FROM intel_decisions').get().n, 1, 'the refused ones changed nothing');
+});

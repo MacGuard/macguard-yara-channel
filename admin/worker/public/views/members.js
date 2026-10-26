@@ -1,21 +1,24 @@
 // Members and permissions: who is authorized, who signed in without authorization, whose grant was revoked; audited changes by immutable GitHub id.
-import { t } from '../i18n.js';
-import { h, icon, avatar, roleBadge, fmtDate, fmtDateTime, modal, toast, put, radioGroup } from '../ui.js';
+import { t, has } from '../i18n.js';
+import { h, icon, avatar, roleBadge, fmtDate, fmtDateTime, modal, toast, put, radioGroup, pillGroup } from '../ui.js';
 import { api, failure } from '../api.js';
 
 const STATUSES = ['', 'authorized', 'unauthorized', 'revoked', 'unbound'];
 const SIZE = 12;
-const roles = () => ['VIEWER', 'REVIEWER', 'ADMIN'].map((r) => [r, t(`role_${r}`), t(`rh_${r}`)]);
+const ROLE_LIST = ['VIEWER', 'REVIEWER', 'PUBLISHER', 'SECURITY_ADMIN', 'ADMIN'];
+const roles = () => ROLE_LIST.map((r) => [r, t(`role_${r}`), t(`rh_${r}`)]);
 
 export async function renderMembers(ctx) {
-  const { root, me } = ctx; const f = { q: '', status: '', page: 1 };
+  const { root, me, query, go } = ctx; const f = { q: '', status: '', page: 1 }, tab = query.get('tab') === 'matrix' ? 'matrix' : 'users';
+  const tabs = pillGroup(t('adm_tabs'), [['users', t('adm_tab_users')], ['matrix', t('adm_tab_matrix')]], tab, (v) => go(`#/admin?tab=${v}`, true));
+  if (tab === 'matrix') { put(root, h('div', { class: 'page-head' }, h('div', {}, h('h1', { id: 'page-title', tabindex: '-1', text: t('adm_title') }), h('p', { text: t('adm_lead') }))), h('div', { class: 'field' }, tabs), await matrixSection()); document.title = `${t('adm_title')} · MacGuard Quarantine`; return; }
   const list = h('div', { 'aria-live': 'polite' }), counts = h('p', { class: 'muted' });
   const search = h('input', { class: 'input', id: 'm-search', type: 'search', autocomplete: 'off', placeholder: t('m_search') });
   const pills = h('div', { class: 'pills', role: 'group', 'aria-label': t('m_status') });
   const add = h('button', { type: 'button', class: 'btn btn-primary', onclick: () => openEditor(null) }, icon('plus'), t('m_add'));
 
-  put(root, h('div', { class: 'page-head' }, h('div', {}, h('h1', { id: 'page-title', tabindex: '-1', text: t('m_title') }), h('p', { text: t('m_lead') })), h('div', { class: 'actions' }, add)),
-    counts, pills, h('div', { class: 'field' }, h('label', { for: 'm-search', text: t('m_search') }), search), list, matrix());
+  put(root, h('div', { class: 'page-head' }, h('div', {}, h('h1', { id: 'page-title', tabindex: '-1', text: t('adm_title') }), h('p', { text: t('m_lead') })), h('div', { class: 'actions' }, add)),
+    h('div', { class: 'field' }, tabs), counts, pills, h('div', { class: 'field' }, h('label', { for: 'm-search', text: t('m_search') }), search), list);
 
   let timer; search.addEventListener('input', () => { clearTimeout(timer); timer = setTimeout(() => { f.q = search.value.trim(); f.page = 1; load(); }, 300); });
   const drawPills = (c) => pills.replaceChildren(...STATUSES.map((s) => { const n = s === '' ? Object.values(c).reduce((a, b) => a + b, 0) : c[s] || 0; const b = h('button', { type: 'button', class: 'pill', 'aria-pressed': String(f.status === s) }, t(`ms_${s || 'all'}`), h('b', { text: String(n) })); b.addEventListener('click', () => { f.status = s; f.page = 1; load(); }); return b; }));
@@ -97,10 +100,15 @@ function reasonInput() {
   const ta = h('textarea', { class: 'textarea', rows: '3', maxlength: '2000', id: `mr-${Math.random().toString(36).slice(2)}`, placeholder: t('md_reason_ph') });
   return { node: h('div', { class: 'field' }, h('label', { for: ta.id, text: t('reason') }), ta, h('p', { class: 'note', text: t('reason_hint') })), get value() { return ta.value.trim(); } };
 }
-function matrix() {
-  const caps = [['mx_view', 1, 1, 1], ['mx_decide', 0, 1, 1], ['mx_retest', 0, 1, 1], ['mx_audit', 0, 1, 1], ['mx_verify', 0, 0, 1], ['mx_members', 0, 0, 1]];
-  return h('section', { class: 'card', 'aria-labelledby': 'h-mx' }, h('h2', { id: 'h-mx', text: t('mx_title') }), h('div', { class: 'scroll-x', tabindex: '0', role: 'region', 'aria-label': t('mx_title') }, h('table', { class: 'matrix' },
-    h('thead', {}, h('tr', {}, h('th', { scope: 'col', text: t('mx_cap') }), ...['VIEWER', 'REVIEWER', 'ADMIN'].map((r) => h('th', { scope: 'col', text: t(`role_${r}`) })))),
-    h('tbody', {}, ...caps.map(([k, ...v]) => h('tr', {}, h('th', { scope: 'row', text: t(k) }), ...v.map((x) => h('td', { class: x ? 'yes' : 'no' }, h('span', { 'aria-hidden': 'true', text: x ? '✓' : '—' }), h('span', { class: 'sr', text: x ? t('yes') : t('no') }))))),
-      h('tr', {}, h('th', { scope: 'row', text: t('mx_src') }), ...['VIEWER', 'REVIEWER', 'ADMIN'].map((r) => h('td', { class: 'note', text: t(`mx_src_${r}`) })))))));
+/** The permission matrix as the server enforces it (GET /api/permissions): explicit permissions per module, nothing inherited. */
+async function matrixSection() {
+  const r = await api('GET', '/api/permissions'); if (r.status !== 200) return h('p', { class: 'alert alert-bad', role: 'alert' }, icon('alert'), failure(r, t('err_generic')));
+  const m = r.data, label = (p) => { const k = `pm_${p.replace(/\./g, '_')}`; return has(k) ? t(k) : m.permissions[p].desc; };
+  const sections = Object.entries(m.modules).map(([mod, perms]) => h('section', { class: 'card minw0', 'aria-labelledby': `mx-${mod}` }, h('h2', { id: `mx-${mod}`, text: has(`pmod_${mod}`) ? t(`pmod_${mod}`) : mod }),
+    h('div', { class: 'dt-wrap', role: 'region', tabindex: '0', 'aria-label': mod }, h('table', { class: 'dt' }, h('caption', { class: 'sr', text: mod }),
+      h('thead', {}, h('tr', {}, h('th', { scope: 'col', text: t('mx_cap') }), ...m.roles.map((ro) => h('th', { scope: 'col', class: 'num', text: t(`role_${ro}`) })), h('th', { scope: 'col', text: t('mx_flags') }))),
+      h('tbody', {}, ...perms.map((p) => { const d = m.permissions[p]; return h('tr', {}, h('th', { scope: 'row' }, label(p), h('div', { class: 'faint mono', text: p })), ...m.roles.map((ro) => h('td', { class: 'num' }, d.roles.includes(ro) ? h('span', {}, h('span', { 'aria-hidden': 'true', text: '✓' }), h('span', { class: 'sr', text: t('yes') })) : h('span', {}, h('span', { 'aria-hidden': 'true', class: 'faint', text: '—' }), h('span', { class: 'sr', text: t('no') })))),
+        h('td', { class: 'faint' }, [d.critical ? t('mx_critical') : null, d.dual ? t('mx_dual') : null, d.planned ? t('mx_planned') : null].filter(Boolean).join(' · '))); }))))));
+  const mine = h('p', { class: 'note' }, t('adm_you', { roles: m.you.roles.map((x) => t(`role_${x}`)).join(', '), n: m.you.permissions.length }));
+  return h('div', { class: 'stack' }, h('p', { class: 'note', text: t('adm_rules') }), mine, ...sections);
 }

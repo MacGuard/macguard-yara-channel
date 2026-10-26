@@ -1,7 +1,7 @@
 // One published rule: identity, signed content, provenance and licence, what was and was not measured for it, the signatures of its release, and the ways an ADMIN can take it out of distribution.
 // Every block says where its data comes from; what no source provides is NO_DATA, never a guess.
 import { t } from '../i18n.js';
-import { h, icon, put, copyButton, copyText, shaFull, fmtDateTime, bytes, toast } from '../ui.js';
+import { h, icon, put, copyButton, copyText, shaFull, fmtDateTime, bytes, toast, can } from '../ui.js';
 import { api, failure } from '../api.js';
 import { requestWithdrawal } from './policy.js';
 
@@ -15,7 +15,7 @@ export async function renderPublishedRule(ctx) {
   const back = h('p', { class: 'crumbs' }, h('a', { href: '#/published' }, icon('back'), t('nav_published')));
   const r = await api('GET', `/api/published/file?path=${encodeURIComponent(path)}`);
   if (r.status !== 200) { put(root, back, h('div', { class: 'card empty' }, icon('file'), h('h1', { id: 'page-title', tabindex: '-1', text: r.status === 404 ? t('pf_notfound') : failure(r, t('err_generic')) }), h('p', { text: r.status === 404 ? t('pf_notfound_p') : '' }))); return; }
-  const d = r.data, f = d.file, rel = d.release, rec = d.record, pub = d.publication || {}, pol = pub.policy, isAdmin = me.role === 'ADMIN', reload = () => ctx.rerender();
+  const d = r.data, f = d.file, rel = d.release, rec = d.record, pub = d.publication || {}, pol = pub.policy, canAdopt = can(me, 'publication.adopt'), canWithdraw = can(me, 'publication.withdraw.request'), canRevoke = can(me, 'publication.revoke.request'), reload = () => ctx.rerender();
   const c = d.content;
 
   const adopt = async () => { const x = await api('POST', '/api/published/adopt', { path: f.path, request_id: rid() }); if (x.status === 200) { toast(t('pf_adopted')); reload(); } else toast(t('failed', { msg: failure(x, t('err_generic')) }), true); };
@@ -62,12 +62,13 @@ export async function renderPublishedRule(ctx) {
 
   const actions = (() => {
     if (state === 'withdrawn' || state === 'withdrawal_pending') return h('section', { class: 'card', 'aria-labelledby': 'h-act' }, h('h2', { id: 'h-act', text: t('pf_actions') }), h('p', { class: 'alert alert-info' }, icon('lock'), t(`pf_act_${state}`)), h('p', { class: 'note', text: t('pf_act_lift') }));
-    if (!isAdmin) return h('section', { class: 'card', 'aria-labelledby': 'h-act' }, h('h2', { id: 'h-act', text: t('pf_actions') }), h('p', { class: 'alert alert-info' }, icon('lock'), t('pf_act_admin')));
+    if (!canAdopt && !canWithdraw && !canRevoke) return h('section', { class: 'card', 'aria-labelledby': 'h-act' }, h('h2', { id: 'h-act', text: t('pf_actions') }), h('p', { class: 'alert alert-info' }, icon('lock'), t('pf_act_admin')));
+    if (!rec && !canAdopt) return h('section', { class: 'card', 'aria-labelledby': 'h-act' }, h('h2', { id: 'h-act', text: t('pf_actions') }), h('p', { class: 'alert alert-info' }, icon('lock'), t('pf_act_admin')));
     if (!rec) return h('section', { class: 'card', 'aria-labelledby': 'h-act' }, h('h2', { id: 'h-act', text: t('pf_actions') }), h('p', { class: 'note mb-10', text: t('pf_adopt_p') }), h('button', { type: 'button', class: 'btn btn-primary', id: 'pf-adopt', onclick: adopt }, icon('check'), t('pf_adopt')));
     return h('section', { class: 'card', 'aria-labelledby': 'h-act' }, h('h2', { id: 'h-act', text: t('pf_actions') }), h('p', { class: 'note mb-10', text: t('pf_act_p') }),
       h('div', { class: 'stack' },
-        h('button', { type: 'button', class: 'btn btn-bad', id: 'pf-withdraw', onclick: () => withdraw({ scope: 'path', crit: 'STANDARD' }) }, icon('x'), t('pf_withdraw')), h('p', { class: 'note', text: t('pf_withdraw_h') }),
-        h('button', { type: 'button', class: 'btn btn-bad', id: 'pf-revoke', onclick: () => withdraw({ scope: 'content', crit: 'CRITICAL' }) }, icon('alert'), t('pf_revoke')), h('p', { class: 'note', text: t('pf_revoke_h') })),
+        canWithdraw ? [h('button', { type: 'button', class: 'btn btn-bad', id: 'pf-withdraw', onclick: () => withdraw({ scope: 'path', crit: 'STANDARD' }) }, icon('x'), t('pf_withdraw')), h('p', { class: 'note', text: t('pf_withdraw_h') })] : null,
+        canRevoke ? [h('button', { type: 'button', class: 'btn btn-bad', id: 'pf-revoke', onclick: () => withdraw({ scope: 'content', crit: 'CRITICAL' }) }, icon('alert'), t('pf_revoke')), h('p', { class: 'note', text: t('pf_revoke_h') })] : null),
       (d.newer_versions || []).length ? h('p', { class: 'note mt-10' }, t('pf_newer'), ' ', ...d.newer_versions.flatMap((x) => [h('a', { href: `#/rules/${x.id}`, class: 'mono', text: x.sha256.slice(0, 10) }), ' '])) : h('p', { class: 'note mt-10', text: t('pf_replace_h') }));
   })();
 

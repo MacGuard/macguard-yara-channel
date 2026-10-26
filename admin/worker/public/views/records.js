@@ -2,7 +2,7 @@
 // and the same actions, whatever the family. The page only chooses a scope (what belongs to it) and the families it covers. Actions are decisions recorded by the server (hold, quarantine, reject,
 // approve for the next publication); "approve" says why it is blocked when the evidence does not allow it. Nothing here publishes: PUBLISHED is set only by the signing pipeline.
 import { t, has } from '../i18n.js';
-import { h, icon, put, clear, pillGroup, modal, reasonField, toast } from '../ui.js';
+import { h, icon, put, clear, pillGroup, modal, reasonField, toast, can } from '../ui.js';
 import { api, failure } from '../api.js';
 import { detailBody, cell, label, num } from './intel.js';
 
@@ -38,7 +38,7 @@ function historyList(list) {
 
 /** mount: where to draw. opts: { ctx, scope: 'quarantine' | 'published' | null, families: [...], cols, query, urlFor(f) } */
 export async function recordsBrowser(mount, opts) {
-  const { ctx, scope, families, cols = MIXED, query, urlFor } = opts, canDecide = ctx.me.role !== 'VIEWER';
+  const { ctx, scope, families, cols = MIXED, query, urlFor } = opts, canDecide = can(ctx.me, 'intel.decide') || can(ctx.me, 'intel.approve'), allowed = (a) => can(ctx.me, a === 'approve' ? 'intel.approve' : 'intel.decide');
   const f = { family: families.includes(query.get('family')) ? query.get('family') : '', source: query.get('source') || '', state: query.get('state') || '', q: query.get('q') || '' };
   put(mount, h('div', { class: 'skeleton sk-block' }));
   const [src, stats] = await Promise.all([api('GET', '/api/intel/sources'), api('GET', '/api/intel/stats')]);
@@ -63,7 +63,7 @@ export async function recordsBrowser(mount, opts) {
   let seq = 0, cursor = null, selected = null;
   const drawBar = () => {
     clear(bar); const n = selection.size; if (!n) return;
-    const states = new Set(selection.values()), acts = ['approve', 'quarantine', 'reject', 'hold'].filter((a) => scope === 'published' ? a !== 'approve' : true);
+    const states = new Set(selection.values()), acts = ['approve', 'quarantine', 'reject', 'hold'].filter((a) => allowed(a) && (scope === 'published' ? a !== 'approve' : true));
     bar.append(h('div', { class: 'bulkbar', role: 'region', 'aria-label': t('q_bulk') }, h('span', { class: 'count', text: n === 1 ? t('q_selected_one') : t('q_selected_n', { n }) }),
       h('button', { type: 'button', class: 'btn btn-sm btn-ghost', text: t('q_clear_sel'), onclick: () => { selection.clear(); for (const cb of tbody.querySelectorAll('input[type=checkbox]')) cb.checked = false; drawBar(); } }),
       h('div', { class: 'btns' }, ...acts.filter((a) => [...states].some((s) => actionsFor(s, scope).includes(a))).map((a) => h('button', { type: 'button', class: `btn btn-sm btn-${VARIANT[a] === 'primary' ? 'ghost' : VARIANT[a]}`, onclick: () => decideRecords(a, new Map(selection), () => { selection.clear(); reload(); }) }, icon(ICON[a]), t(`ix_act_${a}`))))));
@@ -89,7 +89,7 @@ export async function recordsBrowser(mount, opts) {
     const r = await api('GET', `/api/intel/records/${encodeURIComponent(id)}`);
     if (r.status !== 200) { put(sheet, h('p', { class: 'alert alert-bad', role: 'alert' }, failure(r, t('err_generic')))); return; }
     const d = r.data, rec = d.record, close = h('button', { type: 'button', class: 'btn btn-sm btn-ghost', 'aria-label': t('close') }, icon('x')); close.addEventListener('click', () => { sheet.hidden = true; tr.setAttribute('aria-selected', 'false'); tr.focus(); });
-    const acts = canDecide ? actionsFor(rec.state, scope).map((a) => {
+    const acts = canDecide ? actionsFor(rec.state, scope).filter(allowed).map((a) => {
       const blocked = a === 'approve' && !d.approvable.ok;
       return h('button', { type: 'button', class: `btn btn-sm btn-${VARIANT[a] === 'primary' ? 'ghost' : VARIANT[a]}`, disabled: blocked, 'aria-describedby': blocked ? 'ix-block-why' : null, onclick: () => decideRecords(a, new Map([[rec.id, rec.state]]), () => { reload(); openSheet(id, tr); }) }, icon(ICON[a]), t(`ix_act_${a}`));
     }) : [];

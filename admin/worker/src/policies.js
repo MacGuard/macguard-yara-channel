@@ -1,7 +1,8 @@
 // Persistent administrative policy: withdrawal of a published rule, its lift state machine and its confirmation by evidence.
 // Design: docs/audit/quarantine-decision-memory-and-withdrawal-spec.md. Nothing here edits a release or a candidate other than through the guarded batches below;
 // the only way a withdrawal becomes CONFIRMED is a later public release whose manifest the Worker itself fetched and verified (src/publication.js).
-import { atLeast, canonical, chainHash, sha256hex, GENESIS } from './core.js';
+import { canonical, chainHash, sha256hex, GENESIS } from './core.js';
+import { can } from './rbac.js';
 import { fetchPublication } from './publication.js';
 
 // ---- constants of the state machine (the DB repeats the ones it can: migrations/0003_policies.sql) ----
@@ -46,21 +47,32 @@ const REQID = /^[A-Za-z0-9_-]{16,80}$/, UUIDISH = /^[0-9a-f-]{8,64}$/;
 const visible = (s) => s.replace(/[\s\p{Cf}]/gu, '').length;
 const reasonOk = (r, min = 5) => typeof r === 'string' && visible(r) >= min && r.length <= 2000;
 const bad = (m) => ({ ok: false, status: 400, error: m });
-const adminOnly = (role) => (atLeast(role, 'ADMIN') ? null : { ok: false, status: 403, error: 'admin role required' });
+const needs = (role, perm) => (can(role, perm) ? null : { ok: false, status: 403, error: `the permission ${perm} is required` });   // `role`: a role name or the person's roles
 export function validateWithdrawalRequest(b, role) {
-  const no = adminOnly(role); if (no) return no;
+  const no = needs(role, 'publication.withdraw.request'); if (no) return no;
+  return validateWithdrawalShape(b, role);
+}
+function validateWithdrawalShape(b, role) {
   if (!b || typeof b !== 'object') return bad('JSON body required');
   if (typeof b.candidate_id !== 'string' || !UUIDISH.test(b.candidate_id)) return bad('candidate_id required');
   if (!SCOPES.includes(b.scope)) return bad('scope must be "path" or "content" (explicit: there is no default)');
   if (!CRITICALITIES.includes(b.criticality)) return bad('criticality must be "STANDARD" or "CRITICAL" (explicit: it decides who may lift the block)');
+  if (role !== undefined && (b.criticality === 'CRITICAL' || b.scope === 'content')) { const deny = needs(role, 'security.suspend'); if (deny) return deny; }   // a critical or content-wide block is a preventive SUSPENSION (effective at once); it becomes a definitive revocation only through an independent approval
   if (!reasonOk(b.reason)) return bad('a reason of 5 to 2000 visible characters is required');
   if (typeof b.request_id !== 'string' || !REQID.test(b.request_id)) return bad('request_id (16-80 url-safe chars) required: it makes the request idempotent');
   if (!Number.isInteger(b.expect_version)) return bad('expect_version (the version you saw) required');
   if (!Number.isInteger(b.confirm_collateral) || b.confirm_collateral < 0) return bad('confirm_collateral must equal the number of dependent rules that leave with this one');
   return { ok: true, value: { candidate_id: b.candidate_id, scope: b.scope, criticality: b.criticality, reason: b.reason.trim(), request_id: b.request_id, expect_version: b.expect_version, confirm_collateral: b.confirm_collateral } };
 }
+/** A preventive suspension ordered for a security incident (SECURITY_ADMIN or ADMIN): always critical, effective at once, with a real justification. Making it definitive is a separate, independently approved step. */
+export function validateSuspensionRequest(b, role) {
+  const no = needs(role, 'security.suspend'); if (no) return no;
+  if (!b || typeof b !== 'object') return bad('JSON body required');
+  if (!reasonOk(b.reason, 20)) return bad('a suspension needs a justification of at least 20 visible characters');
+  return validateWithdrawalShape({ ...b, criticality: 'CRITICAL' });
+}
 export function validateLiftRequest(b, role) {
-  const no = adminOnly(role); if (no) return no;
+  const no = needs(role, 'publication.lift.request'); if (no) return no;
   if (!b || typeof b !== 'object') return bad('JSON body required');
   if (!['DIRECT', 'DUAL', 'BREAKGLASS'].includes(b.kind)) return bad('kind must be DIRECT, DUAL or BREAKGLASS');
   if (!reasonOk(b.reason, b.kind === 'BREAKGLASS' ? 20 : 5)) return bad(b.kind === 'BREAKGLASS' ? 'an emergency lift needs a reason of at least 20 visible characters saying why a second administrator is not available' : 'a reason of 5 to 2000 visible characters is required');
@@ -69,8 +81,8 @@ export function validateLiftRequest(b, role) {
   if (!Number.isInteger(b.expect_version)) return bad('expect_version (the policy version you saw) required');
   return { ok: true, value: { kind: b.kind, reason: b.reason.trim(), request_id: b.request_id, expect_version: b.expect_version } };
 }
-export function validateLiftStep(b, role, { reason = false, outcome = false } = {}) {
-  const no = adminOnly(role); if (no) return no;
+export function validateLiftStep(b, role, { reason = false, outcome = false, perm = 'publication.lift.authorize' } = {}) {
+  const no = needs(role, perm); if (no) return no;
   if (!b || typeof b !== 'object') return bad('JSON body required');
   if (typeof b.request_id !== 'string' || !REQID.test(b.request_id)) return bad('request_id (16-80 url-safe chars) required');
   if (!Number.isInteger(b.expect_version)) return bad('expect_version (the version of the lift you saw) required');
@@ -142,11 +154,11 @@ export async function requestWithdrawal(db, env, deps, req, actor, now) {
     const id = deps.uuid(), base = { tag: pub.tag, published_at: pub.release.published_at, manifest_sha256: pub.manifest_sha256, rules_root: pub.rules_root, evidence: pub.release.evidence };
     const stmts = [
       db.prepare("UPDATE candidates SET version = version + 1, updated_at = ? WHERE id = ? AND version = ? AND state = 'RELEASED' AND archived_at IS NULL").bind(now, c.id, c.version),
-      db.prepare('INSERT INTO policies (id, scope, scope_key, source, path, sha256, candidate_id, criticality, author, author_id, author_role, reason, created_at, request_id, baseline_tag, baseline_published_at, baseline_manifest_sha256, baseline_rules_root, updated_at) SELECT ?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,? WHERE changes() = 1')
-        .bind(id, req.scope, key, c.source, p.path, c.sha256, c.id, req.criticality, actor.login, actor.id, actor.role, req.reason, now, req.request_id, pub.tag, pub.release.published_at, pub.manifest_sha256, pub.rules_root, now),
-      eventStmt(db, { id }, { version: 1, event: 'WITHDRAWAL_REQUESTED', actor: actor.login, actor_id: actor.id, role: actor.role, reason: req.reason, release_tag: pub.tag, evidence: { baseline: base, collateral: collateral.length, criticality: req.criticality }, request_id: req.request_id, at: now }),
+      db.prepare('INSERT INTO policies (id, scope, scope_key, source, path, sha256, candidate_id, criticality, kind, author, author_id, author_role, reason, created_at, request_id, baseline_tag, baseline_published_at, baseline_manifest_sha256, baseline_rules_root, updated_at) SELECT ?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,? WHERE changes() = 1')
+        .bind(id, req.scope, key, c.source, p.path, c.sha256, c.id, req.criticality, req.criticality === 'CRITICAL' || req.scope === 'content' ? 'SUSPENSION' : 'WITHDRAWAL', actor.login, actor.id, actor.role, req.reason, now, req.request_id, pub.tag, pub.release.published_at, pub.manifest_sha256, pub.rules_root, now),
+      eventStmt(db, { id }, { version: 1, event: 'WITHDRAWAL_REQUESTED', actor: actor.login, actor_id: actor.id, role: actor.role, reason: req.reason, release_tag: pub.tag, evidence: { baseline: base, collateral: collateral.length, criticality: req.criticality, kind: req.criticality === 'CRITICAL' || req.scope === 'content' ? 'SUSPENSION' : 'WITHDRAWAL' }, request_id: req.request_id, at: now }),
       db.prepare(GUARD),
-      await auditStmt(db, { actor: actor.login, role: actor.role, action: 'policy.withdrawal_requested', target: id, detail: { request_id: req.request_id, policy_id: id, policy_version: 1, scope: req.scope, scope_key: key, criticality: req.criticality, source: c.source, path: p.path, sha256: c.sha256, candidate_id: c.id,
+      await auditStmt(db, { actor: actor.login, role: actor.role, action: 'policy.withdrawal_requested', target: id, detail: { request_id: req.request_id, policy_id: id, policy_version: 1, scope: req.scope, scope_key: key, criticality: req.criticality, kind: req.criticality === 'CRITICAL' || req.scope === 'content' ? 'SUSPENSION' : 'WITHDRAWAL', source: c.source, path: p.path, sha256: c.sha256, candidate_id: c.id,
         candidate_version_before: c.version, candidate_version_after: c.version + 1, reason: req.reason, baseline: base, collateral, confirm_collateral: req.confirm_collateral } }, now)];
     return { db, stmts, ok: async () => ({ status: 200, policy: view(await db.prepare('SELECT * FROM policies WHERE id = ?').bind(id).first()) ?? { id }, collateral, baseline: base }) };
   });
@@ -392,4 +404,19 @@ export async function snapshot(db, now) {
   const overdue = (await db.prepare("SELECT COUNT(*) AS n FROM policy_lifts WHERE kind = 'BREAKGLASS' AND state = 'APPLIED' AND reviewed_at IS NULL AND review_due_at < ?").bind(now).first()).n;
   return { schema: 1, generated_at: now, audit_head: head ? { seq: head.seq, hash: head.hash } : { seq: 0, hash: GENESIS }, decisions_max_id: maxDecision, policies, lifted, rejected,
     policy_set_sha256: await sha256hex(canonical(policies)), rejected_sha256: await sha256hex(canonical(rejected)), breakglass_reviews_overdue: overdue };
+}
+
+/** The effect of an approved `policy.revoke_confirm`: a SUSPENSION that is still in force becomes a definitive REVOCATION (version +1, event, audit). A policy that is no longer a suspension in force is never changed. */
+export async function confirmRevocation(db, policyId, approval, actor, now) {
+  return attempt(async () => {
+    const p = await db.prepare('SELECT * FROM policies WHERE id = ?').bind(policyId).first();
+    if (!p) return { done: { status: 404, error: 'policy not found' } };
+    if (p.kind === 'REVOCATION') return { done: { status: 200, replay: true, policy: view(p) } };
+    if (p.kind !== 'SUSPENSION' || p.status !== 'ACTIVE') return { done: { status: 409, error: 'only a suspension that is still in force can become a definitive revocation', kind: p.kind, status_now: p.status } };
+    return { db, stmts: [
+      db.prepare("UPDATE policies SET kind = 'REVOCATION', version = version + 1, updated_at = ? WHERE id = ? AND version = ? AND kind = 'SUSPENSION' AND status = 'ACTIVE'").bind(now, p.id, p.version), db.prepare(GUARD),
+      eventStmt(db, p, { version: p.version + 1, event: 'REVOCATION_CONFIRMED', actor: actor.login, actor_id: actor.id, role: actor.role, reason: approval.approval_reason || approval.reason, evidence: { approval_id: approval.id, requested_by_id: approval.requested_by_id, approved_by_id: approval.approved_by_id }, request_id: `rev-${approval.id}`, at: now }),
+      db.prepare(GUARD), await auditStmt(db, { actor: actor.login, role: actor.role, action: 'policy.revocation_confirmed', target: p.id, detail: { policy_id: p.id, version_from: p.version, version_to: p.version + 1, approval_id: approval.id, requested_by_id: approval.requested_by_id, approved_by_id: approval.approved_by_id } }, now)],
+      ok: async () => ({ status: 200, policy: view(await db.prepare('SELECT * FROM policies WHERE id = ?').bind(p.id).first()) }) };
+  });
 }

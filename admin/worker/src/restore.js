@@ -1,3 +1,4 @@
+import { can } from './rbac.js';
 import { PROCEDURES, STEPS, PARAMS, PROCEDURE_VERSION, serializeParams } from './restore_procedures.js';
 
 // Recovery status for the panel, built only from real public records: the GitHub Actions runs and jobs of backup.yml, the public trust policy (gateway/environments/backup-trust.json), the presence of the verifier
@@ -173,18 +174,20 @@ export const VIA = ['output', 'attest', 'none'];
 export function validateEvent(body, role) {
   const bad = (m, status = 400) => ({ ok: false, status, error: m });
   if (!body || typeof body !== 'object' || Array.isArray(body)) return bad('a JSON object is required');
-  const allowed = new Set(['event', 'procedure', 'step', 'run', 'via']); for (const k of Object.keys(body)) if (!allowed.has(k)) return bad(`unknown field ${k}`);
+  const allowed = new Set(['event', 'procedure', 'step', 'run', 'via', 'authorization_id']); for (const k of Object.keys(body)) if (!allowed.has(k)) return bad(`unknown field ${k}`);
   if (!EVENTS.includes(body.event)) return bad('unknown event');
   const proc = PROCEDURES[body.procedure]; if (!proc) return bad('unknown procedure');
   if (!/^[A-Za-z0-9-]{8,64}$/.test(String(body.run || ''))) return bad('invalid run id');
-  const rank = { VIEWER: 1, REVIEWER: 2, ADMIN: 3 }[role] || 0;
-  if (rank < (proc.protected ? 3 : 2)) return bad(proc.protected ? 'a protected recovery procedure needs the ADMIN role' : 'reviewer role required', 403);
+  const perm = proc.protected ? 'restore.real.record' : 'restore.drill.record';
+  if (!can(role, perm)) return bad(`the permission ${perm} is required`, 403);
+  if (proc.protected) { if (typeof body.authorization_id !== 'string' || !/^[0-9a-f-]{8,64}$/.test(body.authorization_id)) return bad('a real recovery is recorded only under an authorisation by two identities: authorization_id is required', 403); }
+  else if (body.authorization_id !== undefined) return bad('a drill takes no authorisation');
   const needsStep = body.event === 'step_done' || body.event === 'step_failed';
   if (needsStep) { if (!proc.steps.includes(body.step) || !STEPS[body.step]) return bad('unknown step for this procedure'); } else if (body.step !== undefined) return bad('this event takes no step');
   if (body.event === 'step_done') {
     const kind = STEPS[body.step].check.kind; if (kind === 'none' ? body.via !== 'none' : body.via !== kind) return bad(`this step is confirmed by "${kind}", not by "${body.via}"`);
   } else if (body.via !== undefined) return bad('this event takes no confirmation method');
-  const detail = { run: body.run, ...(needsStep ? { step: body.step } : {}), ...(body.event === 'step_done' ? { via: body.via } : {}), procedure_version: 1 };
+  const detail = { run: body.run, ...(proc.protected ? { authorization_id: body.authorization_id } : {}), ...(needsStep ? { step: body.step } : {}), ...(body.event === 'step_done' ? { via: body.via } : {}), procedure_version: 1 };
   return { ok: true, action: `restore.${body.event}`, target: body.procedure, detail };
 }
 

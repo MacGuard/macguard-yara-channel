@@ -1,6 +1,6 @@
 // Application shell: boot, sign-in states, navigation (sidebar on desktop, drawer on small screens), hash routing.
 import { t, getLang } from './i18n.js';
-import { h, icon, avatar, roleBadge, put } from './ui.js';
+import { h, icon, avatar, roleBadge, put, can } from './ui.js';
 import { api, setCsrf } from './api.js';
 import { renderLogin } from './views/login.js';
 import { renderQuarantine } from './views/quarantine.js';
@@ -18,8 +18,9 @@ import { tools } from './views/tools.js';
 import { renderRestore } from './views/restore.js';
 
 const root = document.getElementById('root');
-const RANK = { VIEWER: 1, REVIEWER: 2, ADMIN: 3 };
-const NAV = [{ id: 'dashboard', icon: 'grid', label: 'nav_dashboard', min: 1 }, { id: 'quarantine', icon: 'quarantine', label: 'nav_quarantine', min: 1 }, { id: 'published', icon: 'check', label: 'nav_published', min: 1 }, { id: 'intel', icon: 'globe', label: 'nav_intel', min: 2 }, { id: 'activity', icon: 'calendar', label: 'nav_activity', min: 1 }, { id: 'logs', icon: 'file', label: 'nav_logs', min: 2 }, { id: 'sources', icon: 'source', label: 'nav_sources', min: 1 }, { id: 'restore', icon: 'history', label: 'nav_restore', min: 2 }, { id: 'audit', icon: 'audit', label: 'nav_audit', min: 2 }, { id: 'members', icon: 'users', label: 'nav_members', min: 3 }];
+const NAV = [{ id: 'dashboard', icon: 'grid', label: 'nav_dashboard', perm: 'dashboard.read' }, { id: 'quarantine', icon: 'quarantine', label: 'nav_quarantine', perm: 'quarantine.read' }, { id: 'published', icon: 'check', label: 'nav_published', perm: 'publication.read' },
+  { id: 'intel', icon: 'globe', label: 'nav_intel', perm: 'intel.sources.read' }, { id: 'activity', icon: 'calendar', label: 'nav_activity', perm: 'dashboard.read' }, { id: 'logs', icon: 'file', label: 'nav_logs', perm: 'logs.read' }, { id: 'sources', icon: 'source', label: 'nav_sources', perm: 'sources.read' },
+  { id: 'restore', icon: 'history', label: 'nav_restore', perm: 'backups.read' }, { id: 'audit', icon: 'audit', label: 'nav_audit', perm: 'audit.read' }, { id: 'admin', icon: 'users', label: 'nav_admin', perm: 'admin.members.read' }];
 let me = null, content = null, links = [];
 const wasIn = { get: () => { try { return localStorage.getItem('mg_was_in') === '1'; } catch { return false; } }, set: (v) => { try { if (v) localStorage.setItem('mg_was_in', '1'); else localStorage.removeItem('mg_was_in'); } catch { /* ignore */ } } };
 
@@ -29,7 +30,7 @@ function go(hash, replace) { if (replace) { history.replaceState(null, '', hash)
 async function logout(thenSignIn) { await api('POST', '/api/logout'); wasIn.set(false); location.replace(thenSignIn ? '/auth/login' : '/'); }
 
 function navList(close) {
-  links = NAV.filter((n) => RANK[me.role] >= n.min).map((n) => { const a = h('a', { href: `#/${n.id}`, 'data-nav': n.id }, icon(n.icon), h('span', { text: t(n.label) })); a.addEventListener('click', () => close && close()); return a; });
+  links = NAV.filter((n) => can(me, n.perm)).map((n) => { const a = h('a', { href: `#/${n.id}`, 'data-nav': n.id }, icon(n.icon), h('span', { text: t(n.label) })); a.addEventListener('click', () => close && close()); return a; });
   return h('nav', { class: 'nav', 'aria-label': t('main_nav') }, ...links);
 }
 function userBlock() {
@@ -57,11 +58,11 @@ async function route() {
   const rm = path.match(/^\/rules\/([0-9a-f-]{8,64})$/), seg = path.split('/')[1];
   try {
     if (rm) await renderRule(ctx, rm[1]);
-    else if (seg === 'restore' && RANK[me.role] >= 2) await renderRestore(ctx);
-    else if (seg === 'intel' && RANK[me.role] >= 2) await renderIntel(ctx);
-    else if (seg === 'logs' && RANK[me.role] >= 2) await renderLogs(ctx);
-    else if (seg === 'audit' && RANK[me.role] >= 2) await renderAudit(ctx);
-    else if (seg === 'members' && RANK[me.role] >= 3) await renderMembers(ctx);
+    else if (seg === 'restore' && can(me, 'backups.read')) await renderRestore(ctx);
+    else if (seg === 'intel' && can(me, 'intel.sources.read')) await renderIntel(ctx);
+    else if (seg === 'logs' && can(me, 'logs.read')) await renderLogs(ctx);
+    else if (seg === 'audit' && can(me, 'audit.read')) await renderAudit(ctx);
+    else if ((seg === 'admin' || seg === 'members') && can(me, 'admin.members.read')) await renderMembers(ctx);
     else if (seg === 'quarantine') await renderQuarantine(ctx);
     else if (path === '/published/rule') await renderPublishedRule(ctx);
     else if (seg === 'published') await renderPublished(ctx);

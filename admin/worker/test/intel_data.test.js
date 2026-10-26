@@ -28,7 +28,7 @@ const get = (w, user, p) => w.call('GET', `/api/intel/${p}`, { user });
 test('roles and binding: a viewer is refused, a reviewer reads, writes are refused, an unbound database says so', async () => {
   const { w, rev, viewer, admin } = await setup();
   assert.equal((await get(w, viewer, 'sources')).status, 403); assert.equal((await w.call('GET', '/api/intel/sources')).status, 401); assert.equal((await get(w, rev, 'sources')).status, 200); assert.equal((await get(w, admin, 'stats')).status, 200);
-  assert.equal((await w.call('POST', '/api/intel/records', { user: admin, body: {} })).status, 405); assert.equal((await get(w, rev, 'nope')).status, 404);
+  assert.equal((await w.call('POST', '/api/intel/records', { user: admin, body: {} })).status, 404, 'a write to a read-only route is an unknown route: default deny'); assert.equal((await get(w, rev, 'nope')).status, 404);
   const none = await setup(false); const r = await get(none.w, none.rev, 'records'); assert.deepEqual([r.status, r.data.code], [503, 'intel_store_unavailable']);
 });
 
