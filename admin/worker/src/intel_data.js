@@ -40,7 +40,7 @@ export async function listRuns(db, p) {
 export async function listRecords(db, p) {
   const family = p.get('family'), source = p.get('source'), state = p.get('state'), q = (p.get('q') || '').trim(), sort = p.get('sort') || 'id', cursor = p.get('cursor'), limit = lim(p.get('limit'));
   const fams = family === null ? null : family.split(',');
-  if (fams && (fams.length > FAMILIES.length || !fams.every((x) => FAMILIES.includes(x)))) return bad('invalid family'); if (source !== null && !SRC.test(source)) return bad('invalid source'); if (state !== null && !STATE.test(state)) return bad('invalid state');
+  if (fams && (fams.length > FAMILIES.length || new Set(fams).size !== fams.length || !fams.every((x) => FAMILIES.includes(x)))) return bad('invalid family'); if (source !== null && !SRC.test(source)) return bad('invalid source'); if (state !== null && !STATE.test(state)) return bad('invalid state');
   if (!SORTS[sort]) return bad('invalid sort'); if (limit === null) return bad('invalid limit'); if (q.length > 80 || /[\x00-\x1f]/.test(q)) return bad('invalid search');
   const held = p.get('held_back'); if (held !== null && !['0', '1'].includes(held)) return bad('invalid held_back');
   const scope = p.get('scope'); if (scope !== null && !['quarantine', 'published'].includes(scope)) return bad('invalid scope');
