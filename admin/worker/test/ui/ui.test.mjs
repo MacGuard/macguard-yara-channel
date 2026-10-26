@@ -317,11 +317,12 @@ for (const name of WANT) {
       await page.getByText('Leyenda y definiciones').click(); assert.ok((await page.locator('.legend.wide').innerText()).includes('no es un acierto ni un cero'));
       assert.equal(await page.locator('.chart-svg').count(), 3); assert.equal(await page.locator('figure.chart').nth(0).locator('tbody tr').count(), 30);
       await page.getByRole('button', { name: '7 días' }).click(); assert.equal(await page.locator('figure.chart').nth(0).locator('tbody tr').count(), 7); assert.ok(await page.locator('.event.hist').count() >= 5, 'history follows the period');
-      await page.getByRole('link', { name: 'Fuentes' }).first().click(); await page.waitForSelector('.person'); assert.equal(await page.locator('.person').count(), 3);
-      const nex = (await page.locator('.person', { has: page.locator('strong:text-is("nextron")') }).innerText()).replace(/\s+/g, ' '); assert.ok(nex.includes('3ce6640c26') && nex.includes('Sincronizada') && /En cuarentena ahora 7/i.test(nex), nex);
-      assert.ok((await page.locator('.person', { has: page.locator('strong:text-is("yara-x")') }).innerText()).includes('Motor YARA-X')); assert.ok((await page.locator('main').innerText()).includes('todavía no se publica'));
-      for (const a of await page.locator('.person a[href^="https://github.com/"]').all()) { assert.equal(await a.getAttribute('target'), '_blank'); assert.equal(await a.getAttribute('rel'), 'noopener noreferrer'); } assert.deepEqual(page.errors, []);
-      await page.getByRole('button', { name: 'EN' }).click(); await page.waitForSelector('h1:has-text("YARA sources")'); await page.getByRole('link', { name: 'Dashboard' }).first().click(); await page.waitForSelector('.kpi-label:text-is("Rules to review")'); assert.ok((await page.locator('main').innerText()).toLowerCase().includes('scheduled-run success'));
+      await page.getByRole('link', { name: 'Fuentes' }).first().click(); await page.waitForSelector('tr[data-source]'); assert.equal(await page.locator('tr[data-source]').count(), 3);
+      const nexRow = (await page.locator('tr[data-source]', { hasText: 'nextron' }).innerText()).replace(/\s+/g, ' '); assert.ok(nexRow.includes('Sincronizada') && /\b7\b/.test(nexRow), nexRow);
+      await page.locator('tr[data-source]', { hasText: 'nextron' }).click(); await page.waitForSelector('.sheet-side:not([hidden]) h2'); const nex = (await page.locator('.sheet-side').innerText()).replace(/\s+/g, ' '); assert.ok(nex.includes('3ce6640c26') && /En cuarentena ahora 7/i.test(nex), nex);
+      for (const a of await page.locator('.sheet-side a[href^="https://github.com/"]').all()) { assert.equal(await a.getAttribute('target'), '_blank'); assert.equal(await a.getAttribute('rel'), 'noopener noreferrer'); }
+      assert.ok((await page.locator('tr[data-source]', { hasText: 'yara-x' }).innerText()).includes('Motor YARA-X')); assert.ok((await page.locator('main').innerText()).includes('todavía no se publica')); assert.deepEqual(page.errors, []);
+      await page.getByRole('button', { name: 'EN' }).click(); await page.waitForSelector('h1:has-text("Sources")'); await page.getByRole('link', { name: 'Dashboard' }).first().click(); await page.waitForSelector('.kpi-label:text-is("Rules to review")'); assert.ok((await page.locator('main').innerText()).toLowerCase().includes('scheduled-run success'));
       await page.context().close();
       const s2 = await startServer([], { opsDown: 'stats' }); const p2 = await newPage(browser, s2, 'viewer', VIEWPORTS.desktop);
       try {

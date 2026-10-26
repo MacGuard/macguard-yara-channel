@@ -25,7 +25,7 @@ for (const name of WANT) {
     after(async () => { await browser.close(); srv.stop(); srvDown.stop(); });
 
     test('navigation by role: a reviewer and an admin see the Restauración entry; a viewer neither sees it nor can open it', async () => {
-      for (const role of ['reviewer', 'admin']) { const page = await newPage(browser, srv, role, VIEWPORTS.desktop); await goto(page, srv, '/#/dashboard'); assert.equal(await page.getByRole('link', { name: 'Restauración' }).count(), 1, role); await page.getByRole('link', { name: 'Restauración' }).click(); await page.waitForSelector('h1:has-text("Restauración y recuperación")'); assert.deepEqual(page.errors, []); }
+      for (const role of ['reviewer', 'admin']) { const page = await newPage(browser, srv, role, VIEWPORTS.desktop); await goto(page, srv, '/#/dashboard'); assert.equal(await page.getByRole('link', { name: 'Restauración' }).count(), 1, role); await page.getByRole('link', { name: 'Restauración' }).click(); await page.waitForSelector('h1:has-text("Restauración y recuperación")'); assert.match(await page.locator('section[aria-labelledby=rv-h]').innerText(), /Veredicto de recuperación[\s\S]*Ninguno[\s\S]*No/, 'the verdict says there is no proven restore'); assert.deepEqual(page.errors, []); }
       const v = await newPage(browser, srv, 'viewer', VIEWPORTS.desktop); await goto(v, srv, '/#/dashboard'); assert.equal(await v.getByRole('link', { name: 'Restauración' }).count(), 0);
       await v.goto(srv.base + '/#/restore'); await v.waitForSelector('#page-title'); assert.notEqual(await v.locator('h1').innerText(), 'Restauración y recuperación', 'a viewer is sent elsewhere');
       const r = await v.evaluate(() => fetch('/api/restore/status').then((x) => x.status)); assert.equal(r, 403);
@@ -38,7 +38,7 @@ for (const name of WANT) {
       assert.match(await card('Último backup creado').innerText(), /Verificado/); assert.match(await card('Último backup firmado').innerText(), /Verificado/); assert.match(await card('Copias comprobadas').innerText(), /3 \/ 3/);
       assert.match(await card('Último checkpoint confirmado fuera').innerText(), /Desconocido/); assert.match(await card('Última restauración exitosa').innerText(), /No ejecutado/); assert.match(await card('RTO observado (simulacros)').innerText(), /No ejecutado/);
       assert.match(await card('Secretos necesarios (sin valores)').innerText(), /Desconocido/); assert.match(await card('Backblaze B2').innerText(), /Verificado/); assert.match(await card('Último backup creado').innerText(), /GitHub Actions run 5001/);
-      assert.match(await page.locator('.rs-pol, section.card').first().innerText(), /age1synthetic/); assert.deepEqual(page.errors, []);
+      assert.match(await page.locator('section[aria-labelledby=rs-pol]').innerText(), /age1synthetic/); assert.deepEqual(page.errors, []);
       await page.getByRole('button', { name: 'EN' }).click(); await page.waitForSelector('h1:has-text("Restore and recovery")'); assert.match(await page.locator('.rs-ind').first().innerText(), /Last backup created|Verified/);
     });
 

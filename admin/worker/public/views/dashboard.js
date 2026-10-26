@@ -19,9 +19,10 @@ export async function renderDashboard(ctx) {
   const { root } = ctx;
   put(root, h('div', { class: 'page-head' }, h('div', {}, h('h1', { id: 'page-title', tabindex: '-1', text: t('db_title') }), h('p', { text: t('db_lead') })), h('div', { class: 'actions' }, h('button', { type: 'button', class: 'btn btn-sm', onclick: () => ctx.rerender() }, icon('refresh'), t('refresh')))), h('div', { class: 'skeleton sk-block', 'aria-hidden': 'true' }));
   const [ops, stats, alerts, istats] = await Promise.all([loadOps(), api('GET', '/api/stats'), loadBackupAlerts(ctx.me), loadIntelStats(ctx.me)]);
+  const otherQ = istats && !istats.error ? istats.by_state.filter((x) => x.state !== 'APPROVED' && x.state !== 'PUBLISHED').reduce((a, x) => a + x.n, 0) : null;
   const c = (stats.status === 200 && stats.data.counts) || {}, waiting = (c.PENDING || 0) + (c.UNDER_REVIEW || 0);
   const head = h('div', { class: 'page-head' }, h('div', {}, h('h1', { id: 'page-title', tabindex: '-1', text: t('db_title') }), h('p', { text: t('db_lead') })), h('div', { class: 'actions' }, h('button', { type: 'button', class: 'btn btn-sm', onclick: () => ctx.rerender() }, icon('refresh'), t('refresh'))));
-  const cards = [kpi({ id: 'k1', label: t('kpi_quarantine'), value: stats.status === 200 ? String(waiting) : nodata(), sub: stats.status === 200 ? t('kpi_quarantine_sub', { n: c.APPROVED_PENDING_VALIDATION || 0 }) : null, href: '#/quarantine', tone: waiting ? 'warn' : 'ok' })];
+  const cards = [kpi({ id: 'k1', label: t('kpi_quarantine'), value: stats.status === 200 ? String(waiting) : nodata(), sub: stats.status === 200 ? [t('kpi_quarantine_sub', { n: c.APPROVED_PENDING_VALIDATION || 0 }), otherQ === null ? null : ` · ${t('kpi_quarantine_other', { n: otherQ.toLocaleString(document.documentElement.lang === 'en' ? 'en-US' : 'es-ES') })}`] : null, href: '#/quarantine', tone: waiting ? 'warn' : 'ok' })];
   if (!ops.ok) { put(root, head, alerts, h('div', { class: 'card' }, h('p', { class: 'alert alert-bad', role: 'alert' }, icon('alert'), `${t('db_ops_fail')} ${ops.error}`)), h('ul', { class: 'kpis' }, cards)); return; }
   const o = ops.data, sum = o.summary, lr = o.latest.run, st = runState(lr), od = o.latest.observed_day;
   cards.push(

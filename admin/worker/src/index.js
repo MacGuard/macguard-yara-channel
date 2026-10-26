@@ -10,7 +10,8 @@ import * as policies from './policies.js';
 import * as publishedRules from './published_rules.js';
 import * as intelFamilies from './intel_families.js';
 import * as intelData from './intel_data.js';
-import * as intelDecisions from './intel_decisions.js';   // policy: persistent administrative withdrawals (migration 0003)
+import * as intelDecisions from './intel_decisions.js';
+import * as sourceRequests from './source_requests.js';   // policy: persistent administrative withdrawals (migration 0003)
 import { REAUTH, STATE_COOKIE, openToken, resolveGithubAccount, clearCookie, clearStateCookie, createSession, destroySession, effectiveRole, finishLogin, getSession, parseCookies, sessionCookie, startLogin, stateCookie, timingSafeEqual, verifyActionsToken } from './auth.js';
 
 export const HEADERS = {
@@ -122,6 +123,14 @@ export async function handle(request, env, deps) {
         }
         return { inv };
       };
+      if (path === '/api/source-requests' || path.startsWith('/api/source-requests/')) {   // a request for a source of any family; recorded, never fetched; REVIEWER and above
+        if (!atLeast(role, 'REVIEWER')) return err(403, 'reviewer role required');
+        const sm = path.match(/^\/api\/source-requests\/([0-9a-f-]{8,64})\/(accept|reject|cancel)$/);
+        if (method === 'GET' && path === '/api/source-requests') return json(await sourceRequests.list(db));
+        if (method === 'POST' && path === '/api/source-requests') { const rd = await readJson(request, 20_000); if (rd.tooLarge) return err(413, 'request too large'); const out = await sourceRequests.create(db, rd.body, actor, iso, deps.uuid); return json(out.body, out.status); }
+        if (method === 'POST' && sm) { const rd = await readJson(request, 20_000); if (rd.tooLarge) return err(413, 'request too large'); const out = await sourceRequests.decide(db, sm[1], { accept: 'ACCEPTED', reject: 'REJECTED', cancel: 'CANCELLED' }[sm[2]], rd.body, actor, iso, atLeast(role, 'ADMIN')); return json(out.body, out.status); }
+        return err(404, 'unknown endpoint');
+      }
       if (path === '/api/intel' || path.startsWith('/api/intel/')) {   // REVIEWER and above: licence and publication decisions are internal. Read only.
         if (!atLeast(role, 'REVIEWER')) return err(403, 'reviewer role required');
         if (method === 'POST' && path === '/api/intel/decisions') {   // hold / quarantine / reject / approve-for-next-publication, any family but YARA (YARA has its own workflow)

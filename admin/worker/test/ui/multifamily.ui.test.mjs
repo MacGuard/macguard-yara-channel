@@ -2,13 +2,22 @@
 // a blocked approval says why, a decision shows up in the audit and in the activity, and Logs keeps its three records apart. UI_ENGINES=chromium,firefox,webkit (default: chromium only).
 import test, { describe, before, after } from 'node:test';
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import { createRequire } from 'node:module';
 import { chromium, firefox, webkit } from 'playwright';
 import { startServer, openAs, VIEWPORTS } from './harness.mjs';
 
+const AXE = readFileSync(createRequire(import.meta.url).resolve('axe-core/axe.min.js'), 'utf8'), WCAG = ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa'];
+async function axeViolations(page) { page.axeRan = true; await page.evaluate(AXE); const r = await page.evaluate((tags) => axe.run(document, { runOnly: { type: 'tag', values: tags }, resultTypes: ['violations'] }), WCAG); return r.violations.map((v) => `${v.id} (${v.impact}): ${v.nodes.slice(0, 3).map((n) => n.target.join(' ')).join(' | ')}`); }
+const noHScroll = (page) => page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth + 1);
 const ENGINES = { chromium, firefox, webkit }, WANT = (process.env.UI_ENGINES || 'chromium').split(',');
 async function open(browser, srv, role, hash) {
   const ctx = await openAs(browser, srv, role, VIEWPORTS.desktop, {}); const page = await ctx.newPage(); page.errors = [];
   page.on('console', (m) => { if (m.type() === 'error' && !/status of 4\d\d/.test(m.text())) page.errors.push(m.text()); });
+  await page.goto(srv.base + '/' + hash, { waitUntil: 'domcontentloaded' }); await page.waitForSelector('#page-title'); return page;
+}
+async function openScheme(browser, srv, role, hash, scheme, vp) {
+  const ctx = await openAs(browser, srv, role, vp, { colorScheme: scheme }); const page = await ctx.newPage(); page.errors = [];
   await page.goto(srv.base + '/' + hash, { waitUntil: 'domcontentloaded' }); await page.waitForSelector('#page-title'); return page;
 }
 const rowsOf = (page) => page.locator('.dt-sel tbody tr[data-id]');
@@ -65,10 +74,40 @@ for (const name of WANT) {
       await page.getByRole('button', { name: /Verificar/ }).click(); await page.waitForSelector('[role=status] .alert-ok, [role=status] .alert-bad'); assert.match(await page.locator('[role=status] .alert').innerText(), /verific|íntegra|ok/i); assert.deepEqual(page.errors, []);
     });
 
+    test('Sources: every family in one format; a row opens its sheet; adding or retiring is a request with a reason, decided by an administrator', async () => {
+      const page = await open(browser, srv, 'reviewer', '#/sources'); await page.waitForSelector('tr[data-source]'); const t0 = await page.locator('table.dt-sel').innerText();
+      assert.match(t0, /CISA Known Exploited Vulnerabilities/); assert.match(t0, /Emerging Threats/); assert.match(t0, /MalwareBazaar/); assert.match(t0, /Bloqueada/);
+      await page.locator('tr[data-source]', { hasText: 'CISA Known Exploited Vulnerabilities' }).click(); await page.waitForSelector('.sheet-side:not([hidden]) h2'); const sh = await page.locator('.sheet-side').innerText();
+      assert.match(sh, /Descargas y resultados/); assert.match(sh, /Causas que impiden publicar/); assert.match(sh, /Ver sus registros/);
+      await page.locator('tr[data-source]', { hasText: 'MalwareBazaar' }).click(); await page.waitForFunction(() => /MalwareBazaar/.test(document.querySelector('.sheet-side').innerText) && /clave API/.test(document.querySelector('.sheet-side').innerText));
+      await page.getByRole('button', { name: 'Solicitar retirada' }).click(); const dlg = page.getByRole('dialog'); await dlg.waitFor(); await dlg.getByRole('button', { name: 'Solicitar retirada' }).click(); assert.match(await dlg.innerText(), /Mínimo|corto|5/i, 'no reason, no request');
+      await dlg.locator('textarea').fill('upstream requires a key we will not buy'); await dlg.getByRole('button', { name: 'Solicitar retirada' }).click(); await dlg.waitFor({ state: 'detached' });
+      await page.waitForSelector('#h-sq'); assert.match(await page.locator('#h-sq').locator('..').innerText(), /Retirada[\s\S]*Pendiente/);
+      await page.getByRole('button', { name: 'Nueva fuente' }).click(); const d2 = page.getByRole('dialog'); await d2.waitFor(); await d2.locator('#sq-name').fill('URLhaus recent'); await d2.locator('#sq-url').fill('http://insecure.example.org/x');
+      await d2.locator('textarea').fill('we need malicious URLs'); await d2.getByRole('button', { name: 'Solicitar' }).click(); assert.match(await d2.innerText(), /https/, 'a non-https address is refused before anything is sent');
+      await d2.locator('#sq-url').fill('https://urlhaus.abuse.ch/downloads/csv_recent/'); await d2.getByRole('button', { name: 'Solicitar' }).click(); await d2.waitFor({ state: 'detached' });
+      await page.waitForFunction(() => /URLhaus recent/.test(document.querySelector('#h-sq').parentElement.innerText));
+      assert.equal(await page.getByRole('button', { name: 'Aceptar' }).count(), 0, 'a reviewer cannot accept');
+      const adm = await open(browser, srv, 'admin', '#/sources'); await adm.waitForSelector('#h-sq'); await adm.getByRole('button', { name: 'Aceptar' }).first().click(); const d3 = adm.getByRole('dialog'); await d3.waitFor();
+      await d3.locator('textarea').fill('licence and format checked'); await d3.getByRole('button', { name: 'Aceptar' }).click(); await d3.waitFor({ state: 'detached' }); await adm.waitForFunction(() => /Aceptada/.test(document.querySelector('#h-sq').parentElement.innerText));
+      const audit = await adm.evaluate(() => fetch('/api/audit?limit=20').then((r) => r.json())); assert.ok(audit.entries.some((e) => e.action === 'source.requested') && audit.entries.some((e) => e.action === 'source.accepted')); assert.deepEqual(page.errors, []);
+    });
+
+    test('accessibility and layout: the new screens have no WCAG 2.2 AA violations in light and dark, on desktop and phone, and never scroll sideways', async () => {
+      const screens = [['#/dashboard', '.mf-matrix'], ['#/quarantine?fam=other', '.dt-sel tbody tr[data-id]'], ['#/published?fam=other', '.dt-sel'], ['#/sources', 'tr[data-source]'], ['#/logs', '.dt.log'], ['#/logs?tab=chain', '#h-chain'], ['#/activity', 'figure.chart']];
+      for (const [vpName, vp] of [['desktop', VIEWPORTS.desktop], ['phone', VIEWPORTS.iphone]]) for (const scheme of ['light', 'dark']) for (const [hash, sel] of screens) {
+        const page = await openScheme(browser, srv, 'admin', hash, scheme, vp); await page.waitForSelector(sel, { timeout: 15000 });
+        if (hash.startsWith('#/quarantine')) { await page.locator('.dt-sel tbody tr[data-id]').first().click(); await page.waitForSelector('.sheet-side:not([hidden]) h2'); }
+        if (hash === '#/sources') { await page.locator('tr[data-source]').nth(1).click(); await page.waitForSelector('.sheet-side:not([hidden]) h2'); }
+        assert.equal(await noHScroll(page), true, `${hash} ${vpName} ${scheme}`); assert.deepEqual(await axeViolations(page), [], `${hash} ${vpName} ${scheme}`); await page.context().close();
+      }
+    });
+
     test('Dashboard and Activity count every family: one day state with the family that needs attention, a family x day matrix, and a per-family filter', async () => {
       const page = await open(browser, srv, 'reviewer', '#/dashboard'); await page.waitForSelector('.mf-matrix'); const m = await page.locator('.mf-matrix').innerText(); assert.match(m, /YARA/); assert.match(m, /CVE|ATT&CK/); assert.match(m, /Total/);
       assert.match(await page.locator('main').innerText(), /Cada casilla es un día UTC y suma todas las familias/);
       await page.goto(srv.base + '/#/activity'); await page.waitForSelector('figure.chart'); await page.getByRole('button', { name: 'CVE' }).first().click(); await page.waitForSelector('figure.chart');
+      await page.waitForSelector('#h-acts'); assert.match(await page.locator('#h-acts').locator('..').innerText(), /Decisiones otras familias/, 'the decisions made in the earlier tests show as activity by kind');
       const v = await open(browser, srv, 'viewer', '#/dashboard'); await v.waitForSelector('.kpis'); assert.match(await v.locator('main').innerText(), /Solo canal YARA/);
     });
   });

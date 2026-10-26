@@ -343,3 +343,6 @@ details.tight summary { cursor: pointer; font-size: .75rem; color: var(--muted);
 .mf-matrix .mf-total th, .mf-matrix .mf-total td { font-weight: 600; border-top: 1px solid var(--line-strong, var(--line)); }
 .mf-matrix th[scope=row] { white-space: nowrap; font-weight: 500; }
 a.rs-tab { display: inline-flex; align-items: center; text-decoration: none; }
+/* one colour per family, the same everywhere (colour-blind-safe set); text and value always accompany the colour */
+.chart .fam-yara { fill: #4c78a8; } .chart .fam-suricata { fill: #f58518; } .chart .fam-sigma { fill: #54a24b; } .chart .fam-ioc { fill: #e45756; } .chart .fam-hash { fill: #b279a2; } .chart .fam-cve { fill: #72b7b2; } .chart .fam-kev { fill: #9d755d; } .chart .fam-epss { fill: #eeca3b; } .chart .fam-attack { fill: #8cd17d; } .chart .fam-advisory { fill: #bab0ac; }
+.chart-h .tick { font-size: 11px; } .chart-h .tick-label { fill: var(--text); font-size: 12px; }

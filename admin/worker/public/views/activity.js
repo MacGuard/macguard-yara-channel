@@ -3,6 +3,7 @@ import { t, has, getLang } from '../i18n.js';
 import { mergeDays } from './families_agg.js';
 import { h, icon, put, fmtDate, fmtDateTime, fmtTime, pillGroup } from '../ui.js';
 import { chart } from './charts.js';
+import { api } from '../api.js';
 import { loadIntelStats, runsTable } from './intel_summary.js';
 import { loadOps, freshness, dayBadge, mmss, eventLabel, conclusionLabel, STATE_CLASS, STATE_ICON, stateLabel } from './ops.js';
 
@@ -14,6 +15,21 @@ const label = (d) => `${fmtDate(d.date)}: ${stateLabel(d.state)}${d.manual_only 
 
 function runLine(r, kind) {
   return h('li', { class: 'runline' }, h('strong', { text: kind }), h('span', { text: ` · ${conclusionLabel(r)} · ${fmtTime(r.started_at)} UTC · ${t('r_duration')}: ${mmss(r.duration_s)} · ` }), h('a', { href: r.url, target: '_blank', rel: 'noopener noreferrer' }, t('open_run'), icon('external')));
+}
+const CATS = [['decision', /^decision\./], ['intel', /^intel\.decision$/], ['policy', /^policy\./], ['source', /^source\./], ['pipeline', /^pipeline\./], ['access', /^(access|session)\./], ['member', /^member\./]];
+/** What people and the system did, per day and kind, from the audit chain (the latest entries it returns): publication, quarantine, rejection, withdrawal, sources, access. */
+export function actionsByDay(entries) {
+  const days = new Map();
+  for (const e of entries) { const d = (e.at || '').slice(0, 10), cat = (CATS.find(([, re]) => re.test(e.action)) || ['other'])[0]; const row = days.get(d) || {}; row[cat] = (row[cat] || 0) + 1; days.set(d, row); }
+  return [...days.entries()].sort((a, b) => b[0].localeCompare(a[0])).slice(0, 14).map(([date, counts]) => ({ date, counts }));
+}
+function actionsSection(entries) {
+  const rows = actionsByDay(entries), cats = [...CATS.map(([c]) => c), 'other'].filter((c) => rows.some((r) => r.counts[c]));
+  if (!rows.length) return h('section', { class: 'card' }, h('h2', { text: t('ac_actions_h') }), h('p', { class: 'nodata', text: t('ac_actions_none') }));
+  return h('section', { class: 'card minw0', 'aria-labelledby': 'h-acts' }, h('h2', { id: 'h-acts', text: t('ac_actions_h') }), h('p', { class: 'note', text: t('ac_actions_p', { n: entries.length }) }),
+    h('div', { class: 'dt-wrap', role: 'region', tabindex: '0', 'aria-label': t('ac_actions_h') }, h('table', { class: 'dt' }, h('caption', { class: 'sr', text: t('ac_actions_h') }),
+      h('thead', {}, h('tr', {}, h('th', { scope: 'col', text: t('chart_day') }), ...cats.map((c) => h('th', { scope: 'col', class: 'num', text: t(`ac_cat_${c}`) })))),
+      h('tbody', {}, ...rows.map((r) => h('tr', {}, h('th', { scope: 'row', text: r.date }), ...cats.map((c) => h('td', { class: 'num', text: r.counts[c] ? String(r.counts[c]) : '·' }))))))));
 }
 const famName = (f) => (has(`ix_f_${f}`) ? t(`ix_f_${f}`) : f);
 function dayDetail(d) {
@@ -40,7 +56,7 @@ function dayDetail(d) {
 export async function renderActivity(ctx) {
   const { root, query, me } = ctx; const intelBox = h('div', { class: 'minw0' }); let fam = 'all', days = query.get('days') === '7' ? 7 : 30, selected = /^\d{4}-\d{2}-\d{2}$/.test(query.get('day') || '') ? query.get('day') : null;
   put(root, h('div', { class: 'page-head' }, h('div', {}, h('h1', { id: 'page-title', tabindex: '-1', text: t('ac_title' ) }), h('p', { text: t('ac_lead') }))), h('div', { class: 'skeleton sk-block', 'aria-hidden': 'true' }));
-  const [ops, ist] = await Promise.all([loadOps(), loadIntelStats(me)]); const intelOk = !!(ist && !ist.error); { const n = runsTable(ist); if (n) put(intelBox, n); }
+  const [ops, ist, aud] = await Promise.all([loadOps(), loadIntelStats(me), me.role === 'VIEWER' ? Promise.resolve(null) : api('GET', '/api/audit?limit=200')]); const intelOk = !!(ist && !ist.error); { const n = runsTable(ist); if (n) put(intelBox, n); }
   const head = h('div', { class: 'page-head' }, h('div', {}, h('h1', { id: 'page-title', tabindex: '-1', text: t('ac_title') }), h('p', { text: t('ac_lead') })), h('div', { class: 'actions' }, h('button', { type: 'button', class: 'btn btn-sm', onclick: () => ctx.rerender() }, icon('refresh'), t('refresh'))));
   if (!ops.ok) { put(root, head, h('p', { class: 'alert alert-bad', role: 'alert' }, icon('alert'), `${t('db_ops_fail')} ${ops.error}`)); return; }
   const o0 = ops.data, mdays = mergeDays(o0.days, intelOk ? ist.runs.items : [], o0.days.length, intelOk), o = { ...o0, days: o0.days.map((d, i) => ({ ...d, state: mdays[i].state, ops_state: d.state, cells: mdays[i].cells, attention: mdays[i].attention })) }, byDate = new Map(o.days.map((d) => [d.date, d]));
@@ -72,6 +88,6 @@ export async function renderActivity(ctx) {
   put(root, head, freshness(o), h('section', { class: 'card', 'aria-labelledby': 'h-cal' }, h('h2', { id: 'h-cal', text: t('cal_title') }), h('p', { class: 'note', text: t('cal_utc', { at: o.definitions.schedule_utc }) }), calBox),
     detail, h('section', { class: 'grid-14', 'aria-labelledby': 'h-ch' }, h('div', { class: 'flex-between' }, h('h2', { id: 'h-ch', text: t('ch_title') }), range), intelOk ? famPills : h('p', { class: 'note', text: t('mf_yara_only') }), charts),
     h('section', { class: 'grid-14', 'aria-labelledby': 'h-hist' }, h('h2', { id: 'h-hist', text: t('hist_title') }), history),
-    intelBox);
+    aud && aud.status === 200 ? actionsSection(aud.data.entries) : null, intelBox);
 }
 export { fmtDateTime };
