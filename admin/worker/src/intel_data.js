@@ -16,6 +16,11 @@ export const redact = (m) => String(m).replace(/(bearer\s+[a-z0-9._-]{16,}|ghp_[
 const J = (s, d) => { try { return JSON.parse(s); } catch { return d; } };
 /** Every read sees the EFFECTIVE state: the latest human decision if there is one, else the state the promotion imported. Decisions are a separate append-only table (migration 0002). */
 const EFF = '(SELECT r.*, COALESCE(c.state, r.state) AS eff_state, c.state AS decided_state FROM intel_records r LEFT JOIN intel_current c ON c.record_id = r.id) intel_records';
+/** Before migration INTEL 0002 the overlay does not exist: reads then show the imported state, exactly as the previous Worker did, and say nothing is decided. */
+const EFF_PLAIN = '(SELECT r.*, r.state AS eff_state, NULL AS decided_state FROM intel_records r) intel_records';
+const noOverlay = (e) => /no such (table|view): (main\.)?intel_(current|decisions)/.test(String((e && e.message) || e));
+async function withOverlay(fn) { try { return await fn(EFF); } catch (e) { if (!noOverlay(e)) throw e; return fn(EFF_PLAIN); } }
+export const overlayMissing = noOverlay;
 
 /** Sources with their latest run and the number of records each holds. */
 export async function listSources(db) {
@@ -37,7 +42,8 @@ export async function listRuns(db, p) {
 }
 
 /** Keyset-paginated records. The list never carries the document or the body: only the columns the table shows. */
-export async function listRecords(db, p) {
+export const listRecords = (db, p) => withOverlay((rel) => listRecordsOn(db, p, rel));
+async function listRecordsOn(db, p, EFF) {
   const family = p.get('family'), source = p.get('source'), state = p.get('state'), q = (p.get('q') || '').trim(), sort = p.get('sort') || 'id', cursor = p.get('cursor'), limit = lim(p.get('limit'));
   const fams = family === null ? null : family.split(',');
   if (fams && (fams.length > FAMILIES.length || new Set(fams).size !== fams.length || !fams.every((x) => FAMILIES.includes(x)))) return bad('invalid family'); if (source !== null && !SRC.test(source)) return bad('invalid source'); if (state !== null && !STATE.test(state)) return bad('invalid state');
@@ -67,16 +73,18 @@ export function approvability(rec, run, source) {
   if (source && source.redistribution && /^(no|forbidden|prohibited)/i.test(source.redistribution)) reasons.push({ code: 'licence', detail: source.redistribution });
   return { ok: reasons.length === 0, reasons };
 }
-export async function getRecord(db, id) {
+export const getRecord = (db, id) => withOverlay((rel) => getRecordOn(db, id, rel));
+async function getRecordOn(db, id, rel) {
   if (!ID.test(id)) return bad('invalid id');
-  const r = await db.prepare('SELECT r.*, COALESCE(c.state, r.state) AS eff_state FROM intel_records r LEFT JOIN intel_current c ON c.record_id = r.id WHERE r.id = ?').bind(id).first(); if (!r) return { status: 404, body: { error: 'not found' } };
+  const r = await db.prepare(rel === EFF ? 'SELECT r.*, COALESCE(c.state, r.state) AS eff_state FROM intel_records r LEFT JOIN intel_current c ON c.record_id = r.id WHERE r.id = ?' : 'SELECT r.*, r.state AS eff_state FROM intel_records r WHERE r.id = ?').bind(id).first(); if (!r) return { status: 404, body: { error: 'not found' } };
   const run = await db.prepare('SELECT * FROM intel_runs WHERE id = ?').bind(r.run_id).first(), source = await db.prepare('SELECT * FROM intel_sources WHERE id = ?').bind(r.source_id).first();
-  const history = (await db.prepare('SELECT id, action, from_state, to_state, reason, actor, at, audited FROM intel_decisions WHERE record_id = ? ORDER BY id DESC LIMIT 50').bind(id).all()).results.map((x) => ({ ...x, audited: !!x.audited }));
+  const history = rel === EFF ? (await db.prepare('SELECT id, action, from_state, to_state, reason, actor, at, audited FROM intel_decisions WHERE record_id = ? ORDER BY id DESC LIMIT 50').bind(id).all()).results.map((x) => ({ ...x, audited: !!x.audited })) : [];
   const { doc, body, eff_state, ...rest } = r, runV = run ? runView(run) : null;
   return { status: 200, body: { schema: 1, record: { ...rest, state: eff_state, imported_state: r.state, held_back: r.held_back === null ? null : !!r.held_back, body, doc: J(doc, null) }, run: runV, source: source ? { ...source, configured: !!source.configured } : null, history, approvable: approvability({ held_back: r.held_back, doc }, run, source) } };
 }
 
-export async function stats(db) {
+export const stats = (db) => withOverlay((rel) => statsOn(db, rel));
+async function statsOn(db, EFF) {
   const byFamily = (await db.prepare('SELECT family, COUNT(*) AS records, SUM(CASE WHEN held_back = 1 THEN 1 ELSE 0 END) AS held_back FROM intel_records GROUP BY family ORDER BY family').all()).results;
   const byState = (await db.prepare(`SELECT family, COALESCE(eff_state, 'NONE') AS state, COUNT(*) AS n FROM ${EFF} GROUP BY family, eff_state ORDER BY family, eff_state`).all()).results;
   const bySource = (await db.prepare('SELECT source_id, COUNT(*) AS records, MAX(updated_at) AS newest_update FROM intel_records GROUP BY source_id ORDER BY source_id').all()).results;
@@ -85,7 +93,8 @@ export async function stats(db) {
   const verdicts = (await db.prepare('SELECT family, validated, functional, performance, COUNT(*) AS n FROM intel_records WHERE validated IS NOT NULL GROUP BY family, validated, functional, performance ORDER BY family').all()).results;
   const evLevel = (await db.prepare('SELECT level, COUNT(*) AS n FROM intel_events GROUP BY level').all()).results, evComp = (await db.prepare('SELECT component, COUNT(*) AS n FROM intel_events GROUP BY component ORDER BY component').all()).results;
   const perRun = (await db.prepare('SELECT r.id, r.source_id, s.family, r.retrieved_at, r.state, r.accepted, r.rejected, r.retained, r.approved, r.published, r.bytes FROM intel_runs r LEFT JOIN intel_sources s ON s.id = r.source_id ORDER BY r.retrieved_at, r.id').all()).results;
-  return { schema: 1, generated_at: new Date().toISOString(), by_family: byFamily, by_state: byState, by_source: bySource, runs: { by_state: runs, ...range, items: perRun }, events: { by_level: evLevel, by_component: evComp }, verdicts };
+  let decisions = null; try { const d = await db.prepare('SELECT COUNT(*) AS total, COALESCE(SUM(CASE WHEN audited = 0 THEN 1 ELSE 0 END), 0) AS unaudited FROM intel_decisions').first(); decisions = { total: d.total, unaudited: d.unaudited }; } catch (e) { if (!noOverlay(e)) throw e; }   // null: the migration is not applied
+  return { schema: 1, decisions, generated_at: new Date().toISOString(), by_family: byFamily, by_state: byState, by_source: bySource, runs: { by_state: runs, ...range, items: perRun }, events: { by_level: evLevel, by_component: evComp }, verdicts };
 }
 
 export async function listEvents(db, p) {

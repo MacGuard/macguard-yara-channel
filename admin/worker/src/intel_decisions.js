@@ -1,7 +1,7 @@
 // Human decisions about promoted intelligence records of every family: hold, quarantine, reject, approve. Same shape as the YARA decisions (reason required, idempotent request id, a batch
 // is all-or-nothing, the audit chain records it) but stored in the INTEL database, as an append-only overlay on the imported state. "Approve" means approved for the NEXT publication: this
 // panel never publishes a non-YARA record; PUBLISHED is only ever set by the pipeline that signs a release. A record that cannot be approved says why, from the evidence.
-import { approvability, FAMILIES } from './intel_data.js';
+import { approvability, FAMILIES, overlayMissing } from './intel_data.js';
 import { appendAudit } from './store.js';
 
 export const ACTIONS = { hold: 'RETENIDA', quarantine: 'QUARANTINED', reject: 'REJECTED', approve: 'APPROVED' };
@@ -23,9 +23,17 @@ export function validate(b) {
 }
 
 /** intel: the INTEL database; panel: the panel database (audit). All-or-nothing: one blocked record changes nothing. */
-export async function decide({ intel, panel }, body, actor, now, mayRead = () => true) {
+export async function decide(ctx, body, actor, now, mayRead = () => true) {
+  try { return await decideInner(ctx, body, actor, now, mayRead); } catch (e) { if (overlayMissing(e)) return { status: 503, body: { error: 'migration INTEL 0002 has not been applied to the intelligence database yet; nothing was changed', code: 'migration_pending' } }; throw e; }
+}
+async function decideInner({ intel, panel }, body, actor, now, mayRead) {
   const v = validate(body); if (v.error) return bad(400, v.error); const { action, ids, reason, request_id, expect } = v.value, to = ACTIONS[action];
-  const done = (await intel.prepare('SELECT record_id, to_state FROM intel_decisions WHERE request_id = ? ORDER BY id').bind(request_id).all()).results;
+  const done = (await intel.prepare('SELECT record_id, to_state, family, reason, actor, actor_id, audited FROM intel_decisions WHERE request_id = ? ORDER BY id').bind(request_id).all()).results;
+  if (done.length && done.some((x) => !x.audited) && done[0].actor_id === actor.id) {   // recovery: the decision was recorded but its audit entry was not (a failure in between); the same request finishes the job, once
+    const fams = {}; for (const x of done) fams[x.family] = (fams[x.family] || 0) + 1;
+    try { await appendAudit(panel, { actor: actor.login, role: actor.role, action: 'intel.decision', target: done.length === 1 ? done[0].record_id : `${done.length} records`, detail: { request_id, decision: action, to_state: done[0].to_state, count: done.length, ids: done.slice(0, MAX_BATCH).map((x) => x.record_id), families: fams, actor_id: actor.id, reason: done[0].reason, recovered: true } }, now);
+      await intel.prepare('UPDATE intel_decisions SET audited = 1 WHERE request_id = ?').bind(request_id).run(); } catch { return { status: 500, body: { error: 'the audit entry could still not be written; the decision stays flagged as unaudited', request_id } }; }
+  }
   if (done.length) return done.map((x) => x.record_id).sort().join() === [...ids].sort().join() && done.every((x) => x.to_state === to) ? { status: 200, body: { replay: true, changed: done.length, action, to_state: to } } : bad(409, 'request id reused for a different request');
   const rows = []; const blocked = [], stale = [], unchanged = [];
   for (const id of ids) {
