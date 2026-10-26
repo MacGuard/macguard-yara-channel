@@ -1,7 +1,8 @@
 // Persistent administrative policy: withdrawal of a published rule, its lift state machine and its confirmation by evidence.
 // Design: docs/audit/quarantine-decision-memory-and-withdrawal-spec.md. Nothing here edits a release or a candidate other than through the guarded batches below;
 // the only way a withdrawal becomes CONFIRMED is a later public release whose manifest the Worker itself fetched and verified (src/publication.js).
-import { atLeast, canonical, chainHash, sha256hex, GENESIS } from './core.js';
+import { canonical, chainHash, sha256hex, GENESIS } from './core.js';
+import { can } from './rbac.js';
 import { fetchPublication } from './publication.js';
 
 // ---- constants of the state machine (the DB repeats the ones it can: migrations/0003_policies.sql) ----
@@ -46,13 +47,14 @@ const REQID = /^[A-Za-z0-9_-]{16,80}$/, UUIDISH = /^[0-9a-f-]{8,64}$/;
 const visible = (s) => s.replace(/[\s\p{Cf}]/gu, '').length;
 const reasonOk = (r, min = 5) => typeof r === 'string' && visible(r) >= min && r.length <= 2000;
 const bad = (m) => ({ ok: false, status: 400, error: m });
-const adminOnly = (role) => (atLeast(role, 'ADMIN') ? null : { ok: false, status: 403, error: 'admin role required' });
+const needs = (role, perm) => (can(role, perm) ? null : { ok: false, status: 403, error: `the permission ${perm} is required` });   // `role`: a role name or the person's roles
 export function validateWithdrawalRequest(b, role) {
-  const no = adminOnly(role); if (no) return no;
+  const no = needs(role, 'publication.withdraw.request'); if (no) return no;
   if (!b || typeof b !== 'object') return bad('JSON body required');
   if (typeof b.candidate_id !== 'string' || !UUIDISH.test(b.candidate_id)) return bad('candidate_id required');
   if (!SCOPES.includes(b.scope)) return bad('scope must be "path" or "content" (explicit: there is no default)');
   if (!CRITICALITIES.includes(b.criticality)) return bad('criticality must be "STANDARD" or "CRITICAL" (explicit: it decides who may lift the block)');
+  if (b.criticality === 'CRITICAL' || b.scope === 'content') { const deny = needs(role, 'publication.revoke.request'); if (deny) return deny; }   // a critical or content-wide block is a revocation: its own permission
   if (!reasonOk(b.reason)) return bad('a reason of 5 to 2000 visible characters is required');
   if (typeof b.request_id !== 'string' || !REQID.test(b.request_id)) return bad('request_id (16-80 url-safe chars) required: it makes the request idempotent');
   if (!Number.isInteger(b.expect_version)) return bad('expect_version (the version you saw) required');
@@ -60,7 +62,7 @@ export function validateWithdrawalRequest(b, role) {
   return { ok: true, value: { candidate_id: b.candidate_id, scope: b.scope, criticality: b.criticality, reason: b.reason.trim(), request_id: b.request_id, expect_version: b.expect_version, confirm_collateral: b.confirm_collateral } };
 }
 export function validateLiftRequest(b, role) {
-  const no = adminOnly(role); if (no) return no;
+  const no = needs(role, 'publication.lift.request'); if (no) return no;
   if (!b || typeof b !== 'object') return bad('JSON body required');
   if (!['DIRECT', 'DUAL', 'BREAKGLASS'].includes(b.kind)) return bad('kind must be DIRECT, DUAL or BREAKGLASS');
   if (!reasonOk(b.reason, b.kind === 'BREAKGLASS' ? 20 : 5)) return bad(b.kind === 'BREAKGLASS' ? 'an emergency lift needs a reason of at least 20 visible characters saying why a second administrator is not available' : 'a reason of 5 to 2000 visible characters is required');
@@ -69,8 +71,8 @@ export function validateLiftRequest(b, role) {
   if (!Number.isInteger(b.expect_version)) return bad('expect_version (the policy version you saw) required');
   return { ok: true, value: { kind: b.kind, reason: b.reason.trim(), request_id: b.request_id, expect_version: b.expect_version } };
 }
-export function validateLiftStep(b, role, { reason = false, outcome = false } = {}) {
-  const no = adminOnly(role); if (no) return no;
+export function validateLiftStep(b, role, { reason = false, outcome = false, perm = 'publication.lift.authorize' } = {}) {
+  const no = needs(role, perm); if (no) return no;
   if (!b || typeof b !== 'object') return bad('JSON body required');
   if (typeof b.request_id !== 'string' || !REQID.test(b.request_id)) return bad('request_id (16-80 url-safe chars) required');
   if (!Number.isInteger(b.expect_version)) return bad('expect_version (the version of the lift you saw) required');

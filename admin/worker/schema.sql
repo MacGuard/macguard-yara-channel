@@ -44,7 +44,7 @@ CREATE TABLE IF NOT EXISTS decisions (
 );
 -- A member is identified by the immutable GitHub account id. `login` is only the name seen at the last change; a row with user_id NULL is a legacy
 -- grant by name that is honoured but flagged "unbound" until an ADMIN resolves it to an account (see migrations/0002).
-CREATE TABLE IF NOT EXISTS members (login TEXT PRIMARY KEY, role TEXT NOT NULL CHECK (role IN ('VIEWER','REVIEWER','ADMIN')), granted_by TEXT NOT NULL, at TEXT NOT NULL, user_id INTEGER, updated_at TEXT);
+CREATE TABLE IF NOT EXISTS members (login TEXT PRIMARY KEY, role TEXT NOT NULL CHECK (role IN ('VIEWER','REVIEWER','PUBLISHER','SECURITY_ADMIN','ADMIN')), granted_by TEXT NOT NULL, at TEXT NOT NULL, user_id INTEGER, updated_at TEXT);
 CREATE UNIQUE INDEX IF NOT EXISTS members_user_id ON members (user_id) WHERE user_id IS NOT NULL;
 -- Append-only, hash-chained: hash = SHA-256(prev_hash || canonical entry). Any edit or deletion breaks the chain.
 CREATE TABLE IF NOT EXISTS audit (
@@ -153,7 +153,7 @@ CREATE TABLE IF NOT EXISTS policies (
   criticality TEXT NOT NULL CHECK (criticality IN ('STANDARD','CRITICAL')),
   author TEXT NOT NULL,
   author_id INTEGER NOT NULL,
-  author_role TEXT NOT NULL CHECK (author_role = 'ADMIN'),
+  author_role TEXT NOT NULL CHECK (author_role IN ('ADMIN','PUBLISHER','SECURITY_ADMIN')),
   reason TEXT NOT NULL CHECK (length(trim(reason)) >= 5),
   created_at TEXT NOT NULL,
   request_id TEXT NOT NULL UNIQUE,
@@ -195,7 +195,7 @@ CREATE TABLE IF NOT EXISTS policy_lifts (
   state TEXT NOT NULL CHECK (state IN ('REQUESTED','APPLIED','CANCELLED','EXPIRED')),
   requested_by TEXT NOT NULL,
   requested_by_id INTEGER NOT NULL,
-  requested_role TEXT NOT NULL CHECK (requested_role = 'ADMIN'),
+  requested_role TEXT NOT NULL CHECK (requested_role IN ('ADMIN','PUBLISHER','SECURITY_ADMIN')),
   reason TEXT NOT NULL CHECK (length(trim(reason)) >= 5 AND (kind != 'BREAKGLASS' OR length(trim(reason)) >= 20)),
   requested_at TEXT NOT NULL,
   request_id TEXT NOT NULL UNIQUE,

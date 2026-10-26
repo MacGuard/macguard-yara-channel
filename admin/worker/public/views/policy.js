@@ -1,6 +1,6 @@
 // Withdrawal of a published rule: what the sheet shows (pending / confirmed / lifted) and the one form an ADMIN uses to request it. Lifting is done through the API for now.
 import { t } from '../i18n.js';
-import { h, icon, modal, radioGroup, reasonField, toast, fmtDateTime } from '../ui.js';
+import { h, icon, modal, radioGroup, reasonField, toast, fmtDateTime, can } from '../ui.js';
 import { api, failure } from '../api.js';
 
 const rid = () => `req_${(crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).slice(2) + Date.now().toString(36)).replace(/[^A-Za-z0-9_-]/g, '')}`;
@@ -37,7 +37,7 @@ export function policyCard(c, me, reload) {
       h('p', { class: p.status === 'LIFTED' ? 'alert alert-info' : 'alert alert-bad', role: 'status' }, icon(p.status === 'LIFTED' ? 'info' : 'lock'), t(`pol_${v.publication === 'lifted' ? 'lifted' : v.publication === 'withdrawn' ? 'confirmed' : 'pending'}_p`, { tag: p.confirmed_tag || '' })),
       open ? h('p', { class: 'note', text: t('pol_lift_open', { kind: t(`pol_via_${open.kind}`) }) }) : null, h('dl', { class: 'kv' }, ...lines));
   }
-  if (c.state !== 'RELEASED' || me.role !== 'ADMIN') return null;
+  if (c.state !== 'RELEASED' || !can(me, 'publication.withdraw.request')) return null;
   return h('section', { class: 'card', 'aria-labelledby': 'h-pol' }, h('h2', { id: 'h-pol', text: t('pol_h') }), h('p', { class: 'note mb-10', text: t('pol_none_p') }),
     h('button', { type: 'button', class: 'btn btn-bad', onclick: () => requestWithdrawal(c, reload) }, icon('x'), t('pol_request')));
 }

@@ -1,3 +1,4 @@
+import { can } from './rbac.js';
 import { PROCEDURES, STEPS, PARAMS, PROCEDURE_VERSION, serializeParams } from './restore_procedures.js';
 
 // Recovery status for the panel, built only from real public records: the GitHub Actions runs and jobs of backup.yml, the public trust policy (gateway/environments/backup-trust.json), the presence of the verifier
@@ -177,8 +178,8 @@ export function validateEvent(body, role) {
   if (!EVENTS.includes(body.event)) return bad('unknown event');
   const proc = PROCEDURES[body.procedure]; if (!proc) return bad('unknown procedure');
   if (!/^[A-Za-z0-9-]{8,64}$/.test(String(body.run || ''))) return bad('invalid run id');
-  const rank = { VIEWER: 1, REVIEWER: 2, ADMIN: 3 }[role] || 0;
-  if (rank < (proc.protected ? 3 : 2)) return bad(proc.protected ? 'a protected recovery procedure needs the ADMIN role' : 'reviewer role required', 403);
+  const perm = proc.protected ? 'restore.real.record' : 'restore.drill.record';
+  if (!can(role, perm)) return bad(`the permission ${perm} is required`, 403);
   const needsStep = body.event === 'step_done' || body.event === 'step_failed';
   if (needsStep) { if (!proc.steps.includes(body.step) || !STEPS[body.step]) return bad('unknown step for this procedure'); } else if (body.step !== undefined) return bad('this event takes no step');
   if (body.event === 'step_done') {

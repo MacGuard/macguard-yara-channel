@@ -10,6 +10,7 @@
     "test:ui:search": "node --no-warnings --test --test-concurrency=1 test/ui/search.ui.test.mjs",
     "test:ui:rule": "node --no-warnings --test --test-concurrency=1 test/ui/published_rule.ui.test.mjs",
     "test:ui:intel": "node --no-warnings --test --test-concurrency=1 test/ui/intel.ui.test.mjs",
+    "test:ui:rbac": "node --no-warnings --test --test-concurrency=1 test/ui/rbac.ui.test.mjs",
     "test:ui:restore": "node --no-warnings --test --test-concurrency=1 test/ui/restore.ui.test.mjs"
   },
   "devDependencies": {

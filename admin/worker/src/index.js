@@ -1,5 +1,5 @@
 // MacGuard quarantine service: private API + admin UI assets. The public site never talks to this worker.
-import { MAX_BATCH, RELEASE_TAG, reconcilePublished, PUBLISHED_STATUS, atLeast, blobError, highestRole, roleFromRepoPermission, publicStats, validateDecisionRequest, validateSubmission, verifyChain } from './core.js';
+import { MAX_BATCH, RELEASE_TAG, reconcilePublished, PUBLISHED_STATUS, blobError, roleFromRepoPermission, publicStats, validateDecisionRequest, validateSubmission, verifyChain } from './core.js';
 import * as store from './store.js';
 import { verifyAuditChain } from './anchor.js';
 import * as ops from './ops.js';
@@ -9,8 +9,9 @@ import { fetchPublication } from './publication.js';
 import * as policies from './policies.js';
 import * as publishedRules from './published_rules.js';
 import * as intelFamilies from './intel_families.js';
-import * as intelData from './intel_data.js';   // policy: persistent administrative withdrawals (migration 0003)
-import { REAUTH, STATE_COOKIE, openToken, resolveGithubAccount, clearCookie, clearStateCookie, createSession, destroySession, effectiveRole, finishLogin, getSession, parseCookies, sessionCookie, startLogin, stateCookie, timingSafeEqual, verifyActionsToken } from './auth.js';
+import * as intelData from './intel_data.js';
+import { can, permissionFor, primaryRole, permissionsOf, matrix, familyPermission, isCritical, GRANTABLE_ROLES } from './rbac.js';   // policy: persistent administrative withdrawals (migration 0003)
+import { REAUTH, STATE_COOKIE, openToken, resolveGithubAccount, clearCookie, clearStateCookie, createSession, destroySession, effectiveRoles, finishLogin, getSession, parseCookies, sessionCookie, startLogin, stateCookie, timingSafeEqual, verifyActionsToken } from './auth.js';
 
 export const HEADERS = {
   'Content-Security-Policy': "default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data: https://avatars.githubusercontent.com; connect-src 'self'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'",
@@ -94,18 +95,30 @@ export async function handle(request, env, deps) {
     if (path.startsWith('/api/')) {
       const session = await getSession(db, request, now); if (!session) return err(401, 'sign in required', { code: 'signin' });
       const unsafe = method !== 'GET' && method !== 'HEAD';
-      const role = await effectiveRole(db, session, env, deps, now, { fresh: unsafe });
-      if (role === REAUTH) return json({ error: 'sign in again: your GitHub authorization is no longer valid', code: 'reauth' }, 401, { 'Set-Cookie': clearCookie() });
+      const found = await effectiveRoles(db, session, env, deps, now, { fresh: unsafe }), roles = Array.isArray(found) ? found : [], role = primaryRole(roles);
+      if (found === REAUTH) return json({ error: 'sign in again: your GitHub authorization is no longer valid', code: 'reauth' }, 401, { 'Set-Cookie': clearCookie() });
       if (!role && !((method === 'GET' && path === '/api/me') || (method === 'POST' && path === '/api/logout'))) return err(403, 'your GitHub account has no access to this panel', { code: 'no_access' });   // a person without a role can only see that, and sign out
-      const actor = { login: session.login, id: session.user_id, role };
+      const actor = { login: session.login, id: session.user_id, role, roles };
       if (unsafe) {   // CSRF: same-origin request carrying the per-session token
         if (request.headers.get('Origin') !== url.origin) return err(403, 'cross-origin request refused');
         if (!timingSafeEqual(request.headers.get('X-CSRF-Token') || '', session.csrf)) return err(403, 'missing or wrong CSRF token');
       }
       const iso = new Date(now * 1000).toISOString();
       if (method === 'GET' && path === '/api/me' && !role) return json({ error: 'your GitHub account has no access to this panel', code: 'no_access', login: session.login, csrf: session.csrf }, 403);
-      if (method === 'GET' && path === '/api/me') return json({ login: session.login, user_id: session.user_id, role, csrf: session.csrf, max_batch: MAX_BATCH });
+      if (method === 'GET' && path === '/api/me') return json({ login: session.login, user_id: session.user_id, role, roles, permissions: permissionsOf(roles), csrf: session.csrf, max_batch: MAX_BATCH });
       if (method === 'POST' && path === '/api/logout') { await destroySession(db, session.id); return json({ ok: true }, 200, { 'Set-Cookie': clearCookie() }); }
+      // ---- authorization: one route table, default deny. An unknown route is refused here and never reaches a handler; every known route names the permission it needs. ----
+      const need = permissionFor(method, path);
+      if (!need) return err(404, 'unknown endpoint');
+      if (need !== 'INTEL_BY_FAMILY' && !can(roles, need)) {
+        if (unsafe) await store.appendAudit(db, { actor: session.login, role, action: 'authz.denied', target: path.slice(0, 120), detail: { method, permission: need } }, iso).catch(() => {});   // failed attempts are kept
+        return err(403, `the permission ${need} is required`, { code: 'forbidden', permission: need });
+      }
+      if (unsafe && need !== 'INTEL_BY_FAMILY' && isCritical(need)) {   // critical operations: GitHub was asked again just now (fresh), and the sign-in itself must be recent
+        const max = Number(env.CRITICAL_REAUTH_S || 1800);
+        if (now - session.created_at > max) return json({ error: 'this operation needs a recent sign-in: sign in again', code: 'reauth_required', permission: need }, 401);
+      }
+      if (method === 'GET' && path === '/api/permissions') return json({ schema: 1, you: { roles, permissions: permissionsOf(roles) }, ...matrix() });   // admin.permissions.read (gate above)
       if (method === 'GET' && path === '/api/candidates') {
         return json(await store.listCandidates(db, { state: url.searchParams.get('state') || undefined, q: url.searchParams.get('q') || undefined, source: url.searchParams.get('source') || undefined, synthetic: url.searchParams.get('synthetic') === '1', page: +url.searchParams.get('page') || 1, pageSize: +url.searchParams.get('pageSize') || 25 }));
       }
@@ -121,18 +134,21 @@ export async function handle(request, env, deps) {
         }
         return { inv };
       };
-      if (path === '/api/intel' || path.startsWith('/api/intel/')) {   // REVIEWER and above: licence and publication decisions are internal. Read only.
-        if (!atLeast(role, 'REVIEWER')) return err(403, 'reviewer role required');
+      if (path.startsWith('/api/intel/')) {   // REVIEWER and above: licence and publication decisions are internal. Read only.
         if (method !== 'GET') return err(405, 'method not allowed');
         const NS = { 'Cache-Control': 'private, no-store' }, sp = url.searchParams, send = (r) => json(r.body, r.status, NS);
         if (path === '/api/intel/families') { const got = await inventory(); return json(await intelFamilies.loadFamilies(env, deps, got.inv || null), 200, NS); }
         if (!env.INTEL) return send(intelData.unavailable());
         if (path === '/api/intel/sources') return json(await intelData.listSources(env.INTEL), 200, NS);
         if (path === '/api/intel/runs') return send(await intelData.listRuns(env.INTEL, sp));
-        if (path === '/api/intel/records') return send(await intelData.listRecords(env.INTEL, sp));
+        if (path === '/api/intel/records') {   // each family is its own permission; an unknown family is a 400 from the validator, never a way around the check
+          const asked = (sp.get('family') || 'yara,suricata,sigma,ioc,hash,cve,kev,advisory,attack,epss').split(',');
+          const lacking = asked.find((f) => familyPermission(f) && !can(roles, familyPermission(f))); if (lacking) return err(403, `the permission ${familyPermission(lacking)} is required`, { code: 'forbidden', permission: familyPermission(lacking) });
+          return send(await intelData.listRecords(env.INTEL, sp));
+        }
         if (path === '/api/intel/stats') return json(await intelData.stats(env.INTEL), 200, { 'Cache-Control': 'private, max-age=60' });
         if (path === '/api/intel/events') return send(await intelData.listEvents(env.INTEL, sp));
-        const rm = path.match(/^\/api\/intel\/records\/(.+)$/); if (rm) { let id; try { id = decodeURIComponent(rm[1]); } catch { return err(400, 'invalid id'); } return send(await intelData.getRecord(env.INTEL, id)); }
+        const rm = path.match(/^\/api\/intel\/records\/(.+)$/); if (rm) { let id; try { id = decodeURIComponent(rm[1]); } catch { return err(400, 'invalid id'); } const got = await intelData.getRecord(env.INTEL, id); if (got.status === 200) { const need = familyPermission(got.body.record.family); if (!need || !can(roles, need)) return err(403, `the permission ${need || 'unknown'} is required`, { code: 'forbidden', permission: need }); } return send(got); }
         return err(404, 'unknown endpoint');
       }
       if (method === 'GET' && path === '/api/published/file') {   // one published rule: manifest identity, signed content, provenance, record, policy; any signed-in role
@@ -143,7 +159,6 @@ export async function handle(request, env, deps) {
         return json({ ...rest, publication: pol });
       }
       if (method === 'POST' && path === '/api/published/adopt') {   // ADMIN: register a published rule the panel never saw so that it can be withdrawn
-        if (!atLeast(role, 'ADMIN')) return err(403, 'admin role required');
         const rd = await readJson(request, 2_000); if (rd.tooLarge || !rd.body || typeof rd.body.path !== 'string') return err(400, 'path required');
         const got = await inventory(); if (got.error) return got.error;
         const r = await publishedRules.adoptPublished(db, env, deps, got.inv, { path: rd.body.path, request_id: rd.body.request_id }, actor, iso, deps.uuid);
@@ -163,16 +178,16 @@ export async function handle(request, env, deps) {
         const send = (r) => { const { status, ...rest } = r; return json(rest, status); };
         const readBody = async () => { const rd = await readJson(request, 20_000); return rd.tooLarge ? null : rd.body; };
         if (method === 'GET' && path === '/api/policies') return json(await policies.listPolicies(db, { status: url.searchParams.get('status') || '' }, iso));
-        if (method === 'GET' && path === '/api/policies/preview') { if (!atLeast(role, 'ADMIN')) return err(403, 'admin role required'); return send(await policies.previewWithdrawal(db, env, deps, { candidate_id: url.searchParams.get('candidate_id') || '', scope: url.searchParams.get('scope') || '' })); }
-        if (method === 'POST' && path === '/api/policies/withdrawals') { const x = policies.validateWithdrawalRequest(await readBody(), role); if (!x.ok) return err(x.status, x.error); return send(await policies.requestWithdrawal(db, env, deps, x.value, actor, iso)); }
-        if (method === 'POST' && path === '/api/policies/reconcile') { if (!atLeast(role, 'ADMIN')) return err(403, 'admin role required'); return send(await policies.reconcileNow(db, env, deps, actor, iso)); }
+        if (method === 'GET' && path === '/api/policies/preview') { return send(await policies.previewWithdrawal(db, env, deps, { candidate_id: url.searchParams.get('candidate_id') || '', scope: url.searchParams.get('scope') || '' })); }
+        if (method === 'POST' && path === '/api/policies/withdrawals') { const x = policies.validateWithdrawalRequest(await readBody(), roles); if (!x.ok) return err(x.status, x.error); return send(await policies.requestWithdrawal(db, env, deps, x.value, actor, iso)); }
+        if (method === 'POST' && path === '/api/policies/reconcile') { return send(await policies.reconcileNow(db, env, deps, actor, iso)); }
         const pm = path.match(/^\/api\/policies\/([0-9a-f-]{8,64})$/);
         if (method === 'GET' && pm) { const r = await policies.getPolicy(db, pm[1], iso); return r ? json(r) : err(404, 'not found'); }
         const pl = path.match(/^\/api\/policies\/([0-9a-f-]{8,64})\/lifts$/);
-        if (method === 'POST' && pl) { const x = policies.validateLiftRequest(await readBody(), role); if (!x.ok) return err(x.status, x.error); return send(await policies.requestLift(db, pl[1], x.value, actor, iso)); }
+        if (method === 'POST' && pl) { const x = policies.validateLiftRequest(await readBody(), roles); if (!x.ok) return err(x.status, x.error); return send(await policies.requestLift(db, pl[1], x.value, actor, iso)); }
         const lm = path.match(/^\/api\/policies\/lifts\/([A-Za-z0-9-]{8,64})\/(authorize|execute|cancel|review)$/);
         if (method === 'POST' && lm) {
-          const op = lm[2], x = policies.validateLiftStep(await readBody(), role, { reason: op !== 'execute', outcome: op === 'review' }); if (!x.ok) return err(x.status, x.error);
+          const op = lm[2], x = policies.validateLiftStep(await readBody(), roles, { reason: op !== 'execute', outcome: op === 'review', perm: { authorize: 'publication.lift.authorize', execute: 'publication.lift.breakglass', cancel: 'publication.lift.request', review: 'publication.lift.review' }[op] }); if (!x.ok) return err(x.status, x.error);
           const fn = { authorize: policies.authorizeLift, execute: policies.executeBreakglass, cancel: policies.cancelLift, review: policies.reviewBreakglass }[op];
           return send(await fn(db, lm[1], x.value, actor, iso));
         }
@@ -195,7 +210,6 @@ export async function handle(request, env, deps) {
         return json({ ...data, cache: { hit: false, age_s: 0 } });
       }
       if (method === 'GET' && path === '/api/restore/status') {   // recovery status from public records only (GitHub Actions, the trust policy, repository files); REVIEWER and above
-        if (!atLeast(role, 'REVIEWER')) return err(403, 'reviewer role required');
         const key = new Request(`${env.PUBLIC_URL}/__cache/restore-status-v1`);
         const hit = deps.cache ? await deps.cache.match(key) : null;
         if (hit) { const body = await hit.json(); return json({ ...body, cache: { hit: true, age_s: Math.max(0, now - Math.floor(Date.parse(body.generated_at) / 1000)) } }); }
@@ -204,10 +218,10 @@ export async function handle(request, env, deps) {
         if (deps.cache) await deps.cache.put(key, new Response(JSON.stringify(data), { headers: { 'Content-Type': 'application/json', 'Cache-Control': `max-age=${data.unavailable.length ? 30 : restore.CACHE_SECONDS}` } }));
         return json({ ...data, cache: { hit: false, age_s: 0 } });
       }
-      if (method === 'GET' && path === '/api/restore/procedures') { if (!atLeast(role, 'REVIEWER')) return err(403, 'reviewer role required'); return json(restore.procedureBundle(), 200, { 'Cache-Control': 'private, no-store' }); }
+      if (method === 'GET' && path === '/api/restore/procedures') { return json(restore.procedureBundle(), 200, { 'Cache-Control': 'private, no-store' }); }
       if (method === 'POST' && path === '/api/restore/event') {   // audited progress of a recovery procedure: records, never executes
         const read = await readJson(request, 2_000); if (read.tooLarge) return err(413, 'request body too large');
-        const v = restore.validateEvent(read.body, role); if (!v.ok) return err(v.status, v.error);
+        const v = restore.validateEvent(read.body, roles); if (!v.ok) return err(v.status, v.error);
         if (await store.auditExists(db, { actor: session.login, action: v.action, target: v.target, detail: v.detail })) return json({ ok: true, duplicate: true });
         await store.appendAudit(db, { actor: session.login, role, action: v.action, target: v.target, detail: v.detail }, iso);
         return json({ ok: true, duplicate: false });
@@ -215,19 +229,18 @@ export async function handle(request, env, deps) {
       if (method === 'GET' && path === '/api/stats') { const c = await store.counts(db); return json({ counts: c, sources: await store.sourceCounts(db), synthetic: await store.syntheticCount(db), public: publicStats(c) }); }
       if (method === 'POST' && path === '/api/decisions') {
         const read = await readJson(request, 200_000); if (read.tooLarge) return err(413, 'request body too large');
-        const v = validateDecisionRequest(read.body, role); if (!v.ok) return err(v.status, v.error);
+        const v = validateDecisionRequest(read.body, roles); if (!v.ok) return err(v.status, v.error);
         if (v.value.action === 'approve') { const blocked = await policies.blockedByPolicy(db, v.value.ids); if (blocked.length) return err(409, 'nothing was changed', { conflicts: blocked }); }   // policy: an approval under an administrative prohibition can never take effect
         const r = await store.decide(db, v.value, actor, iso);
         const { status, ...rest } = r; return json(rest, status);
       }
       const rt = path.match(/^\/api\/candidates\/([0-9a-f-]{8,64})\/retest$/);
-      if (method === 'POST' && rt) { if (!atLeast(role, 'REVIEWER')) return err(403, 'reviewer role required'); return (await store.requestRetest(db, rt[1], actor, iso)) ? json({ ok: true, note: 'the next pipeline run will test it again' }) : err(404, 'not found'); }
-      if (method === 'GET' && path === '/api/audit') { if (!atLeast(role, 'REVIEWER')) return err(403, 'reviewer role required'); const fam = url.searchParams.get('family') || ''; return json(await store.auditQuery(db, { limit: Math.min(+url.searchParams.get('limit') || 50, 200), before: +url.searchParams.get('before') || undefined, family: /^[a-z]{1,20}$/.test(fam) ? fam : undefined, actor: (url.searchParams.get('actor') || '').slice(0, 80) || undefined })); }
-      if (method === 'GET' && path === '/api/audit/verify') { if (!atLeast(role, 'ADMIN')) return err(403, 'admin role required'); return json(await verifyAuditChain(db, { after: Math.max(0, +url.searchParams.get('after') || 0), head: url.searchParams.get('head') || null })); }   // archive P1: paginated, anchor-aware
+      if (method === 'POST' && rt) { return (await store.requestRetest(db, rt[1], actor, iso)) ? json({ ok: true, note: 'the next pipeline run will test it again' }) : err(404, 'not found'); }
+      if (method === 'GET' && path === '/api/audit') { const fam = url.searchParams.get('family') || ''; return json(await store.auditQuery(db, { limit: Math.min(+url.searchParams.get('limit') || 50, 200), before: +url.searchParams.get('before') || undefined, family: /^[a-z]{1,20}$/.test(fam) ? fam : undefined, actor: (url.searchParams.get('actor') || '').slice(0, 80) || undefined })); }
+      if (method === 'GET' && path === '/api/audit/verify') { return json(await verifyAuditChain(db, { after: Math.max(0, +url.searchParams.get('after') || 0), head: url.searchParams.get('head') || null })); }   // archive P1: paginated, anchor-aware
       if (path === '/api/members' || path.startsWith('/api/members/')) {
-        if (!atLeast(role, 'ADMIN')) return err(403, 'admin role required');   // enforced here, whatever the UI shows
         const adminToken = () => openToken(env, session.id, session.token);
-        if (method === 'GET' && path === '/api/members') return json(await store.listPeople(db, { q: url.searchParams.get('q') || '', status: url.searchParams.get('status') || '', page: +url.searchParams.get('page') || 1, pageSize: +url.searchParams.get('pageSize') || 25 }, roleFromRepoPermission, highestRole));
+        if (method === 'GET' && path === '/api/members') return json(await store.listPeople(db, { q: url.searchParams.get('q') || '', status: url.searchParams.get('status') || '', page: +url.searchParams.get('page') || 1, pageSize: +url.searchParams.get('pageSize') || 25 }, roleFromRepoPermission));
         if (method === 'GET' && path === '/api/members/lookup') {   // resolves the real GitHub account before anything can be saved
           const login = url.searchParams.get('login') || ''; if (!/^[A-Za-z0-9-]{1,39}$/.test(login)) return err(400, 'a GitHub login is required');
           const tok = await adminToken(); if (!tok) return json({ error: 'sign in again', code: 'reauth' }, 401, { 'Set-Cookie': clearCookie() });
@@ -239,7 +252,7 @@ export async function handle(request, env, deps) {
         if (method === 'GET' && hm) return json({ history: await store.memberHistory(db, +hm[1], url.searchParams.get('login') || '') });
         if (method === 'POST' && path === '/api/members') {
           const read = await readJson(request, 10_000); if (read.tooLarge) return err(413, 'request body too large'); const b = read.body;
-          if (!b || !Number.isInteger(b.user_id) || b.user_id < 1 || !['VIEWER', 'REVIEWER', 'ADMIN', null].includes(b.role)) return err(400, 'user_id (the GitHub account id) and role (VIEWER, REVIEWER, ADMIN or null to revoke) required');
+          if (!b || !Number.isInteger(b.user_id) || b.user_id < 1 || ![...GRANTABLE_ROLES, null].includes(b.role)) return err(400, 'user_id (the GitHub account id) and role (one of VIEWER, REVIEWER, PUBLISHER, SECURITY_ADMIN, ADMIN, or null to revoke) required');
           if (typeof b.reason !== 'string' || b.reason.replace(/[\s\p{Cf}]/gu, '').length < 5 || b.reason.length > 2000) return err(400, 'a reason of 5 to 2000 visible characters is required');
           if (b.user_id === session.user_id) return err(400, 'you cannot change your own role');
           const tok = await adminToken(); if (!tok) return json({ error: 'sign in again', code: 'reauth' }, 401, { 'Set-Cookie': clearCookie() });
@@ -251,7 +264,7 @@ export async function handle(request, env, deps) {
         }
       }
       if (path === '/api/source-proposals' || path.startsWith('/api/source-proposals/')) {   // source proposals (src/proposals.js)
-        const r = await proposals.handleApi({ method, path, url, role, actor, env, deps, db, iso, readJson: (max) => readJson(request, max), getToken: () => openToken(env, session.id, session.token), audit: (a) => store.appendAudit(db, a, iso) });
+        const r = await proposals.handleApi({ method, path, url, role, roles, actor, env, deps, db, iso, readJson: (max) => readJson(request, max), getToken: () => openToken(env, session.id, session.token), audit: (a) => store.appendAudit(db, a, iso) });
         if (r) return json(r.body, r.status, r.reauth ? { 'Set-Cookie': clearCookie() } : {});
       }
       return err(404, 'unknown endpoint');

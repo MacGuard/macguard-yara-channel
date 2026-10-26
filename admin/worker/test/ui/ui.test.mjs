@@ -263,7 +263,7 @@ for (const name of WANT) {
       const s = await startServer(); const page = await newPage(browser, s, 'admin', VIEWPORTS.desktop);
       try {
         await goto(page, s, '/#/members'); await page.waitForSelector('.person');
-        const names = await page.locator('.person .person-head strong').allInnerTexts(); assert.deepEqual(names.sort(), ['ada', 'rita', 'sam', 'vera']);
+        const names = await page.locator('.person .person-head strong').allInnerTexts(); assert.deepEqual(names.sort(), ['ada', 'pat', 'rita', 'sam', 'sec', 'vera']);
         const card = (n) => page.locator('.person', { has: page.locator(`strong:text-is("${n}")`) });
         assert.equal(await card('ada').getByRole('button', { name: 'Cambiar rol' }).count(), 0, 'no self-service role change'); assert.ok((await card('ada').innerText()).includes('no puedes cambiar tu propio rol'));
         assert.ok((await card('ada').innerText()).includes('ID de GitHub 13')); assert.equal(await card('ada').locator('img.avatar, .avatar').count(), 1);
@@ -280,9 +280,9 @@ for (const name of WANT) {
         await card('newbie').getByRole('button', { name: 'Revocar concesión' }).click(); const rd = page.locator('dialog[open]'); await rd.locator('textarea').fill('Ya no participa en el proyecto');
         await Promise.all([page.waitForResponse((r) => r.url().endsWith('/api/members') && r.request().method() === 'POST' && r.status() === 200), rd.getByRole('button', { name: 'Revocar concesión' }).click()]);
         await page.getByRole('button', { name: /Revocados/ }).click(); await page.waitForFunction(() => document.querySelectorAll('.person').length === 1); assert.ok((await page.locator('.person').innerText()).includes('Permiso revocado'));
-        const entries = await page.evaluate(() => fetch('/api/audit?family=member').then((r) => r.json())); assert.deepEqual(entries.entries.map((e) => [e.detail.from_role, e.detail.to_role]).slice(0, 3), [['REVIEWER', null], [null, 'REVIEWER'], [null, 'VIEWER']]);
+        const entries = await page.evaluate(() => fetch('/api/audit?family=member').then((r) => r.json())); assert.deepEqual(entries.entries.map((e) => [e.detail.from_role, e.detail.to_role]).slice(0, 3), [['REVIEWER', null], [null, 'REVIEWER'], [null, 'SECURITY_ADMIN']]);
         assert.ok(entries.entries.every((e) => e.detail.reason && e.detail.user_id && e.actor === 'ada'));
-        assert.ok((await page.locator('.matrix').innerText()).includes('Gestionar miembros y permisos')); assert.deepEqual(page.errors, []);
+        await page.getByRole('button', { name: 'Matriz de permisos' }).click(); await page.waitForSelector('.dt'); assert.ok((await page.locator('main').innerText()).includes('Conceder o revocar roles a identidades de GitHub verificadas')); assert.deepEqual(page.errors, []);
       } finally { await page.context().close(); s.stop(); }
     });
 

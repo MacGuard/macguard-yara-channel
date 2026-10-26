@@ -2,11 +2,10 @@
 // commands are run by the operator on their own machine, step outputs are checked here against what the real verifiers print, and only identifiers (procedure, step, a random run id) reach the server's audit log.
 import { backupAlertCard } from './backup_alerts.js';
 import { t, getLang } from '../i18n.js';
-import { h, icon, put, fmtDateTime, copyButton, toast, bytes, shortSha, modal } from '../ui.js';
+import { h, icon, put, fmtDateTime, copyButton, toast, bytes, shortSha, modal, can } from '../ui.js';
 import { api, failure } from '../api.js';
 import { createEngine, reviveParams } from '../restore/engine.js';
 
-const RANK = { VIEWER: 1, REVIEWER: 2, ADMIN: 3 };
 const STATE_ICON = { VERIFIED: 'check', FAILED: 'x', STALE: 'clock', UNKNOWN: 'minus', NOT_RUN: 'pause' };
 const STATE_CLASS = { VERIFIED: 'ok', FAILED: 'bad', STALE: 'warn', UNKNOWN: 'none', NOT_RUN: 'neutral', AUTHENTICATED: 'info', PROVEN: 'ok', NOT_VERIFIED: 'none' };
 const lang = () => (getLang() === 'en' ? 'en' : 'es');
@@ -97,14 +96,14 @@ function assistantView({ bundle, status, me, query, panel }) {
   const redraw = () => (procId ? put(wrap, runView(procId)) : put(wrap, picker()));
   function picker() {
     return h('div', { class: 'grid-10' }, h('p', { class: 'note', text: t('rs_pick_lead') }), h('ul', { class: 'rs-procs' }, Object.values(procedures).map((p) => {
-      const saved = load(p.id), done = saved ? Object.values(saved.steps).filter((x) => x.state === 'done' || x.state === 'skipped').length : 0, locked = p.protected && RANK[me.role] < 3;
+      const saved = load(p.id), done = saved ? Object.values(saved.steps).filter((x) => x.state === 'done' || x.state === 'skipped').length : 0, locked = p.protected && !can(me, 'restore.real.record');
       const b = h('button', { type: 'button', class: 'btn btn-primary', 'aria-describedby': `pp-${p.id}` }, saved ? t('rs_resume') : locked ? t('rs_view') : t('rs_start')); b.addEventListener('click', () => { procId = p.id; history.replaceState(null, '', `#/restore?tab=assistant&proc=${p.id}`); redraw(); });
       return h('li', { class: 'card' }, h('h2', { text: L(p.title) }), h('p', { id: `pp-${p.id}`, text: L(p.summary) }), h('p', { class: 'note' }, `${p.steps.length} ${t('rs_steps')}${saved ? ` · ${done}/${p.steps.length}` : ''}`),
         p.protected ? h('p', { class: 'badge badge-admin' }, locked ? t('rs_admin_only') : t('rs_protected')) : h('p', { class: 'badge badge-day-ok', text: t('rs_no_prod') }), h('div', {}, b));
     })));
   }
   function runView(pid) {
-    const proc = procedures[pid], list = engine.stepsOf(pid), readOnly = proc.protected && RANK[me.role] < 3;
+    const proc = procedures[pid], list = engine.stepsOf(pid), readOnly = proc.protected && !can(me, 'restore.real.record');
     const st = load(pid) || { run: newRun(), values: {}, steps: {}, idx: 0 }; st.out = {}; st.posted = {}; st.read = st.read || {}; st.mode = st.mode || (Object.keys(st.steps).length ? 'run' : 'guide');
     const canRun = !readOnly, isGuide = () => st.mode === 'guide' || !canRun;      // GUIDE: read through, nothing executes and nothing is recorded as done. RUN (drill or real recovery): each step needs its real evidence
     const done = () => st.steps; const isDone = (id) => st.steps[id] && (st.steps[id].state === 'done');

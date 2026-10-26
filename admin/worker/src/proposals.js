@@ -1,7 +1,8 @@
 // Source proposals: a person proposes a GitHub rules repository, the Worker verifies public facts about it, an ADMIN authorizes it, and a reviewed pull request
 // (opened by a GitHub Actions workflow, never by this Worker) is the only way it can reach config/sources.json. Design: docs/audit/source-proposals-spec.md.
 // The Worker holds NO GitHub write credential: every outbound request here is a GET to the constant host api.github.com carrying the admin's own token.
-import { GENESIS, SYNTHETIC_SOURCE, atLeast, chainHash, sha256Hex } from './core.js';
+import { GENESIS, SYNTHETIC_SOURCE, chainHash, sha256Hex } from './core.js';
+import { can } from './rbac.js';
 
 export const STATES = ['proposed', 'verified', 'approved', 'rejected', 'pr_open', 'active', 'retired'];
 export const TRANSITIONS = { proposed: ['verified', 'rejected', 'proposed'], verified: ['verified', 'rejected', 'approved'], approved: ['pr_open', 'rejected', 'retired'], pr_open: ['active', 'approved', 'retired'], active: ['retired'] };
@@ -255,14 +256,14 @@ async function existingSources(c, exceptId) {
 const ack = (a) => Array.isArray(a) && a.every((x) => typeof x === 'string' && /^[A-Z_]{3,30}$/.test(x));
 
 export async function handleApi(c) {
-  const { method, path, role, actor, db, iso } = c;
+  const { method, path, role, actor, db, iso } = c, roles = c.roles || role;
   if (!enabled(c.env)) return none;
-  if (method === 'GET' && path === '/api/source-proposals') return { status: 200, body: { proposals: await listProposals(db, { state: c.url.searchParams.get('state') || undefined }), can_propose: atLeast(role, 'REVIEWER'), can_authorize: atLeast(role, 'ADMIN') } };
+  if (method === 'GET' && path === '/api/source-proposals') return { status: 200, body: { proposals: await listProposals(db, { state: c.url.searchParams.get('state') || undefined }), can_propose: can(roles, 'sources.propose'), can_authorize: can(roles, 'sources.review') } };
   const m = path.match(/^\/api\/source-proposals\/([0-9a-f-]{8,64})(?:\/(verify|authorize|reject|retire))?$/);
   if (method === 'GET' && m && !m[2]) { const p = await getProposal(db, m[1]); return p ? { status: 200, body: p } : { status: 404, body: { error: 'not found' } }; }
   const readBody = async () => { const r = await c.readJson(LIMITS.bodyBytes); return r.tooLarge ? { error: { status: 413, body: { error: 'request body too large' } } } : { body: r.body }; };
   if (method === 'POST' && path === '/api/source-proposals') {
-    if (!atLeast(role, 'REVIEWER')) return { status: 403, body: { error: 'reviewer role required to propose a source' } };
+    if (!can(roles, 'sources.propose')) return { status: 403, body: { error: 'the permission sources.propose is required' } };
     const rb = await readBody(); if (rb.error) return rb.error;
     const v = validateCreate(rb.body); if (!v.ok) return { status: 400, body: { error: v.error } };
     return reply(await create(db, v.value, actor, iso, c.deps.uuid));
@@ -276,7 +277,7 @@ export async function handleApi(c) {
     return seen.proposal_id === id && EVENT[op].test(seen.event) ? { status: 200, body: { replay: true, proposal: view(await getRaw(db, id)) } } : { status: 409, body: { error: 'request id reused for a different action' } };
   };
   if (op === 'verify') {
-    if (!atLeast(role, 'REVIEWER')) return { status: 403, body: { error: 'reviewer role required' } };
+    if (!can(roles, 'sources.propose')) return { status: 403, body: { error: 'the permission sources.propose is required' } };
     const cur = await getRaw(db, id); if (!cur) return { status: 404, body: { error: 'not found' } };
     if (!['proposed', 'verified'].includes(cur.state)) return { status: 409, body: { error: `a proposal in state ${cur.state} cannot be verified`, state: cur.state } };
     const again = await replayOf(); if (again) return again;
@@ -294,7 +295,7 @@ export async function handleApi(c) {
     if (res.outcome === 'verified') { sets.repo = res.repo; sets.repo_lc = res.repo.toLowerCase(); }
     return reply(await transition(db, id, { from: ['proposed', 'verified'], to: res.outcome === 'verified' ? 'verified' : 'rejected', event: res.outcome === 'verified' ? 'verify.ok' : 'verify.rejected', action: 'source.verify', version: b.expect_version, request_id: b.request_id, state_reason: res.outcome === 'rejected' ? (res.findings.find((f) => f.severity === 'block') || {}).code : null, sets, detail }, actor, iso));
   }
-  if (!atLeast(role, 'ADMIN')) return { status: 403, body: { error: 'admin role required' } };   // authorize, reject and retire are ADMIN only, whatever the UI shows
+  if (!can(roles, 'sources.review')) return { status: 403, body: { error: 'the permission sources.review is required' } };   // authorize, reject and retire are ADMIN only, whatever the UI shows
   const again = await replayOf(); if (again) return again;
   if (!validReason(b.reason)) return { status: 400, body: { error: 'a reason of 5 to 2000 visible characters is required' } };
   if (!Number.isInteger(b.expect_version)) return { status: 400, body: { error: 'expect_version required' } };

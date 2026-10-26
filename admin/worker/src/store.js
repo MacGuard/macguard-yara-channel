@@ -1,4 +1,5 @@
 // Data access for the quarantine service. `db` is a Cloudflare D1 binding (or the test shim with the same API).
+import { can, rolesFor, primaryRole, permissionsOf } from './rbac.js';
 import { chainHead } from './anchor.js';   // archive P1: the chain continues from an anchor, never silently from GENESIS
 import { GENESIS, SYNTHETIC_SOURCE, blockingReasons, sanitizeFindings, chainHash, dependencyEffect, humanTransition, pipelineTransition, releaseTransition } from './core.js';
 
@@ -141,7 +142,7 @@ export async function decide(db, req, actor, now) {
     if (done.length === ids.length && done.every((d) => wanted.has(d.candidate_id) && d.action === action)) return { status: 200, replay: true, applied: [], message: 'this request was already applied' };
     return { status: 409, error: 'request id reused for a different selection or action' };
   }
-  if (action === 'approve' && actor.role !== 'ADMIN' && rows.some((r) => parse(r.reasons, []).includes('new-source'))) return { status: 403, error: 'admin role required to authorise a new source' };   // the new-source hold (scripts/admission.py) is cleared by an ADMIN only; nothing was written
+  if (action === 'approve' && !can(actor.roles || actor.role, 'quarantine.authorise_new_source') && rows.some((r) => parse(r.reasons, []).includes('new-source'))) return { status: 403, error: 'admin role required to authorise a new source' };   // the new-source hold (scripts/admission.py) is cleared by an ADMIN only; nothing was written
   const conflicts = [];
   for (const r of rows) {
     const t = humanTransition(action, r.state);
@@ -282,7 +283,7 @@ export async function changeMember(db, { account, role, reason, actor, durableAd
 }
 
 /** Everyone the panel knows about, merged by immutable id: explicit grants, people who signed in (audit), live sessions (their last GitHub permission) and revoked grants. */
-export async function listPeople(db, { q = '', status = '', page = 1, pageSize = 25 } = {}, roleFromPerm, highest) {
+export async function listPeople(db, { q = '', status = '', page = 1, pageSize = 25 } = {}, roleFromPerm) {
   const people = new Map(), byLogin = new Map();
   const at = (login, id) => {
     const lk = String(login).toLowerCase(); let key = id != null ? `id:${id}` : byLogin.get(lk) || `login:${lk}`;
@@ -297,10 +298,10 @@ export async function listPeople(db, { q = '', status = '', page = 1, pageSize =
   for (const a of (await db.prepare("SELECT at, detail FROM audit WHERE action = 'member.set' ORDER BY seq ASC").all()).results) { let d = {}; try { d = JSON.parse(a.detail); } catch {} if (d.login) changes.set(d.user_id != null ? `id:${d.user_id}` : `login:${String(d.login).toLowerCase()}`, { at: a.at, to: d.to_role, id: d.user_id ?? null, login: d.login }); }
   for (const c of changes.values()) { const p = at(c.login, c.id); if (c.to === null && p.manual_role === null) p.revoked_at = c.at; }
   let out = [...people.values()].map((p) => {
-    const repo_role = p.repo_perm ? roleFromPerm(p.repo_perm) : null, effective = highest(repo_role, p.bound ? p.manual_role : null);
+    const repo_role = p.repo_perm ? roleFromPerm(p.repo_perm) : null, roles = rolesFor({ repoRole: repo_role, manualRole: p.bound ? p.manual_role : null}), effective = primaryRole(roles);
     const origin = repo_role && p.manual_role ? 'both' : repo_role ? 'repo' : p.manual_role ? 'manual' : 'none';
     const state = p.manual_role && !p.bound ? 'unbound' : effective ? 'authorized' : p.revoked_at ? 'revoked' : 'unauthorized';
-    return { user_id: p.user_id, login: p.login, effective_role: effective || 'NONE', origin, repo_role, repo_perm: p.repo_perm, repo_checked_at: p.perm_at, manual_role: p.manual_role, state, bound: p.bound, granted_by: p.granted_by, created_at: p.created_at, updated_at: p.updated_at, revoked_at: p.revoked_at, last_login: p.last_login, logins: p.logins };
+    return { user_id: p.user_id, login: p.login, effective_role: effective || 'NONE', effective_roles: roles, permission_count: permissionsOf(roles).length, origin, repo_role, repo_perm: p.repo_perm, repo_checked_at: p.perm_at, manual_role: p.manual_role, state, bound: p.bound, granted_by: p.granted_by, created_at: p.created_at, updated_at: p.updated_at, revoked_at: p.revoked_at, last_login: p.last_login, logins: p.logins };
   });
   const counts = { authorized: 0, unauthorized: 0, revoked: 0, unbound: 0 }; for (const p of out) counts[p.state] = (counts[p.state] || 0) + 1;
   if (status) out = out.filter((p) => p.state === status);

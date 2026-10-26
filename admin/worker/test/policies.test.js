@@ -70,7 +70,7 @@ test('only an ADMIN may request a withdrawal, whatever the UI shows; nothing is 
   assert.equal((await w.call('POST', '/api/policies/withdrawals', { user: w.ada, body: b1, csrf: false })).status, 403, 'no CSRF token'); assert.equal((await w.call('POST', '/api/policies/withdrawals', { user: w.ada, body: b1, origin: false })).status, 403, 'no same-origin');
   w.perms['tok-ada'] = { push: true };   // GitHub permission downgraded after login: the role is re-read on every unsafe call
   assert.equal((await w.call('POST', '/api/policies/withdrawals', { user: w.ada, body: b1 })).status, 403, 'a downgraded administrator'); w.perms['tok-ada'] = { admin: true };
-  assert.equal(q(w, 'SELECT COUNT(*) AS n FROM policies')[0].n, 0); assert.equal((await auditRows(w.db, 5000)).length, n0, 'not even an audit entry'); assert.ok(base <= n0);
+  assert.equal(q(w, 'SELECT COUNT(*) AS n FROM policies')[0].n, 0); { const after = await auditRows(w.db, 5000); const added = q(w, 'SELECT action FROM audit ORDER BY seq DESC LIMIT ?'.replace('?', String(after.length - n0))); assert.ok(added.length > 0 && added.every((r) => r.action === 'authz.denied'), `the only trace of refused attempts is the denial itself: ${JSON.stringify(added)}`); } assert.ok(base <= n0);
   for (const user of [w.rita, w.vera]) for (const [m, p] of [['POST', '/api/policies/reconcile'], ['GET', `/api/policies/preview?candidate_id=${ids[0]}&scope=path`]]) assert.equal((await w.call(m, p, { user, ...(m === 'POST' ? { body: {} } : {}) })).status, 403, p);
   assert.equal((await w.call('GET', '/api/policies', { user: w.vera })).status, 200, 'reading is for every role'); assert.equal((await w.call('GET', '/api/policies')).status, 401);
 });
@@ -315,7 +315,7 @@ test('M-02 applying 0003 to a production-shaped database (v1 + 0002, 10 candidat
   assert.equal(dump(db), before);
 });
 test('M-03 a fresh install (schema.sql) equals a migrated database, object for object', () => {
-  const fresh = new DatabaseSync(':memory:'); fresh.exec(readFileSync(new URL('../schema.sql', import.meta.url), 'utf8')); const mig = prod(); mig.exec(file('0003_policies.sql'));
+  const fresh = new DatabaseSync(':memory:'); fresh.exec(readFileSync(new URL('../schema.sql', import.meta.url), 'utf8')); const mig = prod(); mig.exec(file('0003_policies.sql')); mig.exec(file('0006_five_roles.sql'));
   const pol = (db) => shape(db).filter((r) => r.name.startsWith('polic')); assert.deepEqual(pol(fresh), pol(mig)); assert.ok(pol(mig).length >= 26);
 });
 test('M-04 rollback on the migrated database removes only the three tables, their indexes and triggers; every existing row is intact; re-applying works', async () => {

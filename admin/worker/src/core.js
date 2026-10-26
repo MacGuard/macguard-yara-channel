@@ -1,16 +1,13 @@
 // Pure logic of the quarantine service: roles, state machine, validation, audit chain. No I/O in this file.
 export const STATES = ['PENDING', 'UNDER_REVIEW', 'APPROVED_PENDING_VALIDATION', 'REJECTED', 'RELEASED'];
-export const ROLES = ['VIEWER', 'REVIEWER', 'ADMIN'];
-const RANK = { VIEWER: 1, REVIEWER: 2, ADMIN: 3 };
+export { ROLES } from './rbac.js';
+import { can } from './rbac.js';
 export const MAX_BATCH = 500;
-
-export function atLeast(role, needed) { return (RANK[role] || 0) >= RANK[needed]; }
 
 /** GitHub repository permission -> role. Read access is public on a public repo, so it grants nothing by itself. */
 export function roleFromRepoPermission(permission) {
   switch (permission) { case 'admin': return 'ADMIN'; case 'maintain': case 'write': return 'REVIEWER'; default: return null; }
 }
-export function highestRole(...roles) { return roles.filter(Boolean).sort((a, b) => RANK[b] - RANK[a])[0] || null; }
 
 // Allowed human transitions. APPROVED -> RELEASED and APPROVED -> PENDING are done by the pipeline, never by a person.
 const HUMAN = {
@@ -151,7 +148,7 @@ export function releaseTransition(fromState) {
 
 export function validateDecisionRequest(body, role) {
   const err = (m) => ({ ok: false, status: 400, error: m });
-  if (!atLeast(role, 'REVIEWER')) return { ok: false, status: 403, error: 'reviewer role required' };
+  if (!can(role, 'quarantine.decide')) return { ok: false, status: 403, error: 'a role that may decide on candidates is required' };   // `role` is a role name or the person's list of roles
   if (!body || typeof body !== 'object') return err('JSON body required');
   const { action, ids, reason, request_id, confirm_count, expect } = body;
   if (!['approve', 'reject', 'hold', 'review', 'release_review'].includes(action)) return err('unknown action');

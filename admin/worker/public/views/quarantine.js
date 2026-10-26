@@ -1,6 +1,6 @@
 // Quarantine list: filters, search, per-state counts, single and batch selection. Rows are cards, never an overflowing table.
 import { t } from '../i18n.js';
-import { h, icon, clear, stateBadge, reasonLabel, fmtDate, shortSha, copyButton, put, pillGroup } from '../ui.js';
+import { h, icon, clear, stateBadge, reasonLabel, fmtDate, shortSha, copyButton, put, pillGroup, can } from '../ui.js';
 import { api, failure } from '../api.js';
 import { decide } from './decide.js';
 import { loadIntelStats, retainedTable } from './intel_summary.js';
@@ -10,7 +10,7 @@ const SIZE = 25;
 const selection = new Map();
 
 export async function renderQuarantine(ctx) {
-  const { root, me, query, go } = ctx, canDecide = me.role !== 'VIEWER';
+  const { root, me, query, go } = ctx, canDecide = can(me, 'quarantine.decide');
   const f = { state: STATES.includes(query.get('state')) ? query.get('state') : '', q: query.get('q') || '', source: query.get('source') || '', synthetic: query.get('synthetic') === '1' ? '1' : '', page: Math.max(1, +query.get('page') || 1) };
   const hash = (o) => { const p = new URLSearchParams(); for (const k of ['state', 'q', 'source', 'synthetic']) if (o[k]) p.set(k, o[k]); if (o.page > 1) p.set('page', o.page); const s = p.toString(); return `#/quarantine${s ? `?${s}` : ''}`; };
   const apply = (patch) => { selection.clear(); go(hash({ ...f, page: 1, ...patch }), true); };

@@ -1,6 +1,6 @@
 // Audit timeline: who accessed what, reviewed what and decided what, grouped by day, filterable, with cryptographic verification for administrators.
 import { t } from '../i18n.js';
-import { h, icon, fmtDate, fmtTime, shortSha, rulesText, put, pillGroup } from '../ui.js';
+import { h, icon, fmtDate, fmtTime, shortSha, rulesText, put, pillGroup, can } from '../ui.js';
 import { api, failure } from '../api.js';
 
 const FAMILIES = ['', 'decision', 'access', 'session', 'member', 'pipeline', 'retest'];
@@ -15,7 +15,7 @@ function describe(e) {
 const ruleTarget = (e) => (/^(decision|access|retest)\./.test(e.action) && /^[0-9a-f-]{8,64}$/.test(e.target) ? e.target : (e.detail?.applied || []).length === 1 ? e.detail.applied[0].id : null);
 
 export async function renderAudit(ctx) {
-  const { root, me } = ctx, isAdmin = me.role === 'ADMIN';
+  const { root, me } = ctx, isAdmin = can(me, 'audit.verify');
   const f = { family: '', actor: '' }; let before = null;
   const fam = pillGroup(t('a_family'), FAMILIES.map((x) => [x, t(`f_${x || 'all'}`)]), f.family, (v) => { f.family = v; fam.redraw(v); load(true); });
   const actor = h('input', { class: 'input', id: 'a-actor', type: 'search', autocomplete: 'off', placeholder: t('a_actor_ph') });

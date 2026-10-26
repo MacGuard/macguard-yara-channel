@@ -1,7 +1,7 @@
 // "What is wrong with the backups, why, since when, what is at risk, what can I do and how do I know it worked": one card per failed resource, built only from the recovery status the Worker read
 // (GitHub Actions jobs and the annotation the failing job wrote). Used by the dashboard and by the recovery screen.
 import { t, has } from '../i18n.js';
-import { h, icon, fmtDateTime } from '../ui.js';
+import { h, icon, fmtDateTime, can } from '../ui.js';
 import { api } from '../api.js';
 
 const PROBE = 'https://github.com/MacGuard/macguard-yara-channel/actions/workflows/d1-token-probe.yml';
@@ -34,7 +34,7 @@ export function backupAlertCard(f, st) {
 
 /** The cards for every failed resource; null when the person may not read the recovery status or nothing is failing; an UNKNOWN line when the status cannot be read. */
 export async function loadBackupAlerts(me) {
-  if (!me || me.role === 'VIEWER') return null;
+  if (!can(me, 'backups.read')) return null;
   const r = await api('GET', '/api/restore/status'); if (r.status !== 200) return h('p', { class: 'note', role: 'status', text: t('ba_unreadable') });
   const st = r.data; if (!st.failures || !st.failures.length) return null;
   return h('div', { class: 'stack', 'aria-label': t('ba_h') }, ...st.failures.map((f) => backupAlertCard(f, st)));

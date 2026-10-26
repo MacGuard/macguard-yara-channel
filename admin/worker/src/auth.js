@@ -1,5 +1,6 @@
 // Authentication and authorization. Nothing privileged is ever sent to the browser: the GitHub token stays in D1.
-import { highestRole, roleFromRepoPermission } from './core.js';
+import { roleFromRepoPermission } from './core.js';
+import { rolesFor } from './rbac.js';
 import { memberRole } from './store.js';
 
 export const COOKIE = '__Host-mg_session';
@@ -55,7 +56,7 @@ export async function destroySession(db, id) { await db.prepare('DELETE FROM ses
 /** The role is recomputed from GitHub on every protected call (cached 60 s). Fail closed when GitHub cannot be asked.
  *  A 401 means the person's token was revoked or expired: the session is destroyed and REAUTH is returned (no role survives, not even a `members` grant).
  *  A 403/404 means GitHub denies the repository to this person (permissions removed): only an explicit `members` grant can still give a role. */
-export async function effectiveRole(db, session, env, deps, now, { fresh = false } = {}) {
+export async function effectiveRoles(db, session, env, deps, now, { fresh = false } = {}) {
   let perm = session.perm;
   if (fresh || !perm || now - session.perm_at > 60) {   // `fresh`: a change of state always asks GitHub again, and never falls back to a stale grant
     const token = await openToken(env, session.id, session.token);
@@ -72,7 +73,9 @@ export async function effectiveRole(db, session, env, deps, now, { fresh = false
       perm = session.perm;
     }
   }
-  return highestRole(roleFromRepoPermission(perm), await memberRole(db, session.login, session.user_id));
+  // GitHub confers only REVIEWER or ADMIN (as before); PUBLISHER and SECURITY_ADMIN exist only as an explicit grant. The person holds the union.
+  const roles = rolesFor({ repoRole: roleFromRepoPermission(perm), manualRole: await memberRole(db, session.login, session.user_id) });
+  return roles.length ? roles : null;
 }
 
 /** Resolve a GitHub account with the acting administrator's own token. `by` is {id} (authoritative) or {login} (lookup for the add form). Returns
