@@ -11,12 +11,12 @@ const SCREENS = [['dashboard', '#/dashboard', '.kpis'], ['quarantine', '#/quaran
   ['logs', '#/logs', '.dt.log tbody tr'], ['restore', '#/restore', '.rs-ind'], ['audit', '#/audit', '.events, .card'], ['quarantine-other', '#/quarantine?fam=other', '.dt-sel tbody tr[data-id]'], ['sources', '#/sources', 'tr[data-source]'], ['logs-chain', '#/logs?tab=chain', '#h-chain'], ['activity', '#/activity', '.strip, .card']];
 const srv = await startServer(['--published', '--synthetic']), browser = await chromium.launch();
 try {
-  for (const scheme of schemes) {
-    const ctx = await openAs(browser, srv, 'admin', VIEWPORTS.desktop, { colorScheme: scheme }); const page = await ctx.newPage();
+  for (const [vpName, vp] of [['', VIEWPORTS.desktop], ['-phone', VIEWPORTS.iphone]]) for (const scheme of schemes) {
+    const ctx = await openAs(browser, srv, 'admin', vp, { colorScheme: scheme }); const page = await ctx.newPage();
     for (const [name, hash, sel] of SCREENS) {
       await page.goto(srv.base + '/' + hash, { waitUntil: 'domcontentloaded' }); await page.waitForSelector(sel, { timeout: 15000 }).catch(() => {}); await page.waitForTimeout(600);
       if (name === 'intel-vulns') { await page.locator('.dt-sel tbody tr').first().click().catch(() => {}); await page.waitForTimeout(500); }
-      await page.screenshot({ path: `${out}/${name}-${scheme}.png`, fullPage: false });
+      await page.screenshot({ path: `${out}/${name}${vpName}-${scheme}.png`, fullPage: false });
     }
     await ctx.close();
   }
