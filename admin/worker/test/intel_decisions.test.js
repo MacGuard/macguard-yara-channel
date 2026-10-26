@@ -79,3 +79,16 @@ test('five roles: only REVIEWER and ADMIN decide; PUBLISHER and SECURITY_ADMIN a
   assert.ok(w.db.raw.prepare("SELECT COUNT(*) AS n FROM audit WHERE action = 'authz.denied' AND target = '/api/intel/decisions'").get().n >= 4, 'the refusals are in the audit chain');
   assert.equal((await post(rita, body({ action: 'publish' }))).status, 400, 'an unknown action has no permission and is refused'); assert.equal((await post(ada, body({ request_id: RID(40) }))).status, 200); assert.equal(w.env.INTEL.raw.prepare('SELECT COUNT(*) AS n FROM intel_decisions').get().n, 1, 'the refused ones changed nothing');
 });
+
+test('future packages read only what a person approved: publish.yml only, eligible records with their decision, blocked ones with the reason, withdrawn ones listed; nothing is published', async () => {
+  const { w, rita, post } = await setup(); const id = 'sigma:u-0', get = async (wf, q = '') => w.call('GET', `/api/pipeline/intel-approvals${q}`, { bearer: await w.pipelineToken(wf) });
+  assert.equal((await get('daily.yml')).status, 403); assert.equal((await w.call('GET', '/api/pipeline/intel-approvals')).status, 401); assert.equal((await get('publish.yml', '?family=weapon')).status, 400);
+  assert.deepEqual((await get('publish.yml')).data.eligible, [], 'nothing is approved yet');
+  await w.env.INTEL.prepare('UPDATE intel_records SET held_back = 0 WHERE id = ?').bind(id).run(); await w.env.INTEL.prepare("UPDATE intel_runs SET publishable = 1, blocking = '[]' WHERE id = 'run-sigma'").run();
+  assert.equal((await post(rita, body({ action: 'approve', ids: [id], request_id: RID(60), reason: 'quality reviewed by hand' }))).status, 200);
+  const s1 = (await get('publish.yml')).data; assert.equal(s1.eligible.length, 1); assert.equal(s1.eligible[0].id, id); assert.equal(s1.eligible[0].decision.by_id, 12); assert.match(s1.eligible[0].doc_sha256, /^[0-9a-f]{64}$/); assert.deepEqual(s1.packages, [{ family: 'sigma', source_id: 'sigmahq', records: 1 }]); assert.equal(s1.note.includes('nothing here is published'), true);
+  await w.env.INTEL.prepare('UPDATE intel_records SET held_back = 1 WHERE id = ?').bind(id).run(); const s2 = (await get('publish.yml')).data; assert.deepEqual(s2.eligible, [], 'the evidence is re-checked at read time'); assert.equal(s2.blocked[0].reasons[0].code, 'held_back');
+  await w.env.INTEL.prepare('UPDATE intel_records SET held_back = 0 WHERE id = ?').bind(id).run(); await w.env.INTEL.raw.exec('DROP TRIGGER intel_decisions_audit_only'); w.env.INTEL.raw.prepare('UPDATE intel_decisions SET audited = 0').run(); assert.equal((await get('publish.yml')).data.blocked[0].reasons[0].code, 'unaudited_decision', 'an unaudited decision never qualifies');
+  w.env.INTEL.raw.prepare('UPDATE intel_decisions SET audited = 1').run(); assert.equal((await post(rita, body({ action: 'quarantine', ids: [id], request_id: RID(61), reason: 'withdrawn before release' }))).status, 200);
+  const s3 = (await get('publish.yml')).data; assert.deepEqual(s3.eligible, []); assert.deepEqual(s3.withdrawn_after_approval.map((x) => x.id), [id], 'a package that held it must be revoked');
+});

@@ -62,3 +62,20 @@ async function decideInner({ intel, panel }, body, actor, now, mayRead) {
 
 /** Decisions without a matching audit entry: an anomaly that is shown, never hidden. */
 export async function unaudited(intel) { return (await intel.prepare('SELECT COUNT(*) AS n FROM intel_decisions WHERE audited = 0').first()).n; }
+
+/** What a future per-family, per-source package build may read: the records that are APPROVED now, were approved by a person (decision audited), still pass the evidence checks, and the records that
+ *  were approved once and no longer are (a package that contained them must be revoked). Reading this publishes nothing: a package needs its own build, quality gates and Sigstore signature. */
+export async function approvalsSnapshot(intel, { family = null, source = null, limit = 5000 } = {}) {
+  const where = ["COALESCE(c.state, r.state) = 'APPROVED'"], args = []; if (family) { where.push('r.family = ?'); args.push(family); } if (source) { where.push('r.source_id = ?'); args.push(source); }
+  const rows = (await intel.prepare(`SELECT r.id, r.family, r.source_id, r.key, r.doc_sha256, r.held_back, r.doc, r.run_id, d.id AS decision_id, d.actor, d.actor_id, d.at, d.request_id, d.audited FROM intel_records r JOIN intel_current c ON c.record_id = r.id JOIN intel_decisions d ON d.record_id = r.id AND d.id = (SELECT MAX(x.id) FROM intel_decisions x WHERE x.record_id = r.id) WHERE ${where.join(' AND ')} ORDER BY r.id LIMIT ?`).bind(...args, limit + 1).all()).results;
+  const runs = new Map(), srcs = new Map(), eligible = [], blocked = [];
+  for (const r of rows.slice(0, limit)) {
+    if (!runs.has(r.run_id)) runs.set(r.run_id, await intel.prepare('SELECT * FROM intel_runs WHERE id = ?').bind(r.run_id).first()); if (!srcs.has(r.source_id)) srcs.set(r.source_id, await intel.prepare('SELECT * FROM intel_sources WHERE id = ?').bind(r.source_id).first());
+    const a = approvability({ held_back: r.held_back, doc: r.doc }, runs.get(r.run_id), srcs.get(r.source_id));
+    if (!r.audited) blocked.push({ id: r.id, reasons: [{ code: 'unaudited_decision' }] }); else if (!a.ok) blocked.push({ id: r.id, reasons: a.reasons });
+    else eligible.push({ id: r.id, family: r.family, source_id: r.source_id, key: r.key, doc_sha256: r.doc_sha256, decision: { id: r.decision_id, by_id: r.actor_id, by: r.actor, at: r.at, request_id: r.request_id } });
+  }
+  const demoted = (await intel.prepare("SELECT DISTINCT d.record_id AS id, d.family FROM intel_decisions d JOIN intel_current c ON c.record_id = d.record_id WHERE d.to_state = 'APPROVED' AND c.state != 'APPROVED' ORDER BY d.record_id LIMIT 5000").all()).results;
+  const groups = {}; for (const e of eligible) { const k = `${e.family}/${e.source_id}`; groups[k] = (groups[k] || 0) + 1; }
+  return { schema: 1, note: 'approved for a future package; nothing here is published', eligible, blocked, withdrawn_after_approval: demoted, packages: Object.entries(groups).map(([k, n]) => ({ family: k.split('/')[0], source_id: k.split('/')[1], records: n })), truncated: rows.length > limit };
+}

@@ -43,6 +43,12 @@ export async function handle(request, env, deps) {
       if (method === 'GET' && path === '/api/pipeline/decisions') return json({ schema: 1, decisions: await store.decisionsMap(db), retest: await store.retestList(db) });
       if (method === 'GET' && path === '/api/pipeline/source-proposals') { const r = await proposals.handlePipeline({ env, db, workflow: v.workflow }); return json(r.body, r.status); }   // source proposals: only what an ADMIN authorized
       if (method === 'GET' && path === '/api/pipeline/policy-snapshot') return json(await policies.snapshot(db, new Date(now * 1000).toISOString()));   // policy: daily.yml and publish.yml only (the allow-list of verifyActionsToken)
+      if (method === 'GET' && path === '/api/pipeline/intel-approvals') {   // publish.yml only: what a future per-family, per-source package build may read. Read-only; publishes nothing.
+        if (v.workflow !== 'publish.yml') return err(403, 'only the publication workflow reads approvals');
+        if (!env.INTEL) return json(intelData.unavailable().body, 503);
+        const fam = url.searchParams.get('family'), src = url.searchParams.get('source'); if ((fam && !intelData.FAMILIES.includes(fam)) || (src && !/^[a-z0-9][a-z0-9_-]{1,40}$/.test(src))) return err(400, 'invalid filter');
+        try { return json(await intelDecisions.approvalsSnapshot(env.INTEL, { family: fam, source: src })); } catch (e) { if (intelData.overlayMissing(e)) return err(503, 'migration INTEL 0002 has not been applied to the intelligence database yet', { code: 'migration_pending' }); throw e; }
+      }
       if (method !== 'POST') return err(405, 'method not allowed');
       const read = await readJson(request, 64_000_000); if (read.tooLarge) return err(413, 'request body too large'); const body = read.body; if (!body) return err(400, 'JSON body required');
       if (path === '/api/pipeline/submit') {
