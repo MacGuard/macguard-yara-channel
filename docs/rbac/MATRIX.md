@@ -40,6 +40,10 @@ Generated from `admin/worker/src/rbac.js` by `node tools/gen_rbac_matrix.mjs`. A
 | `publication.lift.authorize` | Authorise a lift as a SECOND, different identity |  |  |  | ✔ | ✔ | critical, dual |
 | `publication.lift.breakglass` | Execute an emergency lift after its delay |  |  |  |  | ✔ | critical |
 | `publication.lift.review` | Review an emergency lift afterwards (not the person who executed it) |  |  |  | ✔ | ✔ | critical, dual |
+| `publication.expedite.propose` | Propose an expedited (out-of-cycle) publication; it does not start anything |  | ✔ | ✔ | ✔ | ✔ |  |
+| `publication.expedite` | Request an expedited publication run through GitHub Actions (SECURITY_ADMIN: security actions only) |  |  | ✔ | ✔ | ✔ | critical |
+| `publication.expedite.approve` | Authorise, as a different identity, an expedited run of a critical change |  |  |  | ✔ | ✔ | critical, dual |
+| `publication.expedite.breakglass` | Exceptional emergency path for an expedited critical run when no second approver exists (short delay, long reason, review afterwards) |  |  |  |  | ✔ | critical |
 | `publication.reconcile` | Re-read the public release and confirm pending withdrawals |  |  | ✔ |  | ✔ |  |
 
 ### security
@@ -156,10 +160,10 @@ Generated from `admin/worker/src/rbac.js` by `node tools/gen_rbac_matrix.mjs`. A
 | Role | Permissions |
 |---|---:|
 | VIEWER | 4 |
-| REVIEWER | 22 |
-| PUBLISHER | 17 |
-| SECURITY_ADMIN | 29 |
-| ADMIN | 46 |
+| REVIEWER | 23 |
+| PUBLISHER | 19 |
+| SECURITY_ADMIN | 32 |
+| ADMIN | 50 |
 
 ## Route table
 
@@ -192,6 +196,10 @@ Generated from `admin/worker/src/rbac.js` by `node tools/gen_rbac_matrix.mjs`. A
 | GET | `^/api/intel/records/.+$` | `INTEL_BY_FAMILY` |
 | GET | `^/api/audit$` | `audit.read` |
 | GET | `^/api/audit/verify$` | `audit.verify` |
+| GET | `^/api/publication-requests$` | `publication.read` |
+| GET | `^/api/publication-requests/[0-9a-f-]{8,64}$` | `publication.read` |
+| POST | `^/api/publication-requests$` | `PUBLICATION_REQUEST` |
+| POST | `^/api/publication-requests/[0-9a-f-]{8,64}/(cancel|dispatch|approve|emergency|execute-emergency|review)$` | `PUBLICATION_REQUEST` |
 | GET | `^/api/audit/anchors$` | `audit.read` |
 | POST | `^/api/intel/decisions$` | `INTEL_DECISION` |
 | GET | `^/api/source-requests$` | `sources.requests.read` |

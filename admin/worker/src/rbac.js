@@ -25,6 +25,10 @@ export const PERMISSIONS = {
   'publication.lift.authorize': { module: 'publications', desc: 'Authorise a lift as a SECOND, different identity', critical: true, dual: true },
   'publication.lift.breakglass': { module: 'publications', desc: 'Execute an emergency lift after its delay', critical: true },
   'publication.lift.review': { module: 'publications', desc: 'Review an emergency lift afterwards (not the person who executed it)', critical: true, dual: true },
+  'publication.expedite.propose': { module: 'publications', desc: 'Propose an expedited (out-of-cycle) publication; it does not start anything' },
+  'publication.expedite': { module: 'publications', desc: 'Request an expedited publication run through GitHub Actions (SECURITY_ADMIN: security actions only)', critical: true },
+  'publication.expedite.approve': { module: 'publications', desc: 'Authorise, as a different identity, an expedited run of a critical change', critical: true, dual: true },
+  'publication.expedite.breakglass': { module: 'publications', desc: 'Exceptional emergency path for an expedited critical run when no second approver exists (short delay, long reason, review afterwards)', critical: true },
   'publication.reconcile': { module: 'publications', desc: 'Re-read the public release and confirm pending withdrawals' },
   'yara.inspect': { module: 'yara', desc: 'Read the original content of YARA rules and their evidence' },
   'suricata.inspect': { module: 'suricata', desc: 'Read Suricata rules, verdicts and evidence' },
@@ -66,11 +70,11 @@ const INTEL = ['yara.inspect', 'suricata.inspect', 'sigma.inspect', 'ioc.inspect
 /** Explicit grants. A role never receives anything because another role has it: every line below is intentional and reviewed. */
 export const GRANTS = {
   VIEWER: [...READ],
-  REVIEWER: [...READ, ...INTEL, 'intel.decide', 'intel.approve', 'sources.requests.read', 'quarantine.decide', 'quarantine.retest', 'sources.propose', 'audit.read', 'backups.read', 'restore.guide', 'restore.drill.record'],
-  PUBLISHER: [...READ, ...INTEL, 'sources.requests.read', 'publication.adopt', 'publication.withdraw.request', 'publication.lift.request', 'publication.reconcile'],
-  SECURITY_ADMIN: [...READ, ...INTEL, 'sources.requests.read', 'audit.read', 'audit.verify', 'audit.export', 'incidents.manage', 'alerts.manage', 'backups.read', 'restore.guide', 'restore.drill.record', 'restore.real.authorize', 'security.suspend', 'publication.revoke.request', 'publication.revoke.approve', 'publication.lift.authorize', 'publication.lift.review', 'approvals.read', 'approvals.review'],
+  REVIEWER: [...READ, ...INTEL, 'publication.expedite.propose', 'intel.decide', 'intel.approve', 'sources.requests.read', 'quarantine.decide', 'quarantine.retest', 'sources.propose', 'audit.read', 'backups.read', 'restore.guide', 'restore.drill.record'],
+  PUBLISHER: [...READ, ...INTEL, 'sources.requests.read', 'publication.expedite.propose', 'publication.expedite', 'publication.adopt', 'publication.withdraw.request', 'publication.lift.request', 'publication.reconcile'],
+  SECURITY_ADMIN: [...READ, ...INTEL, 'sources.requests.read', 'publication.expedite.propose', 'publication.expedite', 'publication.expedite.approve', 'audit.read', 'audit.verify', 'audit.export', 'incidents.manage', 'alerts.manage', 'backups.read', 'restore.guide', 'restore.drill.record', 'restore.real.authorize', 'security.suspend', 'publication.revoke.request', 'publication.revoke.approve', 'publication.lift.authorize', 'publication.lift.review', 'approvals.read', 'approvals.review'],
   // ADMIN keeps everything the previous ADMIN could do (no existing privilege is removed) and adds user administration. Nothing else is implied.
-  ADMIN: [...READ, ...INTEL, 'intel.decide', 'intel.approve', 'sources.requests.read', 'quarantine.decide', 'quarantine.retest', 'quarantine.authorise_new_source', 'publication.adopt', 'publication.withdraw.request', 'security.suspend', 'publication.revoke.request', 'publication.revoke.approve', 'publication.lift.request', 'publication.lift.authorize',
+  ADMIN: [...READ, ...INTEL, 'publication.expedite.propose', 'publication.expedite', 'publication.expedite.approve', 'publication.expedite.breakglass', 'intel.decide', 'intel.approve', 'sources.requests.read', 'quarantine.decide', 'quarantine.retest', 'quarantine.authorise_new_source', 'publication.adopt', 'publication.withdraw.request', 'security.suspend', 'publication.revoke.request', 'publication.revoke.approve', 'publication.lift.request', 'publication.lift.authorize',
     'publication.lift.breakglass', 'publication.lift.review', 'publication.reconcile', 'sources.propose', 'sources.review', 'audit.read', 'audit.verify', 'backups.read', 'restore.guide', 'restore.drill.record', 'restore.real.record', 'restore.real.request', 'restore.real.authorize', 'restore.real.breakglass', 'approvals.read', 'approvals.review',
     'admin.members.read', 'admin.members.manage', 'admin.members.approve', 'admin.members.breakglass', 'admin.permissions.read'],
 };
@@ -80,6 +84,7 @@ for (const [r, list] of Object.entries(GRANTS)) for (const p of list) if (!known
 
 /** `roles` is a role name or a list of them. Unknown roles, unknown permissions and an empty set all answer false. */
 export function can(roles, permission) {
+  if (permission === 'PUBLICATION_REQUEST') return can(roles, 'publication.expedite.propose') || can(roles, 'publication.expedite');   // route-level: the handler checks the exact mode
   if (permission === 'INTEL_DECISION') return can(roles, 'intel.decide') || can(roles, 'intel.approve');   // route-level: the handler checks the exact action
   if (permission === 'APPROVAL_BY_OP') return Object.values(OP_PERMISSIONS).some((o) => [o.request, o.approve, o.breakglass].some((p) => p && can(roles, p)));   // route-level: some approval operation is open to you; the handler checks the exact one
   if (!known.has(permission)) return false;
@@ -112,6 +117,7 @@ export const ROUTES = [
   ['GET', /^\/api\/intel\/families$/, 'intel.sources.read'], ['GET', /^\/api\/intel\/(sources|runs|stats)$/, 'intel.sources.read'], ['GET', /^\/api\/intel\/events$/, 'logs.read'],
   ['GET', /^\/api\/intel\/records$/, 'INTEL_BY_FAMILY'], ['GET', /^\/api\/intel\/records\/.+$/, 'INTEL_BY_FAMILY'],
   ['GET', /^\/api\/audit$/, 'audit.read'], ['GET', /^\/api\/audit\/verify$/, 'audit.verify'],
+  ['GET', /^\/api\/publication-requests$/, 'publication.read'], ['GET', new RegExp(`^/api/publication-requests/${ID}$`), 'publication.read'], ['POST', /^\/api\/publication-requests$/, 'PUBLICATION_REQUEST'], ['POST', new RegExp(`^/api/publication-requests/${ID}/(cancel|dispatch|approve|emergency|execute-emergency|review)$`), 'PUBLICATION_REQUEST'],
   ['GET', /^\/api\/audit\/anchors$/, 'audit.read'], ['POST', /^\/api\/intel\/decisions$/, 'INTEL_DECISION'],
   ['GET', /^\/api\/source-requests$/, 'sources.requests.read'], ['POST', /^\/api\/source-requests$/, 'sources.propose'], ['POST', new RegExp(`^/api/source-requests/${ID}/(accept|reject)$`), 'sources.review'], ['POST', new RegExp(`^/api/source-requests/${ID}/cancel$`), 'sources.propose'],
   ['GET', /^\/api\/restore\/status$/, 'backups.read'], ['GET', /^\/api\/restore\/procedures$/, 'restore.guide'], ['POST', /^\/api\/restore\/event$/, 'restore.drill.record'],
