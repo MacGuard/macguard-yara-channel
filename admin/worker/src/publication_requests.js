@@ -8,7 +8,7 @@ import { appendAudit } from './store.js';
 export const STATES = ['PENDING', 'AWAITING_APPROVAL', 'AUTHORIZED', 'QUEUED', 'RUNNING', 'VALIDATING', 'SIGNING', 'PUBLISHING', 'VERIFYING', 'APPLIED', 'SYNC_PENDING', 'BLOCKED', 'FAILED', 'CANCELLED'];
 export const CLOSED = ['APPLIED', 'FAILED', 'CANCELLED'];
 export const TRANSITIONS = {
-  PENDING: ['RUNNING', 'APPLIED', 'FAILED', 'CANCELLED', 'BLOCKED'], AWAITING_APPROVAL: ['AUTHORIZED', 'CANCELLED', 'BLOCKED'], AUTHORIZED: ['QUEUED', 'BLOCKED', 'CANCELLED'], QUEUED: ['RUNNING', 'FAILED', 'BLOCKED', 'CANCELLED'],
+  PENDING: ['RUNNING', 'APPLIED', 'FAILED', 'CANCELLED', 'BLOCKED'], AWAITING_APPROVAL: ['AUTHORIZED', 'PENDING', 'CANCELLED', 'BLOCKED'], AUTHORIZED: ['QUEUED', 'BLOCKED', 'CANCELLED'], QUEUED: ['RUNNING', 'FAILED', 'BLOCKED', 'CANCELLED'],
   RUNNING: ['VALIDATING', 'FAILED', 'BLOCKED'], VALIDATING: ['SIGNING', 'FAILED', 'BLOCKED'], SIGNING: ['PUBLISHING', 'FAILED'], PUBLISHING: ['VERIFYING', 'FAILED'], VERIFYING: ['APPLIED', 'SYNC_PENDING', 'FAILED'],
   SYNC_PENDING: ['APPLIED'], BLOCKED: ['QUEUED', 'CANCELLED', 'FAILED'], APPLIED: [], FAILED: [], CANCELLED: [],
 };
@@ -68,8 +68,8 @@ const preconditionError = (v, info) => {
 /** actor: { login, id, role, roles }. deps: { uuid, dispatch?, env }. Never starts anything for SCHEDULED; for EXPEDITED it authorises (or asks for a second identity) and then requests ONE run. */
 export async function create(db, body, actor, now, deps = {}) {
   const x = validateCreate(body); if (x.error) return bad(400, x.error, x.code ? { code: x.code } : {}); const v = x.value, info = ACTIONS[v.action], roles = actor.roles || [actor.role];
-  if (v.mode === 'EXPEDITED') {
-    if (!can(roles, 'publication.expedite')) return bad(403, v.mode === 'EXPEDITED' && can(roles, 'publication.expedite.propose') ? 'you may propose an expedited publication, but only a PUBLISHER, SECURITY_ADMIN or ADMIN may request it' : 'the permission publication.expedite is required', { code: 'forbidden', permission: 'publication.expedite' });
+  if (v.mode === 'EXPEDITED' || info.critical) {   // a critical change needs the request permission and a second identity in EVERY mode: the daily run must never be a way around it
+    if (!can(roles, 'publication.expedite')) return bad(403, can(roles, 'publication.expedite.propose') ? (v.mode === 'EXPEDITED' ? 'you may propose an expedited publication, but only a PUBLISHER, SECURITY_ADMIN or ADMIN may request it' : 'a critical change (quarantine, withdrawal, revocation, replacement) is requested by a PUBLISHER, SECURITY_ADMIN or ADMIN and authorised by a second identity') : 'the permission publication.expedite is required', { code: 'forbidden', permission: 'publication.expedite' });
     if (roles.includes('SECURITY_ADMIN') && !roles.includes('ADMIN') && !roles.includes('PUBLISHER') && !info.security) return bad(403, 'a SECURITY_ADMIN requests an expedited run only for security actions (quarantine, withdrawal, revocation, signature replacement)', { code: 'forbidden' });
   } else if (!can(roles, 'publication.expedite.propose')) return bad(403, 'the permission publication.expedite.propose is required', { code: 'forbidden', permission: 'publication.expedite.propose' });
   if (!(ELIGIBLE[v.resource_kind] || []).includes(v.action)) return bad(409, `${v.action} on ${v.resource_kind} cannot be published by the engine yet: that family has no signed packages and no distribution policy`, { code: 'not_eligible' });
@@ -90,7 +90,7 @@ export async function create(db, body, actor, now, deps = {}) {
     const spent = (await db.prepare('SELECT COALESCE(SUM(cost_minutes), 0) AS m FROM publication_requests WHERE substr(updated_at, 1, 10) = ?').bind(now.slice(0, 10)).first()).m, budget = Number(deps.env && deps.env.EXPEDITE_MINUTES_PER_DAY) || LIMITS.dailyMinutes;
     if (spent >= budget) return bad(409, `the day's budget of expedited minutes (${budget}) is used up: the change is kept for the next daily run, or use the emergency procedure`, { code: 'budget_exhausted', spent, budget });
   } else if (v.mode === 'EXPEDITED') { const spent = (await db.prepare('SELECT COALESCE(SUM(cost_minutes), 0) AS m FROM publication_requests WHERE substr(updated_at, 1, 10) = ?').bind(now.slice(0, 10)).first()).m; if (spent >= (Number(deps.env && deps.env.EXPEDITE_MINUTES_PER_DAY) || LIMITS.dailyMinutes)) over = 1; }   // a critical change is never blocked by budget: it is flagged for review
-  const id = deps.uuid(), state = v.mode === 'SCHEDULED' ? 'PENDING' : 'AWAITING_APPROVAL';
+  const id = deps.uuid(), state = v.mode === 'SCHEDULED' && !info.critical ? 'PENDING' : 'AWAITING_APPROVAL';
   try {
     await db.prepare('INSERT INTO publication_requests (id, request_id, mode, action, criticality, resource_kind, resource_id, resource_version, desired_state, effective_state_at_request, reason, dedupe_key, state, over_budget, requested_by, requested_by_id, requested_roles, requested_at, updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)')
       .bind(id, v.request_id, v.mode, v.action, info.critical ? 'CRITICAL' : 'STANDARD', v.resource_kind, v.resource_id, v.resource_version, desired, res.effective, v.reason, dedupe, state, over, actor.login, actor.id, J(roles), now, now).run();
@@ -99,7 +99,7 @@ export async function create(db, body, actor, now, deps = {}) {
   await appendAudit(db, { actor: actor.login, role: actor.role, action: `publication.${v.mode === 'EXPEDITED' ? 'expedite_requested' : 'scheduled'}`, target: id, detail: { resource: `${v.resource_kind}:${v.resource_id}`, version: v.resource_version, action: v.action, desired_state: desired, criticality: info.critical ? 'CRITICAL' : 'STANDARD', reason: v.reason, request_id: v.request_id, actor_id: actor.id, over_budget: !!over } }, now);
   let row = await get(db, id);
   if (v.mode === 'EXPEDITED' && !info.critical) { const a = await authorise(db, row, actor, now); if (!a.ok) return out(a); return dispatch(db, a.row.id, actor, now, deps); }
-  return { status: 200, body: { request: row, next: v.mode === 'SCHEDULED' ? 'the next daily run will apply it' : 'a second identity must authorise it (POST /api/approvals with op publication.expedite)' } };
+  return { status: 200, body: { request: row, next: v.mode === 'SCHEDULED' && !info.critical ? 'the next daily run will apply it' : 'a second identity must authorise it (POST /api/publication-requests/<id>/approve); a scheduled critical change then waits for the daily run' } };
 }
 
 /** Authorisation is bound to this request, resource, version and action, expires, and is used once. */
@@ -108,16 +108,18 @@ export async function authorise(db, row, by, now) {
 }
 const out = (m, extra = {}) => (m.ok ? { status: 200, body: { request: m.row, ...extra } } : { status: m.status, body: m.body });
 /** Called when the approval of a critical request is granted (or its emergency path executed). */
-/** A second, different identity authorises a CRITICAL expedited change; then ONE run is asked for. */
+/** A scheduled critical change, once a second identity authorised it, becomes PENDING for the daily run (bound to this request like any authorisation). */
+async function schedule(db, row, by, now) { const sha = await authSha(row); return move(db, row, 'PENDING', { authorized_by: by.login, authorized_by_id: by.id, authorized_at: now, authorization_sha256: sha, authorization_expires_at: addS(now, 7 * 24 * 3600) }, by.login, { authorized_by_id: by.id, authorization_sha256: sha, scheduled: true }, now, { role: by.role }); }
+/** A second, different identity authorises a CRITICAL change; an expedited one then asks for ONE run, a scheduled one waits for the daily run. */
 export async function approve(db, id, v, actor, now, deps = {}) {
   const row = await get(db, id); if (!row) return bad(404, 'not found'); const roles = actor.roles || [actor.role];
   if (!can(roles, 'publication.expedite.approve')) return bad(403, 'the permission publication.expedite.approve is required', { code: 'forbidden' });
-  if (row.mode !== 'EXPEDITED' || row.state !== 'AWAITING_APPROVAL') return bad(409, `a request in state ${row.state} cannot be approved`, { state: row.state });
+  if (row.state !== 'AWAITING_APPROVAL') return bad(409, `a request in state ${row.state} cannot be approved`, { state: row.state });
   if (actor.id === row.requested_by_id) return bad(403, 'the identity that asked cannot authorise the run: another identity must', { code: 'same_identity' });
   if (!v || typeof v.reason !== 'string' || visible(v.reason) < 5) return bad(400, 'a reason of at least 5 visible characters is required');
   if (!Number.isInteger(v.expect_version) || v.expect_version !== row.version) return bad(409, 'the request changed since you saw it', { code: 'stale', version: row.version });
-  const a = await authorise(db, row, actor, now); if (!a.ok) return out(a); await appendAudit(db, { actor: actor.login, role: actor.role, action: 'publication.approved', target: row.id, detail: { reason: v.reason.trim(), approver_id: actor.id, requested_by_id: row.requested_by_id } }, now);
-  return dispatch(db, row.id, actor, now, deps);
+  const a = row.mode === 'SCHEDULED' ? await schedule(db, row, actor, now) : await authorise(db, row, actor, now); if (!a.ok) return out(a); await appendAudit(db, { actor: actor.login, role: actor.role, action: 'publication.approved', target: row.id, detail: { reason: v.reason.trim(), approver_id: actor.id, requested_by_id: row.requested_by_id } }, now);
+  return row.mode === 'SCHEDULED' ? { status: 200, body: { request: a.row, next: 'authorised: the next daily run will apply it' } } : dispatch(db, row.id, actor, now, deps);
 }
 /** The emergency path for when no second identity exists: long reason, a short delay, execution by the requester, review afterwards by a third identity. It is not a permanent bypass: every use is flagged. */
 export const EMERGENCY_DELAY_S = 30 * 60;
@@ -209,11 +211,11 @@ const unwrap = (m) => out(m);
 
 // ---- the daily run -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 /** What the daily run must apply: scheduled requests still PENDING (an expedited request already applied is not here). */
-export async function pendingScheduled(db) { return (await db.prepare("SELECT id, action, resource_kind, resource_id, resource_version, desired_state, criticality, requested_at FROM publication_requests WHERE mode = 'SCHEDULED' AND state = 'PENDING' ORDER BY requested_at, id LIMIT 500").all()).results; }
+export async function pendingScheduled(db, now = new Date().toISOString()) { return (await db.prepare("SELECT id, action, resource_kind, resource_id, resource_version, desired_state, criticality, requested_at FROM publication_requests WHERE mode = 'SCHEDULED' AND state = 'PENDING' AND (criticality = 'STANDARD' OR (authorized_by_id IS NOT NULL AND authorized_by_id != requested_by_id AND authorization_sha256 IS NOT NULL AND authorization_expires_at > ?)) ORDER BY requested_at, id LIMIT 500").bind(now).all()).results; }
 /** The daily run reports what it applied. A request already closed (e.g. applied by an expedited run) is skipped, never applied twice. */
 export async function dailyApplied(db, ids, run, now) {
   const res = { applied: [], skipped: [] };
-  for (const id of ids) { const row = await get(db, id); if (!row || row.mode !== 'SCHEDULED' || row.state !== 'PENDING') { res.skipped.push(id); continue; }
+  for (const id of ids) { const row = await get(db, id); if (!row || row.mode !== 'SCHEDULED' || row.state !== 'PENDING' || (row.criticality === 'CRITICAL' && (!row.authorized_by_id || row.authorized_by_id === row.requested_by_id || row.authorization_sha256 !== await authSha(row)))) { res.skipped.push(id); continue; }
     const m = await move(db, row, 'APPLIED', { run_id: run.run_id ? String(run.run_id) : null, release_tag: run.release_tag || null, applied_at: now }, 'workflow:daily.yml', { run_id: run.run_id || null, release_tag: run.release_tag || null }, now, { role: 'PIPELINE' }); (m.ok ? res.applied : res.skipped).push(id); }
   return res;
 }

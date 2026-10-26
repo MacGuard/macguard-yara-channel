@@ -22,7 +22,7 @@ La UI ofrece «Aplicar en la próxima ejecución diaria» (preseleccionada; mues
 ## Autorización y separación de funciones
 
 - `publication.expedite.propose`: REVIEWER, PUBLISHER, SECURITY_ADMIN, ADMIN. `publication.expedite`: PUBLISHER, SECURITY_ADMIN (solo acciones de seguridad: cuarentena, retirada, revocación, sustitución de firma), ADMIN. `publication.expedite.approve`: ADMIN, SECURITY_ADMIN. `publication.expedite.breakglass`: ADMIN.
-- Acciones **críticas** (retirar, revocar, sustituir firma): dos identidades distintas (se reutilizan las aprobaciones de segunda identidad). Con un único administrador: el procedimiento de emergencia existente (motivo largo, espera, revisión posterior por otra identidad); no hay bypass permanente.
+- Acciones **críticas** (poner en cuarentena lo publicado, retirar, revocar, sustituir firma) en **cualquier modo, también SCHEDULED**: las pide quien tiene `publication.expedite` (un REVIEWER no puede ni programarlas) y exigen dos identidades distintas; una solicitud crítica programada queda en `AWAITING_APPROVAL`, la pipeline diaria solo la ve cuando otra identidad la ha autorizado (autorización ligada a la solicitud y con caducidad), y aunque se le reportara no la aplica sin esa autorización (se reutilizan las aprobaciones de segunda identidad). Con un único administrador: el procedimiento de emergencia existente (motivo largo, espera, revisión posterior por otra identidad); no hay bypass permanente.
 - Quien aprobó un registro para publicar (`intel.approve`) no puede ser quien solicita su publicación extraordinaria.
 - La autorización caduca (24 h) y es de un solo uso: un *replay* de una autorización antigua no hace nada.
 
