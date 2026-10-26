@@ -20,7 +20,7 @@ async function seed(db) {
 async function setup(bound = true) {
   const w = await world(); const admin = await w.login('ada', { admin: true }, { id: 13 }), rev = await w.login('rita', { push: true }, { id: 12 }), viewer = await w.login('vera', { pull: true }, { id: 11 });
   for (const u of [admin, rev, viewer]) await w.call('GET', '/api/me', { user: u }); await w.grant(admin, 'vera', 'VIEWER');
-  if (bound) { w.env.INTEL = newDb(['../migrations-intel/0001_intel.sql', '../migrations-intel/0002_decisions.sql']); await seed(w.env.INTEL); }
+  if (bound) { w.env.INTEL = newDb(['../migrations-intel/0001_intel.sql', '../migrations-intel/0002_decisions.sql', '../migrations-intel/0003_effective_state.sql']); await seed(w.env.INTEL); }
   return { w, admin, rev, viewer };
 }
 const get = (w, user, p) => w.call('GET', `/api/intel/${p}`, { user });
@@ -48,9 +48,9 @@ test('keyset pagination visits every record exactly once, in id order and in sco
 
 test('filters, escaped search and limits: a wildcard is literal, an injection attempt is inert, the list never carries the document', async () => {
   const { w, rev } = await setup(); const q = async (s) => get(w, rev, `records?${s}`);
-  assert.equal((await q('family=sigma')).data.total, 5); assert.equal((await q('family=sigma,kev')).data.total, 255, 'a list of families is one query'); assert.equal((await q('family=sigma,weapon')).status, 400); assert.equal((await q(`family=${'kev,'.repeat(7)}kev`)).status, 400); assert.equal((await q('family=kev&state=RETENIDA&limit=1')).data.items.length, 1); assert.equal((await q('family=kev&held_back=0')).data.total, 0);
-  assert.equal((await q('q=CVE-2024-1007')).data.items[0].key, 'CVE-2024-1007'); assert.equal((await q('q=%25')).data.total, 1, '"%" is literal: it finds only the one title that contains a percent sign, not everything'); assert.equal((await q('q=100%25_wild')).data.total, 1, 'a literal wildcard text is found');
-  const inj = await q(`q=${encodeURIComponent("' OR 1=1 --")}`); assert.equal(inj.status, 200); assert.equal(inj.data.total, 0);
+  assert.equal((await q('family=sigma')).data.total, 5); assert.equal((await q('family=sigma,kev')).data.total, 255, 'a list of families is one query'); assert.equal((await q('family=sigma,weapon')).status, 400); assert.equal((await q(`family=${'kev,'.repeat(7)}kev`)).status, 400); assert.equal((await q('family=kev&state=RETENIDA&limit=1')).data.items.length, 1); { const hb = (await q('family=kev&held_back=0')).data; assert.equal(hb.items.length, 0); assert.equal(hb.total, null, 'a total the snapshot cannot answer is null, never a scan'); }
+  assert.equal((await q('q=CVE-2024-1007')).data.items[0].key, 'CVE-2024-1007'); assert.equal((await q('q=%25')).data.items.length, 1, '"%" is literal: it finds only the one title that contains a percent sign, not everything'); assert.equal((await q('q=100%25_wild')).data.items.length, 1, 'a literal wildcard text is found');
+  const inj = await q(`q=${encodeURIComponent("' OR 1=1 --")}`); assert.equal(inj.status, 200); assert.equal(inj.data.items.length, 0);
   assert.equal((await q('limit=100000')).data.items.length, 200, 'the limit is capped, not trusted'); const one = (await q('limit=1')).data.items[0]; assert.ok(!('doc' in one) && !('body' in one));
   for (const bad of ['family=weapon', 'source=A%20B', 'limit=0', 'limit=abc', 'sort=password', 'state=1;drop', 'held_back=2', 'cursor=@@', `q=${'x'.repeat(81)}`]) assert.equal((await q(bad)).status, 400, bad);
   assert.equal((await q(`cursor=${btoa(JSON.stringify({ id: '../x' }))}`)).status, 400);

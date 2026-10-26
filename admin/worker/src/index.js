@@ -368,6 +368,9 @@ export async function handle(request, env, deps) {
   } catch (e) {
     // A failing store or API must never look like an approval.
     const miss = String((e && e.message) || '').match(/no such table: (?:main\.)?(\w+)/), mig = miss && { policies: '0003', policy_lifts: '0003', policy_events: '0003', audit_anchor: '0004', source_proposals: '0005', source_proposal_events: '0005', approvals: '0006', source_requests: '0007' }[miss[1]];
+    if (/exceeded D1's .*(row read|row write|read|write) limit|\[code: ?7500\]|code 7500|rows? (read|written) limit/i.test(String((e && e.message) || '')) && (path.startsWith('/api/') || path.startsWith('/public/'))) {   // the account's D1 free quota is used up: say so, say when it resets, change nothing
+      const next = new Date(now * 1000); next.setUTCHours(24, 0, 0, 0); return json({ error: 'the database quota of the day is used up; reads and writes resume at 00:00 UTC. Nothing was changed.', code: 'd1_quota_exhausted', resets_at: next.toISOString() }, 503, { 'Retry-After': String(Math.max(60, Math.ceil((next.getTime() - now * 1000) / 1000))) });
+    }
     if (mig && path.startsWith('/api/')) return err(503, `migration ${mig} has not been applied to this database yet; nothing was changed`, { code: 'migration_pending' });   // a new feature asked before its additive migration: say which one
     if (path.startsWith('/auth/')) return back('unavailable');
     return err(500, 'the service could not complete the request; nothing was changed unless the response says so');

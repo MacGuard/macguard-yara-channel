@@ -6,6 +6,7 @@ import { readFileSync } from 'node:fs';
 import { world } from './helpers.js';
 import { newDb } from './d1shim.js';
 import { seedIntel } from './intel_fixture.js';
+import { resetSnapshotMemo } from '../src/intel_data.js';
 import { decide, unaudited } from '../src/intel_decisions.js';
 import { verifyChain } from '../src/core.js';
 import { auditRows } from '../src/store.js';
@@ -62,4 +63,18 @@ test('panel 0007: before it, source requests say which migration is missing and 
   w.db.raw.exec(R7); const gone = await w.call('GET', '/api/source-requests', { user: ada }); assert.equal(gone.status, 503); assert.match(gone.data.error, /0007/); assert.equal((await w.call('GET', '/api/stats', { user: ada })).status, 200, 'the rest of the panel works');
   w.db.raw.exec(M7); w.db.raw.exec(M7); assert.equal((await post(body)).status, 200); w.db.raw.exec(M7); assert.equal((await w.call('GET', '/api/source-requests', { user: ada })).data.items.length, 1, 're-applying keeps the request');
   const chain = await verifyChain(await auditRows(w.db, 5000)); assert.equal(chain.ok, true);
+});
+
+const M3 = readFileSync(new URL('../migrations-intel/0003_effective_state.sql', import.meta.url), 'utf8'), R3 = readFileSync(new URL('../migrations-intel/0003_rollback.sql', import.meta.url), 'utf8');
+test('INTEL 0003: applied over 0002 while decisions exist it backfills decided_state, reads stay identical, a re-import keeps the decision, and the rollback returns to the join with the same answers', async () => {
+  const { w, rita } = await oldIntel(); w.env.INTEL.raw.exec(M2); assert.equal((await dec(w, rita)).status, 200);
+  const read = async () => JSON.stringify([(await w.call('GET', '/api/intel/records?family=ioc&limit=50', { user: rita })).data.items.map((i) => [i.id, i.state, i.imported_state]), (await w.call('GET', '/api/intel/stats', { user: rita })).data.by_state.filter((x) => x.family === 'ioc')]);
+  const before = await read(); resetSnapshotMemo(w.env.INTEL); w.env.INTEL.raw.exec(M3);   // tier B -> tier A
+  assert.equal(w.env.INTEL.raw.prepare('SELECT decided_state FROM intel_records WHERE id = ?').get(ID).decided_state, 'QUARANTINED', 'the backfill covers the decided record only'); assert.equal(w.env.INTEL.raw.prepare('SELECT COUNT(*) AS n FROM intel_records WHERE decided_state IS NOT NULL').get().n, 1);
+  assert.equal(await read(), before, 'the same answers through the cheaper column');
+  w.env.INTEL.raw.prepare("INSERT OR REPLACE INTO intel_records (id, family, source_id, run_id, key, title, state, doc, doc_sha256) SELECT id, family, source_id, run_id, key, title, state, doc, doc_sha256 FROM intel_records WHERE id = ?").run(ID);   // what a re-import does
+  assert.equal(w.env.INTEL.raw.prepare('SELECT decided_state FROM intel_records WHERE id = ?').get(ID).decided_state, 'QUARANTINED', 'a re-import does not lose the decision');
+  assert.equal((await dec(w, rita, { action: 'reject', request_id: RID(70) })).status, 200); assert.equal(w.env.INTEL.raw.prepare('SELECT decided_state FROM intel_records WHERE id = ?').get(ID).decided_state, 'REJECTED', 'the trigger follows the latest decision');
+  w.env.INTEL.raw.exec(R3); resetSnapshotMemo(w.env.INTEL); assert.equal(w.env.INTEL.raw.prepare("SELECT COUNT(*) AS n FROM pragma_table_info('intel_records') WHERE name = 'decided_state'").get().n, 0);
+  assert.equal((await w.call('GET', `/api/intel/records/${encodeURIComponent(ID)}`, { user: rita })).data.record.state, 'REJECTED', 'tier B answers the same after the rollback');
 });

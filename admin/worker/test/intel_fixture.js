@@ -3,7 +3,7 @@ import { newDb } from './d1shim.js';
 const SHA = (c) => c.repeat(64).slice(0, 64), NOW = '2026-10-26T00:00:00Z';
 const SQL = 'INSERT INTO intel_records (id,family,source_id,run_id,key,title,severity,score,state,validated,functional,performance,held_back,first_seen,last_seen,updated_at,body,doc,doc_sha256) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)';
 
-export function newIntelDb() { return newDb(['../migrations-intel/0001_intel.sql', '../migrations-intel/0002_decisions.sql']); }
+export function newIntelDb() { return newDb(['../migrations-intel/0001_intel.sql', '../migrations-intel/0002_decisions.sql', '../migrations-intel/0003_effective_state.sql']); }
 export async function seedIntel(db, { kev = 120 } = {}) {
   const S = (id, name, org, url, fam, grp, integ = 'CONNECTED', why = null, auth = 'none', cfg = 1, extra = {}) => db.prepare('INSERT INTO intel_sources (id,name,organization,url,family,grp,data_type,adapter,auth,configured,integration,status_reason,redistribution,updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)').bind(id, name, org, url, fam, grp, 'synthetic', cfg ? `intel.${fam}` : null, auth, cfg, integ, why, extra.redistribution ?? null, NOW).run();
   await S('cisa-kev', 'CISA Known Exploited Vulnerabilities', 'CISA', 'https://www.cisa.gov/kev', 'kev', 'vulnerabilities', 'CONNECTED', null, 'none', 1, { redistribution: 'allowed-with-conditions' });

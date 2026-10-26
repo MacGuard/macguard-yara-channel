@@ -60,7 +60,7 @@ export async function recordsBrowser(mount, opts) {
   put(mount, h('div', { class: 'toolbar' }, h('div', { class: 'field grow' }, h('label', { for: 'ix-search', text: t('ix_search') }), search)), row(t('ix_d_family'), famPills), srcBox, row(t('ix_c_state'), statePills), total, h('div', { class: 'master-detail' }, h('div', { class: 'minw0' }, table, more, bar), sheet));
   drawSrc();
 
-  let seq = 0, cursor = null, selected = null;
+  let seq = 0, cursor = null, selected = null, loaded = 0;
   const drawBar = () => {
     clear(bar); const n = selection.size; if (!n) return;
     const states = new Set(selection.values()), acts = ['approve', 'quarantine', 'reject', 'hold'].filter((a) => allowed(a) && (scope === 'published' ? a !== 'approve' : true));
@@ -73,7 +73,7 @@ export async function recordsBrowser(mount, opts) {
     const p = new URLSearchParams({ limit: '50', family: f.family || families.join(',') }); if (scope) p.set('scope', scope); if (f.source) p.set('source', f.source); if (f.state) p.set('state', f.state); if (f.q) p.set('q', f.q); if (cursor) p.set('cursor', cursor);
     const r = await api('GET', `/api/intel/records?${p}`); if (mine !== seq) return;
     if (r.status !== 200) { total.textContent = failure(r, t('err_generic')); return; }
-    total.textContent = t('ix_total', { n: num(r.data.total) });
+    loaded = (append ? loaded : 0) + r.data.items.length; total.textContent = r.data.total === null ? t('ix_total_open', { n: num(loaded) + (r.data.next_cursor ? '+' : '') }) : t('ix_total', { n: num(r.data.total) });   // a text search has no cheap exact total: it says how many are loaded and whether there are more
     if (!r.data.items.length && !append) put(tbody, h('tr', {}, h('td', { colspan: cols.length + (canDecide ? 1 : 0), class: 'empty-cell' }, scope === 'published' && !f.q && !f.state && !f.source ? t('ix_none_published') : t('ix_none'))));
     for (const rec of r.data.items) {
       const box = canDecide ? h('input', { type: 'checkbox', 'aria-label': t('q_select', { name: rec.title || rec.key }), checked: selection.has(rec.id) }) : null;

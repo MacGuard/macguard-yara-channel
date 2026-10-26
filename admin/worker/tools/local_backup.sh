@@ -9,6 +9,7 @@ W=$(cd "$(dirname "$0")/.." && pwd); ROOT=${1:-$HOME/macguard-backups/panel}; ST
 trap 'rm -rf "$T"' EXIT
 export CLOUDFLARE_ACCOUNT_ID=$(sed -n 's/^account_id *= *"\([0-9a-f]\{32\}\)".*/\1/p' "$W/../../gateway/environments/panel-d1.wrangler.toml" | head -1)
 REC=$(node -e "console.log(JSON.parse(require('fs').readFileSync('$W/../../gateway/environments/backup-trust.json','utf8')).age_recipient)")
+BUDGET="node $W/tools/d1_budget.mjs"; $BUDGET preflight --reads 20000 --writes 0 --label "local-backup panel" --before "$T/budget-before.json" || { echo "ABORTED BEFORE TOUCHING D1: the budget does not allow this run today"; exit 3; }
 echo "[1] export (read-only) of macguard-quarantine"
 ( cd "$W/../../gateway/environments" && timeout 240 npx --yes wrangler@4.149.0 d1 export macguard-quarantine --remote -c panel-d1.wrangler.toml --output "$T/panel.sql" >"$T/exp.log" 2>&1 ) || { sed "s/\x1b\[[0-9;]*m//g" "$T/exp.log" | grep -iE "error|authentication|permission" | head -3 | cut -c1-200; echo "EXPORT FAILED"; exit 1; }
 BYTES=$(wc -c < "$T/panel.sql" | tr -d ' '); SHA=$(shasum -a 256 "$T/panel.sql" | cut -d' ' -f1); echo "    $BYTES bytes, sha256 ${SHA%????????????????????????????????????????????????????????}…"
@@ -33,4 +34,5 @@ printf '{"database":"macguard-quarantine","at":"%s","plaintext_sha256":"%s","byt
 echo "[4] read the ciphertext back with the identity from the Keychain and compare"
 BACK=$(security find-generic-password -s macguard-gateway-prod -a BACKUP_AGE_IDENTITY -w 2>/dev/null | age -d -i - "$OUT/panel-d1-export.sql.age" 2>/dev/null | shasum -a 256 | cut -d' ' -f1)
 [ "$BACK" = "$SHA" ] && echo "    read-back hash matches the export: VERIFIED" || { echo "    READ-BACK MISMATCH or identity unavailable: the copy is NOT verified"; exit 2; }
+$BUDGET record --label "local-backup panel" --before "$T/budget-before.json" 2>&1 | tail -1
 echo "BACKUP DONE: $OUT"
