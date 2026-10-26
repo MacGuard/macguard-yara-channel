@@ -8,7 +8,7 @@ const out = process.argv[2], schemes = process.argv[3] === 'light' || process.ar
 if (!out) { console.error('usage: screenshots.mjs OUTDIR [light|dark|both]'); process.exit(2); }
 mkdirSync(out, { recursive: true });
 const SCREENS = [['dashboard', '#/dashboard', '.kpis'], ['quarantine', '#/quarantine', '.rule, .empty'], ['published', '#/published', '.rule, .empty'], ['intel-sources', '#/intel?group=sources', '.dt'], ['intel-vulns', '#/intel?group=vulnerabilities', '.dt-sel tbody tr'],
-  ['logs', '#/logs', '.dt.log tbody tr'], ['restore', '#/restore', '.rs-ind'], ['audit', '#/audit', '.events, .card'], ['activity', '#/activity', '.strip, .card']];
+  ['logs', '#/logs', '.dt.log tbody tr'], ['restore', '#/restore', '.rs-ind'], ['audit', '#/audit', '.events, .card'], ['quarantine-other', '#/quarantine?fam=other', '.dt-sel tbody tr[data-id]'], ['sources', '#/sources', 'tr[data-source]'], ['logs-chain', '#/logs?tab=chain', '#h-chain'], ['activity', '#/activity', '.strip, .card']];
 const srv = await startServer(['--published', '--synthetic']), browser = await chromium.launch();
 try {
   for (const scheme of schemes) {

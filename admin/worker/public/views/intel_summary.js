@@ -28,7 +28,7 @@ export function intelCharts(st) {
       h('div', {}, hbars({ title: t('ic_by_family'), rows: st.by_family.map((x) => ({ label: fam(x.family), values: [x.records], cls: `fam-${x.family}` })), series: [{ name: t('ic_records'), cls: 'c-ok' }] }), caption(st, t('ic_unit_rec'), cov)),
       h('div', {}, hbars({ title: t('ic_verdicts'), rows: rf.map((f) => ({ label: fam(f), values: [sum(f, 'validated', 'VALIDATED'), sum(f, 'validated', 'FAILED')] })), series: [{ name: 'VALIDATED', cls: 'c-ok' }, { name: 'FAILED', cls: 'c-bad' }] }), caption(st, t('ic_unit_rules'), cov),
         h('p', { class: 'note' }, t('ic_functional', { verified: num(verified), notrun: num(notRun) }))),
-      h('div', {}, hbars({ title: t('ic_runs'), rows: runs.map((r, i) => ({ label: runLabels[i], values: [r.accepted, r.rejected] })), series: [{ name: t('rl_accepted'), cls: 'c-ok' }, { name: t('rl_rejected'), cls: 'c-bad' }] }), caption(st, t('ic_unit_rec'), cov))));
+      h('div', { class: 'chart-wide' }, hbars({ width: 640, title: t('ic_runs'), rows: runs.map((r, i) => ({ label: runLabels[i], values: [r.accepted, r.rejected] })), series: [{ name: t('rl_accepted'), cls: 'c-ok' }, { name: t('rl_rejected'), cls: 'c-bad' }] }), caption(st, t('ic_unit_rec'), cov))));
 }
 
 /** Held / published per family, for Quarantine and Published: what is retained by policy and what is truly distributed (nothing, today). */

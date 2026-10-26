@@ -32,12 +32,12 @@ export function chart({ title, labels, series, kind = 'bars', unit = '', width =
 }
 /** Horizontal bars: the labels are read in full on the left, in a readable size; rows: [{label, values:[per series], cls?}] (a row class gives that row's bars its own colour, e.g. one per family).
  *  A null value is an empty slot with a dot, never a zero. Every chart also has its summary and a data table. */
-export function hbars({ title, rows, series, unit = '', valueFmt = fmt }) {
+export function hbars({ title, rows, series, unit = '', valueFmt = fmt, width = 420 }) {
   const wrap = h('figure', { class: 'chart chart-h' }); wrap.append(h('figcaption', { class: 'chart-title', text: title }));
   const all = rows.flatMap((r) => r.values).filter((v) => v !== null && v !== undefined);
   if (!all.length) { wrap.append(h('p', { class: 'nodata', text: t('nodata_chart') })); return wrap; }
-  const longest = Math.max(...rows.map((r) => r.label.length)), labelW = Math.max(96, Math.min(240, Math.round(longest * 6.6) + 12)), barH = Math.max(7, Math.min(14, 22 / series.length)), rowH = series.length * barH + 10;
-  const width = 640, valueW = 64, iw = width - labelW - valueW - 8, top = nice(Math.max(...all) * 1.02), height = rows.length * rowH + 24;
+  const longest = Math.max(...rows.map((r) => r.label.length)), labelW = Math.max(70, Math.min(Math.round(width * 0.45), Math.round(longest * 6.2) + 12)), barH = Math.max(7, Math.min(14, 22 / series.length)), rowH = series.length * barH + 10;
+  const valueW = 44, iw = width - labelW - valueW - 8, top = nice(Math.max(...all) * 1.02), height = rows.length * rowH + 24;
   const svg = s('svg', { viewBox: `0 0 ${width} ${height}`, class: 'chart-svg', role: 'img', 'aria-label': `${title}. ${t('chart_summary', { n: all.length, min: valueFmt(Math.min(...all)), max: valueFmt(Math.max(...all)), unit })}` });
   for (let i = 0; i <= 4; i++) { const xx = labelW + (iw / 4) * i; svg.append(s('line', { x1: xx, x2: xx, y1: 0, y2: height - 20, class: 'grid' }), s('text', { x: xx, y: height - 6, class: 'tick', 'text-anchor': i === 0 ? 'start' : i === 4 ? 'end' : 'middle' }, valueFmt((top / 4) * i))); }
   rows.forEach((r, ri) => {
