@@ -3,10 +3,9 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { DatabaseSync } from 'node:sqlite';
-import { execFileSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 
-const OLD = execFileSync('git', ['show', 'origin/main:admin/worker/schema.sql'], { cwd: new URL('..', import.meta.url).pathname, encoding: 'utf8' });
+const OLD = readFileSync(new URL('./fixtures/schema_before_0006.sql', import.meta.url), 'utf8');   // the schema production runs today (frozen copy: the test must not depend on git history, which CI does not fetch)
 const UP = readFileSync(new URL('../migrations/0006_five_roles.sql', import.meta.url), 'utf8'), DOWN = readFileSync(new URL('../migrations/0006_rollback.sql', import.meta.url), 'utf8'), NOW_SCHEMA = readFileSync(new URL('../schema.sql', import.meta.url), 'utf8');
 const UP7 = readFileSync(new URL('../migrations/0007_source_requests.sql', import.meta.url), 'utf8');
 const names = (db) => db.prepare("SELECT type, name FROM sqlite_master WHERE type IN ('trigger','index','table') AND name NOT LIKE 'sqlite_%' ORDER BY type, name").all().map((r) => `${r.type}:${r.name}`);
