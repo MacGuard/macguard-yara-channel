@@ -1,7 +1,7 @@
 // MacGuard quarantine service: private API + admin UI assets. The public site never talks to this worker.
 import { MAX_BATCH, RELEASE_TAG, reconcilePublished, PUBLISHED_STATUS, atLeast, blobError, highestRole, roleFromRepoPermission, publicStats, validateDecisionRequest, validateSubmission, verifyChain } from './core.js';
 import * as store from './store.js';
-import { verifyAuditChain } from './anchor.js';
+import { verifyAuditChain, listAnchors } from './anchor.js';
 import * as ops from './ops.js';
 import * as restore from './restore.js';
 import * as proposals from './proposals.js';
@@ -9,7 +9,8 @@ import { fetchPublication } from './publication.js';
 import * as policies from './policies.js';
 import * as publishedRules from './published_rules.js';
 import * as intelFamilies from './intel_families.js';
-import * as intelData from './intel_data.js';   // policy: persistent administrative withdrawals (migration 0003)
+import * as intelData from './intel_data.js';
+import * as intelDecisions from './intel_decisions.js';   // policy: persistent administrative withdrawals (migration 0003)
 import { REAUTH, STATE_COOKIE, openToken, resolveGithubAccount, clearCookie, clearStateCookie, createSession, destroySession, effectiveRole, finishLogin, getSession, parseCookies, sessionCookie, startLogin, stateCookie, timingSafeEqual, verifyActionsToken } from './auth.js';
 
 export const HEADERS = {
@@ -123,6 +124,11 @@ export async function handle(request, env, deps) {
       };
       if (path === '/api/intel' || path.startsWith('/api/intel/')) {   // REVIEWER and above: licence and publication decisions are internal. Read only.
         if (!atLeast(role, 'REVIEWER')) return err(403, 'reviewer role required');
+        if (method === 'POST' && path === '/api/intel/decisions') {   // hold / quarantine / reject / approve-for-next-publication, any family but YARA (YARA has its own workflow)
+          if (!env.INTEL) return json(intelData.unavailable().body, 503);
+          const rd = await readJson(request, 20_000); if (rd.tooLarge) return err(413, 'request too large');
+          const out = await intelDecisions.decide({ intel: env.INTEL, panel: db }, rd.body, actor, iso); return json(out.body, out.status);
+        }
         if (method !== 'GET') return err(405, 'method not allowed');
         const NS = { 'Cache-Control': 'private, no-store' }, sp = url.searchParams, send = (r) => json(r.body, r.status, NS);
         if (path === '/api/intel/families') { const got = await inventory(); return json(await intelFamilies.loadFamilies(env, deps, got.inv || null), 200, NS); }
@@ -223,6 +229,11 @@ export async function handle(request, env, deps) {
       const rt = path.match(/^\/api\/candidates\/([0-9a-f-]{8,64})\/retest$/);
       if (method === 'POST' && rt) { if (!atLeast(role, 'REVIEWER')) return err(403, 'reviewer role required'); return (await store.requestRetest(db, rt[1], actor, iso)) ? json({ ok: true, note: 'the next pipeline run will test it again' }) : err(404, 'not found'); }
       if (method === 'GET' && path === '/api/audit') { if (!atLeast(role, 'REVIEWER')) return err(403, 'reviewer role required'); const fam = url.searchParams.get('family') || ''; return json(await store.auditQuery(db, { limit: Math.min(+url.searchParams.get('limit') || 50, 200), before: +url.searchParams.get('before') || undefined, family: /^[a-z]{1,20}$/.test(fam) ? fam : undefined, actor: (url.searchParams.get('actor') || '').slice(0, 80) || undefined })); }
+      if (method === 'GET' && path === '/api/audit/anchors') {   // what the chain is anchored to; REVIEWER and above. An empty list is said as such, never presented as protection
+        if (!atLeast(role, 'REVIEWER')) return err(403, 'reviewer role required');
+        const head = await db.prepare('SELECT seq, hash, at FROM audit ORDER BY seq DESC LIMIT 1').first(), n = await db.prepare('SELECT COUNT(*) AS n FROM audit').first(), anchors = await listAnchors(db);
+        return json({ schema: 1, entries: n.n, head: head ? { seq: head.seq, hash: head.hash, at: head.at } : null, anchors, external_anchor: anchors.length > 0 });
+      }
       if (method === 'GET' && path === '/api/audit/verify') { if (!atLeast(role, 'ADMIN')) return err(403, 'admin role required'); return json(await verifyAuditChain(db, { after: Math.max(0, +url.searchParams.get('after') || 0), head: url.searchParams.get('head') || null })); }   // archive P1: paginated, anchor-aware
       if (path === '/api/members' || path.startsWith('/api/members/')) {
         if (!atLeast(role, 'ADMIN')) return err(403, 'admin role required');   // enforced here, whatever the UI shows

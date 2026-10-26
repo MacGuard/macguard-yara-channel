@@ -20,7 +20,7 @@ async function seed(db) {
 async function setup(bound = true) {
   const w = await world(); const admin = await w.login('ada', { admin: true }, { id: 13 }), rev = await w.login('rita', { push: true }, { id: 12 }), viewer = await w.login('vera', { pull: true }, { id: 11 });
   for (const u of [admin, rev, viewer]) await w.call('GET', '/api/me', { user: u }); await w.grant(admin, 'vera', 'VIEWER');
-  if (bound) { w.env.INTEL = newDb('../migrations-intel/0001_intel.sql'); await seed(w.env.INTEL); }
+  if (bound) { w.env.INTEL = newDb(['../migrations-intel/0001_intel.sql', '../migrations-intel/0002_decisions.sql']); await seed(w.env.INTEL); }
   return { w, admin, rev, viewer };
 }
 const get = (w, user, p) => w.call('GET', `/api/intel/${p}`, { user });
@@ -71,4 +71,13 @@ test('events: incremental reading with after, the head cursor, secrets masked on
   const inc = (await get(w, rev, `events?after=${head}`)).data; assert.equal(inc.items.length, 1); assert.ok(!/ABCDEF|GHIJKL|ghp_A/.test(inc.items[0].message), inc.items[0].message); assert.match(inc.items[0].message, /\[redacted\]/);
   assert.equal((await get(w, rev, `events?after=1&before=9`)).status, 400); assert.equal((await get(w, rev, 'events?after=-1')).status, 400);
   const st = (await get(w, rev, 'stats')).data; assert.deepEqual(st.events.by_level.map((x) => x.level).sort(), ['ERROR', 'INFO', 'INFO', 'WARN', 'WARN'].filter((v, i, a) => a.indexOf(v) === i).sort()); assert.equal(st.runs.items.length, 2); assert.equal(st.runs.items[0].accepted, 250);
+});
+
+test('events: text search and source filter are bounded, wildcards in the text are literal, and the filters combine', async () => {
+  const { w, rev } = await setup(); const ins = (lvl, msg, src) => w.env.INTEL.prepare('INSERT INTO intel_events (ts,level,component,module,message,source_id,family) VALUES (?,?,?,?,?,?,?)').bind(NOW, lvl, 'intel.fetch', 'Fetcher', msg, src, 'kev').run();
+  await ins('INFO', 'downloaded 100% of the file', 'cisa-kev'); await ins('INFO', 'downloaded 1000 of the file', 'cisa-kev'); await ins('ERROR', 'timeout while downloading', 'sigmahq');
+  const n = async (q) => (await get(w, rev, `events?${q}`)); const count = async (q) => (await n(q)).data.items.length;
+  assert.equal(await count('q=100%25'), 1, 'a percent sign in the text is literal, not a wildcard'); assert.equal(await count('q=download'), 5, 'message match is case-insensitive substring'); assert.equal(await count('q=fetcher'), 3, 'module matches too');
+  assert.equal(await count('source_id=cisa-kev'), 2); assert.equal(await count('source_id=sigmahq&level=ERROR&q=timeout'), 1, 'filters combine');
+  for (const bad of ['q=a', `q=${'x'.repeat(65)}`, 'source_id=a%20b', 'source_id=%27%3B--']) assert.equal((await n(bad)).status, 400, bad);
 });

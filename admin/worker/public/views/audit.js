@@ -25,7 +25,7 @@ export async function renderAudit(ctx) {
     verifyOut.replaceChildren(r.status !== 200 ? h('p', { class: 'alert alert-bad', role: 'alert' }, icon('alert'), failure(r, t('err_generic'))) : r.data.ok ? h('p', { class: 'alert alert-ok' }, icon('check'), t('a_ok', { n: r.data.entries, head: shortSha(r.data.head || '') })) : h('p', { class: 'alert alert-bad', role: 'alert' }, icon('alert'), t('a_bad', { at: r.data.at ?? '?', msg: r.data.error || '' })));
   } }, icon('lock'), t('a_verify')), verifyOut) : null;
 
-  put(root, h('div', { class: 'page-head' }, h('div', {}, h('h1', { id: 'page-title', tabindex: '-1', text: t('a_title') }), h('p', { text: t('a_lead') }))), verify,
+  put(root, ctx.embedded ? null : h('div', { class: 'page-head' }, h('div', {}, h('h1', { id: 'page-title', tabindex: '-1', text: t('a_title') }), h('p', { text: t('a_lead') }))), ctx.embedded ? null : verify,
     h('div', { class: 'field' }, h('span', { text: t('a_family') }), fam), h('div', { class: 'field' }, h('label', { for: 'a-actor', text: t('a_actor') }), actor), list, more);
 
   let lastDay = '';
