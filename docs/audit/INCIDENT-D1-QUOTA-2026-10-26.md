@@ -20,6 +20,18 @@ Filas leídas hoy, por base y hora (UTC):
 2. **Lo que hizo cruzar el límite fue mi ensayo**: exportar 75.264 filas de producción y volcar el export en una base temporal (1,2 M de lecturas y 376 k escrituras) sin presupuesto ni comprobación previa del consumo.
 3. Sin alerta de consumo ni tope por operación, nada avisó.
 
+## Consultas responsables (D1 query insights de Cloudflare, producción `macguard-intel`, 26/10 hasta las 17:00 UTC)
+
+| Filas leídas | Ejecuciones | Consulta (acortada) |
+|---:|---:|---|
+| 2.079.808 | 16 | `SELECT family, validated, functional, performance, COUNT(*) … FROM intel_records WHERE validated IS NOT NULL GROUP BY …` |
+| 1.202.512 | 16 | `SELECT family, COALESCE(state,'NONE'), COUNT(*) FROM intel_records GROUP BY family, state` |
+| 1.202.368 | 8 | `SELECT source_id, COUNT(*), MAX(updated_at) FROM intel_records GROUP BY source_id` |
+| 601.184 | 8 | `SELECT family, COUNT(*), SUM(held_back) FROM intel_records GROUP BY family` |
+| 450.888 | 3 | `SELECT source_id, COUNT(*) FROM intel_records GROUP BY source_id` |
+
+Las cinco son agregados sin límite sobre toda la tabla; juntas suman ≈ 5,5 M de filas leídas por unas 16 cargas de la pantalla. Todas desaparecen con la instantánea (una pasada por promoción). Las bases del panel y del gateway no tienen ninguna consulta por encima de ~1.100 filas: no hay otros *scans* innecesarios en la cuenta.
+
 ## Servicios afectados
 - Panel (`macguard-quarantine` y `macguard-intel`): las lecturas D1 fallaron; 500 en `/public/stats` y en las rutas de datos.
 - Gateway (`macguard-gateway`): su tráfico de las 14:00 y las 15:00 coincide con su patrón normal (29 consultas / 3 consultas por hora), así que **no hay indicios** de que la ingesta haya dejado de escribir. No lo afirmo: faltan las horas posteriores a las 16:30 UTC y no leí D1 para comprobarlo.
