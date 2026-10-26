@@ -67,6 +67,14 @@ export async function effectiveRoles(db, session, env, deps, now, { fresh = fals
       else if (r.status === 403 || r.status === 404) { perm = 'none'; }
       else if (!r.ok) throw new Error(`GitHub ${r.status}`);
       else { const p = (await r.json()).permissions || {}; perm = p.admin ? 'admin' : p.maintain ? 'maintain' : p.push ? 'write' : p.triage ? 'triage' : 'read'; }
+      if (fresh) {   // a state-changing call also proves WHO holds the token: it must still be the account the session was opened for (a swapped token or a changed identity ends the session)
+        const u = await deps.fetch(`${env.GITHUB_API || 'https://api.github.com'}/user`, { headers: { Authorization: `Bearer ${token}`, Accept: 'application/vnd.github+json', 'User-Agent': 'macguard-admin' } });
+        if (u.status === 401) { await destroySession(db, session.id); return REAUTH; }
+        if (!u.ok) throw new Error(`GitHub ${u.status}`);
+        const who = await u.json();
+        if (!who || who.id !== session.user_id) { await destroySession(db, session.id); return REAUTH; }
+        if (typeof who.login === 'string' && who.login.toLowerCase() !== String(session.login).toLowerCase()) { await db.prepare('UPDATE sessions SET login = ? WHERE id = ?').bind(who.login, session.id).run(); session.login = who.login; }   // renamed account, same immutable id: the audit shows the current handle
+      }
       await db.prepare('UPDATE sessions SET perm = ?, perm_at = ? WHERE id = ?').bind(perm, now, session.id).run();
     } catch (e) {
       if (fresh || !session.perm || now - session.perm_at > 600) return null;   // stale or unknown: no access (reads may use a grant up to 10 minutes old, writes never)
@@ -74,7 +82,12 @@ export async function effectiveRoles(db, session, env, deps, now, { fresh = fals
     }
   }
   // GitHub confers only REVIEWER or ADMIN (as before); PUBLISHER and SECURITY_ADMIN exist only as an explicit grant. The person holds the union.
-  const roles = rolesFor({ repoRole: roleFromRepoPermission(perm), manualRole: await memberRole(db, session.login, session.user_id) });
+  let repoRole = roleFromRepoPermission(perm);
+  if (env.RBAC_GITHUB_MAPPING === 'off' && repoRole) {   // migration to explicit grants: GitHub permission confers nothing, EXCEPT that the repository administrator keeps ADMIN while no explicit ADMIN exists (the recovery path is GitHub itself, not a hidden account)
+    const explicitAdmin = repoRole === 'ADMIN' ? await db.prepare("SELECT COUNT(*) AS n FROM members WHERE role = 'ADMIN' AND user_id IS NOT NULL").first() : { n: 1 };
+    if (!(repoRole === 'ADMIN' && explicitAdmin.n === 0)) repoRole = null;
+  }
+  const roles = rolesFor({ repoRole, manualRole: await memberRole(db, session.login, session.user_id) });
   return roles.length ? roles : null;
 }
 

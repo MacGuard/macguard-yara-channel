@@ -33,6 +33,7 @@ CREATE TABLE IF NOT EXISTS policies (
   sha256 TEXT NOT NULL CHECK (length(sha256) = 64),
   candidate_id TEXT NOT NULL,
   criticality TEXT NOT NULL CHECK (criticality IN ('STANDARD','CRITICAL')),
+  kind TEXT NOT NULL DEFAULT 'WITHDRAWAL' CHECK (kind IN ('WITHDRAWAL','SUSPENSION','REVOCATION')),
   author TEXT NOT NULL,
   author_id INTEGER NOT NULL,
   author_role TEXT NOT NULL CHECK (author_role IN ('ADMIN','PUBLISHER','SECURITY_ADMIN')),
@@ -123,10 +124,78 @@ CREATE TRIGGER IF NOT EXISTS policy_lifts_two_step_born_open BEFORE INSERT ON po
 CREATE TRIGGER IF NOT EXISTS policy_lifts_direct_standard_only BEFORE INSERT ON policy_lifts WHEN NEW.kind = 'DIRECT' AND (SELECT criticality FROM policies WHERE id = NEW.policy_id) IS NOT 'STANDARD' BEGIN SELECT RAISE(ABORT, 'a critical policy cannot be lifted by one administrator'); END;
 CREATE TRIGGER IF NOT EXISTS policy_lifts_breakglass_needs_critical BEFORE INSERT ON policy_lifts WHEN NEW.kind = 'BREAKGLASS' AND (SELECT criticality FROM policies WHERE id = NEW.policy_id) IS NOT 'CRITICAL' BEGIN SELECT RAISE(ABORT, 'break-glass applies to critical policies only'); END;
 CREATE TRIGGER IF NOT EXISTS policy_lifts_breakglass_review_overdue BEFORE INSERT ON policy_lifts WHEN NEW.kind = 'BREAKGLASS' AND EXISTS (SELECT 1 FROM policy_lifts b WHERE b.kind = 'BREAKGLASS' AND b.state = 'APPLIED' AND b.reviewed_at IS NULL AND b.review_due_at < NEW.requested_at) BEGIN SELECT RAISE(ABORT, 'a break-glass review is overdue'); END;
--- members: copy, swap, restore the unique index
-CREATE TABLE members_v2 (login TEXT PRIMARY KEY, role TEXT NOT NULL CHECK (role IN ('VIEWER','REVIEWER','PUBLISHER','SECURITY_ADMIN','ADMIN')), granted_by TEXT NOT NULL, at TEXT NOT NULL, user_id INTEGER, updated_at TEXT);
-INSERT INTO members_v2 (login, role, granted_by, at, user_id, updated_at) SELECT login, role, granted_by, at, user_id, updated_at FROM members;
+-- policy_events: keep the rows aside, recreate under the same name with the wider vocabulary, put the rows back
+CREATE TABLE policy_events_keep AS SELECT * FROM policy_events;
+DROP TRIGGER IF EXISTS policy_events_no_update;
+DROP TRIGGER IF EXISTS policy_events_no_delete;
+DROP INDEX IF EXISTS policy_events_policy;
+DROP TABLE policy_events;
+CREATE TABLE policy_events (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  policy_id TEXT NOT NULL,
+  policy_version INTEGER NOT NULL,
+  event TEXT NOT NULL CHECK (event IN ('WITHDRAWAL_REQUESTED','WITHDRAWAL_CONFIRMED','LIFT_REQUESTED','LIFT_CANCELLED','LIFT_EXPIRED','LIFTED','BREAKGLASS_REQUESTED','BREAKGLASS_EXECUTED','BREAKGLASS_REVIEWED','REVOCATION_CONFIRMED')),
+  actor TEXT NOT NULL,
+  actor_id INTEGER,
+  role TEXT NOT NULL,
+  reason TEXT NOT NULL,
+  release_tag TEXT,
+  evidence TEXT NOT NULL DEFAULT '{}',
+  request_id TEXT NOT NULL,
+  at TEXT NOT NULL,
+  UNIQUE (policy_id, event, request_id)
+);
+INSERT INTO policy_events (id, policy_id, policy_version, event, actor, actor_id, role, reason, release_tag, evidence, request_id, at) SELECT id, policy_id, policy_version, event, actor, actor_id, role, reason, release_tag, evidence, request_id, at FROM policy_events_keep;
+DROP TABLE policy_events_keep;
+CREATE INDEX IF NOT EXISTS policy_events_policy ON policy_events (policy_id);
+CREATE TRIGGER IF NOT EXISTS policy_events_no_update BEFORE UPDATE ON policy_events BEGIN SELECT RAISE(ABORT, 'policy events are append-only'); END;
+CREATE TRIGGER IF NOT EXISTS policy_events_no_delete BEFORE DELETE ON policy_events BEGIN SELECT RAISE(ABORT, 'policy events are append-only'); END;
+-- members: keep the rows aside, recreate under the same name, put the rows back, restore the unique index
+CREATE TABLE members_keep AS SELECT * FROM members;
 DROP INDEX IF EXISTS members_user_id;
 DROP TABLE members;
-ALTER TABLE members_v2 RENAME TO members;
+CREATE TABLE members (login TEXT PRIMARY KEY, role TEXT NOT NULL CHECK (role IN ('VIEWER','REVIEWER','PUBLISHER','SECURITY_ADMIN','ADMIN')), granted_by TEXT NOT NULL, at TEXT NOT NULL, user_id INTEGER, updated_at TEXT);
+INSERT INTO members (login, role, granted_by, at, user_id, updated_at) SELECT login, role, granted_by, at, user_id, updated_at FROM members_keep;
+DROP TABLE members_keep;
 CREATE UNIQUE INDEX IF NOT EXISTS members_user_id ON members (user_id) WHERE user_id IS NOT NULL;
+-- approvals: one row per operation that needs a second, DIFFERENT identity (privileged role grants, real recoveries, confirmation of a definitive revocation). The database itself refuses an approver who is the requester.
+CREATE TABLE IF NOT EXISTS approvals (
+  id TEXT PRIMARY KEY,
+  op TEXT NOT NULL CHECK (op IN ('role.grant','restore.real','policy.revoke_confirm')),
+  params TEXT NOT NULL CHECK (json_valid(params)),
+  params_sha256 TEXT NOT NULL CHECK (length(params_sha256) = 64),
+  mode TEXT NOT NULL CHECK (mode IN ('DUAL','BREAKGLASS')),
+  state TEXT NOT NULL CHECK (state IN ('REQUESTED','APPROVED','EXECUTED','CANCELLED','EXPIRED')),
+  reason TEXT NOT NULL CHECK (length(trim(reason)) >= 5 AND (mode != 'BREAKGLASS' OR length(trim(reason)) >= 40)),
+  requested_by TEXT NOT NULL,
+  requested_by_id INTEGER NOT NULL,
+  requested_roles TEXT NOT NULL,
+  requested_at TEXT NOT NULL,
+  expires_at TEXT NOT NULL,
+  not_before TEXT,
+  approved_by TEXT,
+  approved_by_id INTEGER,
+  approved_roles TEXT,
+  approved_at TEXT,
+  approval_reason TEXT,
+  executed_by TEXT,
+  executed_by_id INTEGER,
+  executed_at TEXT,
+  reviewed_by TEXT,
+  reviewed_by_id INTEGER,
+  reviewed_at TEXT,
+  review_outcome TEXT CHECK (review_outcome IS NULL OR review_outcome IN ('APPROPRIATE','INAPPROPRIATE')),
+  request_id TEXT NOT NULL UNIQUE,
+  version INTEGER NOT NULL DEFAULT 1,
+  CHECK (approved_by_id IS NULL OR approved_by_id != requested_by_id),
+  CHECK (reviewed_by_id IS NULL OR (reviewed_by_id != requested_by_id AND reviewed_by_id IS NOT executed_by_id)),
+  CHECK (mode != 'DUAL' OR not_before IS NULL),
+  CHECK (mode != 'BREAKGLASS' OR (not_before IS NOT NULL AND approved_by_id IS NULL)),
+  CHECK (state NOT IN ('APPROVED','EXECUTED') OR mode = 'BREAKGLASS' OR approved_by_id IS NOT NULL)
+);
+CREATE INDEX IF NOT EXISTS approvals_state ON approvals (state, op);
+CREATE TRIGGER IF NOT EXISTS approvals_no_delete BEFORE DELETE ON approvals BEGIN SELECT RAISE(ABORT, 'approvals are never deleted'); END;
+CREATE TRIGGER IF NOT EXISTS approvals_identity_frozen BEFORE UPDATE OF id, op, params, params_sha256, mode, reason, requested_by, requested_by_id, requested_roles, requested_at, expires_at, not_before, request_id ON approvals BEGIN SELECT RAISE(ABORT, 'what was requested cannot change'); END;
+CREATE TRIGGER IF NOT EXISTS approvals_version_step BEFORE UPDATE ON approvals WHEN NEW.version != OLD.version + 1 BEGIN SELECT RAISE(ABORT, 'approval version must increase by exactly one'); END;
+CREATE TRIGGER IF NOT EXISTS approvals_closed_is_final BEFORE UPDATE ON approvals WHEN OLD.state IN ('CANCELLED','EXPIRED') OR (OLD.state = 'EXECUTED' AND (NEW.state != 'EXECUTED' OR NEW.executed_at IS NOT OLD.executed_at OR NEW.approved_by_id IS NOT OLD.approved_by_id)) BEGIN SELECT RAISE(ABORT, 'a closed approval is final'); END;
+CREATE TRIGGER IF NOT EXISTS approvals_breakglass_not_before BEFORE UPDATE ON approvals WHEN NEW.state = 'EXECUTED' AND OLD.mode = 'BREAKGLASS' AND NEW.executed_at < OLD.not_before BEGIN SELECT RAISE(ABORT, 'an emergency approval cannot be executed before its delay'); END;

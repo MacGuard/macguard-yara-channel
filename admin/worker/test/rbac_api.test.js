@@ -9,11 +9,12 @@ import { ROLES, ROUTES, can, permissionFor, rolesFor } from '../src/rbac.js';
 const ID = '11111111-1111-4111-8111-111111111111', LIFT = 'abcdef12-3456';
 // one concrete request per route-table entry; `family` marks the routes whose permission depends on the record
 const SAMPLES = [['GET', '/api/stats'], ['GET', '/api/ops/overview'], ['GET', '/api/candidates'], ['GET', `/api/candidates/${ID}`], ['POST', '/api/decisions'], ['POST', `/api/candidates/${ID}/retest`],
-  ['GET', '/api/published'], ['GET', '/api/published/file?path=x'], ['POST', '/api/published/adopt'], ['GET', '/api/policies'], ['GET', `/api/policies/${ID}`], ['GET', '/api/policies/preview'], ['POST', '/api/policies/withdrawals'],
+  ['GET', '/api/published'], ['GET', '/api/published/file?path=x'], ['POST', '/api/published/adopt'], ['GET', '/api/policies'], ['GET', `/api/policies/${ID}`], ['GET', '/api/policies/preview'], ['POST', '/api/policies/withdrawals'], ['POST', '/api/policies/suspensions'],
   ['POST', '/api/policies/reconcile'], ['POST', `/api/policies/${ID}/lifts`], ['POST', `/api/policies/lifts/${LIFT}/authorize`], ['POST', `/api/policies/lifts/${LIFT}/execute`], ['POST', `/api/policies/lifts/${LIFT}/cancel`], ['POST', `/api/policies/lifts/${LIFT}/review`],
   ['GET', '/api/intel/families'], ['GET', '/api/intel/sources'], ['GET', '/api/intel/runs'], ['GET', '/api/intel/stats'], ['GET', '/api/intel/events'], ['GET', '/api/audit'], ['GET', '/api/audit/verify'],
   ['GET', '/api/restore/status'], ['GET', '/api/restore/procedures'], ['POST', '/api/restore/event'], ['GET', '/api/source-proposals'], ['GET', `/api/source-proposals/${ID}`], ['POST', '/api/source-proposals'], ['POST', `/api/source-proposals/${ID}/verify`], ['POST', `/api/source-proposals/${ID}/authorize`],
-  ['GET', '/api/members'], ['GET', '/api/members/lookup?login=x'], ['GET', '/api/members/12/history?login=rita'], ['POST', '/api/members'], ['GET', '/api/permissions']];
+  ['GET', '/api/members'], ['GET', '/api/members/lookup?login=x'], ['GET', '/api/members/12/history?login=rita'], ['POST', '/api/members'], ['GET', '/api/permissions'], ['GET', '/api/members/migration-plan'],
+  ['GET', '/api/approvals'], ['GET', `/api/approvals/${ID}`], ['POST', '/api/approvals'], ['POST', `/api/approvals/${ID}/approve`], ['POST', `/api/approvals/${ID}/execute`], ['POST', `/api/approvals/${ID}/cancel`], ['POST', `/api/approvals/${ID}/review`]];
 const FAMILY_ROUTES = [['GET', '/api/intel/records'], ['GET', '/api/intel/records/kev%3ACVE-2024-1000']];
 
 async function people() {
@@ -55,7 +56,7 @@ test('grants and revocations go through verified GitHub identities, only an ADMI
   const acc = await lookup('nobody'); for (const bad of ['ROOT', 'publisher', 'admin', '', 5, {}]) assert.equal((await w.call('POST', '/api/members', { user: U.ADMIN, body: { user_id: acc.id, role: bad, reason: 'reviewed by the owner' } })).status, 400, JSON.stringify(bad));
   assert.equal((await w.call('POST', '/api/members', { user: U.ADMIN, body: { user_id: 13, role: 'VIEWER', reason: 'reviewed by the owner' } })).status, 400, 'nobody changes their own role');
   assert.equal((await w.call('POST', '/api/members', { user: U.ADMIN, body: { user_id: 999999, role: 'PUBLISHER', reason: 'reviewed by the owner' } })).status, 404, 'an identity GitHub does not know is refused');
-  const ok = await w.call('POST', '/api/members', { user: U.ADMIN, body: { user_id: acc.id, role: 'PUBLISHER', reason: 'reviewed by the owner' } }); assert.equal(ok.status, 200, JSON.stringify(ok.data));
+  const ok = await w.call('POST', '/api/members', { user: U.ADMIN, body: { user_id: acc.id, role: 'PUBLISHER', reason: 'reviewed by the owner', confirm_login: 'nobody' } }); assert.equal(ok.status, 200, JSON.stringify(ok.data));
   assert.equal((await call(w, U.STRANGER, ['POST', '/api/policies/withdrawals'])).status, 400, 'now a PUBLISHER: the permission passes and the body is validated');
   const gone = await w.call('POST', '/api/members', { user: U.ADMIN, body: { user_id: acc.id, role: null, reason: 'revoked after review' } }); assert.equal(gone.status, 200); assert.equal((await call(w, U.STRANGER, ['POST', '/api/policies/withdrawals'])).status, 403, 'revoked: the very next request is refused');
   const rows = w.db.raw.prepare("SELECT action, role, detail FROM audit WHERE action IN ('member.set','authz.denied') ORDER BY seq").all(); const sets = rows.filter((r) => r.action === 'member.set');
@@ -64,7 +65,7 @@ test('grants and revocations go through verified GitHub identities, only an ADMI
 });
 
 test('roles are a union, never a rank: a reviewer who is also a publisher can decide and withdraw but cannot administer; losing the grant leaves the repository role', async () => {
-  const { w, U } = await people(); const rita = await w.call('GET', '/api/members/lookup?login=rita', { user: U.ADMIN }); await w.call('POST', '/api/members', { user: U.ADMIN, body: { user_id: rita.data.account.id, role: 'PUBLISHER', reason: 'reviewed by the owner' } });
+  const { w, U } = await people(); const rita = await w.call('GET', '/api/members/lookup?login=rita', { user: U.ADMIN }); await w.call('POST', '/api/members', { user: U.ADMIN, body: { user_id: rita.data.account.id, role: 'PUBLISHER', reason: 'reviewed by the owner', confirm_login: 'rita' } });
   const me = (await w.call('GET', '/api/me', { user: U.REVIEWER })).data; assert.deepEqual(me.roles.sort(), ['PUBLISHER', 'REVIEWER']); assert.ok(me.permissions.includes('quarantine.decide') && me.permissions.includes('publication.withdraw.request') && !me.permissions.includes('admin.members.manage'));
   assert.notEqual((await call(w, U.REVIEWER, ['POST', '/api/decisions'])).status, 403); assert.notEqual((await call(w, U.REVIEWER, ['POST', '/api/policies/withdrawals'])).status, 403); assert.equal((await call(w, U.REVIEWER, ['GET', '/api/members'])).status, 403);
   await w.call('POST', '/api/members', { user: U.ADMIN, body: { user_id: rita.data.account.id, role: null, reason: 'revoked after review' } }); assert.deepEqual((await w.call('GET', '/api/me', { user: U.REVIEWER })).data.roles, ['REVIEWER']);

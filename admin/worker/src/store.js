@@ -261,7 +261,11 @@ export async function findMember(db, userId, login) {
 
 /** Grant, change or revoke (role === null) one member, atomically with its audit entry. The caller has already authorized the actor and resolved the
  *  account from GitHub by id. `durableAdmin` says the actor is a GitHub repository admin, who cannot be removed from this panel. */
-export async function changeMember(db, { account, role, reason, actor, durableAdmin }, now) {
+/** How many distinct accounts can act as ADMIN today: explicit grants bound to an id, plus repository administrators seen in a session. Decides whether a privileged grant needs a second approver. */
+export async function adminCount(db) {
+  return (await db.prepare("SELECT COUNT(*) AS n FROM (SELECT user_id FROM members WHERE role = 'ADMIN' AND user_id IS NOT NULL UNION SELECT user_id FROM sessions WHERE perm = 'admin')").first()).n;
+}
+export async function changeMember(db, { account, role, reason, actor, durableAdmin, extra = {} }, now) {
   const found = await findMember(db, account.id, account.login);
   if (found.kind === 'other-identity') return { status: 409, error: `the login ${account.login} is held by a different GitHub account (id ${found.row.user_id}); revoke that grant first` };
   const from = found.row ? found.row.role : null;
@@ -276,7 +280,7 @@ export async function changeMember(db, { account, role, reason, actor, durableAd
   else stmts.push(db.prepare('INSERT INTO members (login, role, granted_by, at, user_id, updated_at) VALUES (?,?,?,?,?,?)').bind(account.login.toLowerCase(), role, actor.login, now, account.id, now));
   const prev = await chainHead(db);
   const entry = { at: now, actor: actor.login, role: actor.role, action: 'member.set', target: `user:${account.id}`,
-    detail: J({ user_id: account.id, login: account.login, from_role: from, to_role: role, reason, actor_id: actor.id, bound_legacy: found.kind === 'legacy' }) };
+    detail: J({ user_id: account.id, login: account.login, from_role: from, to_role: role, reason, actor_id: actor.id, bound_legacy: found.kind === 'legacy', ...extra }) };
   stmts.push(db.prepare('INSERT INTO audit (at, actor, role, action, target, detail, prev_hash, hash) VALUES (?,?,?,?,?,?,?,?)').bind(entry.at, entry.actor, entry.role, entry.action, entry.target, entry.detail, prev, await chainHash(prev, entry)));
   try { await db.batch(stmts); } catch (e) { return { status: 409, error: from === 'ADMIN' && role !== 'ADMIN' && !durableAdmin ? 'this would remove the last administrator who cannot be removed from the panel; nothing was changed' : 'the membership changed while this was being applied; nothing was changed', retry: true }; }
   return { status: 200, user_id: account.id, login: account.login, from_role: from, to_role: role };

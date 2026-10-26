@@ -2,13 +2,14 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { ROLES, PERMISSIONS, GRANTS, can, permissionsOf, rolesFor, primaryRole, permissionFor, ROUTES, familyPermission, GITHUB_DERIVED_ROLES, isCritical } from '../src/rbac.js';
+import { ROLES, PERMISSIONS, GRANTS, can, permissionsOf, rolesFor, primaryRole, permissionFor, ROUTES, familyPermission, GITHUB_DERIVED_ROLES, isCritical, OP_PERMISSIONS } from '../src/rbac.js';
 import { render } from '../tools/gen_rbac_matrix.mjs';
 
 test('five roles; every grant names a known permission; every route names a known permission (or the per-family marker)', () => {
   assert.deepEqual(ROLES, ['VIEWER', 'REVIEWER', 'PUBLISHER', 'SECURITY_ADMIN', 'ADMIN']);
   for (const [r, list] of Object.entries(GRANTS)) { assert.ok(ROLES.includes(r)); for (const p of list) assert.ok(PERMISSIONS[p], `${r}: ${p}`); assert.equal(new Set(list).size, list.length, `${r} lists a permission twice`); }
-  for (const [, , p] of ROUTES) assert.ok(PERMISSIONS[p] || p === 'INTEL_BY_FAMILY', p);
+  for (const [, , p] of ROUTES) assert.ok(PERMISSIONS[p] || p === 'INTEL_BY_FAMILY' || p === 'APPROVAL_BY_OP', p);
+  for (const [op, ps] of Object.entries(OP_PERMISSIONS)) for (const p of [ps.request, ps.approve, ps.breakglass].filter(Boolean)) assert.ok(PERMISSIONS[p], `${op}: ${p}`);
 });
 
 test('no inheritance: no role is a superset by accident, and each role holds exactly what its line says', () => {

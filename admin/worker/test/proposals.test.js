@@ -48,7 +48,7 @@ const count = async (w, sql, ...a) => (await w.db.prepare(sql).bind(...a).first(
 
 // ---------- syntax and containment (T-S1, T-S5) ----------
 test('T-S1: every hostile URL is refused before any request is made', async () => {
-  const w = await setup(); const calls = []; const orig = w.deps.fetch; w.deps.fetch = async (...a) => { if (!String(a[0]).includes(REPO)) calls.push(String(a[0])); return orig(...a); };   // the role lookup of the signed-in person is not ours
+  const w = await setup(); const calls = []; const orig = w.deps.fetch; w.deps.fetch = async (...a) => { if (!String(a[0]).includes(REPO) && !String(a[0]).endsWith('/user')) calls.push(String(a[0])); return orig(...a); };   // the role and identity lookups of the signed-in person are not ours
   const bad = ['http://github.com/a/b', 'https://github.com.evil.com/a/b', 'https://evil.com/github.com/a/b', 'https://user:pw@github.com/a/b', 'https://github.com:444/a/b', 'https://github.com:443/a/b', 'https://127.0.0.1/a/b', 'https://[::1]/a/b', 'https://169.254.169.254/', 'https://2130706433/a/b',
     'file:///etc/passwd', 'gopher://github.com/a/b', 'ftp://github.com/a/b', 'https://github.com/a/b/tree/x', 'https://github.com/a/b?x=1', 'https://github.com/a/b#x', 'https://github.com/%2e%2e/b', 'https://github.com/a/%2e%2e', 'https://ｇithub.com/a/b', 'https://github.com/ａ/b',
     'https://xn--gthub-bsa.com/a/b', 'https://github.com/a/b%0d%0aX', 'https://github.com/a/b\nX', 'https://github.com/a/b ', ' https://github.com/a/b', 'HTTPS://GITHUB.COM/a/b', 'https://www.github.com/a/b', 'https://api.github.com/repos/a/b', 'https://github.com//a/b', 'https://github.com/a', 'https://github.com/a/b/c',

@@ -1,5 +1,12 @@
 -- Rollback of 0006: back to the three-role constraints. It REFUSES (the first statement fails) while any member, policy or lift carries a role the old constraints do not allow: re-assign or revoke those first.
-SELECT CASE WHEN (SELECT COUNT(*) FROM members WHERE role IN ('PUBLISHER','SECURITY_ADMIN')) + (SELECT COUNT(*) FROM policies WHERE author_role != 'ADMIN') + (SELECT COUNT(*) FROM policy_lifts WHERE requested_role != 'ADMIN') = 0 THEN 1 ELSE json('not-json') END;
+SELECT CASE WHEN (SELECT COUNT(*) FROM members WHERE role IN ('PUBLISHER','SECURITY_ADMIN')) + (SELECT COUNT(*) FROM policies WHERE author_role != 'ADMIN') + (SELECT COUNT(*) FROM policy_lifts WHERE requested_role != 'ADMIN') + (SELECT COUNT(*) FROM approvals) + (SELECT COUNT(*) FROM policy_events WHERE event = 'REVOCATION_CONFIRMED') + (SELECT COUNT(*) FROM policies WHERE kind != 'WITHDRAWAL') = 0 THEN 1 ELSE json('not-json') END;
+DROP TRIGGER IF EXISTS approvals_breakglass_not_before;
+DROP TRIGGER IF EXISTS approvals_closed_is_final;
+DROP TRIGGER IF EXISTS approvals_version_step;
+DROP TRIGGER IF EXISTS approvals_identity_frozen;
+DROP TRIGGER IF EXISTS approvals_no_delete;
+DROP INDEX IF EXISTS approvals_state;
+DROP TABLE IF EXISTS approvals;
 DROP TRIGGER IF EXISTS policy_lifts_breakglass_review_overdue;
 DROP TRIGGER IF EXISTS policy_lifts_breakglass_needs_critical;
 DROP TRIGGER IF EXISTS policy_lifts_direct_standard_only;
@@ -121,9 +128,37 @@ CREATE TRIGGER IF NOT EXISTS policy_lifts_two_step_born_open BEFORE INSERT ON po
 CREATE TRIGGER IF NOT EXISTS policy_lifts_direct_standard_only BEFORE INSERT ON policy_lifts WHEN NEW.kind = 'DIRECT' AND (SELECT criticality FROM policies WHERE id = NEW.policy_id) IS NOT 'STANDARD' BEGIN SELECT RAISE(ABORT, 'a critical policy cannot be lifted by one administrator'); END;
 CREATE TRIGGER IF NOT EXISTS policy_lifts_breakglass_needs_critical BEFORE INSERT ON policy_lifts WHEN NEW.kind = 'BREAKGLASS' AND (SELECT criticality FROM policies WHERE id = NEW.policy_id) IS NOT 'CRITICAL' BEGIN SELECT RAISE(ABORT, 'break-glass applies to critical policies only'); END;
 CREATE TRIGGER IF NOT EXISTS policy_lifts_breakglass_review_overdue BEFORE INSERT ON policy_lifts WHEN NEW.kind = 'BREAKGLASS' AND EXISTS (SELECT 1 FROM policy_lifts b WHERE b.kind = 'BREAKGLASS' AND b.state = 'APPLIED' AND b.reviewed_at IS NULL AND b.review_due_at < NEW.requested_at) BEGIN SELECT RAISE(ABORT, 'a break-glass review is overdue'); END;
-CREATE TABLE members_v3 (login TEXT PRIMARY KEY, role TEXT NOT NULL CHECK (role IN ('VIEWER','REVIEWER','ADMIN')), granted_by TEXT NOT NULL, at TEXT NOT NULL, user_id INTEGER, updated_at TEXT);
-INSERT INTO members_v3 SELECT login, role, granted_by, at, user_id, updated_at FROM members;
+-- policy_events: keep the rows aside, recreate under the same name with the wider vocabulary, put the rows back
+CREATE TABLE policy_events_keep AS SELECT * FROM policy_events;
+DROP TRIGGER IF EXISTS policy_events_no_update;
+DROP TRIGGER IF EXISTS policy_events_no_delete;
+DROP INDEX IF EXISTS policy_events_policy;
+DROP TABLE policy_events;
+CREATE TABLE policy_events (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  policy_id TEXT NOT NULL,
+  policy_version INTEGER NOT NULL,
+  event TEXT NOT NULL CHECK (event IN ('WITHDRAWAL_REQUESTED','WITHDRAWAL_CONFIRMED','LIFT_REQUESTED','LIFT_CANCELLED','LIFT_EXPIRED','LIFTED','BREAKGLASS_REQUESTED','BREAKGLASS_EXECUTED','BREAKGLASS_REVIEWED')),
+  actor TEXT NOT NULL,
+  actor_id INTEGER,
+  role TEXT NOT NULL,
+  reason TEXT NOT NULL,
+  release_tag TEXT,
+  evidence TEXT NOT NULL DEFAULT '{}',
+  request_id TEXT NOT NULL,
+  at TEXT NOT NULL,
+  UNIQUE (policy_id, event, request_id)
+);
+INSERT INTO policy_events (id, policy_id, policy_version, event, actor, actor_id, role, reason, release_tag, evidence, request_id, at) SELECT id, policy_id, policy_version, event, actor, actor_id, role, reason, release_tag, evidence, request_id, at FROM policy_events_keep;
+DROP TABLE policy_events_keep;
+CREATE INDEX IF NOT EXISTS policy_events_policy ON policy_events (policy_id);
+CREATE TRIGGER IF NOT EXISTS policy_events_no_update BEFORE UPDATE ON policy_events BEGIN SELECT RAISE(ABORT, 'policy events are append-only'); END;
+CREATE TRIGGER IF NOT EXISTS policy_events_no_delete BEFORE DELETE ON policy_events BEGIN SELECT RAISE(ABORT, 'policy events are append-only'); END;
+-- members: keep the rows aside, recreate under the same name, put the rows back, restore the unique index
+CREATE TABLE members_keep AS SELECT * FROM members;
 DROP INDEX IF EXISTS members_user_id;
 DROP TABLE members;
-ALTER TABLE members_v3 RENAME TO members;
+CREATE TABLE members (login TEXT PRIMARY KEY, role TEXT NOT NULL CHECK (role IN ('VIEWER','REVIEWER','ADMIN')), granted_by TEXT NOT NULL, at TEXT NOT NULL, user_id INTEGER, updated_at TEXT);
+INSERT INTO members (login, role, granted_by, at, user_id, updated_at) SELECT login, role, granted_by, at, user_id, updated_at FROM members_keep;
+DROP TABLE members_keep;
 CREATE UNIQUE INDEX IF NOT EXISTS members_user_id ON members (user_id) WHERE user_id IS NOT NULL;

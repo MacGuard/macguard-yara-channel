@@ -10,6 +10,7 @@ import * as policies from './policies.js';
 import * as publishedRules from './published_rules.js';
 import * as intelFamilies from './intel_families.js';
 import * as intelData from './intel_data.js';
+import * as approvals from './approvals.js';
 import { can, permissionFor, primaryRole, permissionsOf, matrix, familyPermission, isCritical, GRANTABLE_ROLES } from './rbac.js';   // policy: persistent administrative withdrawals (migration 0003)
 import { REAUTH, STATE_COOKIE, openToken, resolveGithubAccount, clearCookie, clearStateCookie, createSession, destroySession, effectiveRoles, finishLogin, getSession, parseCookies, sessionCookie, startLogin, stateCookie, timingSafeEqual, verifyActionsToken } from './auth.js';
 
@@ -114,7 +115,7 @@ export async function handle(request, env, deps) {
         if (unsafe) await store.appendAudit(db, { actor: session.login, role, action: 'authz.denied', target: path.slice(0, 120), detail: { method, permission: need } }, iso).catch(() => {});   // failed attempts are kept
         return err(403, `the permission ${need} is required`, { code: 'forbidden', permission: need });
       }
-      if (unsafe && need !== 'INTEL_BY_FAMILY' && isCritical(need)) {   // critical operations: GitHub was asked again just now (fresh), and the sign-in itself must be recent
+      if (unsafe && (need === 'APPROVAL_BY_OP' || (need !== 'INTEL_BY_FAMILY' && isCritical(need)))) {   // critical operations: GitHub was asked again just now (fresh), and the sign-in itself must be recent
         const max = Number(env.CRITICAL_REAUTH_S || 1800);
         if (now - session.created_at > max) return json({ error: 'this operation needs a recent sign-in: sign in again', code: 'reauth_required', permission: need }, 401);
       }
@@ -161,6 +162,8 @@ export async function handle(request, env, deps) {
       if (method === 'POST' && path === '/api/published/adopt') {   // ADMIN: register a published rule the panel never saw so that it can be withdrawn
         const rd = await readJson(request, 2_000); if (rd.tooLarge || !rd.body || typeof rd.body.path !== 'string') return err(400, 'path required');
         const got = await inventory(); if (got.error) return got.error;
+        const hit = (got.inv.files || []).find(([p]) => p === rd.body.path);   // separation of duties: whoever APPROVED this exact content in review does not also register it for publication management
+        if (hit && (await db.prepare("SELECT 1 AS x FROM decisions WHERE actor_id = ? AND action = 'approve' AND sha256 = ? LIMIT 1").bind(session.user_id, hit[1].sha256).first())) { await store.appendAudit(db, { actor: session.login, role, action: 'authz.denied', target: 'published.adopt', detail: { reason: 'separation_of_duties', sha256: hit[1].sha256 } }, iso).catch(() => {}); return err(403, 'separation of duties: you approved this content in review, so someone else must register it', { code: 'separation_of_duties' }); }
         const r = await publishedRules.adoptPublished(db, env, deps, got.inv, { path: rd.body.path, request_id: rd.body.request_id }, actor, iso, deps.uuid);
         if (r.status !== 200) return err(r.status, r.error);
         if (r.audit) await store.appendAudit(db, { actor: session.login, role, action: r.audit.action, target: r.audit.target, detail: r.audit.detail }, iso);
@@ -179,6 +182,7 @@ export async function handle(request, env, deps) {
         const readBody = async () => { const rd = await readJson(request, 20_000); return rd.tooLarge ? null : rd.body; };
         if (method === 'GET' && path === '/api/policies') return json(await policies.listPolicies(db, { status: url.searchParams.get('status') || '' }, iso));
         if (method === 'GET' && path === '/api/policies/preview') { return send(await policies.previewWithdrawal(db, env, deps, { candidate_id: url.searchParams.get('candidate_id') || '', scope: url.searchParams.get('scope') || '' })); }
+        if (method === 'POST' && path === '/api/policies/suspensions') { const x = policies.validateSuspensionRequest(await readBody(), roles); if (!x.ok) return err(x.status, x.error); return send(await policies.requestWithdrawal(db, env, deps, x.value, actor, iso)); }
         if (method === 'POST' && path === '/api/policies/withdrawals') { const x = policies.validateWithdrawalRequest(await readBody(), roles); if (!x.ok) return err(x.status, x.error); return send(await policies.requestWithdrawal(db, env, deps, x.value, actor, iso)); }
         if (method === 'POST' && path === '/api/policies/reconcile') { return send(await policies.reconcileNow(db, env, deps, actor, iso)); }
         const pm = path.match(/^\/api\/policies\/([0-9a-f-]{8,64})$/);
@@ -222,6 +226,7 @@ export async function handle(request, env, deps) {
       if (method === 'POST' && path === '/api/restore/event') {   // audited progress of a recovery procedure: records, never executes
         const read = await readJson(request, 2_000); if (read.tooLarge) return err(413, 'request body too large');
         const v = restore.validateEvent(read.body, roles); if (!v.ok) return err(v.status, v.error);
+        if (read.body.authorization_id !== undefined) { const au = await approvals.authorisationFor(db, read.body.authorization_id, { procedure: read.body.procedure, run: read.body.run }, iso); if (!au.ok) { await store.appendAudit(db, { actor: session.login, role, action: 'authz.denied', target: 'restore.event', detail: { reason: 'no valid authorisation', procedure: read.body.procedure } }, iso).catch(() => {}); return err(403, au.error, { code: 'no_authorisation' }); } }
         if (await store.auditExists(db, { actor: session.login, action: v.action, target: v.target, detail: v.detail })) return json({ ok: true, duplicate: true });
         await store.appendAudit(db, { actor: session.login, role, action: v.action, target: v.target, detail: v.detail }, iso);
         return json({ ok: true, duplicate: false });
@@ -238,8 +243,61 @@ export async function handle(request, env, deps) {
       if (method === 'POST' && rt) { return (await store.requestRetest(db, rt[1], actor, iso)) ? json({ ok: true, note: 'the next pipeline run will test it again' }) : err(404, 'not found'); }
       if (method === 'GET' && path === '/api/audit') { const fam = url.searchParams.get('family') || ''; return json(await store.auditQuery(db, { limit: Math.min(+url.searchParams.get('limit') || 50, 200), before: +url.searchParams.get('before') || undefined, family: /^[a-z]{1,20}$/.test(fam) ? fam : undefined, actor: (url.searchParams.get('actor') || '').slice(0, 80) || undefined })); }
       if (method === 'GET' && path === '/api/audit/verify') { return json(await verifyAuditChain(db, { after: Math.max(0, +url.searchParams.get('after') || 0), head: url.searchParams.get('head') || null })); }   // archive P1: paginated, anchor-aware
+      if (path === '/api/approvals' || path.startsWith('/api/approvals/')) {   // second-identity approvals (src/approvals.js); every write needs a recent sign-in (gate above)
+        const readBody = async () => { const rd = await readJson(request, 20_000); return rd.tooLarge ? null : rd.body; };
+        const send = (r) => { const { status, ...rest } = r; return json(rest, status); };
+        const token = () => openToken(env, session.id, session.token);
+        const apply = async (row, by) => {   // the effect of an approved (or emergency-executed) operation
+          if (row.op === 'role.grant') {
+            const tok = await token(); if (!tok) return { status: 401, error: 'sign in again', code: 'reauth' };
+            const acc = await resolveGithubAccount(deps, env, tok, { id: row.params.user_id }); if (!acc.ok) return { status: acc.status, error: acc.error };
+            if (acc.account.login.toLowerCase() !== row.params.login) return { status: 409, error: 'the GitHub account no longer has the login that was approved; nothing was changed' };
+            const permNow = (await db.prepare('SELECT perm FROM sessions WHERE id = ?').bind(session.id).first())?.perm;
+            const r = await store.changeMember(db, { account: acc.account, role: row.params.role, reason: `approval ${row.id}: ${row.reason}`.slice(0, 2000), actor: { login: by.login, id: by.id, role: by.role }, durableAdmin: permNow === 'admin', extra: { approval_id: row.id, requested_by_id: row.requested_by_id, approved_by_id: row.approved_by_id ?? null, mode: row.mode } }, iso);
+            return r.status === 200 || (r.status === 409 && /already has this role/.test(r.error || '')) ? { status: 200 } : r;
+          }
+          if (row.op === 'policy.revoke_confirm') return policies.confirmRevocation(db, row.params.policy_id, row, by, iso);
+          return { status: 200 };   // restore.real: the authorisation is the effect; recovery events consume it
+        };
+        const sp = url.searchParams, am = path.match(/^\/api\/approvals\/([0-9a-f-]{8,64})(?:\/(approve|execute|cancel|review))?$/);
+        if (method === 'GET' && path === '/api/approvals') return json(await approvals.list(db, { state: sp.get('state') || undefined, op: sp.get('op') || undefined }, iso));
+        if (method === 'GET' && am && !am[2]) { const a = await approvals.getOne(db, am[1], iso); return a ? json(a) : err(404, 'not found'); }
+        if (method === 'POST' && path === '/api/approvals') {
+          const v = approvals.validateCreate(await readBody(), roles); if (!v.ok) { if (v.status === 403) await store.appendAudit(db, { actor: session.login, role, action: 'authz.denied', target: 'approvals.create', detail: { permission_missing: v.error } }, iso).catch(() => {}); return err(v.status, v.error); }
+          if (v.value.op === 'role.grant') {
+            if (v.value.params.user_id === session.user_id) return err(400, 'you cannot request a role for yourself');
+            const tok = await token(); if (!tok) return json({ error: 'sign in again', code: 'reauth' }, 401, { 'Set-Cookie': clearCookie() });
+            const acc = await resolveGithubAccount(deps, env, tok, { id: v.value.params.user_id }); if (!acc.ok) return err(acc.status, acc.error);
+            if (acc.account.login.toLowerCase() !== v.value.params.login) return err(409, 'the login does not belong to that GitHub account id');
+          }
+          if (v.value.op === 'policy.revoke_confirm') { const p = await db.prepare('SELECT kind, status FROM policies WHERE id = ?').bind(v.value.params.policy_id).first(); if (!p || p.kind !== 'SUSPENSION' || p.status !== 'ACTIVE') return err(409, 'only a suspension that is still in force can become a definitive revocation'); }
+          return send(await approvals.create(db, v.value, actor, iso, deps.uuid));
+        }
+        if (method === 'POST' && am && am[2]) {
+          const stepName = am[2], x = approvals.validateStep(await readBody(), { reason: stepName !== 'execute', outcome: stepName === 'review' }); if (!x.ok) return err(x.status, x.error);
+          if (stepName === 'review') return send(await approvals.review(db, am[1], x.value, actor, iso));
+          if (stepName === 'cancel') return send(await approvals.cancel(db, am[1], x.value, actor, iso));
+          if (stepName === 'approve') {
+            const r = await approvals.approve(db, am[1], x.value, actor, iso); if (r.status !== 200) { if (r.status === 403) await store.appendAudit(db, { actor: session.login, role, action: 'authz.denied', target: `approval:${am[1]}`, detail: { reason: r.code || 'approve', error: r.error } }, iso).catch(() => {}); return send(r); }
+            if (r.approval.op === 'restore.real') return send(r);
+            const eff = await apply(r.approval, actor); if (eff.status !== 200) return json({ approval: r.approval, effect_error: eff.error, note: 'approved, but the effect could not be applied; retry it with execute' }, 200);
+            const m = await approvals.markExecuted(db, am[1], actor, iso, { effect: 'applied' }); return send(m);
+          }
+          const ready = await approvals.readyToExecute(db, am[1], actor, iso); if (ready.status !== 200) return send(ready);
+          if (ready.row.op === 'restore.real' && ready.row.mode === 'DUAL') return err(409, 'a dual recovery authorisation is used directly by the recovery events; it is not executed');
+          if (ready.row.op !== 'restore.real') { const eff = await apply(ready.row, actor); if (eff.status !== 200) return send(eff); }
+          return send(await approvals.markExecuted(db, am[1], actor, iso, { breakglass: ready.row.mode === 'BREAKGLASS' }));
+        }
+        return err(404, 'unknown endpoint');
+      }
       if (path === '/api/members' || path.startsWith('/api/members/')) {
         const adminToken = () => openToken(env, session.id, session.token);
+        if (method === 'GET' && path === '/api/members/migration-plan') {   // preparation only: nothing is written. Who holds access today through the GitHub repository permission alone, by stable id, for the owner to review before explicit grants replace the mapping
+          const first = await store.listPeople(db, { page: 1, pageSize: 100 }, roleFromRepoPermission), people = [...first.items];
+          for (let pg = 2; pg <= Math.ceil(first.total / 100); pg++) people.push(...(await store.listPeople(db, { page: pg, pageSize: 100 }, roleFromRepoPermission)).items);
+          const items = people.filter((p) => p.origin === 'repo').map((p) => ({ user_id: p.user_id, login: p.login, repo_role: p.repo_role, repo_perm: p.repo_perm, repo_checked_at: p.repo_checked_at, last_login: p.last_login, proposed_grant: p.repo_role, bound: p.user_id != null }));
+          return json({ schema: 1, mapping: 'GITHUB_PERMISSION', note: 'Access still follows the GitHub permission. No grant has been written. Review each account, then grant it explicitly (POST /api/members; an ADMIN grant needs a second approver once two administrators exist).', total: items.length, items });
+        }
         if (method === 'GET' && path === '/api/members') return json(await store.listPeople(db, { q: url.searchParams.get('q') || '', status: url.searchParams.get('status') || '', page: +url.searchParams.get('page') || 1, pageSize: +url.searchParams.get('pageSize') || 25 }, roleFromRepoPermission));
         if (method === 'GET' && path === '/api/members/lookup') {   // resolves the real GitHub account before anything can be saved
           const login = url.searchParams.get('login') || ''; if (!/^[A-Za-z0-9-]{1,39}$/.test(login)) return err(400, 'a GitHub login is required');
@@ -258,8 +316,16 @@ export async function handle(request, env, deps) {
           const tok = await adminToken(); if (!tok) return json({ error: 'sign in again', code: 'reauth' }, 401, { 'Set-Cookie': clearCookie() });
           const acc = await resolveGithubAccount(deps, env, tok, { id: b.user_id }); if (!acc.ok) return err(acc.status, acc.error);
           if (acc.account.login.toLowerCase() === session.login.toLowerCase()) return err(400, 'you cannot change your own role');
+          let extra = {};
+          if (b.role && approvals.PRIVILEGED_ROLES.includes(b.role)) {   // PUBLISHER, SECURITY_ADMIN and ADMIN are never granted by one hand once two administrators exist
+            const n = await store.adminCount(db);
+            if (n >= 2) return err(409, 'granting this role needs a second approver: open an approval request (POST /api/approvals, op role.grant)', { code: 'approval_required', op: 'role.grant', administrators: n });
+            if (now - session.created_at > Number(env.REINFORCED_REAUTH_S || 600)) return json({ error: 'a privileged grant needs a sign-in within the last 10 minutes: sign in again', code: 'reauth_required' }, 401);
+            if (typeof b.confirm_login !== 'string' || b.confirm_login.toLowerCase() !== acc.account.login.toLowerCase()) return err(400, 'confirm_login must equal the login of the account that receives the role', { code: 'confirm_required' });
+            extra = { mode: 'SINGLE_ADMIN', administrators_known: n };   // reinforced single-administrator mode, recorded as such
+          }
           const permNow = (await db.prepare('SELECT perm FROM sessions WHERE id = ?').bind(session.id).first())?.perm;   // fresh: the write above asked GitHub again
-          const r = await store.changeMember(db, { account: acc.account, role: b.role, reason: b.reason.trim(), actor: { login: session.login, id: session.user_id, role }, durableAdmin: permNow === 'admin' }, iso);
+          const r = await store.changeMember(db, { account: acc.account, role: b.role, reason: b.reason.trim(), actor: { login: session.login, id: session.user_id, role }, durableAdmin: permNow === 'admin', extra }, iso);
           const { status, ...rest } = r; return json(rest, status);
         }
       }

@@ -151,6 +151,7 @@ CREATE TABLE IF NOT EXISTS policies (
   sha256 TEXT NOT NULL CHECK (length(sha256) = 64),
   candidate_id TEXT NOT NULL,
   criticality TEXT NOT NULL CHECK (criticality IN ('STANDARD','CRITICAL')),
+  kind TEXT NOT NULL DEFAULT 'WITHDRAWAL' CHECK (kind IN ('WITHDRAWAL','SUSPENSION','REVOCATION')),
   author TEXT NOT NULL,
   author_id INTEGER NOT NULL,
   author_role TEXT NOT NULL CHECK (author_role IN ('ADMIN','PUBLISHER','SECURITY_ADMIN')),
@@ -233,7 +234,7 @@ CREATE TABLE IF NOT EXISTS policy_events (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   policy_id TEXT NOT NULL,
   policy_version INTEGER NOT NULL,
-  event TEXT NOT NULL CHECK (event IN ('WITHDRAWAL_REQUESTED','WITHDRAWAL_CONFIRMED','LIFT_REQUESTED','LIFT_CANCELLED','LIFT_EXPIRED','LIFTED','BREAKGLASS_REQUESTED','BREAKGLASS_EXECUTED','BREAKGLASS_REVIEWED')),
+  event TEXT NOT NULL CHECK (event IN ('WITHDRAWAL_REQUESTED','WITHDRAWAL_CONFIRMED','LIFT_REQUESTED','LIFT_CANCELLED','LIFT_EXPIRED','LIFTED','BREAKGLASS_REQUESTED','BREAKGLASS_EXECUTED','BREAKGLASS_REVIEWED','REVOCATION_CONFIRMED')),
   actor TEXT NOT NULL,
   actor_id INTEGER,
   role TEXT NOT NULL,
@@ -279,3 +280,44 @@ CREATE TRIGGER IF NOT EXISTS audit_anchor_matches_audit BEFORE INSERT ON audit_a
   WHEN EXISTS (SELECT 1 FROM audit WHERE seq = NEW.seq AND hash <> NEW.hash)
   BEGIN SELECT RAISE(ABORT, 'anchor hash does not match the audit entry at that seq'); END;
 -- END audit_anchor (0004)
+-- approvals: one row per operation that needs a second, DIFFERENT identity (privileged role grants, real recoveries, confirmation of a definitive revocation). The database itself refuses an approver who is the requester.
+CREATE TABLE IF NOT EXISTS approvals (
+  id TEXT PRIMARY KEY,
+  op TEXT NOT NULL CHECK (op IN ('role.grant','restore.real','policy.revoke_confirm')),
+  params TEXT NOT NULL CHECK (json_valid(params)),
+  params_sha256 TEXT NOT NULL CHECK (length(params_sha256) = 64),
+  mode TEXT NOT NULL CHECK (mode IN ('DUAL','BREAKGLASS')),
+  state TEXT NOT NULL CHECK (state IN ('REQUESTED','APPROVED','EXECUTED','CANCELLED','EXPIRED')),
+  reason TEXT NOT NULL CHECK (length(trim(reason)) >= 5 AND (mode != 'BREAKGLASS' OR length(trim(reason)) >= 40)),
+  requested_by TEXT NOT NULL,
+  requested_by_id INTEGER NOT NULL,
+  requested_roles TEXT NOT NULL,
+  requested_at TEXT NOT NULL,
+  expires_at TEXT NOT NULL,
+  not_before TEXT,
+  approved_by TEXT,
+  approved_by_id INTEGER,
+  approved_roles TEXT,
+  approved_at TEXT,
+  approval_reason TEXT,
+  executed_by TEXT,
+  executed_by_id INTEGER,
+  executed_at TEXT,
+  reviewed_by TEXT,
+  reviewed_by_id INTEGER,
+  reviewed_at TEXT,
+  review_outcome TEXT CHECK (review_outcome IS NULL OR review_outcome IN ('APPROPRIATE','INAPPROPRIATE')),
+  request_id TEXT NOT NULL UNIQUE,
+  version INTEGER NOT NULL DEFAULT 1,
+  CHECK (approved_by_id IS NULL OR approved_by_id != requested_by_id),
+  CHECK (reviewed_by_id IS NULL OR (reviewed_by_id != requested_by_id AND reviewed_by_id IS NOT executed_by_id)),
+  CHECK (mode != 'DUAL' OR not_before IS NULL),
+  CHECK (mode != 'BREAKGLASS' OR (not_before IS NOT NULL AND approved_by_id IS NULL)),
+  CHECK (state NOT IN ('APPROVED','EXECUTED') OR mode = 'BREAKGLASS' OR approved_by_id IS NOT NULL)
+);
+CREATE INDEX IF NOT EXISTS approvals_state ON approvals (state, op);
+CREATE TRIGGER IF NOT EXISTS approvals_no_delete BEFORE DELETE ON approvals BEGIN SELECT RAISE(ABORT, 'approvals are never deleted'); END;
+CREATE TRIGGER IF NOT EXISTS approvals_identity_frozen BEFORE UPDATE OF id, op, params, params_sha256, mode, reason, requested_by, requested_by_id, requested_roles, requested_at, expires_at, not_before, request_id ON approvals BEGIN SELECT RAISE(ABORT, 'what was requested cannot change'); END;
+CREATE TRIGGER IF NOT EXISTS approvals_version_step BEFORE UPDATE ON approvals WHEN NEW.version != OLD.version + 1 BEGIN SELECT RAISE(ABORT, 'approval version must increase by exactly one'); END;
+CREATE TRIGGER IF NOT EXISTS approvals_closed_is_final BEFORE UPDATE ON approvals WHEN OLD.state IN ('CANCELLED','EXPIRED') OR (OLD.state = 'EXECUTED' AND (NEW.state != 'EXECUTED' OR NEW.executed_at IS NOT OLD.executed_at OR NEW.approved_by_id IS NOT OLD.approved_by_id)) BEGIN SELECT RAISE(ABORT, 'a closed approval is final'); END;
+CREATE TRIGGER IF NOT EXISTS approvals_breakglass_not_before BEFORE UPDATE ON approvals WHEN NEW.state = 'EXECUTED' AND OLD.mode = 'BREAKGLASS' AND NEW.executed_at < OLD.not_before BEGIN SELECT RAISE(ABORT, 'an emergency approval cannot be executed before its delay'); END;
