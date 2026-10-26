@@ -20,6 +20,10 @@
   "panel": {
    "ed25519_max_sequence": 0,
    "note": "a resource born after the Sigstore migration has no historical Ed25519 range: every sequence from 1 is keyless"
+  },
+  "intel": {
+   "ed25519_max_sequence": 0,
+   "note": "a resource born after the Sigstore migration has no historical Ed25519 range: every sequence from 1 is keyless"
   }
  }
 }

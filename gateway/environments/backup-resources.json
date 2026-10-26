@@ -2,7 +2,32 @@
  "schema": "macguard.backup-resources/1",
  "note": "One entry per database that backup.yml protects. The same pipeline (export, verify, age, Sigstore, three providers) runs per resource; keys, manifests, chains and evidence are separate per resource through the prefix.",
  "resources": {
-  "gateway": { "database": "macguard-gateway", "wrangler_config": "gateway/environments/production.wrangler.toml", "prefix": "gateway-d1", "verifier": "gateway", "manifest_schema": "macguard.gateway-backup/2", "root_name": "gateway", "genesis": "gateway/environments/backup-genesis" },
-  "panel": { "database": "macguard-quarantine", "wrangler_config": "gateway/environments/panel-d1.wrangler.toml", "prefix": "panel-d1", "verifier": "panel", "manifest_schema": "macguard.panel-backup/1", "root_name": "panel", "genesis": null }
+  "gateway": {
+   "database": "macguard-gateway",
+   "wrangler_config": "gateway/environments/production.wrangler.toml",
+   "prefix": "gateway-d1",
+   "verifier": "gateway",
+   "manifest_schema": "macguard.gateway-backup/2",
+   "root_name": "gateway",
+   "genesis": "gateway/environments/backup-genesis"
+  },
+  "panel": {
+   "database": "macguard-quarantine",
+   "wrangler_config": "gateway/environments/panel-d1.wrangler.toml",
+   "prefix": "panel-d1",
+   "verifier": "panel",
+   "manifest_schema": "macguard.panel-backup/1",
+   "root_name": "panel",
+   "genesis": null
+  },
+  "intel": {
+   "database": "macguard-intel",
+   "wrangler_config": "gateway/environments/intel-d1.wrangler.toml",
+   "prefix": "intel-d1",
+   "verifier": "intel",
+   "manifest_schema": "macguard.intel-backup/1",
+   "root_name": "intel",
+   "genesis": null
+  }
  }
 }

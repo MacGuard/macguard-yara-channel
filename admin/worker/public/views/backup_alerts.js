@@ -21,14 +21,14 @@ const PHASE = { export: 'export', write: 'upload', redundancy: 'upload', record:
 export function recoveryVerdict(st) {
   const ind = (id) => (st.indicators || []).find((i) => i.id === id) || null, restore = ind('last_restore'), proven = restore && restore.state === 'VERIFIED';
   const row = (svc) => {
-    const f = (st.failures || []).find((x) => x.resource === svc), good = lastGood(st, svc), lastInd = ind(svc === 'panel' ? 'panel_last_backup' : 'last_backup');
+    const f = (st.failures || []).find((x) => x.resource === svc), good = lastGood(st, svc), lastInd = ind(svc === 'panel' ? 'panel_last_backup' : svc === 'intel' ? 'intel_last_backup' : 'last_backup');
     const attempt = f ? h('span', {}, h('time', { datetime: f.at, text: fmtDateTime(f.at) }), ' · ', h('strong', { class: 'tone-bad', text: t('rv_failed') })) : lastInd && lastInd.observed_at ? h('span', {}, fmtDateTime(lastInd.observed_at), ' · ', h('strong', { class: 'tone-ok', text: t('rv_ok') })) : h('span', { class: 'nodata', text: t('rv_never') });
     const where = f ? (() => { const c = cause(f), job = f.failed_jobs[0] ? f.failed_jobs[0].name : null, ph = job && PHASE[job] ? t(`rv_phase_${PHASE[job]}`) : job || '?'; return h('span', {}, h('strong', { text: ph }), ` — ${c.text}`); })() : h('span', { class: 'faint', text: '—' });
     return h('tr', {}, h('th', { scope: 'row', text: t(`ba_svc_${svc}`) }), h('td', {}, attempt), h('td', {}, where), h('td', {}, good ? `${fmtDateTime(good.at)} · ${good.provider}` : h('strong', { class: 'tone-bad', text: t('rv_none') })), h('td', {}, proven ? h('strong', { class: 'tone-ok', text: t('rv_yes') }) : h('strong', { class: 'tone-bad', text: t('rv_no') })));
   };
   return h('section', { class: 'card', 'aria-labelledby': 'rv-h' }, h('h2', { id: 'rv-h', text: t('rv_title') }), h('p', { class: 'note', text: t('rv_note') }),
     h('div', { class: 'dt-wrap', role: 'region', tabindex: '0', 'aria-label': t('rv_title') }, h('table', { class: 'dt' }, h('caption', { class: 'sr', text: t('rv_title') }),
-      h('thead', {}, h('tr', {}, ...['rv_c_service', 'rv_c_attempt', 'rv_c_where', 'rv_c_good', 'rv_c_proven'].map((k) => h('th', { scope: 'col', text: t(k) })))), h('tbody', {}, row('gateway'), row('panel')))));
+      h('thead', {}, h('tr', {}, ...['rv_c_service', 'rv_c_attempt', 'rv_c_where', 'rv_c_good', 'rv_c_proven'].map((k) => h('th', { scope: 'col', text: t(k) })))), h('tbody', {}, row('gateway'), row('panel'), row('intel')))));
 }
 
 export function backupAlertCard(f, st) {

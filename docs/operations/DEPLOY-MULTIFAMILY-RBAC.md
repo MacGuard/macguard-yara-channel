@@ -20,12 +20,12 @@ No declarar nada como publicado: lo «aprobado» solo queda aprobado para una fu
 
 ## Presupuesto de D1 y orden revisado (tras el incidente del 26/10)
 
-Estimación (filas): backup local del panel ~2.000 lecturas, 0 escrituras; panel 0006 + 0007 < 100 escrituras; INTEL 0002 + 0003 < 100 escrituras y 0 lecturas (la columna nueva y el índice parcial nacen vacíos), más **una** pasada de instantánea de ~75.000 lecturas la primera vez que el Worker nuevo lo pida. Total previsto ≈ 80.000 lecturas (1,6 % de la cuota) y < 300 escrituras (< 0,3 %).
+Estimación (filas): backup local del panel ~2.000 lecturas, 0 escrituras; panel 0006 + 0007 < 100 escrituras; INTEL 0002 + 0003 < 100 escrituras y 0 lecturas (dos tablas pequeñas y un trigger; nada se reescribe en `intel_records`), más **una** pasada de instantánea de ~75.000 lecturas la primera vez que el Worker nuevo lo pida. Total previsto ≈ 80.000 lecturas (1,6 % de la cuota) y < 300 escrituras (< 0,3 %).
 
 1. Tras las 00:00 UTC, **solo consultas mínimas**: `/public/stats` y una lectura de recuentos del panel. Anotar el consumo con `node admin/worker/tools/d1_budget.mjs usage`.
 2. **Desplegar primero el Worker** (no consume D1): el Worker nuevo ya no recorre la tabla en cada pantalla. Hasta entonces, **no abrir Panel ni Inteligencia en el Worker actual**: cada carga cuesta ~400.000 lecturas y la cuota son 5.000.000.
 3. `local_backup.sh` (con preflight de presupuesto) y verificación del descifrado.
 4. Recuentos reales: miembros, políticas, levantamientos, decisiones.
-5. Ensayo con el fixture (`migration_trial2.sh`): medir lo que escribe el `ALTER TABLE` de 0003; si no es independiente del tamaño de la tabla, usar tabla lateral.
+5. Ensayo con el fixture (`migration_trial2.sh`): medir lo que escriben 0002 y 0003 (esperado: decenas de filas, independiente del tamaño de la tabla de registros).
 6. Aplicar 0006, 0007 (panel) y 0002, 0003 (INTEL), verificando recuentos tras cada una.
 7. Si el preflight o el consumo del día no lo permiten, **parar** y reintentar al día siguiente: no se sacrifica la disponibilidad.

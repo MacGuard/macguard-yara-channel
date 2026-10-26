@@ -53,3 +53,14 @@ test('when the D1 quota is used up the panel answers 503 with the reset time and
   const { w, rita } = await setup(); const real = w.db.prepare.bind(w.db); w.db.prepare = (sql) => { if (/FROM candidates/.test(sql)) throw new Error("D1_ERROR: Your account has exceeded D1's free tier daily row read limit. [code: 7500]"); return real(sql); };
   const r = await w.call('GET', '/api/candidates', { user: rita }); assert.equal(r.status, 503); assert.equal(r.data.code, 'd1_quota_exhausted'); assert.match(r.data.resets_at, /T00:00:00\.000Z$/); assert.ok(Number(r.headers.get('Retry-After')) >= 60);
 });
+
+test('the snapshot survives failures and loses nothing: new events or runs rebuild it, a stale or foreign snapshot row is ignored, a failing write of the snapshot still answers, and a restart (empty memory) reuses the stored one', async () => {
+  const { w, get } = await setup(); const seen = spy(w.env.INTEL); const passes = () => seen.filter((s) => FULL_PASS.test(s)).length;
+  const s1 = (await get('/api/intel/stats')).data; assert.equal(passes(), 1);
+  resetSnapshotMemo(w.env.INTEL); await get('/api/intel/stats'); assert.equal(passes(), 1, 'a new isolate reuses the stored snapshot: no new pass');
+  w.env.INTEL.raw.prepare("INSERT INTO intel_events (ts, level, component, module, message) VALUES ('2026-10-26T12:00:00Z','INFO','intel.fetch','x','a new event')").run(); resetSnapshotMemo(w.env.INTEL);
+  const s2 = (await get('/api/intel/stats')).data; assert.equal(passes(), 2, 'a new event changes the marker'); assert.notEqual(s2.snapshot_marker, s1.snapshot_marker); assert.equal(s2.events.by_level.reduce((a, x) => a + x.n, 0), s1.events.by_level.reduce((a, x) => a + x.n, 0) + 1, 'the new event is counted');
+  w.env.INTEL.raw.prepare("UPDATE intel_snapshot SET marker = 'someone-else'").run(); resetSnapshotMemo(w.env.INTEL); await get('/api/intel/stats'); assert.equal(passes(), 3, 'a snapshot of another state is never trusted');
+  const real = w.env.INTEL.prepare.bind(w.env.INTEL); w.env.INTEL.prepare = (sql) => { seen.push(sql); if (/INSERT OR REPLACE INTO intel_snapshot/.test(sql)) throw new Error('D1_ERROR: storage temporarily unavailable'); return real(sql); };
+  w.env.INTEL.raw.prepare("UPDATE intel_snapshot SET marker = 'x'").run(); resetSnapshotMemo(w.env.INTEL); await assert.rejects(() => get('/api/intel/stats').then((r) => { if (r.status !== 200) throw new Error(`status ${r.status}`); }), /status 500/, 'a storage failure is reported, never answered with a half-built snapshot');
+});

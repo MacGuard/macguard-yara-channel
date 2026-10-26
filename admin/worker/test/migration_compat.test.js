@@ -66,15 +66,15 @@ test('panel 0007: before it, source requests say which migration is missing and 
 });
 
 const M3 = readFileSync(new URL('../migrations-intel/0003_effective_state.sql', import.meta.url), 'utf8'), R3 = readFileSync(new URL('../migrations-intel/0003_rollback.sql', import.meta.url), 'utf8');
-test('INTEL 0003: applied over 0002 while decisions exist it backfills decided_state, reads stay identical, a re-import keeps the decision, and the rollback returns to the join with the same answers', async () => {
+test('INTEL 0003: applied over 0002 while decisions exist it backfills intel_decided (one row per decided record, no change to the records), reads stay identical, a re-import keeps the decision, idempotent, and the rollback returns to the join with the same answers', async () => {
   const { w, rita } = await oldIntel(); w.env.INTEL.raw.exec(M2); assert.equal((await dec(w, rita)).status, 200);
   const read = async () => JSON.stringify([(await w.call('GET', '/api/intel/records?family=ioc&limit=50', { user: rita })).data.items.map((i) => [i.id, i.state, i.imported_state]), (await w.call('GET', '/api/intel/stats', { user: rita })).data.by_state.filter((x) => x.family === 'ioc')]);
-  const before = await read(); resetSnapshotMemo(w.env.INTEL); w.env.INTEL.raw.exec(M3);   // tier B -> tier A
-  assert.equal(w.env.INTEL.raw.prepare('SELECT decided_state FROM intel_records WHERE id = ?').get(ID).decided_state, 'QUARANTINED', 'the backfill covers the decided record only'); assert.equal(w.env.INTEL.raw.prepare('SELECT COUNT(*) AS n FROM intel_records WHERE decided_state IS NOT NULL').get().n, 1);
-  assert.equal(await read(), before, 'the same answers through the cheaper column');
+  const before = await read(), recordsBefore = dump(w.env.INTEL); resetSnapshotMemo(w.env.INTEL); w.env.INTEL.raw.exec(M3); w.env.INTEL.raw.exec(M3);   // tier B -> tier A, twice
+  assert.equal(w.env.INTEL.raw.prepare('SELECT COUNT(*) AS n FROM intel_decided').get().n, 1, 'one row per decided record'); assert.equal(w.env.INTEL.raw.prepare('SELECT state FROM intel_decided WHERE record_id = ?').get(ID).state, 'QUARANTINED');
+  assert.equal(dump(w.env.INTEL), recordsBefore, 'the records table is not touched at all'); assert.equal(await read(), before, 'the same answers through the cheaper table');
   w.env.INTEL.raw.prepare("INSERT OR REPLACE INTO intel_records (id, family, source_id, run_id, key, title, state, doc, doc_sha256) SELECT id, family, source_id, run_id, key, title, state, doc, doc_sha256 FROM intel_records WHERE id = ?").run(ID);   // what a re-import does
-  assert.equal(w.env.INTEL.raw.prepare('SELECT decided_state FROM intel_records WHERE id = ?').get(ID).decided_state, 'QUARANTINED', 'a re-import does not lose the decision');
-  assert.equal((await dec(w, rita, { action: 'reject', request_id: RID(70) })).status, 200); assert.equal(w.env.INTEL.raw.prepare('SELECT decided_state FROM intel_records WHERE id = ?').get(ID).decided_state, 'REJECTED', 'the trigger follows the latest decision');
-  w.env.INTEL.raw.exec(R3); resetSnapshotMemo(w.env.INTEL); assert.equal(w.env.INTEL.raw.prepare("SELECT COUNT(*) AS n FROM pragma_table_info('intel_records') WHERE name = 'decided_state'").get().n, 0);
+  resetSnapshotMemo(w.env.INTEL); assert.equal(await read(), before, 'a re-import does not lose the decision');
+  assert.equal((await dec(w, rita, { action: 'reject', request_id: RID(70) })).status, 200); assert.equal(w.env.INTEL.raw.prepare('SELECT state FROM intel_decided WHERE record_id = ?').get(ID).state, 'REJECTED', 'the trigger follows the latest decision');
+  w.env.INTEL.raw.exec(R3); resetSnapshotMemo(w.env.INTEL); assert.equal(w.env.INTEL.raw.prepare("SELECT COUNT(*) AS n FROM sqlite_master WHERE name IN ('intel_decided','intel_snapshot','intel_decisions_apply')").get().n, 0);
   assert.equal((await w.call('GET', `/api/intel/records/${encodeURIComponent(ID)}`, { user: rita })).data.record.state, 'REJECTED', 'tier B answers the same after the rollback');
 });

@@ -19,7 +19,7 @@ export function classifyFailure(phase, text) {
 
 /** The annotation line (a GitHub workflow command): fixed keys, fixed vocabulary. */
 export function annotation(resource, c) {
-  const kv = [`resource=${resource === 'panel' ? 'panel' : 'gateway'}`, `phase=${c.phase}`, `kind=${KINDS.includes(c.kind) ? c.kind : 'unknown'}`, ...(c.code ? [`code=${c.code}`] : []), ...(c.http ? [`http=${c.http}`] : [])];
+  const kv = [`resource=${['panel', 'intel'].includes(resource) ? resource : 'gateway'}`, `phase=${c.phase}`, `kind=${KINDS.includes(c.kind) ? c.kind : 'unknown'}`, ...(c.code ? [`code=${c.code}`] : []), ...(c.http ? [`http=${c.http}`] : [])];
   return `::error title=macguard-backup::${ANNOTATION_PREFIX} ${kv.join(' ')}`;
 }
 
@@ -27,5 +27,5 @@ export function annotation(resource, c) {
 export function parseAnnotation(message) {
   const m = String(message || '').match(/^macguard-backup: ((?:[a-z_]+=[A-Za-z0-9_]+ ?)+)$/); if (!m) return null;
   const out = Object.fromEntries(m[1].trim().split(' ').map((p) => p.split('='))); if (!KINDS.includes(out.kind) || !['export', 'verify', 'encrypt', 'sign', 'write', 'read'].includes(out.phase)) return null;
-  return { resource: out.resource === 'panel' ? 'panel' : 'gateway', phase: out.phase, kind: out.kind, code: /^\d{3,6}$/.test(out.code || '') ? out.code : null, http: /^\d{3}$/.test(out.http || '') ? out.http : null };
+  return { resource: ['panel', 'intel'].includes(out.resource) ? out.resource : 'gateway', phase: out.phase, kind: out.kind, code: /^\d{3,6}$/.test(out.code || '') ? out.code : null, http: /^\d{3}$/.test(out.http || '') ? out.http : null };
 }

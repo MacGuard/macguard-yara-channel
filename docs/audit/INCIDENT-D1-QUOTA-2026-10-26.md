@@ -27,7 +27,7 @@ Filas leídas hoy, por base y hora (UTC):
 ## Cambios de protección (en el PR de integración #52)
 - **Lecturas de INTEL acotadas**: una sola pasada por los registros produce una instantánea (tabla `intel_snapshot`, migración INTEL 0003, y memoria del Worker); se reconstruye solo cuando una promoción cambia los datos. Totales, recuentos por familia/fuente/estado y estadísticas salen de ella. Las decisiones se aplican como deltas pequeños.
 - Los listados leen por **rango de clave primaria**, en orden de id, sin ordenar; sin `COUNT(*)`; si el total es cero ni se toca la tabla. Un texto que parece identificador se busca por prefijo de clave (índice); una búsqueda por título que tocaría más de 25.000 filas se **rechaza** con el motivo (`search_too_broad`).
-- Estado efectivo en una columna (`decided_state`, índice parcial que nace vacío: no escribe filas) en lugar de un `JOIN` por fila.
+- Estado efectivo en una **tabla lateral** `intel_decided` (una fila por registro decidido, mantenida por un trigger) en lugar de un `JOIN` con una vista por fila. No se altera ni se reescribe nada de `intel_records`: sin `ALTER TABLE`, sin índices sobre los 75.148 registros, y una reimportación no puede perder una decisión.
 - Si D1 devuelve el error de cuota, el panel responde **503** con `d1_quota_exhausted` y la hora de reinicio (no un 500 mudo) y no cambia nada.
 - Tests que impiden la regresión (`test/d1_budget.test.js`): tras la instantánea, 100 peticiones hacen **una** pasada; ninguna consulta de registros hace *scan* de tabla ni ordenación completa; ninguna cuenta filas; una búsqueda amplia se rechaza.
 - **Presupuesto de operaciones** (`tools/d1_budget.mjs`): una operación puede usar como máximo el 10 % de la cuota de lecturas y el 25 % de la de escrituras; el día no puede pasar del 60 % por operaciones planificadas; si el consumo del día no se puede leer, la operación **no** se ejecuta; se registra el coste estimado y el real en `~/macguard-d1-usage.jsonl`; niveles de alerta ok / warn (50 %) / critical (80 %). `local_backup.sh` y `migration_trial2.sh` lo invocan antes de tocar D1 (un test lo exige).
@@ -35,4 +35,4 @@ Filas leídas hoy, por base y hora (UTC):
 
 ## Lo que no está hecho
 - Alerta automática de consumo anómalo (necesita un token de solo lectura de Analytics como secreto de CI; decisión del propietario). La herramienta ya da el nivel (`node tools/d1_budget.mjs usage`).
-- Medir en un D1 real el coste del `ALTER TABLE … ADD COLUMN` de la migración 0003: se mide con el fixture (≈1.500 filas) antes de aplicarla; si escribe filas en proporción al tamaño, se usa una tabla lateral en lugar de la columna.
+- Coste real de 0003 en D1: la migración solo crea dos tablas pequeñas y un trigger (escribe tantas filas como decisiones existan, hoy 0); se mide con el fixture antes de aplicarla.

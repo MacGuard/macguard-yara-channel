@@ -15,14 +15,15 @@ const unb64 = (s) => { try { return JSON.parse(atob(s.replace(/-/g, '+').replace
 export const redact = (m) => String(m).replace(/(bearer\s+[a-z0-9._-]{16,}|ghp_[A-Za-z0-9]{20,}|github_pat_[A-Za-z0-9_]{20,}|AGE-SECRET-KEY-[A-Z0-9]+|[?&](sig|token|jwt|signature)=[^&\s]+)/gi, '[redacted]');
 const J = (s, d) => { try { return JSON.parse(s); } catch { return d; } };
 /** Every read sees the EFFECTIVE state: the latest human decision if there is one, else the state the promotion imported. Three tiers, from the cheapest, so a Worker deployed before a migration keeps working:
- *  A (0003) the state lives in intel_records.decided_state and is read with no join; B (0002) a join with intel_current; C (nothing applied) the imported state only. */
-const TIER_A = { name: 'A', from: 'intel_records', eff: 'COALESCE(decided_state, state)', state: (x) => ({ sql: '((decided_state IS NULL AND state = ?) OR decided_state = ?)', args: [x, x] }),
-  scope: (sc) => (sc === 'published' ? "(decided_state IN ('APPROVED','PUBLISHED') OR (decided_state IS NULL AND state IN ('APPROVED','PUBLISHED')))" : "(COALESCE(decided_state, state) IS NULL OR COALESCE(decided_state, state) NOT IN ('APPROVED','PUBLISHED'))") };
+ *  A (0003) a LEFT JOIN with the small intel_decided table (one row per decided record, primary-key lookups); B (0002) a join with intel_current; C (nothing applied) the imported state only. */
+const A_FROM = '(SELECT r.*, d.state AS decided_state FROM intel_records r LEFT JOIN intel_decided d ON d.record_id = r.id) intel_records';
+const TIER_A = { name: 'A', from: A_FROM, eff: 'COALESCE(decided_state, state)', state: (x) => ({ sql: 'COALESCE(decided_state, state) = ?', args: [x] }),
+  scope: (sc) => (sc === 'published' ? "COALESCE(decided_state, state) IN ('APPROVED','PUBLISHED')" : "(COALESCE(decided_state, state) IS NULL OR COALESCE(decided_state, state) NOT IN ('APPROVED','PUBLISHED'))") };
 const EFF = '(SELECT r.*, COALESCE(c.state, r.state) AS eff_state FROM intel_records r LEFT JOIN intel_current c ON c.record_id = r.id) intel_records';
 const EFF_PLAIN = '(SELECT r.*, r.state AS eff_state FROM intel_records r) intel_records';
 const viaView = (name, from) => ({ name, from, eff: 'eff_state', state: (x) => ({ sql: 'eff_state = ?', args: [x] }), scope: (sc) => (sc === 'published' ? "eff_state IN ('APPROVED','PUBLISHED')" : "(eff_state IS NULL OR eff_state NOT IN ('APPROVED','PUBLISHED'))") });
 const TIER_B = viaView('B', EFF), TIER_C = viaView('C', EFF_PLAIN);
-const noColumn = (e) => /no such column: ([\w]+\.)*decided_state/.test(String((e && e.message) || e));
+const noColumn = (e) => /no such table: (main\.)?intel_(decided|snapshot)/.test(String((e && e.message) || e));
 const noOverlay = (e) => /no such (table|view): (main\.)?intel_(current|decisions)/.test(String((e && e.message) || e));
 async function withOverlay(fn) {
   try { return await fn(TIER_A); } catch (e) { if (!noColumn(e) && !noOverlay(e)) throw e; }
@@ -51,7 +52,7 @@ async function loadSnapshot(db, nowMs = Date.now()) {
 export const resetSnapshotMemo = (db) => memo.delete(db);
 /** Decisions on top of the snapshot: for every decided record, one cell loses it (imported state) and another gains it (decided state). Cheap: one row per decided record. */
 async function deltas(db) {
-  const attempts = ['SELECT family, source_id, state AS imported, decided_state AS effective FROM intel_records WHERE decided_state IS NOT NULL', 'SELECT r.family, r.source_id, r.state AS imported, c.state AS effective FROM intel_current c JOIN intel_records r ON r.id = c.record_id'];
+  const attempts = ['SELECT r.family, r.source_id, r.state AS imported, d.state AS effective FROM intel_decided d JOIN intel_records r ON r.id = d.record_id', 'SELECT r.family, r.source_id, r.state AS imported, c.state AS effective FROM intel_current c JOIN intel_records r ON r.id = c.record_id'];
   for (const sql of attempts) { try { return (await db.prepare(sql).all()).results; } catch (e) { if (!noColumn(e) && !noOverlay(e)) throw e; } }
   return [];
 }
@@ -156,10 +157,10 @@ export function approvability(rec, run, source) {
 export const getRecord = (db, id) => withOverlay((tier) => getRecordOn(db, id, tier));
 async function getRecordOn(db, id, tier) {
   if (!ID.test(id)) return bad('invalid id');
-  const r = await db.prepare(`SELECT r.*, ${tier.name === 'A' ? 'COALESCE(r.decided_state, r.state)' : tier.name === 'B' ? 'COALESCE(c.state, r.state)' : 'r.state'} AS eff_state FROM intel_records r ${tier.name === 'B' ? 'LEFT JOIN intel_current c ON c.record_id = r.id' : ''} WHERE r.id = ?`).bind(id).first(); if (!r) return { status: 404, body: { error: 'not found' } };
+  const r = await db.prepare(`SELECT r.*, ${tier.name === 'A' ? 'COALESCE(d.state, r.state)' : tier.name === 'B' ? 'COALESCE(c.state, r.state)' : 'r.state'} AS eff_state FROM intel_records r ${tier.name === 'A' ? 'LEFT JOIN intel_decided d ON d.record_id = r.id' : tier.name === 'B' ? 'LEFT JOIN intel_current c ON c.record_id = r.id' : ''} WHERE r.id = ?`).bind(id).first(); if (!r) return { status: 404, body: { error: 'not found' } };
   const run = await db.prepare('SELECT * FROM intel_runs WHERE id = ?').bind(r.run_id).first(), source = await db.prepare('SELECT * FROM intel_sources WHERE id = ?').bind(r.source_id).first();
   const history = tier.name !== 'C' ? (await db.prepare('SELECT id, action, from_state, to_state, reason, actor, at, audited FROM intel_decisions WHERE record_id = ? ORDER BY id DESC LIMIT 50').bind(id).all()).results.map((x) => ({ ...x, audited: !!x.audited })) : [];
-  const { doc, body, eff_state, decided_state, ...rest } = r, runV = run ? runView(run) : null;
+  const { doc, body, eff_state, ...rest } = r, runV = run ? runView(run) : null;
   return { status: 200, body: { schema: 1, record: { ...rest, state: eff_state, imported_state: r.state, held_back: r.held_back === null ? null : !!r.held_back, body, doc: J(doc, null) }, run: runV, source: source ? { ...source, configured: !!source.configured } : null, history, approvable: approvability({ held_back: r.held_back, doc }, run, source) } };
 }
 

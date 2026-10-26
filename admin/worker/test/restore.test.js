@@ -136,3 +136,14 @@ test('a failed export is ONE failure with its cause; the jobs that did not run a
   for (const bad of ['', 'macguard-backup: kind=evil phase=export', msg + ' <script>', 'x']) assert.equal(parseDiagnosis(bad), null, bad);
   for (const m of [msg, `${msg} http=401`, 'macguard-backup: phase=write kind=timeout', 'macguard-backup: resource=panel phase=verify kind=verify_failed']) assert.deepEqual(parseDiagnosis(m), parseAnnotation(m), 'the Worker and the workflow parse the same way');
 });
+
+test('the intelligence database is a third resource: never-backed-up is NOT_RUN, a weekly copy is fresh for eight days, its failures and inventory are its own and never hide the gateway or the panel', () => {
+  const titled = (r, title) => ({ ...r, display_title: title });
+  const none = buildRecoveryStatus({ runs: [titled(run(21, 1), 'backup panel'), titled(run(20, 2), 'backup gateway'), run(19, 50, 'success')], jobs: { 21: fullJobs(), 20: fullJobs(), 19: fullJobs() }, evidence: [], trust: TRUST }, NOW);
+  assert.equal(by(none, 'intel_last_backup').state, 'NOT_RUN'); assert.equal(by(none, 'intel_copies_verified').state, 'NOT_RUN'); assert.equal(by(none, 'panel_last_backup').state, 'VERIFIED');
+  const week = buildRecoveryStatus({ runs: [titled(run(21, 1), 'backup panel'), titled(run(20, 2), 'backup gateway'), titled(run(22, 6 * 24), 'backup intel')], jobs: { 21: fullJobs(), 20: fullJobs(), 22: fullJobs() }, evidence: [], trust: TRUST }, NOW);
+  assert.equal(by(week, 'intel_last_backup').state, 'VERIFIED'); assert.equal(by(week, 'intel_copies_verified').value, 3); assert.equal(by(week, 'intel_copies_verified').state, 'VERIFIED', 'six days old is fresh for a weekly resource'); assert.equal(by(week, 'panel_copies_verified').value, 3);
+  assert.deepEqual([...new Set(week.inventory.map((r) => r.service))].sort(), ['gateway', 'intel', 'panel']);
+  const failed = buildRecoveryStatus({ runs: [titled(run(21, 1), 'backup panel'), titled(run(20, 2), 'backup gateway'), titled(run(22, 3, 'failure'), 'backup intel')], jobs: { 21: fullJobs(), 20: fullJobs(), 22: [job('export', 'failure', at(3))] }, evidence: [], trust: TRUST }, NOW);
+  assert.equal(by(failed, 'intel_last_backup').state, 'FAILED'); assert.equal(by(failed, 'last_backup').state, 'VERIFIED', 'an intelligence failure does not touch the gateway'); assert.deepEqual(failed.failures.map((f) => f.resource), ['intel']);
+});
