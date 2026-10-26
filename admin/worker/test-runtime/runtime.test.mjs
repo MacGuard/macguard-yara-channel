@@ -30,6 +30,7 @@ const fakeGithub = async (req) => {
     const p = perms[(req.headers.get('Authorization') || '').replace('Bearer ', '')];
     return p ? Response.json({ permissions: p }) : new Response('no', { status: 401 });
   }
+  if (u.hostname === 'api.github.com' && u.pathname === '/user') { const m = /^tok-(.+)-\d+$/.exec((req.headers.get('Authorization') || '').replace('Bearer ', '')), a = m && accounts[m[1]]; return a ? Response.json(a) : new Response('no', { status: 401 }); }   // who owns this token: the identity proof on a fresh check
   const acc = u.hostname === 'api.github.com' && /^\/user\/(\d+)$/.exec(u.pathname), accL = u.hostname === 'api.github.com' && /^\/users\/([A-Za-z0-9-]+)$/.exec(u.pathname);
   if (acc || accL) { const a = Object.values(accounts).find((x) => (acc ? x.id === +acc[1] : x.login === accL[1])); return a ? Response.json(a) : new Response('{}', { status: 404 }); }
   const day = new Date().toISOString().slice(0, 10), ok = (o) => Response.json(o, { headers: { 'x-ratelimit-remaining': '4999', 'x-ratelimit-limit': '5000' } });

@@ -107,7 +107,13 @@ function assistantView({ bundle, status, me, query, panel }) {
     const st = load(pid) || { run: newRun(), values: {}, steps: {}, idx: 0 }; st.out = {}; st.posted = {}; st.read = st.read || {}; st.mode = st.mode || (Object.keys(st.steps).length ? 'run' : 'guide');
     const canRun = !readOnly, isGuide = () => st.mode === 'guide' || !canRun;      // GUIDE: read through, nothing executes and nothing is recorded as done. RUN (drill or real recovery): each step needs its real evidence
     const done = () => st.steps; const isDone = (id) => st.steps[id] && (st.steps[id].state === 'done');
-    const post = async (event, step, via) => { const r = await api('POST', '/api/restore/event', { event, procedure: pid, run: st.run, ...(step ? { step } : {}), ...(via ? { via } : {}) }); if (r.status !== 200) { toast(`${t('rs_not_recorded')}: ${failure(r, '')}`, true); return false; } return true; };
+    const authorisation = async () => {   // a real recovery is recorded only under an authorisation by two identities, bound to this procedure and this run
+      const r = await api('GET', '/api/approvals?op=restore.real'); if (r.status !== 200) return null;
+      const ok = (r.data.items || []).find((x) => x.params.procedure === pid && x.params.run === st.run && ((x.mode === 'DUAL' && x.state === 'APPROVED') || (x.mode === 'BREAKGLASS' && x.state === 'EXECUTED'))); return ok ? ok.id : null;
+    };
+    const post = async (event, step, via) => {
+      let authorization_id; if (proc.protected) { authorization_id = await authorisation(); if (!authorization_id) { toast(`${t('rs_not_recorded')}: ${t('rs_need_auth')} (${st.run})`, true); return false; } }
+      const r = await api('POST', '/api/restore/event', { event, procedure: pid, run: st.run, ...(authorization_id ? { authorization_id } : {}), ...(step ? { step } : {}), ...(via ? { via } : {}) }); if (r.status !== 200) { toast(`${t('rs_not_recorded')}: ${failure(r, '')}`, true); return false; } return true; };
     const persist = () => save(pid, st);
     const main = h('div', { class: 'rs-run' }), nav = h('ol', { class: 'rs-steps', 'aria-label': t('rs_steps') }), detail = h('section', { class: 'rs-detail', 'aria-live': 'polite' }), bar = h('progress', { class: 'rs-progress', max: list.length, value: 0, 'aria-label': t('rs_progress') });
     const count = h('span', { class: 'note' });

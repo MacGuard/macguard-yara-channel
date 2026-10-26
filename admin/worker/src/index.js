@@ -318,7 +318,7 @@ export async function handle(request, env, deps) {
           if (acc.account.login.toLowerCase() === session.login.toLowerCase()) return err(400, 'you cannot change your own role');
           let extra = {};
           if (b.role && approvals.PRIVILEGED_ROLES.includes(b.role)) {   // PUBLISHER, SECURITY_ADMIN and ADMIN are never granted by one hand once two administrators exist
-            const n = await store.adminCount(db);
+            const n = await store.adminCount(db, iso);
             if (n >= 2) return err(409, 'granting this role needs a second approver: open an approval request (POST /api/approvals, op role.grant)', { code: 'approval_required', op: 'role.grant', administrators: n });
             if (now - session.created_at > Number(env.REINFORCED_REAUTH_S || 600)) return json({ error: 'a privileged grant needs a sign-in within the last 10 minutes: sign in again', code: 'reauth_required' }, 401);
             if (typeof b.confirm_login !== 'string' || b.confirm_login.toLowerCase() !== acc.account.login.toLowerCase()) return err(400, 'confirm_login must equal the login of the account that receives the role', { code: 'confirm_required' });

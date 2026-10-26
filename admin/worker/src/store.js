@@ -262,8 +262,9 @@ export async function findMember(db, userId, login) {
 /** Grant, change or revoke (role === null) one member, atomically with its audit entry. The caller has already authorized the actor and resolved the
  *  account from GitHub by id. `durableAdmin` says the actor is a GitHub repository admin, who cannot be removed from this panel. */
 /** How many distinct accounts can act as ADMIN today: explicit grants bound to an id, plus repository administrators seen in a session. Decides whether a privileged grant needs a second approver. */
-export async function adminCount(db) {
-  return (await db.prepare("SELECT COUNT(*) AS n FROM (SELECT user_id FROM members WHERE role = 'ADMIN' AND user_id IS NOT NULL UNION SELECT user_id FROM sessions WHERE perm = 'admin')").first()).n;
+export async function adminCount(db, now = new Date().toISOString()) {   // durable sources only: explicit grants, live sessions, and every ADMIN sign-in recorded in the audit over 90 days, so logging out or revoking a grant cannot lower the count alone
+  const since = new Date(Date.parse(now) - 90 * 86400 * 1000).toISOString();
+  return (await db.prepare("SELECT COUNT(*) AS n FROM (SELECT user_id FROM members WHERE role = 'ADMIN' AND user_id IS NOT NULL UNION SELECT user_id FROM sessions WHERE perm = 'admin' UNION SELECT json_extract(detail, '$.user_id') FROM audit WHERE action = 'session.login' AND role = 'ADMIN' AND at >= ? AND json_extract(detail, '$.user_id') IS NOT NULL)").bind(since).first()).n;
 }
 export async function changeMember(db, { account, role, reason, actor, durableAdmin, extra = {} }, now) {
   const found = await findMember(db, account.id, account.login);

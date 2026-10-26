@@ -102,7 +102,10 @@ for (const name of WANT) {
       const names = await rev.locator('.rs-step-link span:nth-child(2)').allInnerTexts(); assert.match(names[0], /Declarar el incidente/); assert.match(names[1], /Contención inicial/);
       const adm = await newPage(browser, srv, 'admin', VIEWPORTS.desktop); await goto(adm, srv, '/#/restore?tab=assistant&proc=compromise'); await adm.getByRole('button', { name: 'Recuperación real' }).click(); assert.equal(await adm.locator('.rs-detail .rs-attest').count(), 1, 'the first step asks for an attestation');
       await adm.getByRole('button', { name: 'Confirmar y registrar' }).click(); assert.match(await adm.locator('.rs-attest .rs-bad').innerText(), /Marca todas/);
-      for (const c of await adm.locator('.rs-attest input[type=checkbox]').all()) await c.check(); await adm.getByRole('button', { name: 'Confirmar y registrar' }).click(); await adm.waitForSelector('.alert-ok');
+      const confirm = async () => { for (const c of await adm.locator('.rs-attest input[type=checkbox]').all()) await c.check(); await adm.getByRole('button', { name: 'Confirmar y registrar' }).click(); };
+      await confirm(); await adm.getByText(/autorización de dos identidades/).first().waitFor({ timeout: 8000 });
+      await adm.waitForTimeout(500); const refused = await adm.evaluate(() => fetch('/api/audit?family=restore').then((r) => r.json())); assert.ok(!refused.entries.some((e) => e.action === 'restore.step_done' && e.target === 'compromise'), 'nothing was recorded without the authorisation of two identities (the recorded path is covered in approvals_api.test.js)');
+      return;
       let audit; for (let i = 0; i < 20; i++) { audit = await adm.evaluate(() => fetch('/api/audit?family=restore').then((r) => r.json())); if (audit.entries.some((e) => e.action === 'restore.step_done' && e.target === 'compromise')) break; await adm.waitForTimeout(150); } assert.ok(audit.entries.some((e) => e.action === 'restore.step_done' && e.target === 'compromise'), 'recorded in the audit chain');
     });
 
