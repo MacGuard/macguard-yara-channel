@@ -18,5 +18,11 @@ PIPELINE_WORKFLOWS = "daily.yml,publish.yml"
 binding = "DB"
 database_name = "macguard-quarantine"
 database_id = "REPLACE-WITH-D1-ID"
+
+# Promoted intelligence (its own database so its volume never enters the panel's backups): scripts/intel_promote.py + scripts/intel_apply.sh load it, the Worker only reads it. Schema: migrations-intel/.
+[[d1_databases]]
+binding = "INTEL"
+database_name = "macguard-intel"
+database_id = "REPLACE-WITH-INTEL-D1-ID"
 # Secrets (never in this file): GITHUB_CLIENT_ID, GITHUB_CLIENT_SECRET, TOKEN_ENC_KEY (32 random bytes, base64: seals the GitHub tokens in D1)   ->  wrangler secret put ...
 # Custom domain (in the untracked per-environment copy): routes = [{ pattern = "<host>", custom_domain = true }]

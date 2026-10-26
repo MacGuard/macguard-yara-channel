@@ -52,7 +52,7 @@ for (const name of WANT) {
       const page = await open(browser, psrv, 'reviewer', VIEWPORTS.desktop, '#/published'); await page.waitForSelector('.rule a.rule-title'); const name = (await page.locator('.rule a.rule-title').first().innerText()).trim();
       await page.click('#p-search'); await page.keyboard.type(name, { delay: 20 }); await page.waitForFunction((n) => location.hash.includes('q=' + encodeURIComponent(n)) || location.hash.includes('q=' + n), name);
       await page.waitForFunction(() => document.querySelectorAll('.rule').length >= 1 && document.querySelectorAll('.rule').length < 50);
-      await page.locator('.rule a.rule-title').first().click(); await page.waitForFunction(() => location.hash.startsWith('#/rules/')); await page.goBack(); await page.waitForSelector('#p-search');
+      await page.locator('.rule a.rule-title').first().click(); await page.waitForFunction(() => location.hash.startsWith('#/published/rule')); await page.goBack(); await page.waitForSelector('#p-search');
       assert.equal(await page.inputValue('#p-search'), name, 'the search comes back with its text'); assert.match(await page.evaluate(() => location.hash), /q=/);
     });
   });

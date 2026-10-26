@@ -12,10 +12,11 @@ ROOT = pathlib.Path(__file__).resolve().parents[1]
 GUARD = ROOT / "scripts" / "check_worker_config.py"
 TEMPLATE = (ROOT / "admin" / "worker" / "wrangler.toml").read_text()
 D1 = "4c9f258a-8dd3-41eb-a840-2d0ff84c238d"
+INTEL = "663fa259-cf0f-4224-9892-ed585c6ac560"
 
 
 def deployable():
-    return (TEMPLATE.replace("REPLACE-WITH-D1-ID", D1).replace("REPLACE-WITH-ADMIN-HOSTNAME", "panel.mac-guard.com")
+    return (TEMPLATE.replace("REPLACE-WITH-INTEL-D1-ID", INTEL).replace("REPLACE-WITH-D1-ID", D1).replace("REPLACE-WITH-ADMIN-HOSTNAME", "panel.mac-guard.com")
             .replace("workers_dev = false\n", 'workers_dev = false\nroutes = [{ pattern = "panel.mac-guard.com", custom_domain = true }]\n', 1))
 
 
@@ -62,6 +63,13 @@ class WorkerConfigGuard(unittest.TestCase):
         self.refused(deployable().replace(D1, "not-a-uuid"), "not a UUID")
         self.refused(deployable().replace('binding = "DB"', 'binding = "OTHER"'), "binding named DB")
         self.refused(deployable().replace('database_name = "macguard-quarantine"', 'database_name = "other"'), "database_name")
+
+    def test_the_intel_binding_is_required_complete_and_separate_from_the_panel_database(self):
+        self.refused(deployable().replace(INTEL, "REPLACE-WITH-INTEL-D1-ID"), "placeholder")
+        self.refused(deployable().replace(INTEL, "not-a-uuid"), "INTEL database_id is not a UUID")
+        self.refused(deployable().replace('binding = "INTEL"', 'binding = "OTHER"'), "binding named INTEL")
+        self.refused(deployable().replace('database_name = "macguard-intel"', 'database_name = "other"'), "INTEL database_name")
+        self.refused(deployable().replace(INTEL, D1), "different database")
 
     def test_the_assets_binding_and_the_pipeline_variables_are_required(self):
         self.refused(deployable().replace('binding = "ASSETS"', 'binding = "OTHER"'), "ASSETS")

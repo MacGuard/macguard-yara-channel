@@ -8,7 +8,7 @@ const nice = (max) => { if (max <= 0) return 1; const p = 10 ** Math.floor(Math.
 const fmt = (v) => (Math.abs(v) >= 1000 ? `${Math.round(v / 100) / 10}k` : String(Math.round(v * 10) / 10));
 
 /** series: [{name, cls, values:[number|null per label]}]; null = no observation (drawn as an empty slot, never as zero). */
-export function chart({ title, labels, series, kind = 'bars', unit = '', width = 640, height = 220 }) {
+export function chart({ title, labels, series, kind = 'bars', unit = '', width = 640, height = 220, labelFn = (lb) => lb.slice(5) }) {
   const m = { l: 44, r: 10, t: 10, b: 30 }, iw = width - m.l - m.r, ih = height - m.t - m.b, n = labels.length;
   const all = series.flatMap((x) => x.values).filter((v) => v !== null && v !== undefined);
   const wrap = h('figure', { class: 'chart' }); const caption = h('figcaption', { class: 'chart-title', text: title }); wrap.append(caption);
@@ -17,7 +17,7 @@ export function chart({ title, labels, series, kind = 'bars', unit = '', width =
   const svg = s('svg', { viewBox: `0 0 ${width} ${height}`, class: 'chart-svg', role: 'img', 'aria-label': `${title}. ${t('chart_summary', { n: all.length, min: fmt(Math.min(...all)), max: fmt(Math.max(...all)), unit })}` });
   for (let i = 0; i <= 4; i++) { const v = (top / 4) * i, yy = y(v); svg.append(s('line', { x1: m.l, x2: width - m.r, y1: yy, y2: yy, class: 'grid' }), s('text', { x: m.l - 6, y: yy + 4, class: 'tick', 'text-anchor': 'end' }, fmt(v))); }
   const step = Math.max(1, Math.ceil(n / 8));
-  labels.forEach((lb, i) => { if (i % step === 0 || i === n - 1) svg.append(s('text', { x: x(i), y: height - 8, class: 'tick', 'text-anchor': 'middle' }, lb.slice(5))); });
+  labels.forEach((lb, i) => { if (i % step === 0 || i === n - 1) svg.append(s('text', { x: x(i), y: height - 8, class: 'tick', 'text-anchor': 'middle' }, labelFn(lb))); });
   if (kind === 'bars') {
     const g = series.length, bw = Math.max(3, Math.min(28, (slot * 0.7) / g));
     series.forEach((ser, si) => ser.values.forEach((v, i) => { if (v === null || v === undefined) { svg.append(s('text', { x: x(i), y: m.t + ih - 4, class: 'tick', 'text-anchor': 'middle' }, '·')); return; } const bx = x(i) - (bw * g) / 2 + si * bw, bh = Math.max(1, ih - (y(v) - m.t)); svg.append(s('rect', { x: bx, y: m.t + ih - bh, width: bw - 1, height: bh, class: ser.cls, rx: 1.5 })); }));
