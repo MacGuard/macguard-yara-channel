@@ -58,9 +58,9 @@ for (const name of WANT) {
 
     test('language and theme: ES/EN works, theme is forced or follows the system, both persist', async () => {
       const page = await newPage(browser, srv, null, VIEWPORTS.desktop, { colorScheme: 'dark' }); await goto(page, srv, '/');
-      assert.equal(await page.evaluate(() => getComputedStyle(document.body).backgroundColor), 'rgb(8, 14, 24)', 'follows the system dark theme');
+      assert.equal(await page.evaluate(() => getComputedStyle(document.body).backgroundColor), 'rgb(27, 27, 29)', 'follows the system dark theme');
       await page.getByRole('button', { name: 'Claro' }).click(); assert.equal(await page.evaluate(() => document.documentElement.dataset.theme), 'light');
-      assert.equal(await page.evaluate(() => getComputedStyle(document.body).backgroundColor), 'rgb(243, 245, 249)');
+      assert.equal(await page.evaluate(() => getComputedStyle(document.body).backgroundColor), 'rgb(245, 245, 247)');
       await page.getByRole('button', { name: 'EN' }).click(); await page.waitForSelector('h1:has-text("Restricted access")'); assert.equal(await page.locator('h1').innerText(), 'Restricted access'); assert.equal(await page.getByRole('link', { name: 'Continue with GitHub' }).count(), 1);
       assert.equal(await page.evaluate(() => document.documentElement.lang), 'en');
       await page.reload({ waitUntil: 'domcontentloaded' }); await page.waitForSelector('h1');
@@ -105,7 +105,7 @@ for (const name of WANT) {
     test('a reviewer decides in a batch: exact count, mandatory reason, versions sent, nothing without a reason; approving only changes state', async () => {
       const s = await startServer(); const page = await newPage(browser, s, 'reviewer', VIEWPORTS.desktop);
       try {
-        await goto(page, s, '/#/quarantine'); await page.waitForSelector('.rule'); assert.deepEqual(await page.locator('.sidebar .nav a').allInnerTexts(), ['Panel', 'Cuarentena', 'Publicadas', 'Inteligencia', 'Actividad', 'Fuentes', 'Restauración', 'Auditoría']);
+        await goto(page, s, '/#/quarantine'); await page.waitForSelector('.rule'); assert.deepEqual(await page.locator('.sidebar .nav a').allInnerTexts(), ['Panel', 'Cuarentena', 'Publicadas', 'Inteligencia', 'Actividad', 'Logs', 'Fuentes', 'Restauración', 'Auditoría']);
         const posts = []; page.on('request', (r) => { if (r.method() === 'POST') posts.push(r); });
         await page.locator('.rule input[type=checkbox]').nth(0).check(); await page.locator('.rule input[type=checkbox]').nth(1).check(); await page.waitForSelector('.bulkbar');
         assert.ok((await page.locator('.bulkbar').innerText()).includes('2 seleccionadas'));

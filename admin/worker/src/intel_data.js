@@ -11,6 +11,8 @@ const lim = (v, d = 50, max = 200) => { const n = v === null || v === '' ? d : N
 const likeEsc = (s) => s.replace(/[\\%_]/g, (c) => `\\${c}`);
 const b64 = (o) => btoa(JSON.stringify(o)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
 const unb64 = (s) => { try { return JSON.parse(atob(s.replace(/-/g, '+').replace(/_/g, '/'))); } catch { return null; } };
+/** Secrets never leave this API even if one reached the table: token-shaped text is masked on the way out. */
+export const redact = (m) => String(m).replace(/(bearer\s+[a-z0-9._-]{16,}|ghp_[A-Za-z0-9]{20,}|github_pat_[A-Za-z0-9_]{20,}|AGE-SECRET-KEY-[A-Z0-9]+|[?&](sig|token|jwt|signature)=[^&\s]+)/gi, '[redacted]');
 const J = (s, d) => { try { return JSON.parse(s); } catch { return d; } };
 
 /** Sources with their latest run and the number of records each holds. */
@@ -68,14 +70,18 @@ export async function stats(db) {
   const bySource = (await db.prepare('SELECT source_id, COUNT(*) AS records, MAX(updated_at) AS newest_update FROM intel_records GROUP BY source_id ORDER BY source_id').all()).results;
   const runs = (await db.prepare('SELECT state, COUNT(*) AS n FROM intel_runs GROUP BY state').all()).results;
   const range = await db.prepare('SELECT MIN(retrieved_at) AS first_run, MAX(retrieved_at) AS last_run, COUNT(*) AS n FROM intel_runs').first();
-  return { schema: 1, generated_at: new Date().toISOString(), by_family: byFamily, by_state: byState, by_source: bySource, runs: { by_state: runs, ...range } };
+  const verdicts = (await db.prepare('SELECT family, validated, functional, performance, COUNT(*) AS n FROM intel_records WHERE validated IS NOT NULL GROUP BY family, validated, functional, performance ORDER BY family').all()).results;
+  const evLevel = (await db.prepare('SELECT level, COUNT(*) AS n FROM intel_events GROUP BY level').all()).results, evComp = (await db.prepare('SELECT component, COUNT(*) AS n FROM intel_events GROUP BY component ORDER BY component').all()).results;
+  const perRun = (await db.prepare('SELECT r.id, r.source_id, r.retrieved_at, r.state, r.accepted, r.rejected, r.retained, r.bytes FROM intel_runs r ORDER BY r.retrieved_at, r.id').all()).results;
+  return { schema: 1, generated_at: new Date().toISOString(), by_family: byFamily, by_state: byState, by_source: bySource, runs: { by_state: runs, ...range, items: perRun }, events: { by_level: evLevel, by_component: evComp }, verdicts };
 }
 
 export async function listEvents(db, p) {
-  const level = p.get('level'), comp = p.get('component'), family = p.get('family'), run = p.get('run_id'), before = p.get('before'), limit = lim(p.get('limit'), 100, 500);
+  const level = p.get('level'), comp = p.get('component'), family = p.get('family'), run = p.get('run_id'), before = p.get('before'), after = p.get('after'), limit = lim(p.get('limit'), 100, 500);
   if (level !== null && !LEVELS.includes(level)) return bad('invalid level'); if (comp !== null && !COMP.test(comp)) return bad('invalid component'); if (family !== null && !FAMILIES.includes(family)) return bad('invalid family');
-  if (run !== null && !RUN.test(run)) return bad('invalid run_id'); if (limit === null) return bad('invalid limit'); if (before !== null && !/^\d{1,12}$/.test(before)) return bad('invalid cursor');
-  const where = [], args = []; if (level) { where.push('level = ?'); args.push(level); } if (comp) { where.push('component = ?'); args.push(comp); } if (family) { where.push('family = ?'); args.push(family); } if (run) { where.push('run_id = ?'); args.push(run); } if (before) { where.push('id < ?'); args.push(+before); }
+  if (run !== null && !RUN.test(run)) return bad('invalid run_id'); if (limit === null) return bad('invalid limit'); if (before !== null && !/^\d{1,12}$/.test(before)) return bad('invalid cursor'); if (after !== null && !/^\d{1,12}$/.test(after)) return bad('invalid cursor'); if (before !== null && after !== null) return bad('use before or after, not both');
+  const where = [], args = []; if (level) { where.push('level = ?'); args.push(level); } if (comp) { where.push('component = ?'); args.push(comp); } if (family) { where.push('family = ?'); args.push(family); } if (run) { where.push('run_id = ?'); args.push(run); } if (before) { where.push('id < ?'); args.push(+before); } if (after) { where.push('id > ?'); args.push(+after); }
   const rows = (await db.prepare(`SELECT * FROM intel_events ${where.length ? 'WHERE ' + where.join(' AND ') : ''} ORDER BY id DESC LIMIT ?`).bind(...args, limit + 1).all()).results;
-  return { status: 200, body: { schema: 1, items: rows.slice(0, limit), next_before: rows.length > limit ? rows[limit - 1].id : null } };
+  const head = await db.prepare('SELECT COALESCE(MAX(id), 0) AS n FROM intel_events').first();
+  return { status: 200, body: { schema: 1, items: rows.slice(0, limit).map((e) => ({ ...e, message: redact(e.message) })), next_before: rows.length > limit ? rows[limit - 1].id : null, head: head.n, truncated: after !== null && rows.length > limit } };
 }

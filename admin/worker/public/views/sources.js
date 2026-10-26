@@ -4,6 +4,7 @@ import { h, icon, put, fmtDateTime, copyButton } from '../ui.js';
 import { api } from '../api.js';
 import { loadOps, freshness, ago } from './ops.js';
 import { proposalsSection } from './proposals.js';
+import { sourcesTable } from './intel.js';
 
 export async function renderSources(ctx) {
   const { root } = ctx;
@@ -22,7 +23,9 @@ export async function renderSources(ctx) {
         s.kind === 'rules' ? [h('dt', { text: t('sr_inq') }), h('dd', { text: String(inq[s.id] || 0) })] : null));
   };
   const proposals = await proposalsSection(ctx);   // null when the feature is off
-  put(root, head, freshness(o), proposals, o.sources.length ? h('ul', { class: 'people' }, o.sources.map(card)) : h('div', { class: 'card empty' }, icon('source'), h('h2', { text: t('nodata') }), h('p', { text: t('sr_none') })),
+  const isrc = ctx.me.role === 'VIEWER' ? null : await api('GET', '/api/intel/sources');   // every other intelligence source, with the real last run of each
+  const intelSection = isrc && isrc.status === 200 ? h('section', { class: 'card minw0', 'aria-labelledby': 'h-isrc' }, h('div', { class: 'flex-between' }, h('h2', { id: 'h-isrc', text: t('sr_intel_h') }), h('a', { class: 'btn btn-sm', href: '#/intel?group=sources', text: t('sr_intel_open') })), h('p', { class: 'note', text: t('sr_intel_p') }), sourcesTable(isrc.data.sources, null)) : null;
+  put(root, head, freshness(o), proposals, intelSection, o.sources.length ? h('ul', { class: 'people' }, o.sources.map(card)) : h('div', { class: 'card empty' }, icon('source'), h('h2', { text: t('nodata') }), h('p', { text: t('sr_none') })),
     h('section', { class: 'card', 'aria-labelledby': 'h-persrc' }, h('h2', { id: 'h-persrc', text: t('sr_perrun') }), od ? h('dl', { class: 'kv' }, h('dt', { text: t('kpi_observed') }), h('dd', { text: od.date }), h('dt', { text: t('rl_examined') }), h('dd', { text: String(od.examined) }), h('dt', { text: t('rl_accepted') }), h('dd', { text: String(od.accepted) }), h('dt', { text: t('rl_quarantined') }), h('dd', { text: String(od.quarantined ?? '—') }), h('dt', { text: t('rl_rejected') }), h('dd', { text: String(od.rejected) })) : h('p', { class: 'nodata', text: t('nodata') }),
       h('p', { class: 'alert alert-info' }, icon('info'), t('sr_split_note'))));
 }

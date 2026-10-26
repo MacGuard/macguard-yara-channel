@@ -93,7 +93,8 @@ export async function renderIntel(ctx) {
   const total = h('p', { class: 'note', 'aria-live': 'polite' }), tbody = h('tbody', {}), more = h('div', { class: 'pager' });
   const table = h('div', { class: 'dt-wrap', role: 'region', 'aria-label': t(`ix_g_${group}`), tabindex: '0' }, h('table', { class: 'dt dt-sel' }, h('caption', { class: 'sr', text: t(`ix_g_${group}`) }),
     h('thead', {}, h('tr', {}, ...cols.map(([, k]) => h('th', { scope: 'col', text: t(k) })))), tbody));
-  put(body, h('div', { class: 'toolbar' }, h('div', { class: 'field grow' }, h('label', { for: 'ix-search', text: t('ix_search') }), search)), famPills ? h('div', { class: 'field' }, famPills) : null, h('div', { class: 'field' }, srcPills), group === 'sources' ? null : h('div', { class: 'field' }, heldPills), total, table, more);
+  const row = (lab, node) => h('div', { class: 'filter-row' }, h('span', { class: 'fl', text: lab }), node);
+  put(body, h('div', { class: 'toolbar' }, h('div', { class: 'field grow' }, h('label', { for: 'ix-search', text: t('ix_search') }), search)), famPills ? row(t('ix_d_family'), famPills) : null, row(t('ix_c_source'), srcPills), row(t('ix_c_state'), heldPills), total, table, more);
 
   let seq = 0, cursor = null, selected = null;
   const url = () => { const p = new URLSearchParams({ group }); for (const k of ['source', 'state', 'q', 'family']) if (f[k]) p.set(k, f[k]); return `#/intel?${p}`; };
@@ -126,7 +127,7 @@ export async function renderIntel(ctx) {
   await load(false);
 }
 
-function sourcesTable(sources, fam) {
+export function sourcesTable(sources, fam) {
   void fam;
   const row = (s) => {
     const r = s.latest_run;

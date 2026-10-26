@@ -64,3 +64,11 @@ test('record detail joins its run and source; hostile ids are refused; events fi
   assert.equal((await get(w, rev, 'events?level=ERROR')).data.items.length, 1); assert.equal((await get(w, rev, 'events?component=intel.fetch&run_id=run-kev-1')).data.items.length, 1); assert.equal((await get(w, rev, 'events?level=LOUD')).status, 400);
   await assert.rejects(() => w.env.INTEL.prepare("UPDATE intel_events SET message = 'edited'").run(), /append-only/); await assert.rejects(() => w.env.INTEL.prepare('DELETE FROM intel_events').run(), /append-only/);
 });
+
+test('events: incremental reading with after, the head cursor, secrets masked on the way out, and stats carry per-run and per-event counts', async () => {
+  const { w, rev } = await setup(); const all = (await get(w, rev, 'events')).data; assert.equal(all.items.length, 3); const head = all.head;
+  assert.equal((await get(w, rev, `events?after=${head}`)).data.items.length, 0, 'nothing newer than the head'); await w.env.INTEL.prepare("INSERT INTO intel_events (ts,level,component,module,message) VALUES (?,?,?,?,?)").bind(NOW, 'INFO', 'intel.fetch', 'x', 'url https://x.test/f?sig=ABCDEF&jwt=GHIJKL and ghp_' + 'A'.repeat(30)).run();
+  const inc = (await get(w, rev, `events?after=${head}`)).data; assert.equal(inc.items.length, 1); assert.ok(!/ABCDEF|GHIJKL|ghp_A/.test(inc.items[0].message), inc.items[0].message); assert.match(inc.items[0].message, /\[redacted\]/);
+  assert.equal((await get(w, rev, `events?after=1&before=9`)).status, 400); assert.equal((await get(w, rev, 'events?after=-1')).status, 400);
+  const st = (await get(w, rev, 'stats')).data; assert.deepEqual(st.events.by_level.map((x) => x.level).sort(), ['ERROR', 'INFO', 'INFO', 'WARN', 'WARN'].filter((v, i, a) => a.indexOf(v) === i).sort()); assert.equal(st.runs.items.length, 2); assert.equal(st.runs.items[0].accepted, 250);
+});

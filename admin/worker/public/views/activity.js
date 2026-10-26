@@ -2,6 +2,7 @@
 import { t, getLang } from '../i18n.js';
 import { h, icon, put, fmtDate, fmtDateTime, fmtTime, pillGroup } from '../ui.js';
 import { chart } from './charts.js';
+import { loadIntelStats, runsTable } from './intel_summary.js';
 import { loadOps, freshness, dayBadge, mmss, eventLabel, conclusionLabel, STATE_CLASS, STATE_ICON, stateLabel } from './ops.js';
 
 const WEEKDAYS = { es: ['L', 'M', 'X', 'J', 'V', 'S', 'D'], en: ['M', 'T', 'W', 'T', 'F', 'S', 'S'] };
@@ -31,7 +32,7 @@ function dayDetail(d) {
 }
 
 export async function renderActivity(ctx) {
-  const { root, query } = ctx; let days = query.get('days') === '7' ? 7 : 30, selected = /^\d{4}-\d{2}-\d{2}$/.test(query.get('day') || '') ? query.get('day') : null;
+  const { root, query, me } = ctx; const intelBox = h('div', { class: 'minw0' }); loadIntelStats(me).then((st) => { const n = runsTable(st); if (n) put(intelBox, n); }); let days = query.get('days') === '7' ? 7 : 30, selected = /^\d{4}-\d{2}-\d{2}$/.test(query.get('day') || '') ? query.get('day') : null;
   put(root, h('div', { class: 'page-head' }, h('div', {}, h('h1', { id: 'page-title', tabindex: '-1', text: t('ac_title' ) }), h('p', { text: t('ac_lead') }))), h('div', { class: 'skeleton sk-block', 'aria-hidden': 'true' }));
   const ops = await loadOps();
   const head = h('div', { class: 'page-head' }, h('div', {}, h('h1', { id: 'page-title', tabindex: '-1', text: t('ac_title') }), h('p', { text: t('ac_lead') })), h('div', { class: 'actions' }, h('button', { type: 'button', class: 'btn btn-sm', onclick: () => ctx.rerender() }, icon('refresh'), t('refresh'))));
@@ -62,6 +63,7 @@ export async function renderActivity(ctx) {
   drawCal(); put(detail, dayDetail(byDate.get(selected))); drawCharts();
   put(root, head, freshness(o), h('section', { class: 'card', 'aria-labelledby': 'h-cal' }, h('h2', { id: 'h-cal', text: t('cal_title') }), h('p', { class: 'note', text: t('cal_utc', { at: o.definitions.schedule_utc }) }), calBox),
     detail, h('section', { class: 'grid-14', 'aria-labelledby': 'h-ch' }, h('div', { class: 'flex-between' }, h('h2', { id: 'h-ch', text: t('ch_title') }), range), charts),
-    h('section', { class: 'grid-14', 'aria-labelledby': 'h-hist' }, h('h2', { id: 'h-hist', text: t('hist_title') }), history));
+    h('section', { class: 'grid-14', 'aria-labelledby': 'h-hist' }, h('h2', { id: 'h-hist', text: t('hist_title') }), history),
+    intelBox);
 }
 export { fmtDateTime };

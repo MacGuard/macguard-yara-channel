@@ -7,6 +7,7 @@ import { renderQuarantine } from './views/quarantine.js';
 import { renderPublished } from './views/published.js';
 import { renderPublishedRule } from './views/published_rule.js';
 import { renderIntel } from './views/intel.js';
+import { renderLogs } from './views/logs.js';
 import { renderDashboard } from './views/dashboard.js';
 import { renderActivity } from './views/activity.js';
 import { renderSources } from './views/sources.js';
@@ -18,7 +19,7 @@ import { renderRestore } from './views/restore.js';
 
 const root = document.getElementById('root');
 const RANK = { VIEWER: 1, REVIEWER: 2, ADMIN: 3 };
-const NAV = [{ id: 'dashboard', icon: 'grid', label: 'nav_dashboard', min: 1 }, { id: 'quarantine', icon: 'quarantine', label: 'nav_quarantine', min: 1 }, { id: 'published', icon: 'check', label: 'nav_published', min: 1 }, { id: 'intel', icon: 'globe', label: 'nav_intel', min: 2 }, { id: 'activity', icon: 'calendar', label: 'nav_activity', min: 1 }, { id: 'sources', icon: 'source', label: 'nav_sources', min: 1 }, { id: 'restore', icon: 'history', label: 'nav_restore', min: 2 }, { id: 'audit', icon: 'audit', label: 'nav_audit', min: 2 }, { id: 'members', icon: 'users', label: 'nav_members', min: 3 }];
+const NAV = [{ id: 'dashboard', icon: 'grid', label: 'nav_dashboard', min: 1 }, { id: 'quarantine', icon: 'quarantine', label: 'nav_quarantine', min: 1 }, { id: 'published', icon: 'check', label: 'nav_published', min: 1 }, { id: 'intel', icon: 'globe', label: 'nav_intel', min: 2 }, { id: 'activity', icon: 'calendar', label: 'nav_activity', min: 1 }, { id: 'logs', icon: 'file', label: 'nav_logs', min: 2 }, { id: 'sources', icon: 'source', label: 'nav_sources', min: 1 }, { id: 'restore', icon: 'history', label: 'nav_restore', min: 2 }, { id: 'audit', icon: 'audit', label: 'nav_audit', min: 2 }, { id: 'members', icon: 'users', label: 'nav_members', min: 3 }];
 let me = null, content = null, links = [];
 const wasIn = { get: () => { try { return localStorage.getItem('mg_was_in') === '1'; } catch { return false; } }, set: (v) => { try { if (v) localStorage.setItem('mg_was_in', '1'); else localStorage.removeItem('mg_was_in'); } catch { /* ignore */ } } };
 
@@ -58,6 +59,7 @@ async function route() {
     if (rm) await renderRule(ctx, rm[1]);
     else if (seg === 'restore' && RANK[me.role] >= 2) await renderRestore(ctx);
     else if (seg === 'intel' && RANK[me.role] >= 2) await renderIntel(ctx);
+    else if (seg === 'logs' && RANK[me.role] >= 2) await renderLogs(ctx);
     else if (seg === 'audit' && RANK[me.role] >= 2) await renderAudit(ctx);
     else if (seg === 'members' && RANK[me.role] >= 3) await renderMembers(ctx);
     else if (seg === 'quarantine') await renderQuarantine(ctx);

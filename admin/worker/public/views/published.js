@@ -3,11 +3,12 @@ import { t } from '../i18n.js';
 import { h, icon, put, pillGroup, shortSha, copyButton, fmtDateTime, bytes } from '../ui.js';
 import { api, failure } from '../api.js';
 import { polChip } from './policy.js';
+import { loadIntelStats, retainedTable } from './intel_summary.js';
 
 const SIZE = 50, STATUS = ['published', 'newer_in_review'];
 
 export async function renderPublished(ctx) {
-  const { root, query, go } = ctx;
+  const { root, query, go, me } = ctx; const otherFamilies = h('div', { class: 'minw0' }); loadIntelStats(me).then((st) => { const n = retainedTable(st, true); if (n) put(otherFamilies, n); });
   const f = { status: STATUS.includes(query.get('status')) ? query.get('status') : '', q: query.get('q') || '', source: query.get('source') || '', page: Math.max(1, +query.get('page') || 1) };
   const hash = (o) => { const p = new URLSearchParams(); for (const k of ['status', 'q', 'source']) if (o[k]) p.set(k, o[k]); if (o.page > 1) p.set('page', o.page); const s = p.toString(); return `#/published${s ? `?${s}` : ''}`; };
   const apply = (patch) => go(hash({ ...f, page: 1, ...patch }), true);
@@ -17,7 +18,7 @@ export async function renderPublished(ctx) {
   const search = h('input', { class: 'input', id: 'p-search', type: 'search', autocomplete: 'off', value: f.q, placeholder: '' });
   let timer; search.addEventListener('input', () => { clearTimeout(timer); timer = setTimeout(() => { f.q = search.value.trim(); f.page = 1; history.replaceState(null, '', hash(f)); load(); }, 300); });   // only the list reloads: the input keeps its node, focus, caret and selection
   put(root, h('div', { class: 'page-head' }, h('div', {}, h('h1', { id: 'page-title', tabindex: '-1', text: t('pub_title') }), h('p', { text: t('pub_lead') })), h('div', { class: 'actions' }, refresh)),
-    head, pills, h('div', { class: 'field' }, h('label', { for: 'p-search', text: t('pub_search') }), search), srcPills, listBox);
+    head, pills, h('div', { class: 'field' }, h('label', { for: 'p-search', text: t('pub_search') }), search), srcPills, listBox, otherFamilies);
 
   let seq = 0;
   async function load() {
