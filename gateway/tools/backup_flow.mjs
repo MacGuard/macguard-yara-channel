@@ -1,9 +1,9 @@
 // Backup flow as testable functions (the CLI in d1_backup.mjs wires them to wrangler). Order: export -> verify the PLAINTEXT in an isolated restore -> encrypt with age (recipient = a public key the owner
 // holds) -> write checksums and a manifest -> record the outcome in status.json (success AND failure). The plaintext lives only in a private temp directory that is removed afterwards.
 // check() turns the state on disk into macguard.alert/1 alerts: missing, stale, failed, tampered, unencrypted.
-import { execFileSync } from 'node:child_process';
+import { execFileSync, spawn } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from 'node:fs';
+import { chmodSync, closeSync, createReadStream, existsSync, mkdirSync, mkdtempSync, openSync, readFileSync, readSync, readdirSync, renameSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
@@ -11,9 +11,32 @@ import { verifyRestore, rowCounts } from './backup_lib.mjs';
 
 export const ROOT_DEFAULT = join(homedir(), 'macguard-backups', 'gateway');
 const sha = (b) => createHash('sha256').update(b).digest('hex'), now = (d) => d.toISOString().replace(/\.\d{3}Z$/, 'Z'), stampOf = (d) => now(d).replace(/[-:]/g, '');
+export const AGE_MAGIC = 'age-encryption.org/v1';
+/** SHA-256 of a file without loading it (the ciphertext of a large export is never held in memory). */
+export const shaFile = (file) => new Promise((ok, ko) => { const h = createHash('sha256'); createReadStream(file).on('data', (c) => h.update(c)).on('error', ko).on('end', () => ok(h.digest('hex'))); });
+/** Encrypts SRC to DST with age by STREAMING: age reads and writes the files through their descriptors, so neither the plaintext nor the ciphertext passes through this process. DST appears only when
+ *  age exited 0 AND the result looks complete (age header present, strictly larger than the plaintext because of the header and per-chunk tags); otherwise the partial file is removed. A cut-off ciphertext is also
+ *  caught at decryption, because age authenticates the final chunk. age's stderr (never the plaintext) is the only text carried into the error, trimmed. `signal` cancels the child. */
+export async function ageEncryptFile({ ageBin = 'age', recipient, src, dst, signal }) {
+  const part = dst + '.partial', inFd = openSync(src, 'r'); let outFd;
+  try {
+    outFd = openSync(part, 'wx', 0o600);
+    await new Promise((ok, ko) => {
+      const c = spawn(ageBin, ['-r', recipient], { stdio: [inFd, outFd, 'pipe'], signal }); let e = '';
+      c.stderr.on('data', (d) => { if (e.length < 400) e += d; }); c.on('error', ko);
+      c.on('close', (code, sig) => (code === 0 ? ok() : ko(new Error(`age ${sig ? 'killed by ' + sig : 'exited ' + code}${e ? ': ' + e.replace(/\s+/g, ' ').trim().slice(0, 200) : ''}`))));
+    });
+    closeSync(outFd); outFd = undefined;
+    const size = statSync(part).size, head = Buffer.alloc(AGE_MAGIC.length), fd = openSync(part, 'r'); try { readSync(fd, head, 0, head.length, 0); } finally { closeSync(fd); }
+    if (head.toString('latin1') !== AGE_MAGIC) throw new Error('the encrypted output has no age header (incomplete or not age)');
+    if (size <= statSync(src).size) throw new Error('the encrypted output is not larger than the plaintext (incomplete)');
+    renameSync(part, dst); return { bytes: size };
+  } catch (e) { rmSync(part, { force: true }); throw e; } finally { closeSync(inFd); if (outFd !== undefined) closeSync(outFd); }
+}
+
 export const isTemp = (p) => /^(\/tmp|\/private\/tmp|\/var\/folders)|scratchpad/.test(resolve(p));
 
-export async function runBackup({ exportFn, root = ROOT_DEFAULT, recipient = null, clock = () => new Date(), meta = {}, ageBin = 'age', verify = verifyRestore, counts = rowCounts, schema = 'macguard.gateway-backup/2' }) {   // verify/counts/schema: a different database brings its own isolated-restore check
+export async function runBackup({ exportFn, root = ROOT_DEFAULT, recipient = null, clock = () => new Date(), meta = {}, ageBin = 'age', verify = verifyRestore, counts = rowCounts, schema = 'macguard.gateway-backup/2', signal }) {   // verify/counts/schema: a different database brings its own isolated-restore check
   root = resolve(root); if (isTemp(root)) throw new Error('refusing to keep backups in a temporary directory');
   mkdirSync(root, { recursive: true, mode: 0o700 }); chmodSync(root, 0o700);
   const status = existsSync(join(root, 'status.json')) ? JSON.parse(readFileSync(join(root, 'status.json'), 'utf8')) : {}, started = clock();
@@ -30,10 +53,10 @@ export async function runBackup({ exportFn, root = ROOT_DEFAULT, recipient = nul
     let name = 'd1-export.sql';
     if (recipient) {
       if (!/^age1[a-z0-9]{50,}$/.test(recipient)) return fail('encrypt', new Error('the age recipient is not a public key'));
-      try { writeFileSync(join(dir, 'd1-export.sql.age'), execFileSync(ageBin, ['-r', recipient], { input: readFileSync(plain) })); name = 'd1-export.sql.age'; } catch (e) { return fail('encrypt', e); }
+      try { await ageEncryptFile({ ageBin, recipient, src: plain, dst: join(dir, 'd1-export.sql.age'), signal }); name = 'd1-export.sql.age'; } catch (e) { rmSync(dir, { recursive: true, force: true }); return fail('encrypt', e); }
     } else writeFileSync(join(dir, name), sql);
-    manifest.stored_file = name; manifest.stored_sha256 = sha(readFileSync(join(dir, name))); manifest.stored_bytes = statSync(join(dir, name)).size;
-    writeFileSync(join(dir, 'manifest.json'), JSON.stringify(manifest, null, 2) + '\n'); writeFileSync(join(dir, 'SHA256SUMS'), [name, 'manifest.json'].map((f) => `${sha(readFileSync(join(dir, f)))}  ${f}`).join('\n') + '\n');
+    manifest.stored_file = name; manifest.stored_sha256 = await shaFile(join(dir, name)); manifest.stored_bytes = statSync(join(dir, name)).size;
+    writeFileSync(join(dir, 'manifest.json'), JSON.stringify(manifest, null, 2) + '\n'); writeFileSync(join(dir, 'SHA256SUMS'), (await Promise.all([name, 'manifest.json'].map(async (f) => `${await shaFile(join(dir, f))}  ${f}`))).join('\n') + '\n');
     for (const f of [name, 'manifest.json', 'SHA256SUMS']) chmodSync(join(dir, f), 0o600);
     writeFileSync(join(root, 'status.json'), JSON.stringify({ ...status, last_attempt_at: now(started), last_success_at: now(started), last_status: 'ok', last_dir: stampOf(started), last_failed_stage: null, last_error: null, encrypted: !!recipient }, null, 2) + '\n', { mode: 0o600 });
     return { ok: true, dir, name, manifest, checks: v.checks.length };
