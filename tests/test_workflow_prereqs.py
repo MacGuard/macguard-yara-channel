@@ -49,13 +49,24 @@ class WorkflowPrerequisites(unittest.TestCase):
         # The ONE owner-approved exception (decision of 2026-10-25, recorded in the pull request): backup.yml uses the D1 export token (environment macguard-backup-production) and the per-provider object-store keys held by
         # the six environments archive-<provider>-read/write (one environment per job). It may export and copy; it may never deploy or migrate (the first assertion still applies to it), and no other workflow gains any secret.
         backup_secrets = {"CLOUDFLARE_API_TOKEN", "ARCHIVE_ACCESS_KEY_ID", "ARCHIVE_SECRET_ACCESS_KEY"}
+        # Second owner-approved exception (brief of 2026-10-27, PR #55): the usage monitor holds a READ-ONLY analytics token (Account Analytics: Read, no D1/Workers permission) and the Telegram bot, only in
+        # the environment macguard-monitoring (restricted to main). The watchdog needs Telegram alone. Nobody else gains any secret.
+        monitoring_secrets = {
+            "usage-monitor.yml": {"CLOUDFLARE_ANALYTICS_TOKEN", "TELEGRAM_BOT_TOKEN", "TELEGRAM_CHAT_ID"},
+            "usage-watchdog.yml": {"TELEGRAM_BOT_TOKEN", "TELEGRAM_CHAT_ID"},
+        }
         for wf in WORKFLOWS.glob("*.yml"):
             t = wf.read_text()
             self.assertNotRegex(t, r"wrangler[^\n]*\b(deploy|d1)\b", f"{wf.name} deploys or migrates the private service from CI")
-            allowed = {"CLOUDFLARE_API_TOKEN", "CLOUDFLARE_ACCOUNT_ID", "GITHUB_TOKEN"} | (backup_secrets if wf.name == "backup.yml" else set())
+            allowed = {"CLOUDFLARE_API_TOKEN", "CLOUDFLARE_ACCOUNT_ID", "GITHUB_TOKEN"} | (backup_secrets if wf.name == "backup.yml" else set()) | monitoring_secrets.get(wf.name, set())
             for name in re.findall(r"secrets\.([A-Z0-9_]+)", t):
                 self.assertIn(name, allowed, f"{wf.name}: unexpected secret {name}")
         self.assertNotIn("secrets.", (WORKFLOWS / "daily.yml").read_text().replace("secrets.GITHUB_TOKEN", ""))
+        for name in monitoring_secrets:   # the exception is narrow: never the broad token, and only inside the restricted environment
+            t = (WORKFLOWS / name).read_text()
+            self.assertNotIn("CLOUDFLARE_API_TOKEN", t, f"{name} must not use the broad Cloudflare token")
+            self.assertRegex(t, r"environment:\s*macguard-monitoring", f"{name} must run in the macguard-monitoring environment")
+            self.assertNotRegex(t, r"(?m)^\s*(pull_request|pull_request_target|push)\s*:", f"{name} must not run on PR or push events")
 
 
 if __name__ == "__main__":

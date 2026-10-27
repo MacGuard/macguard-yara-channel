@@ -1,0 +1,50 @@
+name: Usage monitor watchdog
+
+# Is the usage monitor itself still running? It looks at the newest SUCCESSFUL run of usage-monitor.yml; if there is none newer than config/usage-limits.json heartbeat.max_age_hours it alerts on
+# Telegram (once per UTC day) and fails the job, which makes GitHub e-mail the administrators. It is a separate workflow with its own cron so one broken file or one skipped schedule does not hide
+# the other. LIMIT, stated plainly: both run on GitHub Actions, so an Actions-wide outage, or GitHub disabling scheduled workflows after 60 days without repository activity, silences both;
+# only an external heartbeat would cover that and it needs a third party chosen by the owner.
+on:
+  schedule:
+    - cron: '41 */2 * * *'
+  workflow_dispatch:
+
+permissions: {}
+
+concurrency:
+  group: macguard-usage-watchdog
+  cancel-in-progress: false
+
+jobs:
+  watchdog:
+    runs-on: ubuntu-24.04
+    environment: macguard-monitoring
+    timeout-minutes: 3
+    permissions:
+      contents: read
+      actions: read
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: '22'
+      - name: Restore alert state
+        uses: actions/cache/restore@5a3ec84eff668545956fd18022155c47e93e2684 # v4.2.3
+        with:
+          path: watchdog-state.json
+          key: watchdog-state-${{ github.run_id }}
+          restore-keys: watchdog-state-
+      - name: Check the monitor
+        env:   # secrets are visible to this step only
+          GITHUB_TOKEN: ${{ github.token }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: node scripts/usage_monitor.mjs --watchdog --state watchdog-state.json
+      - name: Save alert state
+        if: always()
+        uses: actions/cache/save@5a3ec84eff668545956fd18022155c47e93e2684 # v4.2.3
+        with:
+          path: watchdog-state.json
+          key: watchdog-state-${{ github.run_id }}
