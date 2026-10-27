@@ -120,7 +120,7 @@ test('missed daily run: the age of the last successful daily pipeline alerts at 
 test('--test-message sends only the fixed text, needs both Telegram variables, and reads no analytics', async () => {
   const { spawnSync } = await import('node:child_process'), script = new URL('../../../scripts/usage_monitor.mjs', import.meta.url).pathname;
   const env = { PATH: process.env.PATH }, r = spawnSync(process.execPath, [script, '--test-message'], { env, encoding: 'utf8' });
-  assert.equal(r.status, 3); assert.match(r.stderr, /TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID are required/);
+  assert.equal(r.status, 3); assert.match(r.stderr, /NOT_CONFIGURED: missing TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID/);
   assert.doesNotMatch(TEST_TEXT, /\d{3,}/, 'no figures in the test text'); assert.match(TEST_TEXT, /No es una alerta de consumo/);
 });
 
@@ -157,4 +157,18 @@ test('watchdog: a monitor with a recent success is alive; a stale one, none at a
   const stale = await watchdog({ fetchImpl: mk(age(5)), github: gh, cfg, now }); assert.equal(stale.ok, false); assert.match(stale.reason, /5\.0 h ago/);
   assert.equal((await watchdog({ fetchImpl: mk([]), github: gh, cfg, now })).ok, false);
   const down = await watchdog({ fetchImpl: mk([], false, 503), github: gh, cfg, now }); assert.equal(down.ok, false); assert.match(down.reason, /HTTP 503/);
+});
+
+test('NOT_CONFIGURED: with no credentials the CLI makes NO network call, names only what is missing (never a value) and exits 3; with part of the configuration it names only the rest', async () => {
+  const { spawnSync } = await import('node:child_process'), script = new URL('../../../scripts/usage_monitor.mjs', import.meta.url).pathname;
+  const run = (env, ...a) => spawnSync(process.execPath, [script, ...a], { env: { PATH: process.env.PATH, ...env }, encoding: 'utf8', timeout: 20000 });
+  let r = run({});
+  assert.equal(r.status, 3); assert.equal(r.stdout, '', 'nothing is evaluated or sent'); assert.match(r.stderr, /NOT_CONFIGURED: missing CLOUDFLARE_ANALYTICS_TOKEN, CLOUDFLARE_ACCOUNT_ID/);
+  r = run({ CLOUDFLARE_ACCOUNT_ID: '0123456789abcdef0123456789abcdef' }); assert.equal(r.status, 3); assert.match(r.stderr, /missing CLOUDFLARE_ANALYTICS_TOKEN in the/); assert.doesNotMatch(r.stderr, /0123456789abcdef/, 'a configured value is never echoed');
+  r = run({ TELEGRAM_BOT_TOKEN: '123456:SECRETSECRETSECRETSECRETSECRETSEC' }, '--test-message'); assert.equal(r.status, 3); assert.match(r.stderr, /missing TELEGRAM_CHAT_ID in the/); assert.doesNotMatch(r.stderr, /SECRETSECRET/);
+});
+
+test('the watchdog counts only SCHEDULED successes: a manual simulation or test message is not a heartbeat', async () => {
+  let url; await watchdog({ fetchImpl: async (u) => { url = u; return { ok: true, json: async () => ({ workflow_runs: [{ updated_at: at(11).toISOString() }] }) }; }, github: { token: 'G', repo: 'o/r' }, cfg, now: at(12) });
+  assert.match(url, /status=success/); assert.match(url, /event=schedule/);
 });

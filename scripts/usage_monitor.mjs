@@ -100,7 +100,7 @@ const a_level = (alerts, k) => (alerts.find((a) => a.key === k) || {}).level || 
 
 /** Watchdog: is the monitor itself still running? Looks at the newest successful run of the monitor workflow. Returns { ok, ageHours, reason }. */
 export async function watchdog({ fetchImpl = fetch, github, cfg, now = new Date() }) {
-  const r = await fetchImpl(`https://api.github.com/repos/${github.repo}/actions/workflows/${cfg.heartbeat.workflow}/runs?status=success&per_page=1`, { headers: { Authorization: `Bearer ${github.token}`, Accept: 'application/vnd.github+json' } });
+  const r = await fetchImpl(`https://api.github.com/repos/${github.repo}/actions/workflows/${cfg.heartbeat.workflow}/runs?status=success&event=schedule&per_page=1`, { headers: { Authorization: `Bearer ${github.token}`, Accept: 'application/vnd.github+json' } });   // a manual run (simulation, test message) is not a heartbeat
   if (!r.ok) return { ok: false, reason: `GitHub runs HTTP ${r.status}: the monitor cannot be checked` };
   const run1 = ((await r.json()).workflow_runs || [])[0]; if (!run1) return { ok: false, reason: 'the monitor has no successful run' };
   const ageHours = (now.getTime() - Date.parse(run1.updated_at)) / 3600000; return ageHours > cfg.heartbeat.max_age_hours ? { ok: false, ageHours, reason: `last successful monitor run was ${ageHours.toFixed(1)} h ago (limit ${cfg.heartbeat.max_age_hours} h)` } : { ok: true, ageHours };
@@ -109,14 +109,14 @@ export async function watchdog({ fetchImpl = fetch, github, cfg, now = new Date(
 export const TEST_TEXT = 'MacGuard: prueba del canal de alertas. Si lees esto en el móvil, Telegram funciona. No es una alerta de consumo.';
 async function main(argv) {
   const arg = (n) => { const i = argv.indexOf(n); return i >= 0 ? argv[i + 1] : undefined; };
-  if (argv.includes('--test-message')) { const tg = { token: process.env.TELEGRAM_BOT_TOKEN, chat: process.env.TELEGRAM_CHAT_ID }; if (!tg.token || !tg.chat) { console.error('TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID are required'); return 3; } await sendTelegram(fetch, tg, TEST_TEXT); console.log('test message accepted by Telegram'); return 0; }
+  if (argv.includes('--test-message')) { const tg = { token: process.env.TELEGRAM_BOT_TOKEN, chat: process.env.TELEGRAM_CHAT_ID }; if (!tg.token || !tg.chat) { console.error(`NOT_CONFIGURED: missing ${[!tg.token && 'TELEGRAM_BOT_TOKEN', !tg.chat && 'TELEGRAM_CHAT_ID'].filter(Boolean).join(', ')} in the macguard-monitoring environment`); return 3; } await sendTelegram(fetch, tg, TEST_TEXT); console.log('test message accepted by Telegram'); return 0; }
   const cfg = JSON.parse(readFileSync(new URL('../config/usage-limits.json', import.meta.url), 'utf8')), statePath = arg('--state'), outPath = arg('--out') || 'usage-report.json', sim = arg('--simulate');
   const state = statePath && existsSync(statePath) ? JSON.parse(readFileSync(statePath, 'utf8')) : {};
   if (argv.includes('--watchdog')) { const tg = { token: process.env.TELEGRAM_BOT_TOKEN, chat: process.env.TELEGRAM_CHAT_ID }, w = await watchdog({ github: { token: process.env.GITHUB_TOKEN, repo: process.env.GITHUB_REPOSITORY }, cfg }); if (w.ok) { console.log(`monitor alive (${w.ageHours.toFixed(1)} h)`); return 0; } console.error(`MONITOR STALE: ${w.reason}`); const day = new Date().toISOString().slice(0, 10), st = statePath && existsSync(statePath) ? JSON.parse(readFileSync(statePath, 'utf8')) : {}, key = `watchdog:${day}`; if (tg.token && tg.chat && !st[key]) { try { await sendTelegram(fetch, tg, `MacGuard ALERTA: el monitor de consumo no se ejecuta. ${w.reason}. Revisa Actions → Usage and cost monitor.`); st[key] = 'sent'; if (statePath) writeFileSync(statePath, JSON.stringify(st)); } catch (e) { console.error(`Telegram failed: ${String(e.message).slice(0, 80)}`); } } return 2; }
   let metrics, costLines = [], now = new Date(), deliver = null;
   if (sim) { const s = JSON.parse(readFileSync(sim, 'utf8')); metrics = s.metrics; costLines = s.costs || []; if (s.now) now = new Date(s.now); deliver = async (t) => console.log(`[SIMULATED SEND] ${t}`); }
   else {
-    const token = process.env.CLOUDFLARE_ANALYTICS_TOKEN, account = process.env.CLOUDFLARE_ACCOUNT_ID; if (!token || !account) { console.error('CLOUDFLARE_ANALYTICS_TOKEN and CLOUDFLARE_ACCOUNT_ID are required'); return 3; }
+    const token = process.env.CLOUDFLARE_ANALYTICS_TOKEN, account = process.env.CLOUDFLARE_ACCOUNT_ID; if (!token || !account) { console.error(`NOT_CONFIGURED: missing ${[!token && 'CLOUDFLARE_ANALYTICS_TOKEN', !account && 'CLOUDFLARE_ACCOUNT_ID'].filter(Boolean).join(', ')} in the macguard-monitoring environment`); return 3; }
     metrics = await collect({ token, account, now, github: process.env.GITHUB_TOKEN && process.env.GITHUB_REPOSITORY ? { token: process.env.GITHUB_TOKEN, repo: process.env.GITHUB_REPOSITORY } : undefined }); const tg = { token: process.env.TELEGRAM_BOT_TOKEN, chat: process.env.TELEGRAM_CHAT_ID }; if (tg.token && tg.chat) deliver = (t) => sendTelegram(fetch, tg, t);
   }
   const r = await run({ cfg, metrics, costLines, state, now, deliver });
