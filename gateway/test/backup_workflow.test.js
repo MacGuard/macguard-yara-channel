@@ -52,9 +52,14 @@ test('the selftest job is credential-free and cannot run from the schedule or an
   const st = job('selftest'); assert.ok(st.length > 100 && !/environment:|secrets\./.test(st)); assert.match(st, /github\.event_name == 'workflow_dispatch' && inputs\.mode == 'selftest'/);
 });
 
-test('the record job writes only the evidence file, under the shared lock, with no environment and no secret; the restore recorder needs an admin and passes inputs through env, never inline', () => {
+test('the record job writes only the evidence file, under the shared lock, with no environment and no secret; the restore recorder needs an admin, passes inputs through env (plus its own per-run concurrency group), never inline', () => {
   const rec = job('record'); assert.match(rec, /group: macguard-log/); assert.ok(!/environment:|secrets\./.test(rec)); assert.match(rec, /commit_evidence\.sh/); assert.match(rec, /backup_record\.mjs backup/);
   const rr = readFileSync(new URL('../../.github/workflows/record-restore.yml', import.meta.url), 'utf8'); assert.match(rr, /^permissions: \{\}$/m); assert.match(rr, /\[ "\$P" = admin \]/); assert.ok(!/secrets\.|environment:|id-token/.test(rr));
-  assert.ok(!/\$\{\{ *inputs\./.test(rr.replace(/^\s+(RUN_ID|PROVIDER|SHA|DUR|MODE): \$\{\{ inputs\.[a-z_0-9]+ \}\}$/gm, '')), 'inputs reach the shell only through env: lines');
-  for (const m of rr.matchAll(/uses: ([^\s@]+)@(\S+)/g)) assert.match(m[2], /^[0-9a-f]{40}$/); assert.match(rr, /group: macguard-log/);
+  // The ONLY other place an input may appear is the concurrency group (a name, never a shell): exactly this line, nothing else. (PR #56 replaced the shared queue.)
+  const GROUP = 'group: record-restore-${{ inputs.run_id }}-${{ inputs.provider }}';
+  assert.equal(rr.split('\n').filter((l) => l.trim() === GROUP).length, 1, 'one concurrency group per backup run and provider');
+  assert.ok(!/\$\{\{ *inputs\./.test(rr.replace(/^\s+(RUN_ID|PROVIDER|SHA|DUR|MODE): \$\{\{ inputs\.[a-z_0-9]+ \}\}$/gm, '').replace(/^\s+group: record-restore-\$\{\{ inputs\.run_id \}\}-\$\{\{ inputs\.provider \}\}$/m, '')), 'inputs reach the shell only through env: lines (and the concurrency group name)');
+  for (const m of rr.matchAll(/uses: ([^\s@]+)@(\S+)/g)) assert.match(m[2], /^[0-9a-f]{40}$/);
+  assert.match(rr, /cancel-in-progress: false/); assert.ok(!/group: macguard-log/.test(rr), 'a restore record must not queue behind (and be cancelled by) the shared log group');
+  assert.match(rr, /evidence_retry\.sh/, 'evidence is written by the retry that regenerates on a rejected push'); assert.ok(!/commit_evidence\.sh/.test(rr.replace(/evidence_retry\.sh/g, '')), 'no bare commit_evidence.sh (it rebases and loses concurrent appends)');
 });
