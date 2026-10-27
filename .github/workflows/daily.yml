@@ -43,7 +43,7 @@ jobs:
         run: |
           sudo apt-get update -qq && sudo apt-get install -y -qq yara
           yara --version | tee engine-version.txt
-      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: '24'
       # tests/test_verify_public_release.py verifies the real published release with cosign, so the suite cannot run without it
