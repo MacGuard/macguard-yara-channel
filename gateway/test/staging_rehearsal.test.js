@@ -1,6 +1,7 @@
 // Local rehearsal of the staging sequence (docs/analytics/STAGING-SEQUENCE.md) on a database that has exactly the DEPLOYED schema (4d9b1ff): backup -> verification -> migrations 0001-0003 ->
 // smoke + security on the CURRENT code -> restore -> rollback (the previous code on the migrated schema). Local only: it proves the logic and the rollback claim, not Cloudflare.
 import test from 'node:test';
+import { HAVE_AGE } from './tools_available.js';
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
 import { existsSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync, mkdirSync } from 'node:fs';
@@ -16,7 +17,7 @@ import { runSmoke } from '../tools/smoke.mjs';
 import { seedPolicy } from '../src/policy.js';
 import { SEED } from './helpers.js';
 
-const ROOT = new URL('../', import.meta.url).pathname, DEPLOYED = '4d9b1ff', HAVE_AGE = existsSync('/usr/local/bin/age') && process.platform === 'darwin';
+const ROOT = new URL('../', import.meta.url).pathname, DEPLOYED = '4d9b1ff';
 let deployedSql = null; try { deployedSql = execFileSync('git', ['show', `${DEPLOYED}:gateway/schema.sql`], { cwd: ROOT, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }); } catch { /* shallow clone */ }
 const skip = !deployedSql ? `commit ${DEPLOYED} not available` : !HAVE_AGE ? 'age not available' : false;
 const migrations = readdirSync(ROOT + 'migrations').filter((f) => f.endsWith('.sql')).sort();

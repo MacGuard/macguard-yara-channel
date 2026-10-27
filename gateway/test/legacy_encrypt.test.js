@@ -1,5 +1,6 @@
 // An additional encrypted copy of a plaintext backup: byte-identical after decryption, restorable in isolation, the original untouched, nothing overwritten, a wrong key or a damaged copy fails.
 import test from 'node:test';
+import { HAVE_AGE } from './tools_available.js';
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
 import { chmodSync, cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from 'node:fs';
@@ -11,7 +12,7 @@ import { encryptLegacy, verifyLegacyCopy } from '../tools/backup_encrypt_legacy.
 import { world } from './helpers.js';
 import { audit } from '../src/audit.js';
 
-const HAVE_AGE = existsSync('/usr/local/bin/age') && process.platform === 'darwin', sha = (b) => createHash('sha256').update(b).digest('hex');
+const sha = (b) => createHash('sha256').update(b).digest('hex');
 const keypair = (dir, n) => { const f = join(dir, n); execFileSync('age-keygen', ['-o', f], { stdio: 'ignore' }); return { file: f, pub: execFileSync('age-keygen', ['-y', f], { encoding: 'utf8' }).trim() }; };
 
 test('plaintext backup -> additional encrypted copy: identical bytes after decryption, restore checks pass, original untouched, wrong key and damage fail, nothing overwritten', { skip: !HAVE_AGE }, async () => {
