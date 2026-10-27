@@ -120,7 +120,7 @@ jobs:
           bash scripts/commit_logs.sh "daily review $RUN_ID"
       - name: Upload the public candidate
         if: steps.gate.outcome == 'success'
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: candidate-${{ github.run_id }}
           path: dist-public/
@@ -165,7 +165,7 @@ jobs:
           if gh release download --repo "$GITHUB_REPOSITORY" --dir previous --pattern manifest.json --pattern rules-release.tar.gz; then tar -xzf previous/rules-release.tar.gz -C previous rules; fi
       - name: Engine measurements on macOS (same method and thresholds as Linux)
         run: python3 scripts/dynamic_gate.py --verify-only --dist dist-public --previous previous --dynamic-out dynamic-macos.json
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: always()
         with:
           name: macos-validation-${{ github.run_id }}
@@ -206,7 +206,7 @@ jobs:
           ENGINE_DIR="$GITHUB_WORKSPACE/engine-out" xcodebuild -project DMGTrustAuditor.xcodeproj -scheme macguard-audit -configuration Release CODE_SIGNING_ALLOWED=NO CODE_SIGN_IDENTITY=- SYMROOT="$PWD/../../build" build | tail -3
           cd ../.. && build/Release/macguard-audit engine-status --format json | tee engine-status.json
           python3 scripts/macguard_smoke.py build/Release/macguard-audit --rules-from "$GITHUB_WORKSPACE/dist-public" --out macguard-smoke.json
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: always()
         with:
           name: app-compat-${{ github.run_id }}

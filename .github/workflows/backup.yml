@@ -79,7 +79,7 @@ jobs:
           mkdir -p "$WORK/prev"
           # an EMPTY resource may start its chain; a statement that fails verification, an unreachable or unconfigured provider fails this job
           node gateway/tools/backup_objstore.mjs fetch-previous --only '${{ matrix.provider }}' --statement-only --allow-empty --prefix "$PREFIX" --trust-key "$ED_PUB" --sigstore-identity "$SIG_ID" --sigstore-repo "$SIG_REPO" --ed25519-max-sequence "$ED_MAX" --out "$WORK/prev" | tee "$WORK/fetched.json" | jq -c .
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: prev-${{ matrix.provider }}
           path: .backup-work/prev
@@ -161,7 +161,7 @@ jobs:
           [ "$(head -c 21 "$D/d1-export.sql.age")" = "age-encryption.org/v1" ] || { echo "::error::the stored file is not age ciphertext"; exit 1; }
           if find "$WORK/package" -type f \( -name '*.sql' -o -name '*.sqlite*' -o -name '*.db' -o -name '*.toml' \) | grep -q .; then echo "::error::plaintext or configuration found in the package"; exit 1; fi
           find "$WORK/package" -type f | sort | sed "s#^$WORK/package/##"
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: package
           path: .backup-work/package
@@ -255,7 +255,7 @@ jobs:
           for f in d1-export.sql.age manifest.json SHA256SUMS ANCHOR.json ANCHOR.json.sigstore.json; do cmp "$WORK/dl/$STAMP/$f" "$WORK/package/backups/$STAMP/$f" || { echo "::error::$f differs from the package that was uploaded"; exit 1; }; done
           MG_CHECKPOINT_DIRS="$WORK/package/checkpoint" MG_SIGSTORE_IDENTITY="$SIG_ID" MG_SIGSTORE_REPO="$SIG_REPO" MG_ED25519_MAX_SEQUENCE="$ED_MAX" sh gateway/tools/recover_verify.sh "$WORK/dl/$STAMP" "$ED_PUB" "$(jq -r .sequence "$WORK/fetched.json")"
           sha256sum "$WORK/dl/$STAMP"/* | sed "s#$WORK/dl/##" > "$WORK/dl/$STAMP.sha256"
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: read-${{ matrix.provider }}
           path: .backup-work/dl
@@ -336,7 +336,7 @@ jobs:
       - uses: sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6 # v4.1.2
       - name: Sign a synthetic anchor and checkpoint with the workflow identity and verify them
         run: node gateway/tools/backup_selftest.mjs "$RUNNER_TEMP/selftest" gateway/environments/backup-trust.json
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: sigstore-selftest
           path: ${{ runner.temp }}/selftest/public/
