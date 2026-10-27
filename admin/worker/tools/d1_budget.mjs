@@ -46,7 +46,11 @@ export async function usageToday(token, accountId, fetchImpl = fetch, day = new 
 const LOG = process.env.D1_USAGE_LOG || join(homedir(), 'macguard-d1-usage.jsonl');
 const log = (o) => { try { appendFileSync(LOG, JSON.stringify({ at: new Date().toISOString(), ...o }) + '\n', { mode: 0o600 }); } catch { /* the log is a convenience; the decision does not depend on it */ } };
 const arg = (name, argv) => { const i = argv.indexOf(`--${name}`); return i >= 0 ? argv[i + 1] : undefined; };
-const tokenFromEnv = () => process.env.CLOUDFLARE_API_TOKEN || execFileSync('npx', ['--yes', 'wrangler@4.149.0', 'auth', 'token'], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim();
+const tokenFromEnv = () => {   // a read-only analytics token from the environment, else the operator's own wrangler login (its banner is skipped: only a token-shaped line is used)
+  if (process.env.CLOUDFLARE_API_TOKEN) return process.env.CLOUDFLARE_API_TOKEN;
+  const out = execFileSync('npx', ['--yes', 'wrangler@4.149.0', 'auth', 'token'], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).split('\n').map((l) => l.trim()).filter((l) => /^[A-Za-z0-9._~+/=-]{20,}$/.test(l));
+  if (!out.length) throw new Error('no token available'); return out[out.length - 1];
+};
 
 async function main(argv) {
   const cmd = argv[0], account = process.env.CLOUDFLARE_ACCOUNT_ID || '9e96e19f6dc0ccdd53e02f7c3b5cacab';
