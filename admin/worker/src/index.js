@@ -12,6 +12,7 @@ import * as intelFamilies from './intel_families.js';
 import * as intelData from './intel_data.js';
 import * as intelDecisions from './intel_decisions.js';
 import * as sourceRequests from './source_requests.js';
+import * as pubReq from './publication_requests.js';
 import * as approvals from './approvals.js';
 import { can, permissionFor, primaryRole, permissionsOf, matrix, familyPermission, isCritical, GRANTABLE_ROLES } from './rbac.js';   // policy: persistent administrative withdrawals (migration 0003)
 import { REAUTH, STATE_COOKIE, openToken, resolveGithubAccount, clearCookie, clearStateCookie, createSession, destroySession, effectiveRoles, finishLogin, getSession, parseCookies, sessionCookie, startLogin, stateCookie, timingSafeEqual, verifyActionsToken } from './auth.js';
@@ -42,6 +43,9 @@ export async function handle(request, env, deps) {
       const attempt = (tok, receipt) => ({ token_run_id: String(tok.claims.run_id ?? ''), run_attempt: Number(tok.claims.run_attempt) || null, receipt });
       if (method === 'GET' && path === '/api/pipeline/decisions') return json({ schema: 1, decisions: await store.decisionsMap(db), retest: await store.retestList(db) });
       if (method === 'GET' && path === '/api/pipeline/source-proposals') { const r = await proposals.handlePipeline({ env, db, workflow: v.workflow }); return json(r.body, r.status); }   // source proposals: only what an ADMIN authorized
+      const expd = path.match(/^\/api\/pipeline\/expedite\/([0-9a-f-]{8,64})(\/report)?$/);
+      if (method === 'GET' && expd && !expd[2]) { if (v.workflow !== 'publish-expedited.yml') return err(403, 'only the expedited publication workflow reads its request'); const r = await pubReq.forWorkflow(db, expd[1], new Date(now * 1000).toISOString()); return json(r.body, r.status); }
+      if (method === 'GET' && path === '/api/pipeline/publication-requests') { if (!['daily.yml', 'publish.yml', 'publish-expedited.yml'].includes(v.workflow)) return err(403, 'not a publication workflow'); return json({ schema: 1, items: await pubReq.pendingScheduled(db, new Date(now * 1000).toISOString()) }); }   // what the daily run applies; requests an expedited run already applied are not here
       if (method === 'GET' && path === '/api/pipeline/policy-snapshot') return json(await policies.snapshot(db, new Date(now * 1000).toISOString()));   // policy: daily.yml and publish.yml only (the allow-list of verifyActionsToken)
       if (method === 'GET' && path === '/api/pipeline/intel-approvals') {   // publish.yml only: what a future per-family, per-source package build may read. Read-only; publishes nothing.
         if (v.workflow !== 'publish.yml') return err(403, 'only the publication workflow reads approvals');
@@ -61,6 +65,12 @@ export async function handle(request, env, deps) {
         if (Array.isArray(body.retested)) await store.clearRetest(db, body.retested.filter((i) => typeof i === 'string'));
         return json({ schema: 1, results });
       }
+      if (method === 'POST' && expd && expd[2]) {   // publish-expedited.yml only: progress, failure, or the verified result of ITS OWN request
+        if (v.workflow !== 'publish-expedited.yml') return err(403, 'only the expedited publication workflow reports on its request');
+        const r = await pubReq.report(db, expd[1], body, new Date(now * 1000).toISOString(), { verifyRelease: async (tag) => (await fetchPublication(env, deps, tag)).ok === true, sync: async () => {} });   // the effective state of a rule is synced by /released; nothing else is written here
+        return json(r.body, r.status);
+      }
+      if (path === '/api/pipeline/publication-requests/applied') { if (!['daily.yml', 'publish.yml'].includes(v.workflow)) return err(403, 'only the daily publication run reports what it applied'); if (!Array.isArray(body.ids) || body.ids.length > 500 || !body.ids.every((x) => typeof x === 'string' && /^[0-9a-f-]{8,64}$/.test(x))) return err(400, 'ids required'); return json({ schema: 1, ...(await pubReq.dailyApplied(db, body.ids, { run_id: body.run_id, release_tag: body.release_tag }, new Date(now * 1000).toISOString())) }); }
       if (path === '/api/pipeline/released' || path === '/api/pipeline/revalidation-failed') {
         if (!Array.isArray(body.hashes) || body.hashes.some((h) => !/^[0-9a-f]{64}$/.test(h))) return err(400, 'hashes required');
         const ev = path.endsWith('released') ? 'released' : 'revalidation_failed';
@@ -143,6 +153,28 @@ export async function handle(request, env, deps) {
         }
         return { inv };
       };
+      if (path === '/api/publication-requests' || path.startsWith('/api/publication-requests/')) {   // desired state of a resource: SCHEDULED (the daily run applies it, nothing starts) or EXPEDITED (asks for ONE run of a fixed workflow). Never publishes from here.
+        const pm = path.match(/^\/api\/publication-requests\/([0-9a-f-]{8,64})(?:\/(cancel|dispatch|approve|emergency|execute-emergency|review))?$/), pdeps = { uuid: deps.uuid, env, dispatch: pubReq.makeDispatcher(env, deps) };
+        if (method === 'GET' && path === '/api/publication-requests') return json(await pubReq.list(db, { state: url.searchParams.get('state') || undefined, mode: url.searchParams.get('mode') || undefined }));
+        if (method === 'GET' && pm && !pm[2]) { const r = await pubReq.get(db, pm[1]); return r ? json({ request: r, events: await pubReq.events(db, pm[1]) }) : err(404, 'not found'); }
+        const rd = method === 'POST' ? await readJson(request, 20_000) : null; if (rd && rd.tooLarge) return err(413, 'request too large');
+        if (method === 'POST' && path === '/api/publication-requests') {
+          const mode = rd.body && rd.body.mode === 'EXPEDITED' ? 'EXPEDITED' : 'SCHEDULED';
+          if (mode === 'EXPEDITED' && !can(roles, 'publication.expedite')) { await store.appendAudit(db, { actor: session.login, role, action: 'authz.denied', target: '/api/publication-requests', detail: { method, permission: 'publication.expedite' } }, iso).catch(() => {}); }
+          const r = await pubReq.create(db, rd.body, { ...actor, roles }, iso, pdeps);
+          return json(r.body, r.status);
+        }
+        if (method === 'POST' && pm && pm[2] === 'cancel') { const r = await pubReq.cancel(db, pm[1], rd.body, { ...actor, roles }, iso); return json(r.body, r.status); }
+        if (method === 'POST' && pm && ['approve', 'emergency', 'execute-emergency', 'review'].includes(pm[2])) {   // second identity, emergency path (delayed, long reason, reviewed afterwards by a third identity)
+          const A = { ...actor, roles }; const r = pm[2] === 'approve' ? await pubReq.approve(db, pm[1], rd.body, A, iso, pdeps) : pm[2] === 'emergency' ? await pubReq.emergency(db, pm[1], rd.body, A, iso) : pm[2] === 'execute-emergency' ? await pubReq.executeEmergency(db, pm[1], A, iso, pdeps) : await pubReq.review(db, pm[1], rd.body, A, iso);
+          if (r.status === 403 && r.body && r.body.code === 'same_identity') await store.appendAudit(db, { actor: session.login, role, action: 'authz.denied', target: `publication-request:${pm[1]}`, detail: { reason: 'same_identity', step: pm[2] } }, iso).catch(() => {}); return json(r.body, r.status);
+        }
+        if (method === 'POST' && pm && pm[2] === 'dispatch') {   // retry of a BLOCKED request, by its requester or an approver; the authorisation stays bound to the same request and expires
+          const cur = await pubReq.get(db, pm[1]); if (!cur) return err(404, 'not found'); if (cur.requested_by_id !== actor.id && !can(roles, 'publication.expedite.approve')) return err(403, 'only the requester or an approver may retry');
+          const r = await pubReq.dispatch(db, pm[1], { ...actor, roles }, iso, pdeps); return json(r.body, r.status);
+        }
+        return err(404, 'unknown endpoint');
+      }
       if (path === '/api/source-requests' || path.startsWith('/api/source-requests/')) {   // a request to add or retire a source of any family; recorded, never fetched. Permissions come from the route table (src/rbac.js)
         const sm = path.match(/^\/api\/source-requests\/([0-9a-f-]{8,64})\/(accept|reject|cancel)$/);
         if (method === 'GET' && path === '/api/source-requests') return json(await sourceRequests.list(db));
