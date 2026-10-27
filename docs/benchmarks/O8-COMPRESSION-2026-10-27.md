@@ -21,13 +21,28 @@ Export SQL real de Intelligence (run 40469071822): 129 592 714 bytes. `zstd 1.5.
 - **Propuesta:** zstd -6 (un backup no es sensible a la latencia; 4 s sobre 130 MB). zstd -3 si algún día importara el tiempo de runner.
 - Limitación del dato: es **un** export (Intelligence, con mucho JSON repetitivo). Gateway y panel pesan ≈0,35 MB y su ahorro absoluto es irrelevante; no se midieron. El resultado de otros datos podría diferir.
 
+## Cómo reproducir la medición
+
+Necesita el export real y la identidad `age` (no están en el repositorio). Con un export SQL descifrado `plain.sql` y un par de claves `age`:
+
+```sh
+REC=$(age-keygen -y identity.txt)
+/usr/bin/time -l age -r "$REC" -o c_none.age plain.sql                    # sin compresión
+for L in 3 6 10; do
+  /usr/bin/time -l sh -c "zstd -q -$L -T1 -c plain.sql | age -r $REC -o c_zstd$L.age"
+  stat -f %z c_zstd$L.age                                                 # tamaño cifrado (Linux: stat -c %s)
+done
+```
+
+Los tamaños son deterministas para un mismo `plain.sql`, versión de `zstd` y nivel; los tiempos y la RAM dependen de la máquina. Una sola ejecución por variante, sin repeticiones ni intervalos de confianza: son órdenes de magnitud, no una medición estadística.
+
 ## Qué hay que hacer antes de poder desplegarla (nada de esto está hecho)
 
 1. **Formato:** manifiesto con `compression: {algorithm: "zstd", level: 6, version}`, `original_bytes`, `plaintext_sha256` del SQL original y `stored_sha256` del cifrado. La ausencia del campo significa formato antiguo sin compresión.
 2. **Compatibilidad hacia atrás:** `restore_verify`, `recover_verify.sh`, `restore_from_run.sh`, los drills de `backup_objstore` y `backup_offsite` y `rekeyBackup` deben leer ambos formatos. Un backup antiguo debe seguir restaurándose con el verificador nuevo (se probaría con la copia real del run 40469071822).
-3. **Streaming:** `zstd -c | age` y `age -d | zstd -d` como procesos encadenados sin shell, comprobando el código de salida de **cada** extremo (en una tubería, el fallo de `zstd` no debe quedar oculto por el éxito de `age`), con `.partial`; reutilizando `stream_io.mjs` (PR #57).
+3. **Streaming:** `zstd -c | age` y `age -d | zstd -d` como procesos encadenados sin shell, comprobando el código de salida de **cada** extremo (en una tubería, el fallo de `zstd` no debe quedar oculto por el éxito de `age`), con `.partial`; reutilizando `stream_io.mjs` (introducido por la PR #57; si #57 no estuviera fusionada, este punto no se puede implementar).
 4. **Seguridad:** límite de expansión (bomba de descompresión): el verificador aborta si el tamaño descomprimido supera `original_bytes` del manifiesto firmado.
-5. **Disponibilidad de la herramienta:** `zstd` debe existir en el runner (ubuntu-24.04) y en la máquina del propietario (`/usr/local/bin/zstd` presente).
+5. **Disponibilidad de la herramienta:** `zstd` debe existir en el runner y en la máquina del propietario. En la máquina del propietario está (`zstd 1.5.7`, comprobado). **En el runner no está comprobado**: hay que ejecutar `zstd --version` en un job antes de depender de ello, o instalarlo explícitamente.
 6. **Criterio de salida obligatorio:** backup real comprimido de los tres recursos y restauración aislada desde **B2, Scaleway y R2**, con evidencia, antes de activarlo. Hasta entonces, no desplegar.
 7. **Pruebas adversarias:** zstd truncado, ciphertext alterado, manifiesto con `compression` falsificado, bomba de descompresión.
 
