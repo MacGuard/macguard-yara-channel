@@ -69,5 +69,30 @@ class WorkflowPrerequisites(unittest.TestCase):
             self.assertNotRegex(t, r"(?m)^\s*(pull_request|pull_request_target|push)\s*:", f"{name} must not run on PR or push events")
 
 
+    def test_usage_monitor_is_off_unless_enabled_and_never_fails_when_off(self):
+        """The monitor and the watchdog are gated by USAGE_MONITOR_ENABLED. Absent, 'false' or anything but 'true' (GitHub compares strings
+        case-insensitively) skips the job BEFORE any secret, any Cloudflare query or any notification; manual runs are never gated; and a status
+        job that holds no secret and cannot fail makes the NOT_CONFIGURED state visible."""
+        gate = "${{ github.event_name == 'workflow_dispatch' || vars.USAGE_MONITOR_ENABLED == 'true' }}"
+
+        def runs(event, var):   # the gate, evaluated with GitHub's semantics (== on strings ignores case; an unset variable is the empty string)
+            return event == "workflow_dispatch" or (var or "").lower() == "true"
+        table = [("schedule", None, False), ("schedule", "", False), ("schedule", "false", False), ("schedule", "0", False), ("schedule", "yes", False),
+                 ("schedule", "true", True), ("schedule", "TRUE", True), ("workflow_dispatch", None, True), ("workflow_dispatch", "false", True)]
+        for event, var, want in table:
+            self.assertEqual(runs(event, var), want, f"{event} / {var!r}")
+        for name, job in (("usage-monitor.yml", "monitor"), ("usage-watchdog.yml", "watchdog")):
+            t = (WORKFLOWS / name).read_text()
+            body = t[t.index(f"\n  {job}:"):]
+            head = body[: body.index("steps:")]
+            self.assertIn(f"if: {gate}", head, f"{name}: the {job} job must carry the exact gate before its environment, secrets and steps")
+            self.assertLess(head.index("if:"), head.index("environment:"), f"{name}: gate must be declared with the job that owns the environment")
+        m = (WORKFLOWS / "usage-monitor.yml").read_text()
+        status = m[m.index("\n  status:"): m.index("\n  monitor:")]
+        self.assertNotIn("secrets.", status); self.assertNotIn("environment:", status); self.assertNotIn("if:", status.split("steps:")[0])
+        self.assertIn("NOT_CONFIGURED", status); self.assertIn("permissions: {}", status)
+        self.assertNotIn("exit 1", status)
+
+
 if __name__ == "__main__":
     unittest.main()

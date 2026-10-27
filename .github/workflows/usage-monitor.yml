@@ -26,7 +26,25 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  status:
+    # Always runs, needs no environment and no secret, and never fails: it makes the NOT_CONFIGURED / ENABLED state visible in the run summary even when the monitor job is skipped.
+    runs-on: ubuntu-24.04
+    timeout-minutes: 1
+    permissions: {}
+    env:
+      ENABLED: ${{ vars.USAGE_MONITOR_ENABLED }}
+    steps:
+      - name: Report the state
+        run: |
+          if [ "${ENABLED,,}" = true ]; then
+            echo "state: ENABLED. The monitor job runs; a failure of that job is real and must be investigated." >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "state: NOT_CONFIGURED. USAGE_MONITOR_ENABLED is not 'true', so the monitor job is skipped: no Cloudflare query, no notification. Create the secrets of the macguard-monitoring environment, test with a manual run, then set the variable (docs/operations/USAGE-MONITOR-SETUP.md section 3b)." >> "$GITHUB_STEP_SUMMARY"
+          fi
   monitor:
+    # Off until the owner has created the secrets of the environment AND sets the repository variable USAGE_MONITOR_ENABLED=true: a skipped job is honest, a failing one e-mails the administrators every hour.
+    # Manual runs (simulation, test message) are not gated.
+    if: ${{ github.event_name == 'workflow_dispatch' || vars.USAGE_MONITOR_ENABLED == 'true' }}
     runs-on: ubuntu-24.04
     environment: macguard-monitoring
     timeout-minutes: 5

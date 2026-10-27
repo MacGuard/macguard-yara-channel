@@ -51,6 +51,17 @@ Cada comando pide el valor por la entrada estándar (no queda en el historial ni
 
 `CLOUDFLARE_ACCOUNT_ID` no es secreto, pero se guarda aquí para que no esté en el código.
 
+## 3b. Activar el monitor
+
+Los crons están **omitidos** hasta que exista la variable de repositorio `USAGE_MONITOR_ENABLED=true` (Settings → Secrets and variables → Actions → Variables, o `! gh variable set USAGE_MONITOR_ENABLED --body true`). Ponla **después** de los secretos y de la prueba manual del apartado 4; las ejecuciones manuales (`workflow_dispatch`) funcionan siempre. Para parar el monitor: borra la variable.
+
+| `USAGE_MONITOR_ENABLED` | Ejecución programada | Qué se ve |
+|---|---|---|
+| ausente, vacía, `false`, `0`, `yes`… | el job `monitor` y el `watchdog` se **omiten**: ni consultas a Cloudflare ni avisos ni correos | el job `status` (sin secretos, no falla) escribe `NOT_CONFIGURED` en el resumen de cada run |
+| `true` (GitHub compara sin distinguir mayúsculas) | corren | un fallo es **real**: el job falla y GitHub envía correo. Con secretos que faltan, el error dice `NOT_CONFIGURED: missing <NOMBRES>` (solo nombres, nunca valores) |
+
+Las ejecuciones manuales (`workflow_dispatch`) no dependen de la variable. El vigilante cuenta como latido **solo** los runs programados exitosos: una simulación o un mensaje de prueba manuales no lo engañan.
+
 ## 4. Primera ejecución (tras fusionar el PR del monitor)
 
 1. Actions → *Usage and cost monitor* → Run workflow, **sin** `simulate`. No toca D1 (solo analítica) ni escribe en Cloudflare.
