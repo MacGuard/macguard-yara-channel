@@ -30,7 +30,7 @@ export async function runBackup({ exportFn, root = ROOT_DEFAULT, recipient = nul
     let name = 'd1-export.sql';
     if (recipient) {
       if (!/^age1[a-z0-9]{50,}$/.test(recipient)) return fail('encrypt', new Error('the age recipient is not a public key'));
-      try { writeFileSync(join(dir, 'd1-export.sql.age'), execFileSync(ageBin, ['-r', recipient], { input: readFileSync(plain) })); name = 'd1-export.sql.age'; } catch (e) { return fail('encrypt', e); }
+      try { writeFileSync(join(dir, 'd1-export.sql.age'), execFileSync(ageBin, ['-r', recipient], { input: readFileSync(plain), maxBuffer: 1 << 30 })); name = 'd1-export.sql.age'; } catch (e) { return fail('encrypt', e); }
     } else writeFileSync(join(dir, name), sql);
     manifest.stored_file = name; manifest.stored_sha256 = sha(readFileSync(join(dir, name))); manifest.stored_bytes = statSync(join(dir, name)).size;
     writeFileSync(join(dir, 'manifest.json'), JSON.stringify(manifest, null, 2) + '\n'); writeFileSync(join(dir, 'SHA256SUMS'), [name, 'manifest.json'].map((f) => `${sha(readFileSync(join(dir, f)))}  ${f}`).join('\n') + '\n');

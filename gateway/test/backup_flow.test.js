@@ -41,6 +41,17 @@ test('an age-encrypted backup leaves no plaintext behind, decrypts to exactly wh
     writeFileSync(join(r.dir, 'd1-export.sql.age'), Buffer.concat([readFileSync(join(r.dir, 'd1-export.sql.age')), Buffer.from('x')])); assert.equal(byRule(check({ root: sb.root, clock: T(2) }))['backup.integrity'], 'FIRING', 'a modified ciphertext is detected');
   } finally { sb.done(); rmSync(keyDir, { recursive: true, force: true }); }
 });
+test('an age-encrypted backup larger than the default child-process buffer (1 MiB) is still encrypted and decrypts to the verified plaintext', { skip: !HAVE_AGE }, async () => {
+  const w = await sample(), sb = sandbox(), keyDir = mkdtempSync(join(homedir(), '.mg-bk-key-')), key = join(keyDir, 'k.txt');
+  try {
+    execFileSync('age-keygen', ['-o', key], { stdio: 'ignore' }); const pub = execFileSync('age-keygen', ['-y', key], { encoding: 'utf8' }).trim();
+    const big = '-- ' + createHash('sha512').update('pad').digest('hex').repeat(32768) + '\n';   // ~4 MiB of comment: restores to nothing, but the ciphertext is far above 1 MiB
+    const r = await runBackup({ exportFn: async (p) => writeFileSync(p, big + dumpSql(w.db.raw)), root: sb.root, recipient: pub, clock: T(0) });
+    assert.equal(r.ok, true, r.error); assert.ok(r.manifest.stored_bytes > (1 << 20), 'the ciphertext exceeds the default 1 MiB buffer');
+    const dec = execFileSync('age', ['-d', '-i', key, join(r.dir, 'd1-export.sql.age')], { maxBuffer: 1 << 30 }); assert.equal(sha(dec), r.manifest.plaintext_sha256);
+  } finally { sb.done(); rmSync(keyDir, { recursive: true, force: true }); }
+});
+
 test('a failed export or a failed verification is recorded, raises alarms, creates no backup and never damages the previous good one', async () => {
   const w = await sample(), sb = sandbox();
   try {
