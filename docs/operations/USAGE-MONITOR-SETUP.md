@@ -40,7 +40,18 @@ Cloudflare → My Profile → API Tokens → Create Token → Custom token:
 
 ## 3. Secretos del entorno
 
-Cada comando pide el valor por la entrada estándar (no queda en el historial ni en pantalla):
+**Recomendado: el ayudante** (`scripts/monitoring_setup.sh`; ningún valor pasa por argumentos, logs ni por el chat de Claude):
+
+```
+! sh scripts/monitoring_setup.sh status          # qué secretos existen (solo nombres) y estado de la variable
+! sh scripts/monitoring_setup.sh telegram-chat   # pide el token del bot en silencio; imprime SOLO ids de chat y tipos
+! sh scripts/monitoring_setup.sh secrets         # crea los que falten (gh pide cada valor y no lo muestra)
+! sh scripts/monitoring_setup.sh test            # envía UN mensaje fijo de prueba; comprueba tu móvil
+```
+
+El ayudante **no activa** el monitor (nunca fija `USAGE_MONITOR_ENABLED`) y `test` se niega si falta algún secreto. Activarlo es un paso manual y posterior (sección 3b), solo tras ver llegar el mensaje a tu móvil y una ejecución correcta con datos reales.
+
+Manualmente, cada comando pide el valor por la entrada estándar (no queda en el historial ni en pantalla):
 
 ```
 ! gh secret set CLOUDFLARE_ANALYTICS_TOKEN --env macguard-monitoring
