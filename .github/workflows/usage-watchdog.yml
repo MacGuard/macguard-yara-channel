@@ -17,6 +17,9 @@ concurrency:
 
 jobs:
   watchdog:
+    # Off until the owner has created the secrets of the environment AND sets the repository variable USAGE_MONITOR_ENABLED=true: a skipped job is honest, a failing one e-mails the administrators every hour.
+    # Manual runs (simulation, test message) are not gated.
+    if: ${{ github.event_name == 'workflow_dispatch' || vars.USAGE_MONITOR_ENABLED == 'true' }}
     runs-on: ubuntu-24.04
     environment: macguard-monitoring
     timeout-minutes: 3
