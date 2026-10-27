@@ -1,5 +1,7 @@
 # O1 — Streaming extremo a extremo de backup y restauración (2026-10-27)
 
+Corrección (2026-10-27): una versión anterior de este informe y de la descripción de la PR decía «146 MB de SQL»; 146 MB es el tamaño de la base D1 en disco. El export SQL real pesa 129,6 MB.
+
 Medido en local (macOS, `/usr/bin/time -l`, pico de RSS del proceso más grande), sin tocar la nube ni D1. La máquina estaba cargada (9 agentes activos), así que **los tiempos tienen ruido** (±2–3×); la memoria no.
 
 ## Resultados
@@ -10,7 +12,7 @@ Medido en local (macOS, `/usr/bin/time -l`, pico de RSS del proceso más grande)
 | Fixture 1 MiB | streaming | 39,2 MB | 0,27 s |
 | Fixture 100 MiB (133.831 filas, trigger, cadenas multilínea) | en memoria (`main`) | **477,6 MB** | 3,7 s |
 | Fixture 100 MiB | streaming | **70,8 MB** (6,7× menos) | 29,0 s |
-| **Copia real de Intelligence** (run 40469071822, 129 MB cifrado / 146 MB SQL) `restore_verify` completo | `main` | **736 MB** | 11,3 s |
+| **Copia real de Intelligence** (run 40469071822: 129,6 MB de SQL, 129,6 MB cifrado) `restore_verify` completo | `main` | **736 MB** | 11,3 s |
 | Ídem | streaming | **75,6 MB** (9,7× menos) | 19,2 s |
 
 La memoria deja de crecer con el tamaño del export (el camino antiguo cuesta ≈4,8× el SQL; una base de 1 GB habría necesitado ≈5 GB, más que un runner estándar de 7 GB con margen). El precio es tiempo: el streaming pasa por disco.
@@ -36,7 +38,7 @@ Un primer intento sin pragmas de carga tardó **249 s** en la copia real (un `fs
 
 ## No cubierto / residual
 
-- **Volumen ≥ 1 GB:** no sintetizado para no saturar el Mac; el caso representativo es la copia real de 146 MB. La extrapolación (RAM plana) se apoya en 1 MiB → 100 MiB → 146 MB reales.
+- **Volumen ≥ 1 GB:** no sintetizado para no saturar el Mac; el caso representativo es la copia real de 129,6 MB. La extrapolación (RAM plana) se apoya en 1 MiB → 100 MiB → 129,6 MB reales.
 - **Descarga desde los proveedores:** `backup_objstore` baja el ciphertext a un `Buffer` (129 MB hoy). Pasarlo a streaming exige reescribir el cliente S3. Pendiente.
 - `backup_encrypt_legacy.mjs` (herramienta del formato antiguo) conserva `maxBuffer` de 1 GiB.
 - La exportación de D1 la hace `wrangler`, que escribe su propio fichero.
