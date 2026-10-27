@@ -34,11 +34,6 @@ jobs:
       contents: read
       actions: read
     env:
-      GITHUB_TOKEN: ${{ github.token }}
-      CLOUDFLARE_ANALYTICS_TOKEN: ${{ secrets.CLOUDFLARE_ANALYTICS_TOKEN }}
-      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-      TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
-      TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
       SIMULATE: ${{ inputs.simulate }}
       TEST_MESSAGE: ${{ inputs.test_message }}
     steps:
@@ -56,12 +51,20 @@ jobs:
           restore-keys: usage-state-
       - name: Evaluate and alert
         id: run
+        env:   # secrets are visible to this step only
+          GITHUB_TOKEN: ${{ github.token }}
+          CLOUDFLARE_ANALYTICS_TOKEN: ${{ secrets.CLOUDFLARE_ANALYTICS_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          SIMULATE: ${{ inputs.simulate }}
+          TEST_MESSAGE: ${{ inputs.test_message }}
         run: |
           set +e
           if [ "$TEST_MESSAGE" = "true" ]; then
             node scripts/usage_monitor.mjs --test-message
           elif [ -n "$SIMULATE" ]; then
-            case "$SIMULATE" in tests/fixtures/usage/*.json) ;; *) echo "simulate must be a file under tests/fixtures/usage"; exit 3;; esac
+            case "$SIMULATE" in *..*|*[!A-Za-z0-9_./-]*) echo "simulate: invalid path"; exit 3;; tests/fixtures/usage/*.json) ;; *) echo "simulate must be a file under tests/fixtures/usage"; exit 3;; esac
             node scripts/usage_monitor.mjs --simulate "$SIMULATE" --out usage-report.json
           else
             node scripts/usage_monitor.mjs --state usage-state.json --out usage-report.json

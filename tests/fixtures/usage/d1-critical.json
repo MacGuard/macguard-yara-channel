@@ -1,4 +1,30 @@
-{ "now": "2026-10-27T18:00:00Z",
-  "metrics": { "d1_rows_read": { "used": 4600000 }, "d1_rows_written": { "used": 20000 }, "d1_storage_bytes": { "used": 1000000000 }, "workers_requests": { "used": 1000 },
-    "r2_storage_bytes": { "unavailable": "not collected" }, "r2_class_a_ops": { "used": 10 }, "r2_class_b_ops": { "used": 10 } },
-  "costs": [] }
+{
+ "now": "2026-10-27T18:00:00Z",
+ "metrics": {
+  "d1_rows_read": {
+   "used": 4600000
+  },
+  "d1_rows_written": {
+   "used": 20000
+  },
+  "d1_storage_bytes": {
+   "used": 1000000000
+  },
+  "workers_requests": {
+   "used": 1000
+  },
+  "r2_storage_bytes": {
+   "unavailable": "not collected"
+  },
+  "r2_class_a_ops": {
+   "used": 10
+  },
+  "r2_class_b_ops": {
+   "used": 10
+  },
+  "daily_run_age_hours": {
+   "used": 5
+  }
+ },
+ "costs": []
+}

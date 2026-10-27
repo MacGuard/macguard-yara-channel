@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { evaluate, evaluateCosts, dedupe, formatAlert, run, collect, sendTelegram, TEST_TEXT } from '../../../scripts/usage_monitor.mjs';
+import { evaluate, evaluateCosts, dedupe, formatAlert, run, collect, sendTelegram, TEST_TEXT, watchdog } from '../../../scripts/usage_monitor.mjs';
 
 const cfg = JSON.parse(readFileSync(new URL('../../../config/usage-limits.json', import.meta.url), 'utf8'));
 const fx = (n) => JSON.parse(readFileSync(new URL(`../../../tests/fixtures/usage/${n}.json`, import.meta.url), 'utf8'));
@@ -56,13 +56,13 @@ test('the EUR thresholds are 20/50/100/150 and 150 means containment (a notice, 
 });
 
 test('delivery: a sent alert is remembered; a failed one is retried next time and makes the run fail; no channel at all also fails', async () => {
-  const metrics = fx('d1-critical').metrics, now = new Date(fx('d1-critical').now), sent = [];
+  const metrics = fx('d1-critical').metrics, now = new Date(fx('d1-critical').now), sent = [], keys = (r) => r.alerts.map((a) => a.key).sort();
   const ok = await run({ cfg, metrics, state: {}, now, deliver: async (t) => { sent.push(t); } });
-  assert.equal(ok.alerts.length, 1); assert.equal(ok.exit, 2, 'critical exits non-zero so GitHub e-mails the administrators'); assert.deepEqual(ok.failures, []);
+  assert.deepEqual(ok.alerts.map((a) => a.kind).sort(), ['blind', 'usage'], 'the critical D1 level and the unreadable R2 metric'); assert.equal(ok.exit, 2, 'critical exits non-zero so GitHub e-mails the administrators'); assert.deepEqual(ok.failures, []);
   assert.equal((await run({ cfg, metrics, state: ok.state, now, deliver: async (t) => sent.push(t) })).alerts.length, 0, 'not repeated');
   const bad = await run({ cfg, metrics, state: {}, now, deliver: async () => { throw new Error('Telegram HTTP 500'); } });
-  assert.equal(bad.exit, 2); assert.equal(bad.failures.length, 1); assert.deepEqual(bad.state, {}, 'not recorded as delivered');
-  assert.equal((await run({ cfg, metrics, state: bad.state, now, deliver: async (t) => sent.push(t) })).alerts.length, 1, 'retried');
+  assert.equal(bad.exit, 2); assert.equal(bad.failures.length, 2); assert.deepEqual(Object.keys(bad.state), ['__last'], 'nothing recorded as delivered');
+  assert.deepEqual(keys(await run({ cfg, metrics, state: bad.state, now, deliver: async (t) => sent.push(t) })), keys(ok), 'all retried');
   const none = await run({ cfg, metrics, state: {}, now, deliver: null }); assert.equal(none.exit, 2); assert.match(none.failures[0], /no notification channel/);
 });
 
@@ -123,4 +123,39 @@ test('--test-message sends only the fixed text, needs both Telegram variables, a
   const env = { PATH: process.env.PATH }, r = spawnSync(process.execPath, [script, '--test-message'], { env, encoding: 'utf8' });
   assert.equal(r.status, 3); assert.match(r.stderr, /TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID are required/);
   assert.doesNotMatch(TEST_TEXT, /\d{3,}/, 'no figures in the test text'); assert.match(TEST_TEXT, /No es una alerta de consumo/);
+});
+
+test('an unknown or malformed amount is never counted as 0 EUR: the currency is "unknown" and says why', () => {
+  const only = (lines) => evaluateCosts(lines, cfg).find((c) => c.currency === 'EUR');
+  for (const bad of [null, undefined, NaN, 'n/a', Infinity]) { const c = only([{ currency: 'EUR', kind: 'confirmed', amount: bad }]); assert.equal(c.level, 'unknown', String(bad)); assert.match(c.reason, /unknown or malformed amount/); }
+  const mixed = only([{ currency: 'EUR', kind: 'confirmed', amount: 200 }, { currency: 'EUR', kind: 'estimated', amount: null }]);
+  assert.equal(mixed.level, 'unknown', 'a known 200 EUR plus an unreadable line is incomplete, never judged as a clean total');
+  assert.deepEqual(evaluateCosts([], cfg), [], 'no source at all produces no figure');
+  assert.equal(only([{ currency: 'EUR', kind: 'bogus', amount: 5 }]).level, 'unknown');
+});
+
+test('a metric that cannot be read is reported ONCE per day as "sin dato"; if every metric is unreadable the monitor declares itself blind and fails', async () => {
+  const sent = [], deliver = async (t) => sent.push(t), unk = Object.fromEntries(Object.keys(cfg.metrics).map((k) => [k, { unavailable: 'HTTP 403' }]));
+  const r = await run({ cfg, metrics: { ...calm(), r2_storage_bytes: { unavailable: 'HTTP 403' } }, state: {}, now: at(12), deliver });
+  assert.equal(r.exit, 0, 'one blind metric alerts but is not an outage'); assert.equal(sent.length, 1); assert.match(sent[0], /sin dato.*R2 storage.*No es 0/);
+  assert.equal((await run({ cfg, metrics: { ...calm(), r2_storage_bytes: { unavailable: 'HTTP 403' } }, state: r.state, now: at(13), deliver })).alerts.length, 0, 'not repeated the same day');
+  const blind = await run({ cfg, metrics: unk, state: {}, now: at(12), deliver }); assert.equal(blind.exit, 2); assert.ok(blind.failures.some((f) => /blind/.test(f)));
+});
+
+test('anomaly: a day metric that jumps by 10 % of its limit between two runs of the same UTC day alerts even far below every threshold; another day or a smaller step does not', async () => {
+  const L = cfg.metrics.d1_rows_read.limit, sent = [], deliver = async (t) => sent.push(t);
+  const first = await run({ cfg, metrics: { ...calm(), d1_rows_read: { used: 100000 } }, state: {}, now: at(10), deliver }); assert.equal(sent.length, 0);
+  const jump = await run({ cfg, metrics: { ...calm(), d1_rows_read: { used: 100000 + L * 0.12 } }, state: first.state, now: at(11), deliver });
+  assert.deepEqual(jump.alerts.map((a) => a.kind), ['anomaly']); assert.match(sent[0], /consumo anómalo.*D1 rows read/); assert.equal(jump.findings.find((f) => f.id === 'd1_rows_read').level, 'ok', 'still below every threshold');
+  const small = await run({ cfg, metrics: { ...calm(), d1_rows_read: { used: 100000 + L * 0.05 } }, state: first.state, now: at(11), deliver }); assert.equal(small.alerts.length, 0);
+  const nextDay = await run({ cfg, metrics: { ...calm(), d1_rows_read: { used: 100000 + L * 0.12 } }, state: first.state, now: new Date(Date.UTC(2026, 9, 28, 11)), deliver }); assert.equal(nextDay.alerts.length, 0, 'the counter reset at 00:00 UTC is not an anomaly');
+});
+
+test('watchdog: a monitor with a recent success is alive; a stale one, none at all, or an unreachable API is NOT ok', async () => {
+  const mk = (runs, ok = true, status = 200) => async () => ({ ok, status, json: async () => ({ workflow_runs: runs }) }), gh = { token: 'G', repo: 'o/r' }, now = at(12);
+  const age = (h) => [{ updated_at: new Date(now.getTime() - h * 3600000).toISOString() }];
+  assert.equal((await watchdog({ fetchImpl: mk(age(1)), github: gh, cfg, now })).ok, true);
+  const stale = await watchdog({ fetchImpl: mk(age(5)), github: gh, cfg, now }); assert.equal(stale.ok, false); assert.match(stale.reason, /5\.0 h ago/);
+  assert.equal((await watchdog({ fetchImpl: mk([]), github: gh, cfg, now })).ok, false);
+  const down = await watchdog({ fetchImpl: mk([], false, 503), github: gh, cfg, now }); assert.equal(down.ok, false); assert.match(down.reason, /HTTP 503/);
 });

@@ -15,6 +15,14 @@ Workflow: `.github/workflows/usage-monitor.yml` (cron `17 * * * *`, entorno `mac
 
 El monitor **no es operativo** hasta que llegue una notificación real a Telegram desde una ejecución de Actions.
 
+## Qué vigila y cómo avisa
+
+- Cuotas D1/Workers/R2 a 50/75/90/100 % y **proyección** del día UTC; **consumo anómalo** (subida ≥ 10 % del límite diario entre dos ejecuciones); antigüedad de la pipeline diaria.
+- Una métrica que no se puede leer avisa **una vez al día** como «sin dato … No es 0»; si no se puede leer **ninguna**, el monitor se declara ciego y el job falla.
+- Un importe desconocido o mal formado nunca suma 0: la moneda queda «unknown» con el motivo. Sin fuente de importes el informe dice `NO_SOURCE`.
+- **Vigilante** (`usage-watchdog.yml`, cron propio cada 2 h): si el monitor no tiene una ejecución correcta en las últimas 3 h avisa por Telegram (una vez al día) y falla el job. Límite: ambos viven en GitHub Actions; una caída de Actions, o que GitHub desactive los workflows programados tras 60 días sin actividad, los silencia a la vez. Solo un latido externo lo cubriría y exige un tercero a elegir por el propietario.
+- Respaldo sin secreto: cualquier alerta crítica, no entregable, o el monitor ciego hacen fallar el job y GitHub envía correo a los administradores del repositorio.
+
 ## 1. Token de analítica de Cloudflare (solo lectura)
 
 Cloudflare → My Profile → API Tokens → Create Token → Custom token:

@@ -2,7 +2,7 @@
 // Independent usage and cost monitor. Runs in GitHub Actions (usage-monitor.yml), NOT in Cloudflare and NOT through D1, so it keeps working when D1 is exhausted. It uses a READ-ONLY Cloudflare
 // analytics token (never D1 Write or Workers Admin), compares real consumption with config/usage-limits.json, predicts exhaustion from what was observed, de-duplicates alerts and sends them to Telegram;
 // when no channel is configured or delivery fails the job fails, which makes GitHub e-mail the repository administrators (the e-mail fallback needs no secret).
-// Usage: node scripts/usage_monitor.mjs [--simulate scenario.json] [--state FILE] [--out FILE] | --test-message   (sends one fixed text through the real channel; reads no analytics)
+// Usage: node scripts/usage_monitor.mjs [--simulate scenario.json] [--state FILE] [--out FILE] | --watchdog | --test-message   (sends one fixed text through the real channel; reads no analytics)
 import { readFileSync, writeFileSync, existsSync } from 'node:fs';
 
 export const LEVELS = ['ok', 'notice', 'warning', 'critical', 'limit'];
@@ -22,12 +22,12 @@ export function evaluate(metrics, cfg, now = new Date()) {
 }
 /** Costs by currency. Confirmed (an invoice), estimated (a quantity times an owner-supplied rate) and pending consolidation are kept apart and never mixed across currencies. */
 export function evaluateCosts(lines, cfg) {
-  const by = {}; for (const l of lines || []) { const c = (by[l.currency] ||= { confirmed: 0, estimated: 0, pending: 0, lines: 0 }); c[l.kind] = (c[l.kind] || 0) + l.amount; c.lines += 1; }
+  const by = {}; for (const l of lines || []) { const c = (by[l.currency] ||= { confirmed: 0, estimated: 0, pending: 0, lines: 0, invalid: 0 }); if (!Number.isFinite(l.amount) || !['confirmed', 'estimated', 'pending'].includes(l.kind)) { c.invalid += 1; continue; } c[l.kind] += l.amount; c.lines += 1; }   // an unknown or malformed amount is NEVER added as 0
   const out = [];
   for (const [currency, c] of Object.entries(by)) {
     const th = cfg.costs.currency_thresholds[currency]; const known = c.confirmed + c.estimated, worst = known + c.pending;
-    const lv = !th ? 'unknown' : known >= th.containment ? 'containment' : known >= th.critical ? 'critical' : known >= th.warning ? 'warning' : known >= th.notice ? 'notice' : 'ok';
-    out.push({ currency, confirmed: round(c.confirmed), estimated: round(c.estimated), pending: round(c.pending), worst_case: round(worst), level: lv, thresholds: th || null, reason: th ? undefined : `no threshold is defined for ${currency}: it is reported, not judged` });
+    const lv = !th || c.invalid || !c.lines ? 'unknown' : known >= th.containment ? 'containment' : known >= th.critical ? 'critical' : known >= th.warning ? 'warning' : known >= th.notice ? 'notice' : 'ok';
+    out.push({ currency, confirmed: round(c.confirmed), estimated: round(c.estimated), pending: round(c.pending), worst_case: round(worst), level: lv, thresholds: th || null, reason: c.invalid ? `${c.invalid} line(s) with an unknown or malformed amount: the total is incomplete, not zero` : !c.lines ? 'no amount available' : th ? undefined : `no threshold is defined for ${currency}: it is reported, not judged` });
   }
   return out;
 }
@@ -72,13 +72,38 @@ export async function sendTelegram(fetchImpl, { token, chat }, text) {
   if (!r.ok) throw new Error(`Telegram HTTP ${r.status}`); return true;
 }
 /** Runs once. Returns { findings, costs, alerts, delivered, failures, exit }. exit 2 = something critical or a delivery problem: the job fails and GitHub e-mails the administrators. */
+/** A day metric that jumped by >= anomaly.fraction_of_limit_per_run of its limit since the previous run of the SAME UTC day. prev: { id: { used, day } } from the saved state. */
+export function anomalies(findings, prev, cfg, now = new Date()) {
+  const day = now.toISOString().slice(0, 10), out = [];
+  for (const f of findings) { if (f.period !== 'day' || typeof f.used !== 'number') continue; const p = prev && prev[f.id]; if (!p || p.day !== day) continue; const delta = f.used - p.used; if (delta / f.limit >= cfg.anomaly.fraction_of_limit_per_run) out.push({ kind: 'anomaly', key: `${f.id}:anomaly:${day}:${Math.floor(f.used / (f.limit * cfg.anomaly.fraction_of_limit_per_run))}`, level: 'warning', label: f.label, delta, limit: f.limit, used: f.used }); }
+  return out;
+}
+export function formatExtra(a) {
+  if (a.kind === 'anomaly') return `MacGuard ALERTA (consumo anómalo): ${a.label} subió ${a.delta.toLocaleString('es-ES')} desde la ejecución anterior (${Math.round((a.delta / a.limit) * 100)} % del límite diario; acumulado ${a.used.toLocaleString('es-ES')} de ${a.limit.toLocaleString('es-ES')}).`;
+  return `MacGuard ALERTA (sin dato): no se pudo leer «${a.label}» (${a.reason}). Mientras falte, esa cuota no está vigilada. No es 0.`;
+}
+/** Runs once. Returns { findings, costs, alerts, delivered, failures, exit }. exit 2 = something critical, a delivery problem, or the monitor is blind (every metric unreadable): the job fails and GitHub e-mails the administrators. */
 export async function run({ cfg, metrics, costLines = [], state = {}, now = new Date(), deliver }) {
-  const findings = evaluate(metrics, cfg, now), costs = evaluateCosts(costLines, cfg), d = dedupe(findings, costs, state, now), failures = [], delivered = [];
-  for (const a of d.alerts) { const text = formatAlert(a); if (!deliver) { failures.push(`${a.key}: no notification channel configured`); continue; } try { await deliver(text); delivered.push(a.key); } catch (e) { failures.push(`${a.key}: ${String(e.message).slice(0, 80)}`); } }
-  const nextState = { ...state }; for (const k of delivered) nextState[k] = d.state[k];   // an alert that could not be delivered is retried next time
+  const findings = evaluate(metrics, cfg, now), costs = evaluateCosts(costLines, cfg), d = dedupe(findings, costs, state, now), failures = [], delivered = [], day = now.toISOString().slice(0, 10);
+  const blind = findings.filter((f) => f.level === 'unknown').map((f) => ({ kind: 'blind', key: `blind:${f.id}:${day}`, level: 'warning', label: f.label, reason: f.reason })).filter((a) => !state[a.key]);
+  const anom = anomalies(findings, state.__last, cfg, now).filter((a) => !state[a.key]);
+  const alerts = [...d.alerts, ...anom, ...blind];
+  for (const a of alerts) { const text = a.kind === 'anomaly' || a.kind === 'blind' ? formatExtra(a) : formatAlert(a); if (!deliver) { failures.push(`${a.key}: no notification channel configured`); continue; } try { await deliver(text); delivered.push(a.key); } catch (e) { failures.push(`${a.key}: ${String(e.message).slice(0, 80)}`); } }
+  const nextState = { ...state }; for (const k of delivered) nextState[k] = d.state[k] || a_level(alerts, k);   // an alert that could not be delivered is retried next time
+  nextState.__last = Object.fromEntries(findings.filter((f) => f.period === 'day' && typeof f.used === 'number').map((f) => [f.id, { used: f.used, day }]));
+  const allBlind = findings.length > 0 && findings.every((f) => f.level === 'unknown'); if (allBlind) failures.push('monitor is blind: no metric could be read');
   const worst = [...findings.map((f) => rank(f.level)), ...costs.map((c) => (c.level === 'containment' ? 4 : CSEV[c.level]))].reduce((a, b) => Math.max(a, b), 0);
   const exit = failures.length || worst >= rank('critical') ? 2 : 0;
-  return { findings, costs, alerts: d.alerts, delivered, failures, state: nextState, containment: costs.some((c) => c.level === 'containment'), exit };
+  return { findings, costs, alerts, delivered, failures, state: nextState, containment: costs.some((c) => c.level === 'containment'), exit };
+}
+const a_level = (alerts, k) => (alerts.find((a) => a.key === k) || {}).level || 'warning';
+
+/** Watchdog: is the monitor itself still running? Looks at the newest successful run of the monitor workflow. Returns { ok, ageHours, reason }. */
+export async function watchdog({ fetchImpl = fetch, github, cfg, now = new Date() }) {
+  const r = await fetchImpl(`https://api.github.com/repos/${github.repo}/actions/workflows/${cfg.heartbeat.workflow}/runs?status=success&per_page=1`, { headers: { Authorization: `Bearer ${github.token}`, Accept: 'application/vnd.github+json' } });
+  if (!r.ok) return { ok: false, reason: `GitHub runs HTTP ${r.status}: the monitor cannot be checked` };
+  const run1 = ((await r.json()).workflow_runs || [])[0]; if (!run1) return { ok: false, reason: 'the monitor has no successful run' };
+  const ageHours = (now.getTime() - Date.parse(run1.updated_at)) / 3600000; return ageHours > cfg.heartbeat.max_age_hours ? { ok: false, ageHours, reason: `last successful monitor run was ${ageHours.toFixed(1)} h ago (limit ${cfg.heartbeat.max_age_hours} h)` } : { ok: true, ageHours };
 }
 
 export const TEST_TEXT = 'MacGuard: prueba del canal de alertas. Si lees esto en el móvil, Telegram funciona. No es una alerta de consumo.';
@@ -87,6 +112,7 @@ async function main(argv) {
   if (argv.includes('--test-message')) { const tg = { token: process.env.TELEGRAM_BOT_TOKEN, chat: process.env.TELEGRAM_CHAT_ID }; if (!tg.token || !tg.chat) { console.error('TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID are required'); return 3; } await sendTelegram(fetch, tg, TEST_TEXT); console.log('test message accepted by Telegram'); return 0; }
   const cfg = JSON.parse(readFileSync(new URL('../config/usage-limits.json', import.meta.url), 'utf8')), statePath = arg('--state'), outPath = arg('--out') || 'usage-report.json', sim = arg('--simulate');
   const state = statePath && existsSync(statePath) ? JSON.parse(readFileSync(statePath, 'utf8')) : {};
+  if (argv.includes('--watchdog')) { const tg = { token: process.env.TELEGRAM_BOT_TOKEN, chat: process.env.TELEGRAM_CHAT_ID }, w = await watchdog({ github: { token: process.env.GITHUB_TOKEN, repo: process.env.GITHUB_REPOSITORY }, cfg }); if (w.ok) { console.log(`monitor alive (${w.ageHours.toFixed(1)} h)`); return 0; } console.error(`MONITOR STALE: ${w.reason}`); const day = new Date().toISOString().slice(0, 10), st = statePath && existsSync(statePath) ? JSON.parse(readFileSync(statePath, 'utf8')) : {}, key = `watchdog:${day}`; if (tg.token && tg.chat && !st[key]) { try { await sendTelegram(fetch, tg, `MacGuard ALERTA: el monitor de consumo no se ejecuta. ${w.reason}. Revisa Actions → Usage and cost monitor.`); st[key] = 'sent'; if (statePath) writeFileSync(statePath, JSON.stringify(st)); } catch (e) { console.error(`Telegram failed: ${String(e.message).slice(0, 80)}`); } } return 2; }
   let metrics, costLines = [], now = new Date(), deliver = null;
   if (sim) { const s = JSON.parse(readFileSync(sim, 'utf8')); metrics = s.metrics; costLines = s.costs || []; if (s.now) now = new Date(s.now); deliver = async (t) => console.log(`[SIMULATED SEND] ${t}`); }
   else {
@@ -94,7 +120,7 @@ async function main(argv) {
     metrics = await collect({ token, account, now, github: process.env.GITHUB_TOKEN && process.env.GITHUB_REPOSITORY ? { token: process.env.GITHUB_TOKEN, repo: process.env.GITHUB_REPOSITORY } : undefined }); const tg = { token: process.env.TELEGRAM_BOT_TOKEN, chat: process.env.TELEGRAM_CHAT_ID }; if (tg.token && tg.chat) deliver = (t) => sendTelegram(fetch, tg, t);
   }
   const r = await run({ cfg, metrics, costLines, state, now, deliver });
-  writeFileSync(outPath, JSON.stringify({ at: now.toISOString(), findings: r.findings, costs: r.costs, alerts: r.alerts.map((a) => a.key), delivered: r.delivered, failures: r.failures, containment: r.containment }, null, 1)); if (statePath) writeFileSync(statePath, JSON.stringify(r.state));
+  writeFileSync(outPath, JSON.stringify({ at: now.toISOString(), findings: r.findings, costs: r.costs, cost_status: costLines.length ? 'REPORTED' : 'NO_SOURCE (amounts unknown, not 0)', alerts: r.alerts.map((a) => a.key), delivered: r.delivered, failures: r.failures, containment: r.containment }, null, 1)); if (statePath) writeFileSync(statePath, JSON.stringify(r.state));
   for (const f of r.findings) console.log(`${f.level.padEnd(8)} ${f.label}: ${f.level === 'unknown' ? f.reason : `${f.used} / ${f.limit} (${Math.round(f.fraction * 100)} %)${f.projected ? ` projected ${f.projected}` : ''}`}`);
   for (const c of r.costs) console.log(`${c.level.padEnd(8)} cost ${c.currency}: confirmed ${c.confirmed}, estimated ${c.estimated}, pending ${c.pending}`);
   if (r.failures.length) console.error(`DELIVERY PROBLEM: ${r.failures.join('; ')}`); return r.exit;
