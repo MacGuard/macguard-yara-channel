@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { evaluate, evaluateCosts, dedupe, formatAlert, run, collect, sendTelegram } from '../../../scripts/usage_monitor.mjs';
+import { evaluate, evaluateCosts, dedupe, formatAlert, run, collect, sendTelegram, TEST_TEXT } from '../../../scripts/usage_monitor.mjs';
 
 const cfg = JSON.parse(readFileSync(new URL('../../../config/usage-limits.json', import.meta.url), 'utf8'));
 const fx = (n) => JSON.parse(readFileSync(new URL(`../../../tests/fixtures/usage/${n}.json`, import.meta.url), 'utf8'));
@@ -84,7 +84,7 @@ test('collect: reads D1, Workers and R2 through GraphQL with a Bearer header onl
     const q = JSON.parse(init.body).query;
     if (q.includes('r2OperationsAdaptiveGroups')) return { ok: false, status: 500 };
     const acct = q.includes('d1Analytics') ? { d1AnalyticsAdaptiveGroups: [{ sum: { rowsRead: 7, rowsWritten: 3 } }, { sum: { rowsRead: 1, rowsWritten: 0 } }] }
-      : q.includes('workersInvocations') ? { workersInvocationsAdaptive: [{ sum: { requests: 42 } }] } : { r2StorageAdaptiveGroups: [{ max: { payloadSize: 9 } }] };
+      : q.includes('workersInvocations') ? { workersInvocationsAdaptive: [{ sum: { requests: 42 } }] } : { r2StorageAdaptiveGroups: [{ dimensions: { bucketName: 'a', datetime: '2026-10-27T01:00:00Z' }, max: { payloadSize: 1 } }, { dimensions: { bucketName: 'a', datetime: '2026-10-27T09:00:00Z' }, max: { payloadSize: 4 } }, { dimensions: { bucketName: 'b', datetime: '2026-10-27T05:00:00Z' }, max: { payloadSize: 5 } }] };
     return { ok: true, json: async () => ({ data: { viewer: { accounts: [acct] } } }) };
   };
   const m = await collect({ fetchImpl, token: 'T', account: 'A', now: at(12) });
@@ -104,4 +104,23 @@ test('the limits file is complete: every metric has a label, a period and a posi
   for (const [id, d] of Object.entries(cfg.metrics)) { assert.ok(d.label && ['day', 'month', 'point'].includes(d.period) && d.limit > 0, id); }
   const t = cfg.thresholds; assert.ok(t.notice < t.warning && t.warning < t.critical && t.critical <= t.limit);
   const e = cfg.costs.currency_thresholds.EUR; assert.deepEqual([e.notice, e.warning, e.critical, e.containment], [20, 50, 100, 150]);
+});
+
+test('missed daily run: the age of the last successful daily pipeline alerts at 36 h, 54 h and 65 h; an API failure is "unknown", not zero', async () => {
+  const at12 = at(12), lv = (h) => lvl(evaluate({ ...calm(), daily_run_age_hours: { used: h } }, cfg, at12), 'daily_run_age_hours');
+  assert.deepEqual([20, 36, 54, 65, 72].map(lv), ['ok', 'notice', 'warning', 'critical', 'limit']);
+  const ok = async (u) => ({ ok: true, json: async () => ({ workflow_runs: [{ updated_at: new Date(at12.getTime() - 40 * 3600000).toISOString() }] }) });
+  const m = await collect({ fetchImpl: async (u, i) => (u.includes('api.github.com') ? ok(u) : { ok: false, status: 500 }), token: 'T', account: 'A', now: at12, github: { token: 'G', repo: 'o/r' } });
+  assert.equal(m.daily_run_age_hours.used, 40);
+  const bad = await collect({ fetchImpl: async (u) => (u.includes('api.github.com') ? { ok: false, status: 403 } : { ok: false, status: 500 }), token: 'T', account: 'A', now: at12, github: { token: 'G', repo: 'o/r' } });
+  assert.match(bad.daily_run_age_hours.unavailable, /403/);
+  const none = await collect({ fetchImpl: async (u) => (u.includes('api.github.com') ? { ok: true, json: async () => ({ workflow_runs: [] }) } : { ok: false, status: 500 }), token: 'T', account: 'A', now: at12, github: { token: 'G', repo: 'o/r' } });
+  assert.match(none.daily_run_age_hours.unavailable, /no successful daily run/);
+});
+
+test('--test-message sends only the fixed text, needs both Telegram variables, and reads no analytics', async () => {
+  const { spawnSync } = await import('node:child_process'), script = new URL('../../../scripts/usage_monitor.mjs', import.meta.url).pathname;
+  const env = { PATH: process.env.PATH }, r = spawnSync(process.execPath, [script, '--test-message'], { env, encoding: 'utf8' });
+  assert.equal(r.status, 3); assert.match(r.stderr, /TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID are required/);
+  assert.doesNotMatch(TEST_TEXT, /\d{3,}/, 'no figures in the test text'); assert.match(TEST_TEXT, /No es una alerta de consumo/);
 });

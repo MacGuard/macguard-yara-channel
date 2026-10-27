@@ -11,7 +11,8 @@
     "workers_requests": { "label": "Workers requests", "period": "day", "limit": 100000 },
     "r2_storage_bytes": { "label": "R2 storage", "period": "point", "limit": 10737418240 },
     "r2_class_a_ops": { "label": "R2 class A operations", "period": "month", "limit": 1000000 },
-    "r2_class_b_ops": { "label": "R2 class B operations", "period": "month", "limit": 10000000 }
+    "r2_class_b_ops": { "label": "R2 class B operations", "period": "month", "limit": 10000000 },
+    "daily_run_age_hours": { "label": "Hours since the last successful daily pipeline", "period": "point", "limit": 72, "note": "notice at 36 h (a missed day), warning 54 h, critical 65 h. GitHub cron may drift or skip, so this is a detector, not a guarantee" }
   },
   "costs": {
     "currency_thresholds": { "EUR": { "notice": 20, "warning": 50, "critical": 100, "containment": 150 } },

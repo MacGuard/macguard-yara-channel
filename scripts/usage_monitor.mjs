@@ -2,7 +2,7 @@
 // Independent usage and cost monitor. Runs in GitHub Actions (usage-monitor.yml), NOT in Cloudflare and NOT through D1, so it keeps working when D1 is exhausted. It uses a READ-ONLY Cloudflare
 // analytics token (never D1 Write or Workers Admin), compares real consumption with config/usage-limits.json, predicts exhaustion from what was observed, de-duplicates alerts and sends them to Telegram;
 // when no channel is configured or delivery fails the job fails, which makes GitHub e-mail the repository administrators (the e-mail fallback needs no secret).
-// Usage: node scripts/usage_monitor.mjs [--simulate scenario.json] [--state FILE] [--out FILE]
+// Usage: node scripts/usage_monitor.mjs [--simulate scenario.json] [--state FILE] [--out FILE] | --test-message   (sends one fixed text through the real channel; reads no analytics)
 import { readFileSync, writeFileSync, existsSync } from 'node:fs';
 
 export const LEVELS = ['ok', 'notice', 'warning', 'critical', 'limit'];
@@ -54,14 +54,15 @@ async function gql(fetchImpl, token, query, variables) {
   const r = await fetchImpl(GQL, { method: 'POST', headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ query, variables }) });
   if (!r.ok) throw new Error(`analytics HTTP ${r.status}`); const j = await r.json(); if (j.errors && j.errors.length) throw new Error(String(j.errors[0].message).slice(0, 160)); return j.data.viewer.accounts[0];
 }
-export async function collect({ fetchImpl = fetch, token, account, now = new Date() }) {
+export async function collect({ fetchImpl = fetch, token, account, now = new Date(), github }) {
   const day = now.toISOString().slice(0, 10), month = day.slice(0, 7), from = `${day}T00:00:00Z`, to = now.toISOString(), mfrom = `${month}-01T00:00:00Z`, m = {};
   const tryit = async (ids, fn) => { try { Object.assign(m, await fn()); } catch (e) { for (const id of ids) m[id] = { unavailable: String(e.message).slice(0, 120) }; } };
   await tryit(['d1_rows_read', 'd1_rows_written'], async () => { const a = await gql(fetchImpl, token, 'query($acc:String!,$d:Date!){viewer{accounts(filter:{accountTag:$acc}){d1AnalyticsAdaptiveGroups(limit:200,filter:{date_geq:$d,date_leq:$d}){sum{rowsRead rowsWritten}}}}}', { acc: account, d: day }); const g = a.d1AnalyticsAdaptiveGroups; return { d1_rows_read: { used: g.reduce((s, x) => s + x.sum.rowsRead, 0) }, d1_rows_written: { used: g.reduce((s, x) => s + x.sum.rowsWritten, 0) } }; });
   await tryit(['workers_requests'], async () => { const a = await gql(fetchImpl, token, 'query($acc:String!,$f:Time!,$t:Time!){viewer{accounts(filter:{accountTag:$acc}){workersInvocationsAdaptive(limit:100,filter:{datetime_geq:$f,datetime_leq:$t}){sum{requests}}}}}', { acc: account, f: from, t: to }); return { workers_requests: { used: a.workersInvocationsAdaptive.reduce((s, x) => s + x.sum.requests, 0) } }; });
-  await tryit(['r2_storage_bytes'], async () => { const a = await gql(fetchImpl, token, 'query($acc:String!,$f:Time!,$t:Time!){viewer{accounts(filter:{accountTag:$acc}){r2StorageAdaptiveGroups(limit:100,filter:{datetime_geq:$f,datetime_leq:$t},orderBy:[datetime_DESC]){max{payloadSize}}}}}', { acc: account, f: from, t: to }); const g = a.r2StorageAdaptiveGroups; return { r2_storage_bytes: { used: g.reduce((s, x) => s + x.max.payloadSize, 0) } }; });
+  await tryit(['r2_storage_bytes'], async () => { const since = new Date(now.getTime() - 86400000).toISOString(); const a = await gql(fetchImpl, token, 'query($acc:String!,$f:Time!,$t:Time!){viewer{accounts(filter:{accountTag:$acc}){r2StorageAdaptiveGroups(limit:1000,filter:{datetime_geq:$f,datetime_leq:$t}){dimensions{bucketName datetime} max{payloadSize}}}}}', { acc: account, f: since, t: to }); const last = {}; for (const g of a.r2StorageAdaptiveGroups) { const b = g.dimensions.bucketName; if (!last[b] || g.dimensions.datetime > last[b].at) last[b] = { at: g.dimensions.datetime, size: g.max.payloadSize }; } return { r2_storage_bytes: { used: Object.values(last).reduce((s, x) => s + x.size, 0) } }; });   // latest point per bucket in the last 24 h, summed
   await tryit(['r2_class_a_ops', 'r2_class_b_ops'], async () => { const a = await gql(fetchImpl, token, 'query($acc:String!,$f:Time!,$t:Time!){viewer{accounts(filter:{accountTag:$acc}){r2OperationsAdaptiveGroups(limit:200,filter:{datetime_geq:$f,datetime_leq:$t}){dimensions{actionType} sum{requests}}}}}', { acc: account, f: mfrom, t: to }); const A = new Set(['ListBuckets', 'PutBucket', 'ListObjects', 'PutObject', 'CopyObject', 'CompleteMultipartUpload', 'CreateMultipartUpload', 'ListMultipartUploads', 'UploadPart', 'UploadPartCopy', 'ListParts', 'PutBucketEncryption', 'PutBucketCors', 'PutBucketLifecycleConfiguration']); let ca = 0, cb = 0; for (const g of a.r2OperationsAdaptiveGroups) { if (/^(Delete|Abort)/.test(g.dimensions.actionType)) continue; (A.has(g.dimensions.actionType) ? (ca += g.sum.requests) : (cb += g.sum.requests)); } return { r2_class_a_ops: { used: ca }, r2_class_b_ops: { used: cb } }; });
   await tryit(['d1_storage_bytes'], async () => { const r = await fetchImpl(`https://api.cloudflare.com/client/v4/accounts/${account}/d1/database?per_page=50`, { headers: { Authorization: `Bearer ${token}` } }); if (!r.ok) throw new Error(`D1 list HTTP ${r.status} (D1 Read is needed for storage)`); const j = await r.json(); return { d1_storage_bytes: { used: j.result.reduce((s, d) => s + (d.file_size || 0), 0) } }; });
+  if (github) await tryit(['daily_run_age_hours'], async () => { const r = await fetchImpl(`https://api.github.com/repos/${github.repo}/actions/workflows/${github.workflow || 'daily.yml'}/runs?status=success&per_page=1`, { headers: { Authorization: `Bearer ${github.token}`, Accept: 'application/vnd.github+json' } }); if (!r.ok) throw new Error(`GitHub runs HTTP ${r.status}`); const j = await r.json(); const run = (j.workflow_runs || [])[0]; if (!run) throw new Error('no successful daily run found'); return { daily_run_age_hours: { used: Math.round((now.getTime() - Date.parse(run.updated_at)) / 36000) / 100 } }; });
   return m;
 }
 
@@ -80,15 +81,17 @@ export async function run({ cfg, metrics, costLines = [], state = {}, now = new 
   return { findings, costs, alerts: d.alerts, delivered, failures, state: nextState, containment: costs.some((c) => c.level === 'containment'), exit };
 }
 
+export const TEST_TEXT = 'MacGuard: prueba del canal de alertas. Si lees esto en el móvil, Telegram funciona. No es una alerta de consumo.';
 async function main(argv) {
   const arg = (n) => { const i = argv.indexOf(n); return i >= 0 ? argv[i + 1] : undefined; };
+  if (argv.includes('--test-message')) { const tg = { token: process.env.TELEGRAM_BOT_TOKEN, chat: process.env.TELEGRAM_CHAT_ID }; if (!tg.token || !tg.chat) { console.error('TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID are required'); return 3; } await sendTelegram(fetch, tg, TEST_TEXT); console.log('test message accepted by Telegram'); return 0; }
   const cfg = JSON.parse(readFileSync(new URL('../config/usage-limits.json', import.meta.url), 'utf8')), statePath = arg('--state'), outPath = arg('--out') || 'usage-report.json', sim = arg('--simulate');
   const state = statePath && existsSync(statePath) ? JSON.parse(readFileSync(statePath, 'utf8')) : {};
   let metrics, costLines = [], now = new Date(), deliver = null;
   if (sim) { const s = JSON.parse(readFileSync(sim, 'utf8')); metrics = s.metrics; costLines = s.costs || []; if (s.now) now = new Date(s.now); deliver = async (t) => console.log(`[SIMULATED SEND] ${t}`); }
   else {
     const token = process.env.CLOUDFLARE_ANALYTICS_TOKEN, account = process.env.CLOUDFLARE_ACCOUNT_ID; if (!token || !account) { console.error('CLOUDFLARE_ANALYTICS_TOKEN and CLOUDFLARE_ACCOUNT_ID are required'); return 3; }
-    metrics = await collect({ token, account, now }); const tg = { token: process.env.TELEGRAM_BOT_TOKEN, chat: process.env.TELEGRAM_CHAT_ID }; if (tg.token && tg.chat) deliver = (t) => sendTelegram(fetch, tg, t);
+    metrics = await collect({ token, account, now, github: process.env.GITHUB_TOKEN && process.env.GITHUB_REPOSITORY ? { token: process.env.GITHUB_TOKEN, repo: process.env.GITHUB_REPOSITORY } : undefined }); const tg = { token: process.env.TELEGRAM_BOT_TOKEN, chat: process.env.TELEGRAM_CHAT_ID }; if (tg.token && tg.chat) deliver = (t) => sendTelegram(fetch, tg, t);
   }
   const r = await run({ cfg, metrics, costLines, state, now, deliver });
   writeFileSync(outPath, JSON.stringify({ at: now.toISOString(), findings: r.findings, costs: r.costs, alerts: r.alerts.map((a) => a.key), delivered: r.delivered, failures: r.failures, containment: r.containment }, null, 1)); if (statePath) writeFileSync(statePath, JSON.stringify(r.state));
