@@ -1,0 +1,107 @@
+name: Usage and cost monitor
+
+# Independent of Cloudflare and of D1: it keeps working when D1 is exhausted. It reads real consumption with a READ-ONLY analytics token (never D1 Write or Workers Admin), compares it with
+# config/usage-limits.json (free-tier limits, thresholds 50/75/90/100 %, linear prediction for the UTC day), de-duplicates alerts and sends them to Telegram. If an alert is critical or cannot be
+# delivered the job FAILS, and GitHub e-mails the repository administrators: that is the e-mail fallback and needs no secret. The cron may drift or be skipped by GitHub: it is not a guarantee,
+# which is why a silent monitor is itself checked (the history artifact has one record per run).
+# Manual runs can SIMULATE (scenario file) without touching Cloudflare or Telegram.
+on:
+  schedule:
+    - cron: '17 * * * *'
+  workflow_dispatch:
+    inputs:
+      simulate:
+        description: 'Scenario file under tests/fixtures/usage (simulation: no Cloudflare, no Telegram)'
+        required: false
+        default: ''
+      test_message:
+        description: 'Send ONE fixed test message through Telegram (no analytics, no state)'
+        type: boolean
+        default: false
+
+permissions: {}
+
+concurrency:
+  group: macguard-usage-monitor
+  cancel-in-progress: false
+
+jobs:
+  status:
+    # Always runs, needs no environment and no secret, and never fails: it makes the NOT_CONFIGURED / ENABLED state visible in the run summary even when the monitor job is skipped.
+    runs-on: ubuntu-24.04
+    timeout-minutes: 1
+    permissions: {}
+    env:
+      ENABLED: ${{ vars.USAGE_MONITOR_ENABLED }}
+    steps:
+      - name: Report the state
+        run: |
+          if [ "${ENABLED,,}" = true ]; then
+            echo "state: ENABLED. The monitor job runs; a failure of that job is real and must be investigated." >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "state: NOT_CONFIGURED. USAGE_MONITOR_ENABLED is not 'true', so the monitor job is skipped: no Cloudflare query, no notification. Create the secrets of the macguard-monitoring environment, test with a manual run, then set the variable (docs/operations/USAGE-MONITOR-SETUP.md section 3b)." >> "$GITHUB_STEP_SUMMARY"
+          fi
+  monitor:
+    # Off until the owner has created the secrets of the environment AND sets the repository variable USAGE_MONITOR_ENABLED=true: a skipped job is honest, a failing one e-mails the administrators every hour.
+    # Manual runs (simulation, test message) are not gated.
+    if: ${{ github.event_name == 'workflow_dispatch' || vars.USAGE_MONITOR_ENABLED == 'true' }}
+    runs-on: ubuntu-24.04
+    environment: macguard-monitoring
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      actions: read
+    env:
+      SIMULATE: ${{ inputs.simulate }}
+      TEST_MESSAGE: ${{ inputs.test_message }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: '22'
+      - name: Restore alert state (de-duplication)
+        uses: actions/cache/restore@5a3ec84eff668545956fd18022155c47e93e2684 # v4.2.3
+        with:
+          path: usage-state.json
+          key: usage-state-${{ github.run_id }}
+          restore-keys: usage-state-
+      - name: Evaluate and alert
+        id: run
+        env:   # secrets are visible to this step only
+          GITHUB_TOKEN: ${{ github.token }}
+          CLOUDFLARE_ANALYTICS_TOKEN: ${{ secrets.CLOUDFLARE_ANALYTICS_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          SIMULATE: ${{ inputs.simulate }}
+          TEST_MESSAGE: ${{ inputs.test_message }}
+        run: |
+          set +e
+          if [ "$TEST_MESSAGE" = "true" ]; then
+            node scripts/usage_monitor.mjs --test-message
+          elif [ -n "$SIMULATE" ]; then
+            case "$SIMULATE" in *..*|*[!A-Za-z0-9_./-]*) echo "simulate: invalid path"; exit 3;; tests/fixtures/usage/*.json) ;; *) echo "simulate must be a file under tests/fixtures/usage"; exit 3;; esac
+            node scripts/usage_monitor.mjs --simulate "$SIMULATE" --out usage-report.json
+          else
+            node scripts/usage_monitor.mjs --state usage-state.json --out usage-report.json
+          fi
+          echo "code=$?" >> "$GITHUB_OUTPUT"
+      - name: Save alert state
+        if: env.SIMULATE == '' && env.TEST_MESSAGE != 'true'
+        uses: actions/cache/save@5a3ec84eff668545956fd18022155c47e93e2684 # v4.2.3
+        with:
+          path: usage-state.json
+          key: usage-state-${{ github.run_id }}
+      - name: Daily history (one report per run)
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: usage-report-${{ github.run_id }}
+          path: usage-report.json
+          retention-days: 90
+          if-no-files-found: warn
+      - name: Fail on critical or undeliverable alert
+        if: steps.run.outputs.code != '0'
+        run: exit ${{ steps.run.outputs.code }}
