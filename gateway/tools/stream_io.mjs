@@ -1,16 +1,22 @@
 // Streaming building blocks for backup and restore: nothing here holds a whole export in memory. age reads and writes through file descriptors, hashes are computed while reading, and an export is loaded
 // into SQLite by the sqlite3 CLI straight from the file (in SAFE mode). Every function either returns a complete, verified result or leaves nothing behind.
 import { spawn } from 'node:child_process';
+import { open } from 'node:fs/promises';
 import { createHash } from 'node:crypto';
-import { chmodSync, closeSync, createReadStream, mkdtempSync, openSync, readFileSync, readSync, renameSync, rmSync, statSync } from 'node:fs';
+import { chmodSync, closeSync, mkdtempSync, openSync, readFileSync, readSync, renameSync, rmSync, statSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
 
 export const AGE_MAGIC = 'age-encryption.org/v1';
 
-/** SHA-256 of a file without loading it. */
-export const shaFile = (file) => new Promise((ok, ko) => { const h = createHash('sha256'); createReadStream(file).on('data', (c) => h.update(c)).on('error', ko).on('end', () => ok(h.digest('hex'))); });
+/** SHA-256 of a file without loading it. One 1 MiB buffer is reused for every read: a createReadStream allocates a new 64 KiB buffer per chunk, and the garbage it leaves made the peak RSS grow with the file
+ *  (measured: 36 -> 50 -> 67 MiB for 2 -> 25 -> 100 MiB; flat at 35 MiB with a reused buffer, same digest). */
+export const shaFile = async (file) => {
+  const h = createHash('sha256'), fh = await open(file, 'r'), buf = Buffer.allocUnsafe(1 << 20);
+  try { for (;;) { const { bytesRead } = await fh.read(buf, 0, buf.length, null); if (!bytesRead) break; h.update(buf.subarray(0, bytesRead)); } } finally { await fh.close(); }
+  return h.digest('hex');
+};
 
 // age's stderr is the only text carried into an error (trimmed). It never contains the plaintext.
 const failText = (code, sig, err) => `age ${sig ? 'killed by ' + sig : 'exited ' + code}${err ? ': ' + err.replace(/\s+/g, ' ').trim().slice(0, 200) : ''}`;

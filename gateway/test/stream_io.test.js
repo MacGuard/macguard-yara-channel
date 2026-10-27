@@ -101,3 +101,14 @@ test('memory: decrypt + hash + load of a 100 MiB export stays far below the expo
     assert.ok(out.rssMiB < size / MIB, `peak RSS ${out.rssMiB.toFixed(0)} MiB for a ${(size / MIB).toFixed(0)} MiB export (holding the whole export alone would cost at least its size; the in-memory path measured ~478 MiB)`);
   } finally { sb.done(); }
 });
+
+test('shaFile: correct digests for empty, tiny, exact-buffer and multi-buffer files, and it never reads past the end', async () => {
+  const sb = sandbox();
+  try {
+    for (const n of [0, 1, 1048575, 1048576, 1048577, 3 * 1048576 + 17]) {
+      const f = join(sb.d, `f${n}`), data = createHash('sha512').update(String(n)).digest(); const buf = Buffer.alloc(n); for (let i = 0; i < n; i += data.length) data.copy(buf, i, 0, Math.min(data.length, n - i));
+      writeFileSync(f, buf); assert.equal(await shaFile(f), createHash('sha256').update(buf).digest('hex'), `${n} bytes`);
+    }
+    await assert.rejects(() => shaFile(join(sb.d, 'does-not-exist')), /ENOENT/);
+  } finally { sb.done(); }
+});
