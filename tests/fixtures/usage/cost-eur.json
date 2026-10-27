@@ -1,0 +1,3 @@
+{ "now": "2026-10-27T09:00:00Z",
+  "metrics": { "d1_rows_read": { "used": 1000 }, "d1_rows_written": { "used": 10 }, "d1_storage_bytes": { "used": 1000 }, "workers_requests": { "used": 10 }, "r2_storage_bytes": { "used": 1 }, "r2_class_a_ops": { "used": 1 }, "r2_class_b_ops": { "used": 1 } },
+  "costs": [ { "currency": "EUR", "kind": "confirmed", "amount": 31.5 }, { "currency": "EUR", "kind": "estimated", "amount": 22.4 }, { "currency": "EUR", "kind": "pending", "amount": 12 }, { "currency": "USD", "kind": "confirmed", "amount": 3 } ] }

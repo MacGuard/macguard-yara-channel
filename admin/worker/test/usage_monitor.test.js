@@ -1,0 +1,107 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import { evaluate, evaluateCosts, dedupe, formatAlert, run, collect, sendTelegram } from '../../../scripts/usage_monitor.mjs';
+
+const cfg = JSON.parse(readFileSync(new URL('../../../config/usage-limits.json', import.meta.url), 'utf8'));
+const fx = (n) => JSON.parse(readFileSync(new URL(`../../../tests/fixtures/usage/${n}.json`, import.meta.url), 'utf8'));
+const calm = () => Object.fromEntries(Object.keys(cfg.metrics).map((k) => [k, { used: 1 }]));
+const at = (h) => new Date(Date.UTC(2026, 9, 27, h, 0, 0));
+const lvl = (f, id) => f.find((x) => x.id === id).level;
+
+test('thresholds 50/75/90/100 % map to notice/warning/critical/limit and nothing below 50 % alerts', () => {
+  const L = cfg.metrics.d1_rows_read.limit;
+  for (const [frac, want] of [[0.49, 'ok'], [0.5, 'notice'], [0.75, 'warning'], [0.9, 'critical'], [1, 'limit'], [1.2, 'limit']]) {
+    assert.equal(lvl(evaluate({ ...calm(), d1_rows_read: { used: L * frac } }, cfg, at(1)), 'd1_rows_read'), want, `${frac}`);
+  }
+});
+
+test('prediction: a day metric on course to exceed its limit warns early, only after enough of the day has elapsed, and never for point-in-time metrics', () => {
+  const L = cfg.metrics.d1_rows_read.limit;
+  const early = evaluate({ ...calm(), d1_rows_read: { used: L * 0.2 } }, cfg, at(6)).find((x) => x.id === 'd1_rows_read');   // 20 % used at 25 % of the day -> 80 % projected... below 100 %
+  assert.equal(early.level, 'ok');
+  const fast = evaluate({ ...calm(), d1_rows_read: { used: L * 0.3 } }, cfg, at(6)).find((x) => x.id === 'd1_rows_read');     // 30 % at 25 % of the day -> 120 %
+  assert.equal(fast.level, 'warning'); assert.equal(fast.predictive, true); assert.ok(fast.projected > L);
+  assert.equal(lvl(evaluate({ ...calm(), d1_rows_read: { used: L * 0.3 } }, cfg, at(1)), 'd1_rows_read'), 'ok', 'too early in the day to extrapolate');
+  assert.equal(evaluate({ ...calm(), d1_storage_bytes: { used: 1 } }, cfg, at(6)).find((x) => x.id === 'd1_storage_bytes').projected, undefined);
+});
+
+test('a metric that could not be collected is "unknown" with its reason: never ok, never 0 and never an alert by itself', () => {
+  const f = evaluate({ ...calm(), r2_storage_bytes: { unavailable: 'HTTP 403' } }, cfg, at(12));
+  const r2 = f.find((x) => x.id === 'r2_storage_bytes'); assert.equal(r2.level, 'unknown'); assert.equal(r2.reason, 'HTTP 403');
+  assert.deepEqual(dedupe(f, [], {}, at(12)).alerts, []);
+});
+
+test('de-duplication: the same level is not re-sent, a higher level is, a lower one is not, and the next UTC day starts over', () => {
+  const L = cfg.metrics.d1_rows_read.limit, f = (frac) => evaluate({ ...calm(), d1_rows_read: { used: L * frac } }, cfg, at(23));
+  let d = dedupe(f(0.8), [], {}, at(23)); assert.equal(d.alerts.length, 1);
+  assert.equal(dedupe(f(0.8), [], d.state, at(23)).alerts.length, 0, 'same level');
+  const up = dedupe(f(0.95), [], d.state, at(23)); assert.equal(up.alerts.length, 1); assert.equal(up.alerts[0].level, 'critical');
+  assert.equal(dedupe(f(0.8), [], up.state, at(23)).alerts.length, 0, 'improving never alerts');
+  assert.equal(dedupe(f(0.8), [], up.state, new Date(Date.UTC(2026, 9, 28, 23))).alerts.length, 1, 'new day');
+});
+
+test('costs are kept per currency and per kind, never summed across currencies, and pending amounts are not hidden', () => {
+  const c = evaluateCosts(fx('cost-eur').costs, cfg), eur = c.find((x) => x.currency === 'EUR'), usd = c.find((x) => x.currency === 'USD');
+  assert.deepEqual([eur.confirmed, eur.estimated, eur.pending, eur.worst_case], [31.5, 22.4, 12, 65.9]);
+  assert.equal(eur.level, 'warning', '53.9 EUR known = past the 50 EUR warning; pending is reported separately');
+  assert.equal(usd.level, 'unknown'); assert.match(usd.reason, /no threshold is defined for USD/);
+});
+
+test('the EUR thresholds are 20/50/100/150 and 150 means containment (a notice, never a billing guarantee)', () => {
+  const lv = (amount) => evaluateCosts([{ currency: 'EUR', kind: 'confirmed', amount }], cfg)[0].level;
+  assert.deepEqual([19.99, 20, 50, 100, 150].map(lv), ['ok', 'notice', 'warning', 'critical', 'containment']);
+  const text = formatAlert(dedupe([], evaluateCosts([{ currency: 'EUR', kind: 'confirmed', amount: 150 }], cfg), {}).alerts[0]);
+  assert.match(text, /NO esenciales/); assert.match(text, /no se apaga ningún servicio crítico/); assert.match(text, /no es un límite de facturación/);
+});
+
+test('delivery: a sent alert is remembered; a failed one is retried next time and makes the run fail; no channel at all also fails', async () => {
+  const metrics = fx('d1-critical').metrics, now = new Date(fx('d1-critical').now), sent = [];
+  const ok = await run({ cfg, metrics, state: {}, now, deliver: async (t) => { sent.push(t); } });
+  assert.equal(ok.alerts.length, 1); assert.equal(ok.exit, 2, 'critical exits non-zero so GitHub e-mails the administrators'); assert.deepEqual(ok.failures, []);
+  assert.equal((await run({ cfg, metrics, state: ok.state, now, deliver: async (t) => sent.push(t) })).alerts.length, 0, 'not repeated');
+  const bad = await run({ cfg, metrics, state: {}, now, deliver: async () => { throw new Error('Telegram HTTP 500'); } });
+  assert.equal(bad.exit, 2); assert.equal(bad.failures.length, 1); assert.deepEqual(bad.state, {}, 'not recorded as delivered');
+  assert.equal((await run({ cfg, metrics, state: bad.state, now, deliver: async (t) => sent.push(t) })).alerts.length, 1, 'retried');
+  const none = await run({ cfg, metrics, state: {}, now, deliver: null }); assert.equal(none.exit, 2); assert.match(none.failures[0], /no notification channel/);
+});
+
+test('a calm day produces no alert and exit 0', async () => {
+  const r = await run({ cfg, metrics: calm(), state: {}, now: at(12), deliver: async () => { throw new Error('must not be called'); } });
+  assert.equal(r.exit, 0); assert.equal(r.alerts.length, 0);
+});
+
+test('alert text carries the numbers and the D1 advice, and contains no token-shaped value', () => {
+  const f = evaluate(fx('d1-critical').metrics, cfg, new Date(fx('d1-critical').now)), a = dedupe(f, [], {}).alerts[0], t = formatAlert(a);
+  assert.match(t, /CRÍTICO/); assert.match(t, /D1 rows read/); assert.match(t, /00:00 UTC/); assert.doesNotMatch(t, /[A-Za-z0-9_-]{32,}/);
+});
+
+test('collect: reads D1, Workers and R2 through GraphQL with a Bearer header only; a failing query marks only its own metrics unavailable', async () => {
+  const calls = [];
+  const fetchImpl = async (url, init) => {
+    calls.push({ url, auth: init.headers.Authorization, body: init.body });
+    if (url.includes('/d1/database')) return { ok: true, json: async () => ({ result: [{ file_size: 100 }, { file_size: 50 }] }) };
+    const q = JSON.parse(init.body).query;
+    if (q.includes('r2OperationsAdaptiveGroups')) return { ok: false, status: 500 };
+    const acct = q.includes('d1Analytics') ? { d1AnalyticsAdaptiveGroups: [{ sum: { rowsRead: 7, rowsWritten: 3 } }, { sum: { rowsRead: 1, rowsWritten: 0 } }] }
+      : q.includes('workersInvocations') ? { workersInvocationsAdaptive: [{ sum: { requests: 42 } }] } : { r2StorageAdaptiveGroups: [{ max: { payloadSize: 9 } }] };
+    return { ok: true, json: async () => ({ data: { viewer: { accounts: [acct] } } }) };
+  };
+  const m = await collect({ fetchImpl, token: 'T', account: 'A', now: at(12) });
+  assert.deepEqual([m.d1_rows_read.used, m.d1_rows_written.used, m.workers_requests.used, m.r2_storage_bytes.used, m.d1_storage_bytes.used], [8, 3, 42, 9, 150]);
+  assert.match(m.r2_class_a_ops.unavailable, /HTTP 500/); assert.match(m.r2_class_b_ops.unavailable, /HTTP 500/);
+  assert.ok(calls.every((c) => c.auth === 'Bearer T') && calls.every((c) => !c.body || !String(c.body).includes('"T"')), 'the token travels only in the header');
+  assert.ok(calls.every((c) => !/mutation/i.test(c.body || '')), 'read-only: no GraphQL mutation');
+});
+
+test('Telegram: posts the text to the bot endpoint and raises on a non-OK answer without echoing the token', async () => {
+  let seen; await sendTelegram(async (u, i) => { seen = { u, b: JSON.parse(i.body) }; return { ok: true }; }, { token: 'TKN', chat: '123' }, 'hola');
+  assert.equal(seen.b.chat_id, '123'); assert.equal(seen.b.text, 'hola');
+  await assert.rejects(() => sendTelegram(async () => ({ ok: false, status: 401 }), { token: 'TKN', chat: '1' }, 'x'), (e) => /401/.test(e.message) && !/TKN/.test(e.message));
+});
+
+test('the limits file is complete: every metric has a label, a period and a positive limit, and thresholds ascend', () => {
+  for (const [id, d] of Object.entries(cfg.metrics)) { assert.ok(d.label && ['day', 'month', 'point'].includes(d.period) && d.limit > 0, id); }
+  const t = cfg.thresholds; assert.ok(t.notice < t.warning && t.warning < t.critical && t.critical <= t.limit);
+  const e = cfg.costs.currency_thresholds.EUR; assert.deepEqual([e.notice, e.warning, e.critical, e.containment], [20, 50, 100, 150]);
+});
