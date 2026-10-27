@@ -20,9 +20,11 @@ for p in b2 scaleway r2; do
   T0=$(date +%s)
   if ! gh run download "$RUN" -n "read-$p" -D "$T/read-$p" >/dev/null 2>&1; then echo "FAIL  $p: no read-$p artifact (the provider was not read back)"; BAD=1; continue; fi
   S=$(ls "$T/read-$p" | grep -E '^[0-9]{8}T[0-9]{6}Z$' | head -1); D="$T/read-$p/$S"
+  RES=$(jq -r '.meta.resource // .resource // "gateway"' "$D/manifest.json" 2>/dev/null); case "$RES" in gateway|panel|intel) ;; *) RES=gateway;; esac   # each resource has its own Ed25519 range and its own restore verifier
+  ED_MAX=$(jq -r --arg r "$RES" '.resources[$r].ed25519_max_sequence // .ed25519.max_sequence' "$TRUST")
   MG_CHECKPOINT_DIRS="$T/package/checkpoint" MG_SIGSTORE_IDENTITY="$SIG_ID" MG_SIGSTORE_REPO="$SIG_REPO" MG_ED25519_MAX_SEQUENCE="$ED_MAX" sh "$HERE/recover_verify.sh" "$D" "$ED_PUB" 1 "$IDENT" "$T/$p.sql" > "$T/$p.out" 2>&1 || { echo "FAIL  $p: $(tail -1 "$T/$p.out")"; BAD=1; continue; }
   grep -E "ANCHORED OK|DECRYPTED OK" "$T/$p.out" | sed "s/^/  $p: /" | cut -c1-160
-  node "$HERE/restore_verify.mjs" "$D/d1-export.sql.age" "$D/manifest.json" --identity "$IDENT" > "$T/$p.rv" 2>&1 && echo "PASS  $p: $(grep -m1 -E 'RESTORE VERIFIED' "$T/$p.rv" | cut -c1-100)" || { echo "FAIL  $p: isolated SQLite restore: $(tail -1 "$T/$p.rv" | cut -c1-120)"; BAD=1; }
+  node "$HERE/restore_verify.mjs" "$D/d1-export.sql.age" "$D/manifest.json" --identity "$IDENT" --resource "$RES" > "$T/$p.rv" 2>&1 && echo "PASS  $p: $(grep -m1 -E 'RESTORE VERIFIED' "$T/$p.rv" | cut -c1-100)" || { echo "FAIL  $p: isolated SQLite restore: $(tail -1 "$T/$p.rv" | cut -c1-120)"; BAD=1; }
   HASHES="$HASHES $(shasum -a 256 "$T/$p.sql" | cut -d' ' -f1)"
   H=$(shasum -a 256 "$T/$p.sql" | cut -d' ' -f1); RECORDS="$RECORDS
 gh workflow run record-restore.yml --repo $REPO --ref main -f run_id=$RUN -f provider=$p -f plaintext_sha256=$H -f duration_s=$(( $(date +%s) - T0 )) -f mode=drill"
