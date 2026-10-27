@@ -1,4 +1,5 @@
 import test from 'node:test';
+import { HAVE_AGE } from './tools_available.js';
 import assert from 'node:assert/strict';
 import { execFileSync, spawnSync } from 'node:child_process';
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
@@ -10,7 +11,7 @@ import { runBackup, rekeyBackup, check } from '../tools/backup_flow.mjs';
 import { world } from './helpers.js';
 import { audit } from '../src/audit.js';
 
-const HAVE_AGE = existsSync('/usr/local/bin/age') && process.platform === 'darwin', sha = (b) => createHash('sha256').update(b).digest('hex');
+const sha = (b) => createHash('sha256').update(b).digest('hex');
 const keypair = (dir, name) => { const f = join(dir, name); execFileSync('age-keygen', ['-o', f], { stdio: 'ignore' }); return { file: f, pub: execFileSync('age-keygen', ['-y', f], { encoding: 'utf8' }).trim() }; };
 async function setup() { const w = await world({ now: '2026-10-24T05:00:00Z' }); await w.tenant('t1'); await audit(w.db, w.clock, 't1', 'x.y', {}); const root = mkdtempSync(join(homedir(), '.mg-kc-')), keys = mkdtempSync(join(homedir(), '.mg-kk-'));
   return { w, root, keys, done: () => { rmSync(root, { recursive: true, force: true }); rmSync(keys, { recursive: true, force: true }); } }; }

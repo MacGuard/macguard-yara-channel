@@ -1,5 +1,6 @@
 // Node-side run records and outbox: the same guarantees as intel/telemetry.py. Backups emit one witness record per destination and operation without ever changing their own result.
 import test from 'node:test';
+import { HAVE_AGE } from './tools_available.js';
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
@@ -12,7 +13,6 @@ import { runBackup } from '../tools/backup_flow.mjs';
 import { world } from './helpers.js';
 import { audit } from '../src/audit.js';
 
-const HAVE_AGE = existsSync('/usr/local/bin/age') && process.platform === 'darwin';
 const CFG = { ...DEFAULT_CONFIG, destinations: { ...DEFAULT_CONFIG.destinations, scaleway: { ...DEFAULT_CONFIG.destinations.scaleway, bucket: 'macguard-archive-scw' } } };
 const tmp = (p) => mkdtempSync(join(homedir(), p));
 const store = ({ failPut = null, failGet = null } = {}) => { const m = new Map(); return { m, async head(k) { return m.has(k); }, async get(k) { if (failGet) throw new Error(failGet); return m.get(k) ?? null; }, async put(k, d) { if (failPut) throw new Error(failPut); m.set(k, Buffer.from(d)); } }; };
