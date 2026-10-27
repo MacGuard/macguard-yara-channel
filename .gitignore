@@ -17,7 +17,7 @@ previous/
 build/
 DMGTrustAuditor/build/
 .wrangler/
-node_modules/
+node_modules
 
 # per-environment Worker configs carry real D1 ids: never committed
 admin/worker/wrangler.production.toml
