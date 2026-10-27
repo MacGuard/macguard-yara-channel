@@ -22,6 +22,11 @@ on:
         description: 'Seconds the restore took, from download to verified (for the observed RTO)'
         required: true
         type: string
+      restored_at:
+        description: 'UTC time the restore itself happened (restore_from_run.sh prints it); makes a repeated report of the SAME restoration idempotent. Optional.'
+        required: false
+        type: string
+        default: ''
       mode:
         description: 'drill = isolated rehearsal; real = restore into production'
         required: true
@@ -66,8 +71,9 @@ jobs:
           SHA: ${{ inputs.plaintext_sha256 }}
           DUR: ${{ inputs.duration_s }}
           MODE: ${{ inputs.mode }}
+          RESTORED_AT: ${{ inputs.restored_at }}
           ACTOR: ${{ github.actor }}
         run: |
           set -eu
           sh gateway/tools/evidence_retry.sh "restore of run $RUN_ID from $PROVIDER ($MODE) recorded" -- \
-            node gateway/tools/backup_record.mjs restore --run-id "$RUN_ID" --provider "$PROVIDER" --plaintext-sha256 "$SHA" --duration-s "$DUR" --mode "$MODE" --by "$ACTOR"
+            node gateway/tools/backup_record.mjs restore --run-id "$RUN_ID" --provider "$PROVIDER" --plaintext-sha256 "$SHA" --duration-s "$DUR" --mode "$MODE" --by "$ACTOR" ${RESTORED_AT:+--restored-at "$RESTORED_AT"}

@@ -58,7 +58,7 @@ test('the record job writes only the evidence file, under the shared lock, with 
   // The ONLY other place an input may appear is the concurrency group (a name, never a shell): exactly this line, nothing else. (PR #56 replaced the shared queue.)
   const GROUP = 'group: record-restore-${{ inputs.run_id }}-${{ inputs.provider }}';
   assert.equal(rr.split('\n').filter((l) => l.trim() === GROUP).length, 1, 'one concurrency group per backup run and provider');
-  assert.ok(!/\$\{\{ *inputs\./.test(rr.replace(/^\s+(RUN_ID|PROVIDER|SHA|DUR|MODE): \$\{\{ inputs\.[a-z_0-9]+ \}\}$/gm, '').replace(/^\s+group: record-restore-\$\{\{ inputs\.run_id \}\}-\$\{\{ inputs\.provider \}\}$/m, '')), 'inputs reach the shell only through env: lines (and the concurrency group name)');
+  assert.ok(!/\$\{\{ *inputs\./.test(rr.replace(/^\s+(RUN_ID|PROVIDER|SHA|DUR|MODE|RESTORED_AT): \$\{\{ inputs\.[a-z_0-9]+ \}\}$/gm, '').replace(/^\s+group: record-restore-\$\{\{ inputs\.run_id \}\}-\$\{\{ inputs\.provider \}\}$/m, '')), 'inputs reach the shell only through env: lines (and the concurrency group name)');
   for (const m of rr.matchAll(/uses: ([^\s@]+)@(\S+)/g)) assert.match(m[2], /^[0-9a-f]{40}$/);
   assert.match(rr, /cancel-in-progress: false/); assert.ok(!/group: macguard-log/.test(rr), 'a restore record must not queue behind (and be cancelled by) the shared log group');
   assert.match(rr, /evidence_retry\.sh/, 'evidence is written by the retry that regenerates on a rejected push'); assert.ok(!/commit_evidence\.sh/.test(rr.replace(/evidence_retry\.sh/g, '')), 'no bare commit_evidence.sh (it rebases and loses concurrent appends)');

@@ -17,7 +17,7 @@ if [ -z "$IDENT" ]; then security find-generic-password -s macguard-gateway-prod
 gh run download "$RUN" -n package -D "$T/package" >/dev/null 2>&1 || { echo "BLOCKED: artifact 'package' of run $RUN is not available (expired or the run did not get that far)"; exit 1; }
 BAD=0; HASHES=""; RECORDS=""; REPO=MacGuard/macguard-yara-channel
 for p in b2 scaleway r2; do
-  T0=$(date +%s)
+  T0=$(date +%s); TS0=$(date -u +%Y-%m-%dT%H:%M:%SZ)   # TS0 identifies THIS restoration, so reporting it twice records it once
   if ! gh run download "$RUN" -n "read-$p" -D "$T/read-$p" >/dev/null 2>&1; then echo "FAIL  $p: no read-$p artifact (the provider was not read back)"; BAD=1; continue; fi
   S=$(ls "$T/read-$p" | grep -E '^[0-9]{8}T[0-9]{6}Z$' | head -1); D="$T/read-$p/$S"
   RES=$(jq -r '.meta.resource // .resource // "gateway"' "$D/manifest.json" 2>/dev/null); case "$RES" in gateway|panel|intel) ;; *) RES=gateway;; esac   # each resource has its own Ed25519 range and its own restore verifier
@@ -27,7 +27,7 @@ for p in b2 scaleway r2; do
   node "$HERE/restore_verify.mjs" "$D/d1-export.sql.age" "$D/manifest.json" --identity "$IDENT" --resource "$RES" > "$T/$p.rv" 2>&1 && echo "PASS  $p: $(grep -m1 -E 'RESTORE VERIFIED' "$T/$p.rv" | cut -c1-100)" || { echo "FAIL  $p: isolated SQLite restore: $(tail -1 "$T/$p.rv" | cut -c1-120)"; BAD=1; }
   HASHES="$HASHES $(shasum -a 256 "$T/$p.sql" | cut -d' ' -f1)"
   H=$(shasum -a 256 "$T/$p.sql" | cut -d' ' -f1); RECORDS="$RECORDS
-gh workflow run record-restore.yml --repo $REPO --ref main -f run_id=$RUN -f provider=$p -f plaintext_sha256=$H -f duration_s=$(( $(date +%s) - T0 )) -f mode=drill"
+gh workflow run record-restore.yml --repo $REPO --ref main -f run_id=$RUN -f provider=$p -f plaintext_sha256=$H -f duration_s=$(( $(date +%s) - T0 )) -f restored_at=$TS0 -f mode=drill"
 done
 [ "$(echo $HASHES | tr ' ' '\n' | sort -u | wc -l | tr -d ' ')" = 1 ] && [ "$(echo $HASHES | wc -w | tr -d ' ')" = 3 ] && echo "PASS  the three restored plaintexts are identical (sha256 $(echo $HASHES | cut -d' ' -f1))" || { echo "FAIL  the three providers did not all restore to the same plaintext"; BAD=1; }
 if [ -n "$RECORDS" ]; then
