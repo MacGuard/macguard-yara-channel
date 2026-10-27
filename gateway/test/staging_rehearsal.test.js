@@ -1,6 +1,8 @@
 // Local rehearsal of the staging sequence (docs/analytics/STAGING-SEQUENCE.md) on a database that has exactly the DEPLOYED schema (4d9b1ff): backup -> verification -> migrations 0001-0003 ->
 // smoke + security on the CURRENT code -> restore -> rollback (the previous code on the migrated schema). Local only: it proves the logic and the rollback claim, not Cloudflare.
 import test from 'node:test';
+import { createHash } from 'node:crypto';
+import { HAVE_AGE } from './tools_available.js';
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
 import { existsSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync, mkdirSync } from 'node:fs';
@@ -16,13 +18,17 @@ import { runSmoke } from '../tools/smoke.mjs';
 import { seedPolicy } from '../src/policy.js';
 import { SEED } from './helpers.js';
 
-const ROOT = new URL('../', import.meta.url).pathname, DEPLOYED = '4d9b1ff', HAVE_AGE = existsSync('/usr/local/bin/age') && process.platform === 'darwin';
-let deployedSql = null; try { deployedSql = execFileSync('git', ['show', `${DEPLOYED}:gateway/schema.sql`], { cwd: ROOT, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }); } catch { /* shallow clone */ }
-const skip = !deployedSql ? `commit ${DEPLOYED} not available` : !HAVE_AGE ? 'age not available' : false;
+const ROOT = new URL('../', import.meta.url).pathname, DEPLOYED = '4d9b1ff';
+// The schema that is DEPLOYED in the gateway D1 (commit 4d9b1ff), frozen as a fixture: that commit exists only on local branches and in no remote history, so the tests cannot read it with git. The SHA-256 below pins the fixture.
+const DEPLOYED_SCHEMA = new URL('./fixtures/schema_deployed_4d9b1ff.sql', import.meta.url), DEPLOYED_SCHEMA_SHA256 = '4f5a3cd154ee39736bb5871ebba342ce5e3c89ba1541278e485def05b912b44c';
+const deployedSql = readFileSync(DEPLOYED_SCHEMA, 'utf8'); if (createHash('sha256').update(deployedSql).digest('hex') !== DEPLOYED_SCHEMA_SHA256) throw new Error('the frozen deployed-schema fixture was modified');
+let hasOldCode = false; try { execFileSync('git', ['cat-file', '-e', `${DEPLOYED}^{commit}`], { cwd: ROOT, stdio: 'ignore' }); hasOldCode = true; } catch { /* only on a machine that has the local branches */ }
+const skip = !HAVE_AGE ? 'age not available' : false;
+const skipRollback = skip || (!hasOldCode && `the rollback step needs the previous deployed code (git archive ${DEPLOYED} gateway/src); that commit exists only on local branches, in no remote history`);
 const migrations = readdirSync(ROOT + 'migrations').filter((f) => f.endsWith('.sql')).sort();
 const counts = (raw) => Object.fromEntries(raw.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' ORDER BY name").all().map((t) => [t.name, raw.prepare(`SELECT COUNT(*) n FROM ${t.name}`).get().n]));
 
-test('backup -> verify -> migrate -> smoke/security -> restore -> rollback, on the deployed schema', { skip }, async () => {
+test('backup -> verify -> migrate -> smoke/security -> restore -> rollback, on the deployed schema', { skip: skipRollback }, async () => {
   const work = mkdtempSync(join(homedir(), '.mg-rehearsal-')), bk = join(work, 'backups'), keyFile = join(work, 'k.txt');
   try {
     execFileSync('age-keygen', ['-o', keyFile], { stdio: 'ignore' }); const recipient = execFileSync('age-keygen', ['-y', keyFile], { encoding: 'utf8' }).trim();

@@ -1,4 +1,5 @@
 import test from 'node:test';
+import { HAVE_AGE } from './tools_available.js';
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
 import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from 'node:fs';
@@ -10,7 +11,6 @@ import { runBackup, check, retentionPlan, prune, isTemp, ageEncryptFile, shaFile
 import { world } from './helpers.js';
 import { audit } from '../src/audit.js';
 
-const HAVE_AGE = existsSync('/usr/local/bin/age') && process.platform === 'darwin';
 const sha = (b) => createHash('sha256').update(b).digest('hex');
 async function sample() { const w = await world({ now: '2026-10-24T05:00:00Z' }); await w.tenant('t1'); await audit(w.db, w.clock, 't1', 'x.y', { a: 1 }); return w; }
 function sandbox() { const root = mkdtempSync(join(homedir(), '.mg-bk-test-')); return { root, done: () => rmSync(root, { recursive: true, force: true }) }; }

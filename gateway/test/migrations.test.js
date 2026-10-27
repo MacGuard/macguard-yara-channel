@@ -1,17 +1,20 @@
 // D1 migration tests. The "before" database is built from the schema that is actually DEPLOYED (git show 4d9b1ff:gateway/schema.sql), populated, migrated with every file in migrations/, and then compared
 // with the current schema.sql: structure identical, data intact. This proves the upgrade path of the live database before anyone runs it remotely.
 import test from 'node:test';
+import { createHash } from 'node:crypto';
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
 import { readdirSync, readFileSync } from 'node:fs';
 import { DatabaseSync } from 'node:sqlite';
 
 const ROOT = new URL('../', import.meta.url).pathname, DEPLOYED = '4d9b1ff';
-let deployedSql = null; try { deployedSql = execFileSync('git', ['show', `${DEPLOYED}:gateway/schema.sql`], { cwd: ROOT, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }); } catch { /* commit not available (shallow clone) */ }
+// The schema that is DEPLOYED in the gateway D1 (commit 4d9b1ff), frozen as a fixture: that commit exists only on local branches and in no remote history, so the tests cannot read it with git. The SHA-256 below pins the fixture.
+const DEPLOYED_SCHEMA = new URL('./fixtures/schema_deployed_4d9b1ff.sql', import.meta.url), DEPLOYED_SCHEMA_SHA256 = '4f5a3cd154ee39736bb5871ebba342ce5e3c89ba1541278e485def05b912b44c';
+const deployedSql = readFileSync(DEPLOYED_SCHEMA, 'utf8'); if (createHash('sha256').update(deployedSql).digest('hex') !== DEPLOYED_SCHEMA_SHA256) throw new Error('the frozen deployed-schema fixture was modified');
 const migrations = readdirSync(ROOT + 'migrations').filter((f) => f.endsWith('.sql')).sort();
 const shape = (db) => Object.fromEntries(db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' ORDER BY name").all().map((t) => [t.name, db.prepare(`PRAGMA table_info(${t.name})`).all().map((c) => `${c.name}:${c.type}:${c.notnull}:${c.dflt_value ?? ''}:${c.pk}`).join(',')]));
 const idx = (db) => db.prepare("SELECT name FROM sqlite_master WHERE type IN ('index','trigger') AND sql IS NOT NULL ORDER BY name").all().map((r) => r.name);
-const s = { skip: deployedSql ? false : `commit ${DEPLOYED} is not available here: the deployed schema cannot be reconstructed` };
+const s = {};
 
 test('migrations are numbered, additive, and every statement is either idempotent or a single ALTER ADD COLUMN', s, () => {
   assert.deepEqual(migrations, ['0001_telemetry_exclusions.sql', '0002_gh_sync_authenticated.sql', '0003_guardops_outbox.sql']);

@@ -14,7 +14,8 @@ while [ $# -gt 0 ]; do case $1 in --age-identity) AGE_ID=${2:-}; shift 2;; --sig
 BAD=0
 kit_after() { awk -v h="$1" 'index($0,h)==1 {getline; print; exit}' "$KIT"; }
 KIT_PUB=$(kit_after "TRUSTED SIGNING PUBLIC KEY" | cut -d' ' -f1,2); KIT_REC=$(kit_after "AGE RECIPIENT" | tr -d ' ')
-mode_ok() { m=$(stat -f '%Lp' "$1" 2>/dev/null || stat -c '%a' "$1" 2>/dev/null); case $m in ?00) return 0;; *) return 1;; esac; }
+# GNU stat first: on Linux 'stat -f FORMAT FILE' is the FILESYSTEM status and prints several lines, which made every key look world-readable.
+mode_ok() { m=$(stat -c '%a' "$1" 2>/dev/null || stat -f '%Lp' "$1" 2>/dev/null); case $m in ?00) return 0;; *) return 1;; esac; }
 in_git() { d=$(dirname "$1"); git -C "$d" rev-parse --is-inside-work-tree >/dev/null 2>&1; }
 custody() { f=$1; label=$2; mode_ok "$f" || { echo "WARNING: $label has permissions open to group or others (run chmod 600)"; BAD=1; }; in_git "$f" && { echo "WARNING: $label is inside a git working tree: move it out of any repository"; BAD=1; }; return 0; }
 if [ -n "$AGE_ID" ]; then
