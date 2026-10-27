@@ -80,17 +80,16 @@ test('collect: reads D1, Workers and R2 through GraphQL with a Bearer header onl
   const calls = [];
   const fetchImpl = async (url, init) => {
     calls.push({ url, auth: init.headers.Authorization, body: init.body });
-    if (url.includes('/d1/database')) return { ok: true, json: async () => ({ result: [{ file_size: 100 }, { file_size: 50 }] }) };
     const q = JSON.parse(init.body).query;
     if (q.includes('r2OperationsAdaptiveGroups')) return { ok: false, status: 500 };
-    const acct = q.includes('d1Analytics') ? { d1AnalyticsAdaptiveGroups: [{ sum: { rowsRead: 7, rowsWritten: 3 } }, { sum: { rowsRead: 1, rowsWritten: 0 } }] }
+    const acct = q.includes('d1StorageAdaptiveGroups') ? { d1StorageAdaptiveGroups: [{ dimensions: { databaseId: 'x', date: '2026-10-26' }, max: { databaseSizeBytes: 90 } }, { dimensions: { databaseId: 'x', date: '2026-10-27' }, max: { databaseSizeBytes: 100 } }, { dimensions: { databaseId: 'y', date: '2026-10-26' }, max: { databaseSizeBytes: 50 } }] } : q.includes('d1Analytics') ? { d1AnalyticsAdaptiveGroups: [{ sum: { rowsRead: 7, rowsWritten: 3 } }, { sum: { rowsRead: 1, rowsWritten: 0 } }] }
       : q.includes('workersInvocations') ? { workersInvocationsAdaptive: [{ sum: { requests: 42 } }] } : { r2StorageAdaptiveGroups: [{ dimensions: { bucketName: 'a', datetime: '2026-10-27T01:00:00Z' }, max: { payloadSize: 1 } }, { dimensions: { bucketName: 'a', datetime: '2026-10-27T09:00:00Z' }, max: { payloadSize: 4 } }, { dimensions: { bucketName: 'b', datetime: '2026-10-27T05:00:00Z' }, max: { payloadSize: 5 } }] };
     return { ok: true, json: async () => ({ data: { viewer: { accounts: [acct] } } }) };
   };
   const m = await collect({ fetchImpl, token: 'T', account: 'A', now: at(12) });
   assert.deepEqual([m.d1_rows_read.used, m.d1_rows_written.used, m.workers_requests.used, m.r2_storage_bytes.used, m.d1_storage_bytes.used], [8, 3, 42, 9, 150]);
   assert.match(m.r2_class_a_ops.unavailable, /HTTP 500/); assert.match(m.r2_class_b_ops.unavailable, /HTTP 500/);
-  assert.ok(calls.every((c) => c.auth === 'Bearer T') && calls.every((c) => !c.body || !String(c.body).includes('"T"')), 'the token travels only in the header');
+  assert.ok(calls.every((c) => c.url === 'https://api.cloudflare.com/client/v4/graphql'), 'analytics GraphQL only: no D1/Workers management API is called'); assert.ok(calls.every((c) => c.auth === 'Bearer T') && calls.every((c) => !c.body || !String(c.body).includes('"T"')), 'the token travels only in the header');
   assert.ok(calls.every((c) => !/mutation/i.test(c.body || '')), 'read-only: no GraphQL mutation');
 });
 

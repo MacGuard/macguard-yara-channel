@@ -28,9 +28,8 @@ El monitor **no es operativo** hasta que llegue una notificación real a Telegra
 Cloudflare → My Profile → API Tokens → Create Token → Custom token:
 
 - Account · **Account Analytics · Read**
-- Account · **D1 · Read** (solo para el tamaño de las bases; no concede escritura)
 - Account Resources: solo la cuenta de MacGuard. Sin IP ni TTL si se quiere que dure; recomendable caducidad de 1 año.
-- **No** añadir D1 Edit, Workers Scripts Edit ni Admin.
+- **Solo** ese permiso: el tamaño de las bases también sale de la analítica GraphQL. **No** añadir D1 (ni Read ni Edit), Workers Scripts ni Admin.
 
 ## 2. Bot de Telegram
 
