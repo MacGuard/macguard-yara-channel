@@ -1,12 +1,12 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
+import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
 import { createHash } from 'node:crypto';
 import { dumpSql } from '../tools/backup_lib.mjs';
-import { runBackup, check, retentionPlan, prune, isTemp } from '../tools/backup_flow.mjs';
+import { runBackup, check, retentionPlan, prune, isTemp, ageEncryptFile, shaFile } from '../tools/backup_flow.mjs';
 import { world } from './helpers.js';
 import { audit } from '../src/audit.js';
 
@@ -41,6 +41,76 @@ test('an age-encrypted backup leaves no plaintext behind, decrypts to exactly wh
     writeFileSync(join(r.dir, 'd1-export.sql.age'), Buffer.concat([readFileSync(join(r.dir, 'd1-export.sql.age')), Buffer.from('x')])); assert.equal(byRule(check({ root: sb.root, clock: T(2) }))['backup.integrity'], 'FIRING', 'a modified ciphertext is detected');
   } finally { sb.done(); rmSync(keyDir, { recursive: true, force: true }); }
 });
+test('an age-encrypted backup larger than the default child-process buffer (1 MiB) is still encrypted and decrypts to the verified plaintext', { skip: !HAVE_AGE }, async () => {
+  const w = await sample(), sb = sandbox(), keyDir = mkdtempSync(join(homedir(), '.mg-bk-key-')), key = join(keyDir, 'k.txt');
+  try {
+    execFileSync('age-keygen', ['-o', key], { stdio: 'ignore' }); const pub = execFileSync('age-keygen', ['-y', key], { encoding: 'utf8' }).trim();
+    const big = '-- ' + createHash('sha512').update('pad').digest('hex').repeat(32768) + '\n';   // ~4 MiB of comment: restores to nothing, but the ciphertext is far above 1 MiB
+    const r = await runBackup({ exportFn: async (p) => writeFileSync(p, big + dumpSql(w.db.raw)), root: sb.root, recipient: pub, clock: T(0) });
+    assert.equal(r.ok, true, r.error); assert.ok(r.manifest.stored_bytes > (1 << 20), 'the ciphertext exceeds the default 1 MiB buffer');
+    const dec = execFileSync('age', ['-d', '-i', key, join(r.dir, 'd1-export.sql.age')], { maxBuffer: 1 << 30 }); assert.equal(sha(dec), r.manifest.plaintext_sha256);
+  } finally { sb.done(); rmSync(keyDir, { recursive: true, force: true }); }
+});
+
+// ---- streaming age: failure modes (fake age binaries) and a large real file ----
+const PUB = 'age1' + 'q'.repeat(58);
+function fakeAge(dir, body) { const f = join(dir, 'age-fake'); writeFileSync(f, '#!/usr/bin/env node\n' + body); chmodSync(f, 0o755); return f; }
+const PRE = "const fs=require('fs');";
+test('streaming age: every incomplete or failed encryption is refused, leaves no partial/ciphertext behind and never puts plaintext in the error', async () => {
+  const sb = sandbox(), src = join(sb.root, 'plain.sql'); writeFileSync(src, 'SECRET-PLAINTEXT-MARKER '.repeat(1000));
+  const cases = {
+    'exit code 1 after partial output': PRE + "fs.writeSync(1,'age-encryption.org/v1\\n'+'x'.repeat(100));process.stderr.write('boom');process.exit(1)",
+    'killed by a signal': PRE + "fs.writeSync(1,'age-encryption.org/v1\\n');process.kill(process.pid,'SIGKILL')",
+    'exit 0 with empty output': 'process.exit(0)',
+    'exit 0 without an age header': PRE + "fs.writeSync(1,'z'.repeat(40000))",
+    'exit 0 but not larger than the plaintext (truncated)': PRE + "fs.writeSync(1,'age-encryption.org/v1\\n'+'x'.repeat(50))",
+  };
+  try {
+    for (const [name, body] of Object.entries(cases)) {
+      const bin = fakeAge(sb.root, body), dst = join(sb.root, 'out.age');
+      await assert.rejects(() => ageEncryptFile({ ageBin: bin, recipient: PUB, src, dst }), (e) => !/SECRET-PLAINTEXT-MARKER/.test(e.message), name);
+      assert.ok(!existsSync(dst) && !existsSync(dst + '.partial'), `${name}: nothing left behind`);
+    }
+  } finally { sb.done(); }
+});
+
+test('streaming age: a failed encryption inside runBackup records the failure, removes the backup directory, keeps the previous good backup and exits no plaintext', async () => {
+  const w = await sample(), sb = sandbox(), keyDir = mkdtempSync(join(homedir(), '.mg-bk-key-'));
+  try {
+    const good = await runBackup({ exportFn: async (p) => writeFileSync(p, dumpSql(w.db.raw)), root: sb.root, clock: T(0) }); assert.equal(good.ok, true);
+    const bin = fakeAge(keyDir, PRE + "fs.writeSync(1,'age-encryption.org/v1\\n'+'x'.repeat(5000));process.stderr.write('disk full');process.exit(1)");
+    const r = await runBackup({ exportFn: async (p) => writeFileSync(p, dumpSql(w.db.raw)), root: sb.root, recipient: PUB, ageBin: bin, clock: T(5) });
+    assert.equal(r.ok, false); assert.equal(r.stage, 'encrypt'); assert.match(r.error, /disk full/);
+    const st = JSON.parse(readFileSync(join(sb.root, 'status.json'), 'utf8')); assert.equal(st.last_status, 'failed'); assert.equal(st.last_failed_stage, 'encrypt'); assert.equal(st.last_dir, good.dir.split('/').pop());
+    assert.deepEqual(readdirSync(sb.root).filter((n) => /^\d{8}T/.test(n)), [good.dir.split('/').pop()], 'no directory for the failed attempt');
+  } finally { sb.done(); rmSync(keyDir, { recursive: true, force: true }); }
+});
+
+test('streaming age: a cancelled encryption (AbortSignal) kills age and leaves nothing behind', async () => {
+  const sb = sandbox(), src = join(sb.root, 'plain.sql'); writeFileSync(src, 'x'.repeat(1000));
+  try {
+    const bin = fakeAge(sb.root, "setTimeout(()=>{},60000)"), ac = new AbortController(), dst = join(sb.root, 'o.age');
+    const p = ageEncryptFile({ ageBin: bin, recipient: PUB, src, dst, signal: ac.signal }); setTimeout(() => ac.abort(), 150);
+    await assert.rejects(p); assert.ok(!existsSync(dst) && !existsSync(dst + '.partial'));
+  } finally { sb.done(); }
+});
+
+test('streaming age: a 48 MiB export is encrypted with permissions 0600, the stored hash matches the file, and decryption returns the exact plaintext; a truncated copy fails to decrypt', { skip: !HAVE_AGE }, async () => {
+  const w = await sample(), sb = sandbox(), keyDir = mkdtempSync(join(homedir(), '.mg-bk-key-')), key = join(keyDir, 'k.txt');
+  try {
+    execFileSync('age-keygen', ['-o', key], { stdio: 'ignore' }); const pub = execFileSync('age-keygen', ['-y', key], { encoding: 'utf8' }).trim();
+    const pad = '-- ' + createHash('sha512').update('pad').digest('hex').repeat(8) + '\n';   // 1 KiB line, repeated below
+    const r = await runBackup({ exportFn: async (p) => { writeFileSync(p, pad.repeat(48 * 1024) + dumpSql(w.db.raw)); }, root: sb.root, recipient: pub, clock: T(0) });
+    assert.equal(r.ok, true, r.error); const f = join(r.dir, 'd1-export.sql.age');
+    assert.ok(r.manifest.plaintext_bytes > 48 * 1024 * 1024 && r.manifest.stored_bytes > r.manifest.plaintext_bytes);
+    assert.equal((statSync(f).mode & 0o777).toString(8), '600'); assert.equal(await shaFile(f), r.manifest.stored_sha256);
+    assert.equal(readdirSync(r.dir).some((n) => n.endsWith('.partial')), false);
+    const dec = execFileSync('age', ['-d', '-i', key, f], { maxBuffer: 1 << 30 }); assert.equal(sha(dec), r.manifest.plaintext_sha256);
+    const cut = join(keyDir, 'cut.age'); writeFileSync(cut, readFileSync(f).subarray(0, r.manifest.stored_bytes - 100));
+    assert.throws(() => execFileSync('age', ['-d', '-i', key, cut], { maxBuffer: 1 << 30, stdio: 'pipe' }), 'a truncated ciphertext does not decrypt');
+  } finally { sb.done(); rmSync(keyDir, { recursive: true, force: true }); }
+});
+
 test('a failed export or a failed verification is recorded, raises alarms, creates no backup and never damages the previous good one', async () => {
   const w = await sample(), sb = sandbox();
   try {
