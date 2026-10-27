@@ -1,30 +1,30 @@
 // Quarantine list: filters, search, per-state counts, single and batch selection. Rows are cards, never an overflowing table.
 import { t } from '../i18n.js';
-import { h, icon, clear, stateBadge, reasonLabel, fmtDate, shortSha, copyButton, put, pillGroup } from '../ui.js';
+import { h, icon, clear, stateBadge, reasonLabel, fmtDate, shortSha, copyButton, put, pillGroup, can } from '../ui.js';
 import { api, failure } from '../api.js';
 import { decide } from './decide.js';
-import { loadIntelStats, retainedTable } from './intel_summary.js';
+import { familyMode, otherFamiliesPage } from './records.js';
 
 const STATES = ['PENDING', 'UNDER_REVIEW', 'APPROVED_PENDING_VALIDATION', 'REJECTED'];   // published rules are not in quarantine: they have their own inventory (#/published)
 const SIZE = 25;
 const selection = new Map();
 
 export async function renderQuarantine(ctx) {
-  const { root, me, query, go } = ctx, canDecide = me.role !== 'VIEWER';
+  const { root, me, query, go } = ctx, canDecide = can(me, 'quarantine.decide');
   const f = { state: STATES.includes(query.get('state')) ? query.get('state') : '', q: query.get('q') || '', source: query.get('source') || '', synthetic: query.get('synthetic') === '1' ? '1' : '', page: Math.max(1, +query.get('page') || 1) };
   const hash = (o) => { const p = new URLSearchParams(); for (const k of ['state', 'q', 'source', 'synthetic']) if (o[k]) p.set(k, o[k]); if (o.page > 1) p.set('page', o.page); const s = p.toString(); return `#/quarantine${s ? `?${s}` : ''}`; };
   const apply = (patch) => { selection.clear(); go(hash({ ...f, page: 1, ...patch }), true); };
 
   const refresh = h('button', { type: 'button', class: 'btn btn-sm', onclick: () => ctx.rerender() }, icon('refresh'), t('refresh'));
-  const otherFamilies = h('div', { class: 'minw0' }); loadIntelStats(me).then((st) => { const n = retainedTable(st, false); if (n) put(otherFamilies, n); });
+  if (query.get('fam') === 'other') { await otherFamiliesPage(ctx, { base: 'quarantine', scope: 'quarantine', titleKey: 'q_title', leadKey: 'q_lead_other', refresh }); return; }
   const pills = h('div'), srcPills = h('div'), synBox = h('div'), listBox = h('div', { 'aria-live': 'polite' }), bar = h('div');
   const search = h('input', { class: 'input', id: 'q-search', type: 'search', autocomplete: 'off', value: f.q, placeholder: '' });
   let timer; search.addEventListener('input', () => { clearTimeout(timer); timer = setTimeout(() => { selection.clear(); f.q = search.value.trim(); f.page = 1; history.replaceState(null, '', hash(f)); load(); }, 300); });   // only the list reloads: the input keeps its node, focus, caret and selection
 
   put(root, 
     h('div', { class: 'page-head' }, h('div', {}, h('h1', { id: 'page-title', tabindex: '-1', text: t('q_title') }), h('p', { text: t('q_lead') })), h('div', { class: 'actions' }, refresh)),
-    pills, h('div', { class: 'field' }, h('label', { for: 'q-search', text: t('q_search') }), search), srcPills, synBox,
-    listBox, bar, otherFamilies);
+    h('div', { class: 'field' }, familyMode('yara', 'quarantine', go)), pills, h('div', { class: 'field' }, h('label', { for: 'q-search', text: t('q_search') }), search), srcPills, synBox,
+    listBox, bar);
 
   const stats = await api('GET', '/api/stats');
   if (stats.status === 200) {

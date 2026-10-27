@@ -1,4 +1,5 @@
 // Data access for the quarantine service. `db` is a Cloudflare D1 binding (or the test shim with the same API).
+import { can, rolesFor, primaryRole, permissionsOf } from './rbac.js';
 import { chainHead } from './anchor.js';   // archive P1: the chain continues from an anchor, never silently from GENESIS
 import { GENESIS, SYNTHETIC_SOURCE, blockingReasons, sanitizeFindings, chainHash, dependencyEffect, humanTransition, pipelineTransition, releaseTransition } from './core.js';
 
@@ -141,7 +142,7 @@ export async function decide(db, req, actor, now) {
     if (done.length === ids.length && done.every((d) => wanted.has(d.candidate_id) && d.action === action)) return { status: 200, replay: true, applied: [], message: 'this request was already applied' };
     return { status: 409, error: 'request id reused for a different selection or action' };
   }
-  if (action === 'approve' && actor.role !== 'ADMIN' && rows.some((r) => parse(r.reasons, []).includes('new-source'))) return { status: 403, error: 'admin role required to authorise a new source' };   // the new-source hold (scripts/admission.py) is cleared by an ADMIN only; nothing was written
+  if (action === 'approve' && !can(actor.roles || actor.role, 'quarantine.authorise_new_source') && rows.some((r) => parse(r.reasons, []).includes('new-source'))) return { status: 403, error: 'admin role required to authorise a new source' };   // the new-source hold (scripts/admission.py) is cleared by an ADMIN only; nothing was written
   const conflicts = [];
   for (const r of rows) {
     const t = humanTransition(action, r.state);
@@ -260,7 +261,12 @@ export async function findMember(db, userId, login) {
 
 /** Grant, change or revoke (role === null) one member, atomically with its audit entry. The caller has already authorized the actor and resolved the
  *  account from GitHub by id. `durableAdmin` says the actor is a GitHub repository admin, who cannot be removed from this panel. */
-export async function changeMember(db, { account, role, reason, actor, durableAdmin }, now) {
+/** How many distinct accounts can act as ADMIN today: explicit grants bound to an id, plus repository administrators seen in a session. Decides whether a privileged grant needs a second approver. */
+export async function adminCount(db, now = new Date().toISOString()) {   // durable sources only: explicit grants, live sessions, and every ADMIN sign-in recorded in the audit over 90 days, so logging out or revoking a grant cannot lower the count alone
+  const since = new Date(Date.parse(now) - 90 * 86400 * 1000).toISOString();
+  return (await db.prepare("SELECT COUNT(*) AS n FROM (SELECT user_id FROM members WHERE role = 'ADMIN' AND user_id IS NOT NULL UNION SELECT user_id FROM sessions WHERE perm = 'admin' UNION SELECT json_extract(detail, '$.user_id') FROM audit WHERE action = 'session.login' AND role = 'ADMIN' AND at >= ? AND json_extract(detail, '$.user_id') IS NOT NULL)").bind(since).first()).n;
+}
+export async function changeMember(db, { account, role, reason, actor, durableAdmin, extra = {} }, now) {
   const found = await findMember(db, account.id, account.login);
   if (found.kind === 'other-identity') return { status: 409, error: `the login ${account.login} is held by a different GitHub account (id ${found.row.user_id}); revoke that grant first` };
   const from = found.row ? found.row.role : null;
@@ -275,14 +281,14 @@ export async function changeMember(db, { account, role, reason, actor, durableAd
   else stmts.push(db.prepare('INSERT INTO members (login, role, granted_by, at, user_id, updated_at) VALUES (?,?,?,?,?,?)').bind(account.login.toLowerCase(), role, actor.login, now, account.id, now));
   const prev = await chainHead(db);
   const entry = { at: now, actor: actor.login, role: actor.role, action: 'member.set', target: `user:${account.id}`,
-    detail: J({ user_id: account.id, login: account.login, from_role: from, to_role: role, reason, actor_id: actor.id, bound_legacy: found.kind === 'legacy' }) };
+    detail: J({ user_id: account.id, login: account.login, from_role: from, to_role: role, reason, actor_id: actor.id, bound_legacy: found.kind === 'legacy', ...extra }) };
   stmts.push(db.prepare('INSERT INTO audit (at, actor, role, action, target, detail, prev_hash, hash) VALUES (?,?,?,?,?,?,?,?)').bind(entry.at, entry.actor, entry.role, entry.action, entry.target, entry.detail, prev, await chainHash(prev, entry)));
   try { await db.batch(stmts); } catch (e) { return { status: 409, error: from === 'ADMIN' && role !== 'ADMIN' && !durableAdmin ? 'this would remove the last administrator who cannot be removed from the panel; nothing was changed' : 'the membership changed while this was being applied; nothing was changed', retry: true }; }
   return { status: 200, user_id: account.id, login: account.login, from_role: from, to_role: role };
 }
 
 /** Everyone the panel knows about, merged by immutable id: explicit grants, people who signed in (audit), live sessions (their last GitHub permission) and revoked grants. */
-export async function listPeople(db, { q = '', status = '', page = 1, pageSize = 25 } = {}, roleFromPerm, highest) {
+export async function listPeople(db, { q = '', status = '', page = 1, pageSize = 25 } = {}, roleFromPerm) {
   const people = new Map(), byLogin = new Map();
   const at = (login, id) => {
     const lk = String(login).toLowerCase(); let key = id != null ? `id:${id}` : byLogin.get(lk) || `login:${lk}`;
@@ -297,10 +303,10 @@ export async function listPeople(db, { q = '', status = '', page = 1, pageSize =
   for (const a of (await db.prepare("SELECT at, detail FROM audit WHERE action = 'member.set' ORDER BY seq ASC").all()).results) { let d = {}; try { d = JSON.parse(a.detail); } catch {} if (d.login) changes.set(d.user_id != null ? `id:${d.user_id}` : `login:${String(d.login).toLowerCase()}`, { at: a.at, to: d.to_role, id: d.user_id ?? null, login: d.login }); }
   for (const c of changes.values()) { const p = at(c.login, c.id); if (c.to === null && p.manual_role === null) p.revoked_at = c.at; }
   let out = [...people.values()].map((p) => {
-    const repo_role = p.repo_perm ? roleFromPerm(p.repo_perm) : null, effective = highest(repo_role, p.bound ? p.manual_role : null);
+    const repo_role = p.repo_perm ? roleFromPerm(p.repo_perm) : null, roles = rolesFor({ repoRole: repo_role, manualRole: p.bound ? p.manual_role : null}), effective = primaryRole(roles);
     const origin = repo_role && p.manual_role ? 'both' : repo_role ? 'repo' : p.manual_role ? 'manual' : 'none';
     const state = p.manual_role && !p.bound ? 'unbound' : effective ? 'authorized' : p.revoked_at ? 'revoked' : 'unauthorized';
-    return { user_id: p.user_id, login: p.login, effective_role: effective || 'NONE', origin, repo_role, repo_perm: p.repo_perm, repo_checked_at: p.perm_at, manual_role: p.manual_role, state, bound: p.bound, granted_by: p.granted_by, created_at: p.created_at, updated_at: p.updated_at, revoked_at: p.revoked_at, last_login: p.last_login, logins: p.logins };
+    return { user_id: p.user_id, login: p.login, effective_role: effective || 'NONE', effective_roles: roles, permission_count: permissionsOf(roles).length, origin, repo_role, repo_perm: p.repo_perm, repo_checked_at: p.perm_at, manual_role: p.manual_role, state, bound: p.bound, granted_by: p.granted_by, created_at: p.created_at, updated_at: p.updated_at, revoked_at: p.revoked_at, last_login: p.last_login, logins: p.logins };
   });
   const counts = { authorized: 0, unauthorized: 0, revoked: 0, unbound: 0 }; for (const p of out) counts[p.state] = (counts[p.state] || 0) + 1;
   if (status) out = out.filter((p) => p.state === status);

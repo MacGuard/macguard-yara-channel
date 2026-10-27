@@ -1,3 +1,4 @@
+import { can } from './rbac.js';
 import { PROCEDURES, STEPS, PARAMS, PROCEDURE_VERSION, serializeParams } from './restore_procedures.js';
 
 // Recovery status for the panel, built only from real public records: the GitHub Actions runs and jobs of backup.yml, the public trust policy (gateway/environments/backup-trust.json), the presence of the verifier
@@ -24,7 +25,7 @@ const jobsOf = (jobs) => {
 };
 
 /** One run, classified. `jobs` may be null when GitHub could not be asked (the run is then only a bare record). */
-export const resourceOf = (run) => (/^backup panel\b/.test(run.display_title || run.name || '') ? 'panel' : 'gateway');   // run-name of backup.yml: "backup <resource>[ (selftest)]"
+export const resourceOf = (run) => { const m = /^backup (panel|intel)\b/.exec(run.display_title || run.name || ''); return m ? m[1] : 'gateway'; };   // run-name of backup.yml: "backup <resource>[ (selftest)]"
 export function classifyRun(run, jobs) {
   const j = jobs ? jobsOf(jobs) : null;
   const kind = !j ? 'unknown' : j.selftest && j.selftest.conclusion === 'success' && (!j.export || j.export.conclusion === 'skipped') ? 'selftest' : j.export && j.export.conclusion !== 'skipped' ? 'backup' : 'skipped';
@@ -44,7 +45,7 @@ const DIAG_KINDS = ['cloudflare_auth', 'cloudflare_permission', 'cloudflare_not_
 export function parseDiagnosis(message) {
   const m = String(message || '').match(/^macguard-backup: ((?:[a-z_]+=[A-Za-z0-9_]+ ?)+)$/); if (!m) return null;
   const o = Object.fromEntries(m[1].trim().split(' ').map((p) => p.split('='))); if (!DIAG_KINDS.includes(o.kind) || !DIAG_PHASES.includes(o.phase)) return null;
-  return { resource: o.resource === 'panel' ? 'panel' : 'gateway', phase: o.phase, kind: o.kind, code: /^\d{3,6}$/.test(o.code || '') ? o.code : null, http: /^\d{3}$/.test(o.http || '') ? o.http : null };
+  return { resource: ['panel', 'intel'].includes(o.resource) ? o.resource : 'gateway', phase: o.phase, kind: o.kind, code: /^\d{3,6}$/.test(o.code || '') ? o.code : null, http: /^\d{3}$/.test(o.http || '') ? o.http : null };
 }
 /** The latest backup run of one resource, when it failed: which job failed, which jobs did not run because of it (skipped is NOT_RUN, never corruption), and the annotated cause if there is one. */
 export function failureOf(run, jobs, diagnosis) {
@@ -56,7 +57,7 @@ export function failureOf(run, jobs, diagnosis) {
 
 export function buildRecoveryStatus(inputs, nowMs) {
   const runs = (inputs.runs || []).slice().sort((a, b) => ms(b.created_at) - ms(a.created_at)).map((r) => classifyRun(r, inputs.jobs && inputs.jobs[r.id] ? inputs.jobs[r.id] : null));
-  const allBackups = runs.filter((r) => r.kind === 'backup'), backups = allBackups.filter((r) => r.resource === 'gateway'), panelBackups = allBackups.filter((r) => r.resource === 'panel'), evidence = inputs.evidence || [], trust = inputs.trust || null;
+  const allBackups = runs.filter((r) => r.kind === 'backup'), backups = allBackups.filter((r) => r.resource === 'gateway'), panelBackups = allBackups.filter((r) => r.resource === 'panel'), intelBackups = allBackups.filter((r) => r.resource === 'intel'), evidence = inputs.evidence || [], trust = inputs.trust || null;
   const last = backups[0] || null, lastExportOk = backups.find((r) => r.export === 'success') || null, lastSigned = backups.find((r) => r.signed === true) || null;
   const fresh = (at) => at && nowMs - ms(at) <= STALE_HOURS * HOUR;
   const verifiedState = (r) => (!r ? null : fresh(r.finished_at || r.created_at) ? 'VERIFIED' : 'STALE');
@@ -101,7 +102,7 @@ export function buildRecoveryStatus(inputs, nowMs) {
   // inventory: one row per (backup run, provider); the fields only an evidence record can give stay UNKNOWN
   const evByRun = new Map(evidence.filter((e) => e.kind === 'backup').map((e) => [String(e.run_id), e]));
   const inventory = [];
-  for (const r of [...backups.slice(0, 10), ...panelBackups.slice(0, 10)]) for (const p of PROVIDERS) {
+  for (const r of [...backups.slice(0, 10), ...panelBackups.slice(0, 10), ...intelBackups.slice(0, 10)]) for (const p of PROVIDERS) {
     const pr = r.providers[p], ev = evByRun.get(String(r.id)) || null, rest = restores.find((e) => e.ok === true && e.provider === p && ev && e.stamp === ev.stamp) || null;
     const authenticated = pr.write === 'success' && pr.read === 'success' && r.signed === true;
     inventory.push({ service: r.resource, run_id: r.id, run_url: r.url, at: r.finished_at || r.created_at, provider: p, id: ev ? ev.stamp : null, stamp: ev ? ev.stamp : null, sequence: ev ? ev.sequence : null, bytes: ev ? ev.files && ev.files['d1-export.sql.age'] && ev.files['d1-export.sql.age'].bytes : null, sha256: ev ? ev.files && ev.files['d1-export.sql.age'] && ev.files['d1-export.sql.age'].sha256 : null,
@@ -116,13 +117,18 @@ export function buildRecoveryStatus(inputs, nowMs) {
   indicators.push(!panelBackups.length ? ind('panel_last_backup', 'NOT_RUN', null, null, 'GitHub Actions: backup.yml (panel)', 'the panel database has never been backed up by the pipeline') : pOk ? ind('panel_last_backup', verifiedState(pOk), pOk.id, pOk.finished_at, src(pOk), pLast.id !== pOk.id ? `the latest attempt (run ${pLast.id}) ended ${pLast.conclusion || pLast.status}` : '') : ind('panel_last_backup', 'FAILED', null, pLast.finished_at || pLast.created_at, src(pLast), `every panel backup attempt failed; the latest ended ${pLast.conclusion || pLast.status}`));
   indicators.push(!panelBackups.length ? ind('panel_last_signed', 'NOT_RUN', null, null, 'GitHub Actions: backup.yml (panel)', '') : pSigned ? ind('panel_last_signed', verifiedState(pSigned), pSigned.id, pSigned.finished_at, src(pSigned), '') : ind('panel_last_signed', pOk ? 'FAILED' : 'NOT_RUN', null, null, src(pLast), 'no panel backup reached the signing step'));
   indicators.push(!panelBackups.length ? ind('panel_copies_verified', 'NOT_RUN', null, null, 'GitHub Actions: backup.yml (panel)', '') : ind('panel_copies_verified', pAll === 3 && fresh(pOk.finished_at) ? 'VERIFIED' : pAll === 3 ? 'STALE' : 'FAILED', pAll, pOk ? pOk.finished_at : null, 'GitHub Actions: backup.yml (panel)', pAll === 3 ? 'three independent copies written and read back' : `${pAll} of 3`));
+  // the intelligence database (macguard-intel): same pipeline, weekly, so a copy is fresh for 8 days
+  const iFresh = (at) => at && nowMs - ms(at) <= 8 * 24 * HOUR, iLast = intelBackups[0] || null, iOk = intelBackups.find((r) => r.export === 'success') || null, iSigned = intelBackups.find((r) => r.signed === true) || null, iAll = iOk ? PROVIDERS.filter((p) => iOk.providers[p].write === 'success' && iOk.providers[p].read === 'success').length : 0;
+  indicators.push(!intelBackups.length ? ind('intel_last_backup', 'NOT_RUN', null, null, 'GitHub Actions: backup.yml (intel)', 'the intelligence database has never been backed up by the pipeline') : iOk ? ind('intel_last_backup', (iFresh(iOk.finished_at || iOk.created_at) ? 'VERIFIED' : 'STALE'), iOk.id, iOk.finished_at, src(iOk), iLast.id !== iOk.id ? `the latest attempt (run ${iLast.id}) ended ${iLast.conclusion || iLast.status}` : '') : ind('intel_last_backup', 'FAILED', null, iLast.finished_at || iLast.created_at, src(iLast), `every intelligence backup attempt failed; the latest ended ${iLast.conclusion || iLast.status}`));
+  indicators.push(!intelBackups.length ? ind('intel_last_signed', 'NOT_RUN', null, null, 'GitHub Actions: backup.yml (intel)', '') : iSigned ? ind('intel_last_signed', (iFresh(iSigned.finished_at || iSigned.created_at) ? 'VERIFIED' : 'STALE'), iSigned.id, iSigned.finished_at, src(iSigned), '') : ind('intel_last_signed', iOk ? 'FAILED' : 'NOT_RUN', null, null, src(iLast), 'no intelligence backup reached the signing step'));
+  indicators.push(!intelBackups.length ? ind('intel_copies_verified', 'NOT_RUN', null, null, 'GitHub Actions: backup.yml (intel)', '') : ind('intel_copies_verified', iAll === 3 && iFresh(iOk.finished_at) ? 'VERIFIED' : iAll === 3 ? 'STALE' : 'FAILED', iAll, iOk ? iOk.finished_at : null, 'GitHub Actions: backup.yml (intel)', iAll === 3 ? 'three independent copies written and read back' : `${iAll} of 3`));
   if (inputs.runs === null || inputs.runs === undefined) {                                   // GitHub could not be read: absence of evidence is UNKNOWN, never NOT_RUN or FAILED
-    const derived = new Set(['last_backup', 'last_signed', 'checkpoint_produced', 'rpo_observed', 'copies_verified', 'signature_chain', 'panel_last_backup', 'panel_last_signed', 'panel_copies_verified', ...PROVIDERS.map((p) => `provider_${p}`)]);
+    const derived = new Set(['last_backup', 'last_signed', 'checkpoint_produced', 'rpo_observed', 'copies_verified', 'signature_chain', 'panel_last_backup', 'panel_last_signed', 'panel_copies_verified', 'intel_last_backup', 'intel_last_signed', 'intel_copies_verified', ...PROVIDERS.map((p) => `provider_${p}`)]);
     for (const i of indicators) if (derived.has(i.id)) Object.assign(i, { state: 'UNKNOWN', value: null, observed_at: null, note: 'GitHub Actions could not be read just now' });
     for (const p of PROVIDERS) providers[p] = { state: 'UNKNOWN', write: null, read: null, observed_at: null, run_id: null, note: 'GitHub Actions could not be read just now' };
   }
   const policy = trust ? { ed25519: { fingerprint: trust.ed25519 && trust.ed25519.fingerprint, frozen_at_sequence: trust.ed25519 && trust.ed25519.max_sequence, namespaces: trust.ed25519 && trust.ed25519.namespaces }, sigstore: trust.sigstore || null, age_recipient: trust.age_recipient || null } : null;
-  const failures = [backups[0], panelBackups[0]].filter(Boolean).map((r) => failureOf(r, inputs.jobs && inputs.jobs[r.id], inputs.diagnoses && inputs.diagnoses[r.id])).filter(Boolean);
+  const failures = [backups[0], panelBackups[0], intelBackups[0]].filter(Boolean).map((r) => failureOf(r, inputs.jobs && inputs.jobs[r.id], inputs.diagnoses && inputs.diagnoses[r.id])).filter(Boolean);
   return { failures, indicators, providers, inventory, recent_runs: runs.slice(0, 12).map((r) => ({ id: r.id, url: r.url, event: r.event, kind: r.kind, created_at: r.created_at, conclusion: r.conclusion, status: r.status })), policy, tools: tools || [], definitions: { states: STATES, stale_hours: STALE_HOURS, providers: PROVIDERS } };
 }
 
@@ -173,18 +179,20 @@ export const VIA = ['output', 'attest', 'none'];
 export function validateEvent(body, role) {
   const bad = (m, status = 400) => ({ ok: false, status, error: m });
   if (!body || typeof body !== 'object' || Array.isArray(body)) return bad('a JSON object is required');
-  const allowed = new Set(['event', 'procedure', 'step', 'run', 'via']); for (const k of Object.keys(body)) if (!allowed.has(k)) return bad(`unknown field ${k}`);
+  const allowed = new Set(['event', 'procedure', 'step', 'run', 'via', 'authorization_id']); for (const k of Object.keys(body)) if (!allowed.has(k)) return bad(`unknown field ${k}`);
   if (!EVENTS.includes(body.event)) return bad('unknown event');
   const proc = PROCEDURES[body.procedure]; if (!proc) return bad('unknown procedure');
   if (!/^[A-Za-z0-9-]{8,64}$/.test(String(body.run || ''))) return bad('invalid run id');
-  const rank = { VIEWER: 1, REVIEWER: 2, ADMIN: 3 }[role] || 0;
-  if (rank < (proc.protected ? 3 : 2)) return bad(proc.protected ? 'a protected recovery procedure needs the ADMIN role' : 'reviewer role required', 403);
+  const perm = proc.protected ? 'restore.real.record' : 'restore.drill.record';
+  if (!can(role, perm)) return bad(`the permission ${perm} is required`, 403);
+  if (proc.protected) { if (typeof body.authorization_id !== 'string' || !/^[0-9a-f-]{8,64}$/.test(body.authorization_id)) return bad('a real recovery is recorded only under an authorisation by two identities: authorization_id is required', 403); }
+  else if (body.authorization_id !== undefined) return bad('a drill takes no authorisation');
   const needsStep = body.event === 'step_done' || body.event === 'step_failed';
   if (needsStep) { if (!proc.steps.includes(body.step) || !STEPS[body.step]) return bad('unknown step for this procedure'); } else if (body.step !== undefined) return bad('this event takes no step');
   if (body.event === 'step_done') {
     const kind = STEPS[body.step].check.kind; if (kind === 'none' ? body.via !== 'none' : body.via !== kind) return bad(`this step is confirmed by "${kind}", not by "${body.via}"`);
   } else if (body.via !== undefined) return bad('this event takes no confirmation method');
-  const detail = { run: body.run, ...(needsStep ? { step: body.step } : {}), ...(body.event === 'step_done' ? { via: body.via } : {}), procedure_version: 1 };
+  const detail = { run: body.run, ...(proc.protected ? { authorization_id: body.authorization_id } : {}), ...(needsStep ? { step: body.step } : {}), ...(body.event === 'step_done' ? { via: body.via } : {}), procedure_version: 1 };
   return { ok: true, action: `restore.${body.event}`, target: body.procedure, detail };
 }
 

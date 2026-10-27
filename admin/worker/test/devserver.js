@@ -41,7 +41,8 @@ if (many.length && !empty) {   // the current signed release lists 120 files the
 }
 const sessions = {
   viewer: await w.login('vera', { pull: true }, { id: 11 }), reviewer: await w.login('rita', { push: true }, { id: 12 }), admin: await w.login('ada', { admin: true }, { id: 13 }),
-  nobody: await w.login('sam', { pull: true }, { id: 14 }),   // signed in with GitHub but holds no role
+  nobody: await w.login('sam', { pull: true }, { id: 14 }),
+  publisher: await w.login('pat', { pull: true }, { id: 15 }), security: await w.login('sec', { pull: true }, { id: 16 }),   // explicit grants only: GitHub permission never confers these roles   // signed in with GitHub but holds no role
 };
 w.env.INTEL = newIntelDb(); await seedIntel(w.env.INTEL);   // synthetic promoted intelligence for every family
 w.route(/config\/intel-families\.json$/, () => new Response(readFileSync(new URL('../../../config/intel-families.json', import.meta.url), 'utf8')));   // the real versioned catalogue
@@ -50,7 +51,7 @@ installOps(w, { down: (process.env.MG_OPS_DOWN || '').split(',').filter(Boolean)
 w.account('newbie', 900); w.account('acme-org', 901, 'Organization');   // exist on the faked GitHub, for the add-member flow
 for (const u of Object.values(sessions)) await w.call('GET', '/api/me', { user: u });   // every session asks GitHub once, so the member list knows each repository permission
 for (const [l, id] of [['ada', 13], ['rita', 12], ['vera', 11], ['sam', 14]]) await store.appendAudit(w.db, { actor: l, role: 'NONE', action: 'session.login', target: 'session', detail: { user_id: id } }, new Date().toISOString());
-await w.grant(sessions.admin, 'vera', 'VIEWER');
+await w.grant(sessions.admin, 'vera', 'VIEWER'); await w.grant(sessions.admin, 'pat', 'PUBLISHER'); await w.grant(sessions.admin, 'sec', 'SECURITY_ADMIN');
 w.env.ASSETS = { fetch: async (req) => {
   const p = new URL(req.url).pathname; const f = normalize(join(root, p === '/' ? 'index.html' : p));
   if (!f.startsWith(root) || !existsSync(f)) return new Response('not found', { status: 404 });

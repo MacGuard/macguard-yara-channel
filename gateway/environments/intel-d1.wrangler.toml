@@ -1,0 +1,10 @@
+# Minimal config used ONLY to export the Intelligence D1 (macguard-intel) for backups. It deploys nothing.
+# The account and database ids are identifiers, not secrets.
+name = "macguard-intel-backup"
+account_id = "9e96e19f6dc0ccdd53e02f7c3b5cacab"
+compatibility_date = "2026-08-01"
+
+[[d1_databases]]
+binding = "INTEL"
+database_name = "macguard-intel"
+database_id = "663fa259-cf0f-4224-9892-ed585c6ac560"

@@ -3,22 +3,23 @@
 import { t, has } from '../i18n.js';
 import { h, icon, put, pillGroup, fmtDateTime, bytes, copyButton } from '../ui.js';
 import { api, failure } from '../api.js';
+import { recordsBrowser } from './records.js';
 
-const GROUPS = ['sources', 'detections', 'indicators', 'vulnerabilities', 'context'];
-const FAMILIES = { detections: ['suricata', 'sigma'], indicators: ['ioc', 'hash'], vulnerabilities: ['cve', 'kev', 'advisory'], context: ['attack', 'epss'] };
-const COLS = {
+export const GROUPS = ['sources', 'detections', 'indicators', 'vulnerabilities', 'context'];
+export const FAMILIES = { detections: ['suricata', 'sigma'], indicators: ['ioc', 'hash'], vulnerabilities: ['cve', 'kev', 'advisory'], context: ['attack', 'epss'] };
+export const COLS = {
   detections: [['key', 'ix_c_id'], ['title', 'ix_c_name'], ['source_id', 'ix_c_source'], ['severity', 'ix_c_class'], ['validated', 'ix_c_validated'], ['functional', 'ix_c_functional'], ['performance', 'ix_c_perf'], ['state', 'ix_c_state']],
   indicators: [['title', 'ix_c_value'], ['source_id', 'ix_c_source'], ['first_seen', 'ix_c_first'], ['last_seen', 'ix_c_last'], ['state', 'ix_c_state']],
   vulnerabilities: [['key', 'ix_c_id'], ['title', 'ix_c_name'], ['source_id', 'ix_c_source'], ['score', 'ix_c_cvss'], ['first_seen', 'ix_c_published'], ['updated_at', 'ix_c_updated'], ['state', 'ix_c_state']],
   context: [['key', 'ix_c_id'], ['title', 'ix_c_name'], ['severity', 'ix_c_type'], ['score', 'ix_c_score'], ['updated_at', 'ix_c_updated'], ['state', 'ix_c_state']],
 };
-const label = (prefix, k) => (has(`${prefix}${k}`) ? t(`${prefix}${k}`) : k);
-const num = (n) => (n === null || n === undefined ? '—' : Number(n).toLocaleString(document.documentElement.lang === 'en' ? 'en-US' : 'es-ES'));
+export const label = (prefix, k) => (has(`${prefix}${k}`) ? t(`${prefix}${k}`) : k);
+export const num = (n) => (n === null || n === undefined ? '—' : Number(n).toLocaleString(document.documentElement.lang === 'en' ? 'en-US' : 'es-ES'));
 const okUrl = (u) => typeof u === 'string' && /^https?:\/\/[^\s]+$/.test(u);
 const verdict = (v) => (v === null || v === undefined ? h('span', { class: 'faint', text: '—' }) : h('span', { class: `vd vd-${String(v).toLowerCase().replace(/[^a-z]/g, '')}`, text: v }));
-const stateChip = (s, held) => h('span', { class: s === 'EXPIRED' ? 'chip' : held ? 'chip chip-warn' : 'chip chip-ok', text: s ? label('ix_st_', s) : '—' });
+export const stateChip = (s, held) => h('span', { class: s === 'EXPIRED' ? 'chip' : held ? 'chip chip-warn' : 'chip chip-ok', text: s ? label('ix_st_', s) : '—' });
 
-function cell(r, col) {
+export function cell(r, col) {
   const v = r[col];
   if (col === 'validated' || col === 'functional' || col === 'performance') return h('td', {}, verdict(v));
   if (col === 'state') return h('td', {}, stateChip(v, r.held_back));
@@ -33,7 +34,7 @@ const kv = (rows) => h('dl', { class: 'kv kv-tight' }, ...rows.filter(Boolean).f
 const sha = (s) => (s ? h('span', { class: 'sha mono' }, String(s).slice(0, 16), copyButton(s, `${t('copy')} SHA-256`)) : '—');
 const link = (u, text) => (okUrl(u) ? h('a', { href: u, target: '_blank', rel: 'noopener noreferrer', text: text || u }) : h('span', { text: u || '—' }));
 
-function detailBody(d) {
+export function detailBody(d) {
   const { record: r, run, source } = d, doc = r.doc || {}, fam = r.family, out = [];
   out.push(kv([[t('ix_d_key'), h('span', { class: 'mono', text: r.key })], [t('ix_d_family'), label('ix_f_', fam)], [t('ix_c_state'), stateChip(r.state, r.held_back)], [t('ix_d_updated'), r.updated_at || '—']]));
   if (fam === 'suricata' || fam === 'sigma') {
@@ -78,53 +79,11 @@ export async function renderIntel(ctx) {
   const counts = (g) => (g === 'sources' ? sources.length : sources.filter((s) => s.grp === g).reduce((a, s) => a + s.records, 0));
   const tabs = pillGroup(t('ix_group'), GROUPS.map((g) => [g, t(`ix_g_${g}`), counts(g)]), group, (v) => go(`#/intel?group=${v}`, true));
   const scope = h('p', { class: 'note' }, st && st.runs.last_run ? t('ix_scope', { n: st.runs.n, first: (st.runs.first_run || '').slice(0, 10), last: (st.runs.last_run || '').slice(0, 10) }) : t('ix_scope_none'), ' ', t('ix_scope_note'));
-  const body = h('div', {}), sheet = h('aside', { class: 'sheet-side', 'aria-label': t('ix_d_title'), hidden: true });
-  put(root, head, h('div', { class: 'field' }, tabs), scope, h('div', { class: 'master-detail' }, body, sheet));
-
-  if (group === 'sources') { put(body, sourcesTable(sources, fam.status === 200 ? fam.data : null)); document.title = `${t('ix_title')} · MacGuard Quarantine`; return; }
-
-  // ---- a family group: filters (list-only reload: the search input keeps its node, focus and caret), keyset pagination, side sheet ----
-  const f = { source: query.get('source') || '', state: query.get('state') || '', q: query.get('q') || '', family: query.get('family') || '' };
-  const fams = FAMILIES[group], cols = COLS[group], inGroup = sources.filter((s) => s.grp === group);
-  const srcPills = pillGroup(t('ix_c_source'), [['', t('all')], ...inGroup.map((s) => [s.id, s.name, s.records])], f.source, (v) => { f.source = v; reload(); });
-  const famPills = fams.length > 1 ? pillGroup(t('ix_d_family'), [['', t('all')], ...fams.map((x) => [x, label('ix_f_', x)])], f.family, (v) => { f.family = v; reload(); }) : null;
-  const heldPills = pillGroup(t('ix_c_state'), [['', t('all')], ['RETENIDA', label('ix_st_', 'RETENIDA')], ['quarantined', label('ix_st_', 'quarantined')], ['approved', label('ix_st_', 'approved')], ['EXPIRED', label('ix_st_', 'EXPIRED')]].filter(([v]) => group === 'detections' || v === '' || v === 'RETENIDA' || (group === 'indicators' && v === 'EXPIRED')), f.state, (v) => { f.state = v; reload(); });
-  const search = h('input', { class: 'input', id: 'ix-search', type: 'search', autocomplete: 'off', value: f.q, placeholder: '' });
-  const total = h('p', { class: 'note', 'aria-live': 'polite' }), tbody = h('tbody', {}), more = h('div', { class: 'pager' });
-  const table = h('div', { class: 'dt-wrap', role: 'region', 'aria-label': t(`ix_g_${group}`), tabindex: '0' }, h('table', { class: 'dt dt-sel' }, h('caption', { class: 'sr', text: t(`ix_g_${group}`) }),
-    h('thead', {}, h('tr', {}, ...cols.map(([, k]) => h('th', { scope: 'col', text: t(k) })))), tbody));
-  const row = (lab, node) => h('div', { class: 'filter-row' }, h('span', { class: 'fl', text: lab }), node);
-  put(body, h('div', { class: 'toolbar' }, h('div', { class: 'field grow' }, h('label', { for: 'ix-search', text: t('ix_search') }), search)), famPills ? row(t('ix_d_family'), famPills) : null, row(t('ix_c_source'), srcPills), row(t('ix_c_state'), heldPills), total, table, more);
-
-  let seq = 0, cursor = null, selected = null;
-  const url = () => { const p = new URLSearchParams({ group }); for (const k of ['source', 'state', 'q', 'family']) if (f[k]) p.set(k, f[k]); return `#/intel?${p}`; };
-  async function load(append) {
-    const mine = ++seq; if (!append) { cursor = null; put(tbody); }
-    const p = new URLSearchParams({ limit: '50', family: f.family || fams.join(',') }); if (f.source) p.set('source', f.source); if (f.state) p.set('state', f.state); if (f.q) p.set('q', f.q); if (cursor) p.set('cursor', cursor);
-    const r = await api('GET', `/api/intel/records?${p}`); if (mine !== seq) return;
-    if (r.status !== 200) { total.textContent = failure(r, t('err_generic')); return; }
-    total.textContent = t('ix_total', { n: num(r.data.total) });
-    if (!r.data.items.length && !append) put(tbody, h('tr', {}, h('td', { colspan: cols.length, class: 'empty-cell' }, t('ix_none'))));
-    for (const rec of r.data.items) {
-      const tr = h('tr', { tabindex: '0', 'aria-selected': 'false', 'data-id': rec.id }, ...cols.map(([c]) => cell(rec, c)));
-      const open = () => openSheet(rec.id, tr); tr.addEventListener('click', open); tr.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); open(); } });
-      tbody.append(tr);
-    }
-    cursor = r.data.next_cursor; put(more, cursor ? h('button', { type: 'button', class: 'btn btn-sm', onclick: () => load(true) }, t('ix_more')) : null);
-  }
-  async function openSheet(id, tr) {
-    if (selected) selected.setAttribute('aria-selected', 'false'); selected = tr; tr.setAttribute('aria-selected', 'true'); sheet.hidden = false; put(sheet, h('div', { class: 'skeleton sk-block' }));
-    const r = await api('GET', `/api/intel/records/${encodeURIComponent(id)}`);
-    if (r.status !== 200) { put(sheet, h('p', { class: 'alert alert-bad', role: 'alert' }, failure(r, t('err_generic')))); return; }
-    const close = h('button', { type: 'button', class: 'btn btn-sm btn-ghost', 'aria-label': t('close') }, icon('x')); close.addEventListener('click', () => { sheet.hidden = true; tr.setAttribute('aria-selected', 'false'); tr.focus(); });
-    put(sheet, h('div', { class: 'flex-between' }, h('h2', { id: 'ix-sheet-title', text: r.data.record.title || r.data.record.key }), close), ...detailBody(r.data));
-    sheet.setAttribute('aria-labelledby', 'ix-sheet-title');
-  }
-  function reload() { history.replaceState(null, '', url()); load(false); }
-  let timer; search.addEventListener('input', () => { clearTimeout(timer); timer = setTimeout(() => { f.q = search.value.trim(); reload(); }, 300); });
-  body.parentElement.addEventListener('keydown', (e) => { if (e.key === 'Escape' && !sheet.hidden) { sheet.hidden = true; if (selected) { selected.setAttribute('aria-selected', 'false'); selected.focus(); } } });
+  const body = h('div', { class: 'minw0' });
+  put(root, head, h('div', { class: 'field' }, tabs), scope, body);
   document.title = `${t('ix_title')} · MacGuard Quarantine`;
-  await load(false);
+  if (group === 'sources') { put(body, sourcesTable(sources, fam.status === 200 ? fam.data : null)); return; }
+  await recordsBrowser(body, { ctx, scope: null, families: FAMILIES[group], cols: COLS[group], query, urlFor: (f) => { const p = new URLSearchParams({ group }); for (const k of ['source', 'state', 'q', 'family']) if (f[k]) p.set(k, f[k]); return `#/intel?${p}`; } });
 }
 
 export function sourcesTable(sources, fam) {

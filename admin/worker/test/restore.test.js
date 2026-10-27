@@ -94,7 +94,12 @@ test('POST /api/restore/event: typed and audited; a protected procedure needs AD
   const run = '9f2b6a40-1c3d-4e5f-8a7b-0c1d2e3f4a5b', post = (user, body) => w.call('POST', '/api/restore/event', { user, body });
   assert.equal((await post(vera, { event: 'procedure_started', procedure: 'drill', run })).status, 403);
   assert.equal((await post(rita, { event: 'procedure_started', procedure: 'd1_only', run })).status, 403, 'protected procedure: ADMIN only'); assert.equal((await post(rita, { event: 'procedure_started', procedure: 'drill', run })).status, 200);
-  assert.equal((await post(ada, { event: 'procedure_started', procedure: 'd1_only', run })).data.duplicate, false);
+  assert.equal((await post(ada, { event: 'procedure_started', procedure: 'd1_only', run })).status, 403, 'a protected procedure is not recorded without an authorisation by two identities');
+  const sec = await w.login('sera', { push: true }, { id: 9 }); await w.grant(ada, 'sera', 'SECURITY_ADMIN');
+  const ask = await w.call('POST', '/api/approvals', { user: ada, body: { op: 'restore.real', request_id: 'req-restore-0000001', reason: 'drill of the real procedure', params: { procedure: 'd1_only', run, target: 'staging-d1-copy', backup: { stamp: '20261025T224553Z', provider: 'b2' }, rollback_plan: 'keep the current database untouched and swap back' } } }); assert.equal(ask.status, 200, JSON.stringify(ask.data));
+  assert.equal((await w.call('POST', `/api/approvals/${ask.data.approval.id}/approve`, { user: ada, body: { request_id: 'req-restore-0000002', expect_version: ask.data.approval.version, reason: 'I asked for it myself' } })).status, 403, 'nobody authorises their own request');
+  const okd = await w.call('POST', `/api/approvals/${ask.data.approval.id}/approve`, { user: sec, body: { request_id: 'req-restore-0000003', expect_version: ask.data.approval.version, reason: 'plan and target checked' } }); assert.equal(okd.status, 200, JSON.stringify(okd.data));
+  assert.equal((await post(ada, { event: 'procedure_started', procedure: 'd1_only', run, authorization_id: ask.data.approval.id })).data.duplicate, false);
   const ok = { event: 'step_done', procedure: 'drill', step: 'machine_os', run, via: 'output' }; assert.equal((await post(rita, ok)).data.duplicate, false); assert.equal((await post(rita, ok)).data.duplicate, true, 'the same event twice is recorded once');
   for (const bad of [{ ...ok, step: 'cutover' }, { ...ok, step: 'nope' }, { ...ok, via: 'attest' }, { ...ok, via: 'none' }, { ...ok, command: 'rm -rf /' }, { ...ok, output: 'x'.repeat(10) }, { event: 'step_done', procedure: 'drill', run }, { ...ok, run: 'x' }, { ...ok, event: 'execute' }, { ...ok, procedure: 'nope' }, { event: 'procedure_started', procedure: 'drill', run, step: 'machine_os' }, null, []])
     assert.equal((await post(rita, bad)).status, 400, JSON.stringify(bad));
@@ -130,4 +135,15 @@ test('a failed export is ONE failure with its cause; the jobs that did not run a
   assert.equal(failureOf(run(9, 1, 'success'), [], null), null, 'a good run has no failure'); assert.equal(failureOf(run(8, 3, 'failure'), failed, null).cause_known, false, 'without an annotation the cause is unknown, not guessed');
   for (const bad of ['', 'macguard-backup: kind=evil phase=export', msg + ' <script>', 'x']) assert.equal(parseDiagnosis(bad), null, bad);
   for (const m of [msg, `${msg} http=401`, 'macguard-backup: phase=write kind=timeout', 'macguard-backup: resource=panel phase=verify kind=verify_failed']) assert.deepEqual(parseDiagnosis(m), parseAnnotation(m), 'the Worker and the workflow parse the same way');
+});
+
+test('the intelligence database is a third resource: never-backed-up is NOT_RUN, a weekly copy is fresh for eight days, its failures and inventory are its own and never hide the gateway or the panel', () => {
+  const titled = (r, title) => ({ ...r, display_title: title });
+  const none = buildRecoveryStatus({ runs: [titled(run(21, 1), 'backup panel'), titled(run(20, 2), 'backup gateway'), run(19, 50, 'success')], jobs: { 21: fullJobs(), 20: fullJobs(), 19: fullJobs() }, evidence: [], trust: TRUST }, NOW);
+  assert.equal(by(none, 'intel_last_backup').state, 'NOT_RUN'); assert.equal(by(none, 'intel_copies_verified').state, 'NOT_RUN'); assert.equal(by(none, 'panel_last_backup').state, 'VERIFIED');
+  const week = buildRecoveryStatus({ runs: [titled(run(21, 1), 'backup panel'), titled(run(20, 2), 'backup gateway'), titled(run(22, 6 * 24), 'backup intel')], jobs: { 21: fullJobs(), 20: fullJobs(), 22: fullJobs() }, evidence: [], trust: TRUST }, NOW);
+  assert.equal(by(week, 'intel_last_backup').state, 'VERIFIED'); assert.equal(by(week, 'intel_copies_verified').value, 3); assert.equal(by(week, 'intel_copies_verified').state, 'VERIFIED', 'six days old is fresh for a weekly resource'); assert.equal(by(week, 'panel_copies_verified').value, 3);
+  assert.deepEqual([...new Set(week.inventory.map((r) => r.service))].sort(), ['gateway', 'intel', 'panel']);
+  const failed = buildRecoveryStatus({ runs: [titled(run(21, 1), 'backup panel'), titled(run(20, 2), 'backup gateway'), titled(run(22, 3, 'failure'), 'backup intel')], jobs: { 21: fullJobs(), 20: fullJobs(), 22: [job('export', 'failure', at(3))] }, evidence: [], trust: TRUST }, NOW);
+  assert.equal(by(failed, 'intel_last_backup').state, 'FAILED'); assert.equal(by(failed, 'last_backup').state, 'VERIFIED', 'an intelligence failure does not touch the gateway'); assert.deepEqual(failed.failures.map((f) => f.resource), ['intel']);
 });

@@ -1,6 +1,6 @@
 // Audit timeline: who accessed what, reviewed what and decided what, grouped by day, filterable, with cryptographic verification for administrators.
 import { t } from '../i18n.js';
-import { h, icon, fmtDate, fmtTime, shortSha, rulesText, put, pillGroup } from '../ui.js';
+import { h, icon, fmtDate, fmtTime, shortSha, rulesText, put, pillGroup, can } from '../ui.js';
 import { api, failure } from '../api.js';
 
 const FAMILIES = ['', 'decision', 'access', 'session', 'member', 'pipeline', 'retest'];
@@ -15,7 +15,7 @@ function describe(e) {
 const ruleTarget = (e) => (/^(decision|access|retest)\./.test(e.action) && /^[0-9a-f-]{8,64}$/.test(e.target) ? e.target : (e.detail?.applied || []).length === 1 ? e.detail.applied[0].id : null);
 
 export async function renderAudit(ctx) {
-  const { root, me } = ctx, isAdmin = me.role === 'ADMIN';
+  const { root, me } = ctx, isAdmin = can(me, 'audit.verify');
   const f = { family: '', actor: '' }; let before = null;
   const fam = pillGroup(t('a_family'), FAMILIES.map((x) => [x, t(`f_${x || 'all'}`)]), f.family, (v) => { f.family = v; fam.redraw(v); load(true); });
   const actor = h('input', { class: 'input', id: 'a-actor', type: 'search', autocomplete: 'off', placeholder: t('a_actor_ph') });
@@ -25,7 +25,7 @@ export async function renderAudit(ctx) {
     verifyOut.replaceChildren(r.status !== 200 ? h('p', { class: 'alert alert-bad', role: 'alert' }, icon('alert'), failure(r, t('err_generic'))) : r.data.ok ? h('p', { class: 'alert alert-ok' }, icon('check'), t('a_ok', { n: r.data.entries, head: shortSha(r.data.head || '') })) : h('p', { class: 'alert alert-bad', role: 'alert' }, icon('alert'), t('a_bad', { at: r.data.at ?? '?', msg: r.data.error || '' })));
   } }, icon('lock'), t('a_verify')), verifyOut) : null;
 
-  put(root, h('div', { class: 'page-head' }, h('div', {}, h('h1', { id: 'page-title', tabindex: '-1', text: t('a_title') }), h('p', { text: t('a_lead') }))), verify,
+  put(root, ctx.embedded ? null : h('div', { class: 'page-head' }, h('div', {}, h('h1', { id: 'page-title', tabindex: '-1', text: t('a_title') }), h('p', { text: t('a_lead') }))), ctx.embedded ? null : verify,
     h('div', { class: 'field' }, h('span', { text: t('a_family') }), fam), h('div', { class: 'field' }, h('label', { for: 'a-actor', text: t('a_actor') }), actor), list, more);
 
   let lastDay = '';

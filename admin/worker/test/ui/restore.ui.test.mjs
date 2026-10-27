@@ -25,7 +25,7 @@ for (const name of WANT) {
     after(async () => { await browser.close(); srv.stop(); srvDown.stop(); });
 
     test('navigation by role: a reviewer and an admin see the Restauración entry; a viewer neither sees it nor can open it', async () => {
-      for (const role of ['reviewer', 'admin']) { const page = await newPage(browser, srv, role, VIEWPORTS.desktop); await goto(page, srv, '/#/dashboard'); assert.equal(await page.getByRole('link', { name: 'Restauración' }).count(), 1, role); await page.getByRole('link', { name: 'Restauración' }).click(); await page.waitForSelector('h1:has-text("Restauración y recuperación")'); assert.deepEqual(page.errors, []); }
+      for (const role of ['reviewer', 'admin']) { const page = await newPage(browser, srv, role, VIEWPORTS.desktop); await goto(page, srv, '/#/dashboard'); assert.equal(await page.getByRole('link', { name: 'Restauración' }).count(), 1, role); await page.getByRole('link', { name: 'Restauración' }).click(); await page.waitForSelector('h1:has-text("Restauración y recuperación")'); assert.match(await page.locator('section[aria-labelledby=rv-h]').innerText(), /Veredicto de recuperación[\s\S]*Ninguno[\s\S]*No/, 'the verdict says there is no proven restore'); assert.deepEqual(page.errors, []); }
       const v = await newPage(browser, srv, 'viewer', VIEWPORTS.desktop); await goto(v, srv, '/#/dashboard'); assert.equal(await v.getByRole('link', { name: 'Restauración' }).count(), 0);
       await v.goto(srv.base + '/#/restore'); await v.waitForSelector('#page-title'); assert.notEqual(await v.locator('h1').innerText(), 'Restauración y recuperación', 'a viewer is sent elsewhere');
       const r = await v.evaluate(() => fetch('/api/restore/status').then((x) => x.status)); assert.equal(r, 403);
@@ -38,7 +38,7 @@ for (const name of WANT) {
       assert.match(await card('Último backup creado').innerText(), /Verificado/); assert.match(await card('Último backup firmado').innerText(), /Verificado/); assert.match(await card('Copias comprobadas').innerText(), /3 \/ 3/);
       assert.match(await card('Último checkpoint confirmado fuera').innerText(), /Desconocido/); assert.match(await card('Última restauración exitosa').innerText(), /No ejecutado/); assert.match(await card('RTO observado (simulacros)').innerText(), /No ejecutado/);
       assert.match(await card('Secretos necesarios (sin valores)').innerText(), /Desconocido/); assert.match(await card('Backblaze B2').innerText(), /Verificado/); assert.match(await card('Último backup creado').innerText(), /GitHub Actions run 5001/);
-      assert.match(await page.locator('.rs-pol, section.card').first().innerText(), /age1synthetic/); assert.deepEqual(page.errors, []);
+      assert.match(await page.locator('section[aria-labelledby=rs-pol]').innerText(), /age1synthetic/); assert.deepEqual(page.errors, []);
       await page.getByRole('button', { name: 'EN' }).click(); await page.waitForSelector('h1:has-text("Restore and recovery")'); assert.match(await page.locator('.rs-ind').first().innerText(), /Last backup created|Verified/);
     });
 
@@ -102,7 +102,10 @@ for (const name of WANT) {
       const names = await rev.locator('.rs-step-link span:nth-child(2)').allInnerTexts(); assert.match(names[0], /Declarar el incidente/); assert.match(names[1], /Contención inicial/);
       const adm = await newPage(browser, srv, 'admin', VIEWPORTS.desktop); await goto(adm, srv, '/#/restore?tab=assistant&proc=compromise'); await adm.getByRole('button', { name: 'Recuperación real' }).click(); assert.equal(await adm.locator('.rs-detail .rs-attest').count(), 1, 'the first step asks for an attestation');
       await adm.getByRole('button', { name: 'Confirmar y registrar' }).click(); assert.match(await adm.locator('.rs-attest .rs-bad').innerText(), /Marca todas/);
-      for (const c of await adm.locator('.rs-attest input[type=checkbox]').all()) await c.check(); await adm.getByRole('button', { name: 'Confirmar y registrar' }).click(); await adm.waitForSelector('.alert-ok');
+      const confirm = async () => { for (const c of await adm.locator('.rs-attest input[type=checkbox]').all()) await c.check(); await adm.getByRole('button', { name: 'Confirmar y registrar' }).click(); };
+      await confirm(); await adm.getByText(/autorización de dos identidades/).first().waitFor({ timeout: 8000 });
+      await adm.waitForTimeout(500); const refused = await adm.evaluate(() => fetch('/api/audit?family=restore').then((r) => r.json())); assert.ok(!refused.entries.some((e) => e.action === 'restore.step_done' && e.target === 'compromise'), 'nothing was recorded without the authorisation of two identities (the recorded path is covered in approvals_api.test.js)');
+      return;
       let audit; for (let i = 0; i < 20; i++) { audit = await adm.evaluate(() => fetch('/api/audit?family=restore').then((r) => r.json())); if (audit.entries.some((e) => e.action === 'restore.step_done' && e.target === 'compromise')) break; await adm.waitForTimeout(150); } assert.ok(audit.entries.some((e) => e.action === 'restore.step_done' && e.target === 'compromise'), 'recorded in the audit chain');
     });
 

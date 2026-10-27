@@ -3,7 +3,7 @@ import { DatabaseSync } from 'node:sqlite';
 import { readFileSync } from 'node:fs';
 export function newDb(schemaFile = '../schema.sql') {
   const db = new DatabaseSync(':memory:');
-  db.exec(readFileSync(new URL(schemaFile, import.meta.url), 'utf8'));
+  for (const f of [].concat(schemaFile)) db.exec(readFileSync(new URL(f, import.meta.url), 'utf8'));
   const stmt = (sql) => {
     let args = [];
     const s = { bind(...a) { args = a.map((x) => (x === undefined ? null : x)); return s; },

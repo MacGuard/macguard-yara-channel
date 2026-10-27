@@ -40,6 +40,8 @@ export function h(tag, attrs, ...kids) {
   return e;
 }
 /** Replace a node's children, ignoring null/false entries (replaceChildren would print them as text). */
+/** Permission check for the screen only (the server decides): the list comes from /api/me. */
+export const can = (me, perm) => !!(me && Array.isArray(me.permissions) && me.permissions.includes(perm));
 export const put = (parent, ...kids) => { parent.replaceChildren(...kids.flat(Infinity).filter((k) => k !== null && k !== undefined && k !== false)); return parent; };
 export const clear = (n) => { while (n.firstChild) n.removeChild(n.firstChild); return n; };
 
@@ -60,7 +62,7 @@ export function rulesText(n) { return n === 1 ? t('rules_one') : t('rules_n', { 
 // ---- badges ----
 const STATE_CLASS = { PENDING: 'pending', UNDER_REVIEW: 'review', APPROVED_PENDING_VALIDATION: 'approved', REJECTED: 'rejected', RELEASED: 'released' };
 export const stateBadge = (s) => h('span', { class: `badge badge-${STATE_CLASS[s] || 'neutral'}`, text: t(`st_${s}`) });
-export const roleBadge = (r) => h('span', { class: `badge ${r === 'ADMIN' ? 'badge-admin' : r === 'NONE' ? 'badge-neutral badge-none' : r === 'REVIEWER' ? 'badge-review' : 'badge-neutral'}`, text: t(`role_${r}`) });
+export const roleBadge = (r) => h('span', { class: `badge ${r === 'ADMIN' || r === 'SECURITY_ADMIN' ? 'badge-admin' : r === 'NONE' ? 'badge-neutral badge-none' : r === 'REVIEWER' || r === 'PUBLISHER' ? 'badge-review' : 'badge-neutral'}`, text: t(`role_${r}`) });
 
 export function avatar(userId, login, size = 36) {
   const fallback = () => h('div', { class: `avatar avatar-fallback ${size > 40 ? 'avatar-lg' : ''}`, 'aria-hidden': 'true', text: (login || '?').slice(0, 1).toUpperCase() });

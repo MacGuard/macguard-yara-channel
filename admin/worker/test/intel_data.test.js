@@ -20,7 +20,7 @@ async function seed(db) {
 async function setup(bound = true) {
   const w = await world(); const admin = await w.login('ada', { admin: true }, { id: 13 }), rev = await w.login('rita', { push: true }, { id: 12 }), viewer = await w.login('vera', { pull: true }, { id: 11 });
   for (const u of [admin, rev, viewer]) await w.call('GET', '/api/me', { user: u }); await w.grant(admin, 'vera', 'VIEWER');
-  if (bound) { w.env.INTEL = newDb('../migrations-intel/0001_intel.sql'); await seed(w.env.INTEL); }
+  if (bound) { w.env.INTEL = newDb(['../migrations-intel/0001_intel.sql', '../migrations-intel/0002_decisions.sql', '../migrations-intel/0003_effective_state.sql']); await seed(w.env.INTEL); }
   return { w, admin, rev, viewer };
 }
 const get = (w, user, p) => w.call('GET', `/api/intel/${p}`, { user });
@@ -28,7 +28,7 @@ const get = (w, user, p) => w.call('GET', `/api/intel/${p}`, { user });
 test('roles and binding: a viewer is refused, a reviewer reads, writes are refused, an unbound database says so', async () => {
   const { w, rev, viewer, admin } = await setup();
   assert.equal((await get(w, viewer, 'sources')).status, 403); assert.equal((await w.call('GET', '/api/intel/sources')).status, 401); assert.equal((await get(w, rev, 'sources')).status, 200); assert.equal((await get(w, admin, 'stats')).status, 200);
-  assert.equal((await w.call('POST', '/api/intel/records', { user: admin, body: {} })).status, 405); assert.equal((await get(w, rev, 'nope')).status, 404);
+  assert.equal((await w.call('POST', '/api/intel/records', { user: admin, body: {} })).status, 404, 'a write to a read-only route is an unknown route: default deny'); assert.equal((await get(w, rev, 'nope')).status, 404);
   const none = await setup(false); const r = await get(none.w, none.rev, 'records'); assert.deepEqual([r.status, r.data.code], [503, 'intel_store_unavailable']);
 });
 
@@ -48,9 +48,9 @@ test('keyset pagination visits every record exactly once, in id order and in sco
 
 test('filters, escaped search and limits: a wildcard is literal, an injection attempt is inert, the list never carries the document', async () => {
   const { w, rev } = await setup(); const q = async (s) => get(w, rev, `records?${s}`);
-  assert.equal((await q('family=sigma')).data.total, 5); assert.equal((await q('family=sigma,kev')).data.total, 255, 'a list of families is one query'); assert.equal((await q('family=sigma,weapon')).status, 400); assert.equal((await q(`family=${'kev,'.repeat(7)}kev`)).status, 400); assert.equal((await q('family=kev&state=RETENIDA&limit=1')).data.items.length, 1); assert.equal((await q('family=kev&held_back=0')).data.total, 0);
-  assert.equal((await q('q=CVE-2024-1007')).data.items[0].key, 'CVE-2024-1007'); assert.equal((await q('q=%25')).data.total, 1, '"%" is literal: it finds only the one title that contains a percent sign, not everything'); assert.equal((await q('q=100%25_wild')).data.total, 1, 'a literal wildcard text is found');
-  const inj = await q(`q=${encodeURIComponent("' OR 1=1 --")}`); assert.equal(inj.status, 200); assert.equal(inj.data.total, 0);
+  assert.equal((await q('family=sigma')).data.total, 5); assert.equal((await q('family=sigma,kev')).data.total, 255, 'a list of families is one query'); assert.equal((await q('family=sigma,weapon')).status, 400); assert.equal((await q(`family=${'kev,'.repeat(7)}kev`)).status, 400); assert.equal((await q('family=kev&state=RETENIDA&limit=1')).data.items.length, 1); { const hb = (await q('family=kev&held_back=0')).data; assert.equal(hb.items.length, 0); assert.equal(hb.total, null, 'a total the snapshot cannot answer is null, never a scan'); }
+  assert.equal((await q('q=CVE-2024-1007')).data.items[0].key, 'CVE-2024-1007'); assert.equal((await q('q=%25')).data.items.length, 1, '"%" is literal: it finds only the one title that contains a percent sign, not everything'); assert.equal((await q('q=100%25_wild')).data.items.length, 1, 'a literal wildcard text is found');
+  const inj = await q(`q=${encodeURIComponent("' OR 1=1 --")}`); assert.equal(inj.status, 200); assert.equal(inj.data.items.length, 0);
   assert.equal((await q('limit=100000')).data.items.length, 200, 'the limit is capped, not trusted'); const one = (await q('limit=1')).data.items[0]; assert.ok(!('doc' in one) && !('body' in one));
   for (const bad of ['family=weapon', 'source=A%20B', 'limit=0', 'limit=abc', 'sort=password', 'state=1;drop', 'held_back=2', 'cursor=@@', `q=${'x'.repeat(81)}`]) assert.equal((await q(bad)).status, 400, bad);
   assert.equal((await q(`cursor=${btoa(JSON.stringify({ id: '../x' }))}`)).status, 400);
@@ -71,4 +71,13 @@ test('events: incremental reading with after, the head cursor, secrets masked on
   const inc = (await get(w, rev, `events?after=${head}`)).data; assert.equal(inc.items.length, 1); assert.ok(!/ABCDEF|GHIJKL|ghp_A/.test(inc.items[0].message), inc.items[0].message); assert.match(inc.items[0].message, /\[redacted\]/);
   assert.equal((await get(w, rev, `events?after=1&before=9`)).status, 400); assert.equal((await get(w, rev, 'events?after=-1')).status, 400);
   const st = (await get(w, rev, 'stats')).data; assert.deepEqual(st.events.by_level.map((x) => x.level).sort(), ['ERROR', 'INFO', 'INFO', 'WARN', 'WARN'].filter((v, i, a) => a.indexOf(v) === i).sort()); assert.equal(st.runs.items.length, 2); assert.equal(st.runs.items[0].accepted, 250);
+});
+
+test('events: text search and source filter are bounded, wildcards in the text are literal, and the filters combine', async () => {
+  const { w, rev } = await setup(); const ins = (lvl, msg, src) => w.env.INTEL.prepare('INSERT INTO intel_events (ts,level,component,module,message,source_id,family) VALUES (?,?,?,?,?,?,?)').bind(NOW, lvl, 'intel.fetch', 'Fetcher', msg, src, 'kev').run();
+  await ins('INFO', 'downloaded 100% of the file', 'cisa-kev'); await ins('INFO', 'downloaded 1000 of the file', 'cisa-kev'); await ins('ERROR', 'timeout while downloading', 'sigmahq');
+  const n = async (q) => (await get(w, rev, `events?${q}`)); const count = async (q) => (await n(q)).data.items.length;
+  assert.equal(await count('q=100%25'), 1, 'a percent sign in the text is literal, not a wildcard'); assert.equal(await count('q=download'), 5, 'message match is case-insensitive substring'); assert.equal(await count('q=fetcher'), 3, 'module matches too');
+  assert.equal(await count('source_id=cisa-kev'), 2); assert.equal(await count('source_id=sigmahq&level=ERROR&q=timeout'), 1, 'filters combine');
+  for (const bad of ['q=a', `q=${'x'.repeat(65)}`, 'source_id=a%20b', 'source_id=%27%3B--']) assert.equal((await n(bad)).status, 400, bad);
 });

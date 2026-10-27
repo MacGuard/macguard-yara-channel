@@ -19,13 +19,14 @@ on:
       resource:
         description: 'which database to protect (separate prefix, chain, manifests and evidence per resource)'
         type: choice
-        options: [gateway, panel]
+        options: [gateway, panel, intel]
         default: gateway
   schedule:
     - cron: '23 3 * * *'   # gateway
     - cron: '53 3 * * *'   # panel (the panel's own D1: macguard-quarantine)
+    - cron: '23 4 * * 0'   # intel (macguard-intel, weekly: ~75k rows read per export, 1.5% of the free daily read quota; budget in docs/audit/INCIDENT-D1-QUOTA-2026-10-26.md)
 
-run-name: backup ${{ inputs.resource || (github.event.schedule == '53 3 * * *' && 'panel' || 'gateway') }}${{ inputs.mode == 'selftest' && ' (selftest)' || '' }}
+run-name: backup ${{ inputs.resource || (github.event.schedule == '53 3 * * *' && 'panel' || github.event.schedule == '23 4 * * 0' && 'intel' || 'gateway') }}${{ inputs.mode == 'selftest' && ' (selftest)' || '' }}
 
 permissions: {}
 
@@ -35,7 +36,7 @@ concurrency:
 
 env:
   WORK: ${{ github.workspace }}/.backup-work
-  RESOURCE: ${{ inputs.resource || (github.event.schedule == '53 3 * * *' && 'panel' || 'gateway') }}
+  RESOURCE: ${{ inputs.resource || (github.event.schedule == '53 3 * * *' && 'panel' || github.event.schedule == '23 4 * * 0' && 'intel' || 'gateway') }}
 
 jobs:
   fetch:

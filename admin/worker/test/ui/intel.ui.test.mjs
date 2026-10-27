@@ -24,8 +24,8 @@ for (const name of WANT) {
     after(async () => { await browser.close(); srv.stop(); });
 
     test('Fuentes: every source with its real last run, connection state and reasons; sources without a connector say why; nothing is invented', async () => {
-      const page = await open(browser, srv, 'reviewer', VIEWPORTS.desktop, '#/dashboard'); await page.getByRole('link', { name: 'Inteligencia' }).click(); await page.waitForSelector('.dt');
-      const t = await page.locator('.dt').innerText(); assert.match(t, /CISA Known Exploited Vulnerabilities/); assert.match(t, /Conectada/); assert.match(t, /1\.?25|120/); assert.match(t, /MalwareBazaar/); assert.match(t, /Bloqueada/); assert.match(t, /clave API/); assert.match(t, /No programada/); assert.match(t, /Parcial/);
+      const page = await open(browser, srv, 'reviewer', VIEWPORTS.desktop, '#/dashboard'); await page.getByRole('link', { name: 'Inteligencia' }).click(); await page.waitForSelector('table.in-wide');
+      const t = await page.locator('table.in-wide').innerText(); assert.match(t, /CISA Known Exploited Vulnerabilities/); assert.match(t, /Conectada/); assert.match(t, /1\.?25|120/); assert.match(t, /MalwareBazaar/); assert.match(t, /Bloqueada/); assert.match(t, /clave API/); assert.match(t, /No programada/); assert.match(t, /Parcial/);
       assert.match(await page.locator('main').innerText(), /ejecuciones locales promovidas/); assert.deepEqual(page.errors, []);
     });
 
@@ -58,8 +58,9 @@ for (const name of WANT) {
     test('dashboard, activity, quarantine and published show the real Intelligence data with period, unit, source and coverage; nothing published outside YARA', async () => {
       const page = await open(browser, srv, 'reviewer', VIEWPORTS.desktop, '#/dashboard'); await page.waitForSelector('.charts'); const t = await page.locator('.charts').innerText();
       assert.match(t, /Registros por familia/); assert.match(t, /Periodo: 2026-10-25/); assert.match(t, /D1 macguard-intel/); assert.match(t, /no es una serie temporal continua/); assert.match(t, /Funcionalmente verificadas: 0/); assert.equal(await page.locator('.charts svg').count(), 3);
-      await page.goto(srv.base + '/#/quarantine'); await page.waitForFunction(() => /Retenido de otras familias/.test(document.body.innerText)); assert.match(await page.locator('main').innerText(), /Suricata/);
-      await page.goto(srv.base + '/#/published'); await page.waitForFunction(() => /Otras familias: publicado/.test(document.body.innerText)); assert.match(await page.locator('main').innerText(), /Solo YARA figura en una release firmada/);
+      assert.match(await page.locator('main').innerText(), /Retenidas, en cuarentena y rechazadas por familia/); assert.match(await page.locator('.mf-matrix').innerText(), /CVE[\s\S]*ATT|ATT[\s\S]*CVE/, 'the dashboard matrix covers the other families');
+      await page.goto(srv.base + '/#/quarantine?fam=other'); await page.waitForSelector('.dt-sel tbody tr'); assert.match(await page.locator('main').innerText(), /Suricata/); assert.match(await page.locator('main').innerText(), /Otras familias/);
+      await page.goto(srv.base + '/#/published?fam=other'); await page.waitForFunction(() => /Ningún elemento de estas familias está aprobado o publicado/.test(document.body.innerText));
       await page.goto(srv.base + '/#/activity'); await page.waitForFunction(() => /Ejecuciones de ingesta de Intelligence/.test(document.body.innerText)); assert.match(await page.locator('main').innerText(), /cisa-kev/);
       const v = await open(browser, srv, 'viewer', VIEWPORTS.desktop, '#/dashboard'); await v.waitForSelector('.kpis'); assert.equal(await v.locator('.charts').count(), 0, 'a viewer does not get the Intelligence charts'); assert.deepEqual(page.errors, []);
     });

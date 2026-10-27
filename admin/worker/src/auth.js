@@ -1,5 +1,6 @@
 // Authentication and authorization. Nothing privileged is ever sent to the browser: the GitHub token stays in D1.
-import { highestRole, roleFromRepoPermission } from './core.js';
+import { roleFromRepoPermission } from './core.js';
+import { rolesFor } from './rbac.js';
 import { memberRole } from './store.js';
 
 export const COOKIE = '__Host-mg_session';
@@ -55,7 +56,7 @@ export async function destroySession(db, id) { await db.prepare('DELETE FROM ses
 /** The role is recomputed from GitHub on every protected call (cached 60 s). Fail closed when GitHub cannot be asked.
  *  A 401 means the person's token was revoked or expired: the session is destroyed and REAUTH is returned (no role survives, not even a `members` grant).
  *  A 403/404 means GitHub denies the repository to this person (permissions removed): only an explicit `members` grant can still give a role. */
-export async function effectiveRole(db, session, env, deps, now, { fresh = false } = {}) {
+export async function effectiveRoles(db, session, env, deps, now, { fresh = false } = {}) {
   let perm = session.perm;
   if (fresh || !perm || now - session.perm_at > 60) {   // `fresh`: a change of state always asks GitHub again, and never falls back to a stale grant
     const token = await openToken(env, session.id, session.token);
@@ -66,13 +67,28 @@ export async function effectiveRole(db, session, env, deps, now, { fresh = false
       else if (r.status === 403 || r.status === 404) { perm = 'none'; }
       else if (!r.ok) throw new Error(`GitHub ${r.status}`);
       else { const p = (await r.json()).permissions || {}; perm = p.admin ? 'admin' : p.maintain ? 'maintain' : p.push ? 'write' : p.triage ? 'triage' : 'read'; }
+      if (fresh) {   // a state-changing call also proves WHO holds the token: it must still be the account the session was opened for (a swapped token or a changed identity ends the session)
+        const u = await deps.fetch(`${env.GITHUB_API || 'https://api.github.com'}/user`, { headers: { Authorization: `Bearer ${token}`, Accept: 'application/vnd.github+json', 'User-Agent': 'macguard-admin' } });
+        if (u.status === 401) { await destroySession(db, session.id); return REAUTH; }
+        if (!u.ok) throw new Error(`GitHub ${u.status}`);
+        const who = await u.json();
+        if (!who || who.id !== session.user_id) { await destroySession(db, session.id); return REAUTH; }
+        if (typeof who.login === 'string' && who.login.toLowerCase() !== String(session.login).toLowerCase()) { await db.prepare('UPDATE sessions SET login = ? WHERE id = ?').bind(who.login, session.id).run(); session.login = who.login; }   // renamed account, same immutable id: the audit shows the current handle
+      }
       await db.prepare('UPDATE sessions SET perm = ?, perm_at = ? WHERE id = ?').bind(perm, now, session.id).run();
     } catch (e) {
       if (fresh || !session.perm || now - session.perm_at > 600) return null;   // stale or unknown: no access (reads may use a grant up to 10 minutes old, writes never)
       perm = session.perm;
     }
   }
-  return highestRole(roleFromRepoPermission(perm), await memberRole(db, session.login, session.user_id));
+  // GitHub confers only REVIEWER or ADMIN (as before); PUBLISHER and SECURITY_ADMIN exist only as an explicit grant. The person holds the union.
+  let repoRole = roleFromRepoPermission(perm);
+  if (env.RBAC_GITHUB_MAPPING === 'off' && repoRole) {   // migration to explicit grants: GitHub permission confers nothing, EXCEPT that the repository administrator keeps ADMIN while no explicit ADMIN exists (the recovery path is GitHub itself, not a hidden account)
+    const explicitAdmin = repoRole === 'ADMIN' ? await db.prepare("SELECT COUNT(*) AS n FROM members WHERE role = 'ADMIN' AND user_id IS NOT NULL").first() : { n: 1 };
+    if (!(repoRole === 'ADMIN' && explicitAdmin.n === 0)) repoRole = null;
+  }
+  const roles = rolesFor({ repoRole, manualRole: await memberRole(db, session.login, session.user_id) });
+  return roles.length ? roles : null;
 }
 
 /** Resolve a GitHub account with the acting administrator's own token. `by` is {id} (authoritative) or {login} (lookup for the add form). Returns

@@ -1,13 +1,13 @@
 // Charts and summaries over the REAL promoted intelligence (from /api/intel/stats). Every chart says its period, unit, source, last update, scope and coverage; a series is drawn only
 // from stored facts (a point per real run), never extrapolated from a current count.
 import { t, has } from '../i18n.js';
-import { h, icon, fmtDateTime } from '../ui.js';
+import { h, icon, fmtDateTime, can } from '../ui.js';
 import { api } from '../api.js';
-import { chart } from './charts.js';
+import { hbars } from './charts.js';
 
 const num = (n) => Number(n).toLocaleString(document.documentElement.lang === 'en' ? 'en-US' : 'es-ES');
 const fam = (f) => (has(`ix_f_${f}`) ? t(`ix_f_${f}`) : f);
-export const loadIntelStats = async (me) => { if (!me || me.role === 'VIEWER') return null; const r = await api('GET', '/api/intel/stats'); return r.status === 200 ? r.data : { error: r.status === 503 ? 'unbound' : 'unreadable' }; };
+export const loadIntelStats = async (me) => { if (!can(me, 'intel.sources.read')) return null; const r = await api('GET', '/api/intel/stats'); return r.status === 200 ? r.data : { error: r.status === 503 ? 'unbound' : 'unreadable' }; };
 
 function caption(st, unit, coverage) {
   const from = (st.runs.first_run || '').slice(0, 10), to = (st.runs.last_run || '').slice(0, 10);
@@ -22,13 +22,13 @@ export function intelCharts(st) {
   const rules = st.verdicts.filter((v) => ['suricata', 'sigma'].includes(v.family)), rf = ['suricata', 'sigma'];
   const sum = (f, key, val) => rules.filter((v) => v.family === f && v[key] === val).reduce((a, v) => a + v.n, 0);
   const notRun = rf.reduce((a, f) => a + sum(f, 'functional', 'NOT_RUN'), 0), verified = rf.reduce((a, f) => a + rules.filter((v) => v.family === f && v.functional === 'PASS').reduce((x, v) => x + v.n, 0), 0);
-  const runs = st.runs.items.filter((r) => r.retrieved_at || r.accepted), runLabels = runs.map((r) => `${r.source_id.replace(/^(abusech|first|cert|emerging|enisa)-?/, '').slice(0, 9)} ${(r.retrieved_at || '').slice(5, 10)}`.trim());
+  const runs = st.runs.items.filter((r) => r.retrieved_at || r.accepted), runLabels = runs.map((r) => `${r.source_id} · ${(r.retrieved_at || '').slice(5, 10)}`);
   return h('section', { class: 'card', 'aria-labelledby': 'h-ic' }, h('h2', { id: 'h-ic', text: t('ic_title') }),
     h('div', { class: 'charts' },
-      h('div', {}, chart({ title: t('ic_by_family'), labels: fams, series: [{ name: t('ic_records'), cls: 'c-ok', values: st.by_family.map((x) => x.records) }], unit: '', labelFn: fam }), caption(st, t('ic_unit_rec'), cov)),
-      h('div', {}, chart({ title: t('ic_verdicts'), labels: rf, series: [{ name: 'VALIDATED', cls: 'c-ok', values: rf.map((f) => sum(f, 'validated', 'VALIDATED')) }, { name: 'FAILED', cls: 'c-bad', values: rf.map((f) => sum(f, 'validated', 'FAILED')) }], unit: '', labelFn: fam }), caption(st, t('ic_unit_rules'), cov),
+      h('div', {}, hbars({ title: t('ic_by_family'), rows: st.by_family.map((x) => ({ label: fam(x.family), values: [x.records], cls: `fam-${x.family}` })), series: [{ name: t('ic_records'), cls: 'c-ok' }] }), caption(st, t('ic_unit_rec'), cov)),
+      h('div', {}, hbars({ title: t('ic_verdicts'), rows: rf.map((f) => ({ label: fam(f), values: [sum(f, 'validated', 'VALIDATED'), sum(f, 'validated', 'FAILED')] })), series: [{ name: 'VALIDATED', cls: 'c-ok' }, { name: 'FAILED', cls: 'c-bad' }] }), caption(st, t('ic_unit_rules'), cov),
         h('p', { class: 'note' }, t('ic_functional', { verified: num(verified), notrun: num(notRun) }))),
-      h('div', {}, chart({ title: t('ic_runs'), labels: runLabels, series: [{ name: t('rl_accepted'), cls: 'c-ok', values: runs.map((r) => r.accepted) }, { name: t('rl_rejected'), cls: 'c-bad', values: runs.map((r) => r.rejected) }], unit: '', labelFn: (lb) => lb }), caption(st, t('ic_unit_rec'), cov))));
+      h('div', { class: 'chart-wide' }, hbars({ width: 640, title: t('ic_runs'), rows: runs.map((r, i) => ({ label: runLabels[i], values: [r.accepted, r.rejected] })), series: [{ name: t('rl_accepted'), cls: 'c-ok' }, { name: t('rl_rejected'), cls: 'c-bad' }] }), caption(st, t('ic_unit_rec'), cov))));
 }
 
 /** Held / published per family, for Quarantine and Published: what is retained by policy and what is truly distributed (nothing, today). */
