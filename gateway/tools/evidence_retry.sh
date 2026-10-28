@@ -9,7 +9,9 @@ DIR=${MG_EVIDENCE_DIR:-.}; BRANCH=${MG_EVIDENCE_BRANCH:-main}
 i=1
 while [ "$i" -le 6 ]; do
   "$@"
-  if MG_EVIDENCE_NO_REBASE=1 sh "$(dirname "$0")/commit_evidence.sh" "$MSG"; then exit 0; fi
+  rc=0; MG_EVIDENCE_NO_REBASE=1 sh "$(dirname "$0")/commit_evidence.sh" "$MSG" || rc=$?
+  [ "$rc" -ne 0 ] || exit 0
+  if [ "$rc" -eq 2 ]; then echo 'refused (integrity or missing branch), not a push conflict: not retrying' >&2; exit 2; fi
   echo "push rejected (attempt $i); regenerating the record on the newest $BRANCH" >&2
   git -C "$DIR" fetch -q origin "$BRANCH"; git -C "$DIR" reset -q --hard "origin/$BRANCH"
   sleep "$i"; i=$((i + 1))

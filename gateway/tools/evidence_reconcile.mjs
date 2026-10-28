@@ -1,6 +1,9 @@
 // Reconciles two copies of the evidence log (for the transition main <-> evidence branch). It only ever ADDS what the destination lacks, in the source's order, and REPORTS what disagrees: it never deletes,
 // rewrites or reorders a record, so running it twice does the same as running it once and a failed half-way run loses nothing.
-//   node evidence_reconcile.mjs --from SRC.jsonl --to DST.jsonl [--apply]     without --apply it only reports (exit 0 when nothing is missing and nothing disagrees, 1 otherwise)
+//   node evidence_reconcile.mjs --from SRC.jsonl --to DST.jsonl [--apply]
+//     exit 0  the destination has everything (after --apply, if given); nothing disagrees
+//     exit 1  without --apply: records are missing from the destination (nothing was changed)
+//     exit 4  CONFLICT: the same record identity exists in both with different content. Nothing is written, not even the records that are merely missing: a contradiction is never resolved by picking a side.
 // Identity of a record: a backup is (resource, run_id); a restore is the restoration (sameRestore in backup_record.mjs); anything else is its exact JSON.
 import { appendFileSync, existsSync, readFileSync, realpathSync } from 'node:fs';
 import { sameRestore } from './backup_record.mjs';
@@ -17,7 +20,7 @@ export function reconcile(srcText, dstText) {
     if (!s.rec || typeof s.rec !== 'object') { unreadable.push(s.line.slice(0, 80)); continue; }
     const twin = dst.find((d) => same(d.rec, s.rec));
     if (!twin) { missing.push(s.line); dst.push({ line: s.line, rec: s.rec }); }   // pushed so that a duplicate inside the source is not added twice
-    else if (s.rec.kind === 'backup' && twin.line !== s.line) conflicts.push({ kind: 'backup', run_id: s.rec.run_id, resource: s.rec.resource ?? 'gateway' });
+    else if (twin.line !== s.line) conflicts.push({ kind: s.rec.kind, run_id: s.rec.run_id, resource: s.rec.resource ?? 'gateway', ...(s.rec.provider ? { provider: s.rec.provider } : {}) });
   }
   return { missing, conflicts, unreadable };
 }
@@ -26,7 +29,9 @@ if (isMain()) {
   const arg = (n, d = null) => { const i = process.argv.indexOf(n); return i > 0 ? process.argv[i + 1] : d; }, from = arg('--from'), to = arg('--to'), apply = process.argv.includes('--apply');
   if (!from || !to || !existsSync(from)) { console.error('usage: evidence_reconcile.mjs --from SRC --to DST [--apply]'); process.exit(2); }
   const r = reconcile(readFileSync(from, 'utf8'), existsSync(to) ? readFileSync(to, 'utf8') : '');
-  console.log(JSON.stringify({ missing: r.missing.length, conflicts: r.conflicts, unreadable: r.unreadable.length, applied: apply && r.missing.length > 0 }));
+  const conflicted = r.conflicts.length > 0;
+  console.log(JSON.stringify({ missing: r.missing.length, conflicts: r.conflicts, unreadable: r.unreadable.length, applied: apply && !conflicted && r.missing.length > 0 }));
+  if (conflicted) { console.error('CONFLICT: the same record exists with different content in both copies; nothing was written'); process.exit(4); }
   if (apply && r.missing.length) { const dstText = existsSync(to) ? readFileSync(to, 'utf8') : ''; appendFileSync(to, (dstText && !dstText.endsWith('\n') ? '\n' : '') + r.missing.join('\n') + '\n'); }
-  process.exit(!apply && (r.missing.length || r.conflicts.length) || r.conflicts.length ? 1 : 0);
+  process.exit(!apply && r.missing.length ? 1 : 0);
 }

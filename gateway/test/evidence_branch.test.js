@@ -136,11 +136,11 @@ test('the CLI verifies: OK on a good branch, FAIL (exit 1) after a record is edi
   const w = world(); try {
     const dir = seedBranch(w), ev = join(dir, 'evidence'), cpFile = join(w.d, 'cp.json');
     const cli = (...a) => spawnSync('node', [join(T, 'evidence_chain.mjs'), ...a, '--dir', ev], { encoding: 'utf8' });
-    assert.equal(cli('verify').status, 0); writeFileSync(cpFile, cli('checkpoint').stdout); assert.equal(cli('verify', '--checkpoint', cpFile).status, 0);
+    assert.equal(cli('verify').status, 0); writeFileSync(cpFile, cli('checkpoint').stdout); assert.equal(cli('verify', '--checkpoint', cpFile, '--allow-unsigned').status, 0);
     const good = readFileSync(join(ev, 'backups.jsonl'), 'utf8');
     writeFileSync(join(ev, 'backups.jsonl'), good.replace('"run_id":1,', '"run_id":9,')); const e = cli('verify'); assert.equal(e.status, 1); assert.match(e.stderr, /does not match record/);
     writeFileSync(join(ev, 'backups.jsonl'), good.split('\n').slice(0, 2).join('\n') + '\n'); writeFileSync(join(ev, 'backups.chain'), readFileSync(join(ev, 'backups.chain'), 'utf8').split('\n').slice(0, 2).join('\n') + '\n');
-    const t = cli('verify', '--checkpoint', cpFile); assert.equal(t.status, 1, 'consistent with itself, but not with what was signed'); assert.match(t.stderr, /records were removed/);
+    const t = cli('verify', '--checkpoint', cpFile, '--allow-unsigned'); assert.equal(t.status, 1, 'consistent with itself, but not with what was signed'); assert.match(t.stderr, /records were removed/);
   } finally { w.done(); }
 });
 

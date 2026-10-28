@@ -5,14 +5,25 @@
 //     log against a checkpoint proves that the first `count` records are exactly the ones that existed when it was signed, whatever happened to the branch since. Appending afterwards stays valid.
 // What it does NOT do: stop a deletion or a rewrite (that is the job of branch rules), or vouch for records written after the last checkpoint.
 //   node evidence_chain.mjs update     [--dir evidence]                  append the missing chain lines (idempotent); refuses when the existing ones do not match the log
-//   node evidence_chain.mjs verify     [--dir evidence] [--checkpoint F] exit 0 only when the sidecar matches the log (and the checkpoint is a prefix of it)
+//   node evidence_chain.mjs verify     [--dir evidence] [--checkpoint F --bundle B [--identity ID] [--issuer URL]]
+//                                      exit 0 only when the sidecar matches the log AND (with --checkpoint) the checkpoint's Sigstore signature verifies for the authorised workflow identity AND the checkpoint is a prefix
+//                                      of the log. A checkpoint without --bundle is refused unless --allow-unsigned (local tests): an unsigned file proves nothing.
 //   node evidence_chain.mjs checkpoint [--dir evidence]                  print the checkpoint statement for the current head
 import { createHash } from 'node:crypto';
+import { spawnSync } from 'node:child_process';
 import { appendFileSync, existsSync, readFileSync, realpathSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 const isMain = () => { try { return realpathSync(process.argv[1]) === realpathSync(fileURLToPath(import.meta.url)); } catch { return false; } };   // argv[1] may go through a symlink (/var -> /private/var): comparing raw strings would silently do nothing
 
+export const CHECKPOINT_IDENTITY = 'https://github.com/MacGuard/macguard-yara-channel/.github/workflows/evidence-checkpoint.yml@refs/heads/main';
+export const OIDC_ISSUER = 'https://token.actions.githubusercontent.com';
+/** cosign verify-blob for the authorised workflow identity (the Rekor inclusion proof travels in the bundle). `cosign` is resolved through PATH, like the other tools. */
+export function verifyCheckpointSignature({ checkpointFile, bundleFile, identity = CHECKPOINT_IDENTITY, issuer = OIDC_ISSUER }) {
+  const r = spawnSync('cosign', ['verify-blob', '--bundle', bundleFile, '--certificate-identity', identity, '--certificate-oidc-issuer', issuer, checkpointFile], { encoding: 'utf8' });
+  if (r.error) return { ok: false, problem: 'cosign is not available, so the checkpoint signature cannot be verified' };
+  return r.status === 0 ? { ok: true } : { ok: false, problem: 'the checkpoint signature does not verify for the authorised identity' };
+}
 const sha = (s) => createHash('sha256').update(s).digest('hex');
 export const GENESIS = sha('macguard.evidence-chain/1');
 const lines = (text) => String(text || '').split('\n').filter((l) => l.length > 0);
@@ -59,7 +70,10 @@ if (isMain()) {
     else if (cmd === 'verify') {
       const c = check(read(log), read(side)); let bad = c.problems.slice();
       if (c.missing) bad.push(`${c.missing} record(s) have no chain line yet (run update)`);
-      const cpFile = arg('--checkpoint'); if (cpFile) { const v = verifyAgainstCheckpoint(read(log), JSON.parse(readFileSync(cpFile, 'utf8'))); if (!v.ok) bad.push(v.problem); }
+      const cpFile = arg('--checkpoint'), bundle = arg('--bundle');
+      if (cpFile && !bundle && !process.argv.includes('--allow-unsigned')) bad.push('the checkpoint has no signature bundle (--bundle): an unsigned checkpoint is not accepted');
+      if (cpFile && bundle) { const sg = verifyCheckpointSignature({ checkpointFile: cpFile, bundleFile: bundle, identity: arg('--identity', CHECKPOINT_IDENTITY), issuer: arg('--issuer', OIDC_ISSUER) }); if (!sg.ok) bad.push(sg.problem); }
+      if (cpFile) { const v = verifyAgainstCheckpoint(read(log), JSON.parse(readFileSync(cpFile, 'utf8'))); if (!v.ok) bad.push(v.problem); }
       if (bad.length) { for (const b of bad) console.error('FAIL: ' + b); process.exit(1); } console.log(`OK: ${c.count} records, head ${c.head}`);
     } else if (cmd === 'checkpoint') console.log(JSON.stringify(checkpointOf(read(log))));
     else { console.error('usage: evidence_chain.mjs update|verify|checkpoint [--dir evidence] [--checkpoint FILE]'); process.exit(2); }
