@@ -10,18 +10,18 @@ import { spawnSync } from 'node:child_process';
 const SCRIPT = new URL('../../../scripts/monitoring_setup.sh', import.meta.url).pathname, NAMES = ['CLOUDFLARE_ANALYTICS_TOKEN', 'CLOUDFLARE_ACCOUNT_ID', 'TELEGRAM_BOT_TOKEN', 'TELEGRAM_CHAT_ID'];
 const FAKE_TOKEN = '123456789:FAKEFAKEFAKEFAKEFAKEFAKEFAKEFAKEFAK';
 
-function world({ have = [], variable = '' } = {}) {
+function world({ have = [], variable = '', listFails = false, curlAnswer = null, curlFails = false } = {}) {
   const root = mkdtempSync(join(tmpdir(), 'mg-setup-')), bin = join(root, 'bin'), state = join(root, 'secrets'), calls = join(root, 'calls.log'), curlStdin = join(root, 'curl.stdin'); mkdirSync(bin);
   writeFileSync(state, have.join('\n') + (have.length ? '\n' : '')); writeFileSync(calls, '');
   const shim = (name, body) => { writeFileSync(join(bin, name), `#!/bin/sh\n${body}\n`); chmodSync(join(bin, name), 0o755); };
   shim('gh', `echo "gh $*" >> "${calls}"
 case "$1 $2" in
-  "secret list") sed 's/$/\\tUpdated/' "${state}" ;;
+  "secret list") ${listFails ? 'echo "HTTP 401: Bad credentials" >&2; exit 1' : `sed 's/$/\\tUpdated/' "${state}"`} ;;
   "secret set") echo "$3" >> "${state}" ;;
   "variable list") [ -n "${variable}" ] && printf 'USAGE_MONITOR_ENABLED\\t${variable}\\t2026-10-28\\n' ; true ;;
   "workflow run") : ;;
 esac`);
-  shim('curl', `echo "curl $*" >> "${calls}"; cat > "${curlStdin}"; echo '{"ok":true,"result":[{"update_id":1,"message":{"chat":{"id":424242,"type":"private"}}}]}'`);
+  shim('curl', `echo "curl $*" >> "${calls}"; cat > "${curlStdin}"; ${curlFails ? 'exit 6' : `echo '${curlAnswer ?? '{"ok":true,"result":[{"update_id":1,"message":{"chat":{"id":424242,"type":"private"}}}]}'}'`}`);
   const run = (args, input = '') => spawnSync('sh', [SCRIPT, ...args], { env: { PATH: `${bin}:${process.env.PATH}`, MG_REPO: 'o/r', HOME: root }, input, encoding: 'utf8', timeout: 20000 });
   return { root, calls: () => readFileSync(calls, 'utf8'), curlStdin: () => (existsSync(curlStdin) ? readFileSync(curlStdin, 'utf8') : ''), state: () => readFileSync(state, 'utf8').split('\n').filter(Boolean), run, done: () => rmSync(root, { recursive: true, force: true }) };
 }
@@ -69,4 +69,24 @@ test('no subcommand can set the enable variable or take a value from its argumen
   const src = readFileSync(SCRIPT, 'utf8');
   assert.doesNotMatch(src.replace(/^#.*$/gm, ''), /variable set|--body|\s-b\s/, 'the script has no code path that sets the variable or passes a value'); assert.match(src, /It never sets USAGE_MONITOR_ENABLED/);
   const w = world(); try { const r = w.run(['status', '--value', 'SECRET']); assert.equal(r.status, 0); assert.doesNotMatch(r.stdout + w.calls(), /SECRET/, 'extra arguments are ignored, not used'); assert.equal(w.run(['bogus']).status, 2); } finally { w.done(); }
+});
+
+test('FAIL SAFE: when the secrets cannot be listed (gh not logged in, no access) every command stops, nothing is set and nothing is dispatched; it is never read as "all four are missing"', () => {
+  for (const args of [['status'], ['secrets'], ['test']]) {
+    const w = world({ listFails: true }); try {
+      const r = w.run(args); assert.equal(r.status, 1, args.join(' ') + ': ' + r.stdout + r.stderr); assert.match(r.stderr, /could not list the secrets/);
+      assert.doesNotMatch(w.calls(), /secret set|workflow run|variable set/, `${args[0]}: no write of any kind`); assert.doesNotMatch(r.stdout, /MISSING|still missing|dispatched/, 'no misleading verdict');
+    } finally { w.done(); }
+  }
+});
+
+test('telegram-chat: a refused token, an unreadable answer and a network failure each stop with a clear message that does not echo the token; the terminal echo is restored on every exit path', () => {
+  const cases = { refused: [{ curlAnswer: '{"ok":false,"error_code":401,"description":"Unauthorized"}' }, /Telegram refused the request \(error_code 401\)/], garbage: [{ curlAnswer: '<html>gateway error</html>' }, /unreadable answer/], network: [{ curlFails: true }, /could not reach Telegram/] };
+  for (const [name, [opts, msg]] of Object.entries(cases)) {
+    const w = world(opts); try {
+      const r = w.run(['telegram-chat'], FAKE_TOKEN + '\n'); assert.equal(r.status, 1, name); assert.match(r.stdout + r.stderr, msg, name); assert.doesNotMatch(r.stdout + r.stderr, /FAKEFAKE/, name + ': token never echoed'); assert.doesNotMatch(r.stdout, /chats:/, name);
+    } finally { w.done(); }
+  }
+  const src = readFileSync(SCRIPT, 'utf8'); assert.match(src, /trap 'stty echo 2>\/dev\/null \|\| true' EXIT INT TERM HUP/, 'echo is restored on any exit'); assert.match(src, /unset TOKEN/, 'the token variable does not outlive its use');
+  const w = world(); try { const r = w.run(['telegram-chat'], ''); assert.equal(r.status, 1); assert.match(r.stdout, /no token given/, 'EOF on stdin is a refusal, not a crash'); } finally { w.done(); }
 });
