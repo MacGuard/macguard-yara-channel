@@ -103,3 +103,24 @@ Un job en `site.yml` o un workflow aparte que, en cada push a `main`, liste los 
 ```
 
 Antes del paso 1 hay que comprobar que el contexto `gateway-tests` es exactamente el que publica `ci.yml` en un push a `main` (hoy `ci.yml` solo se dispara en `pull_request` y a mano: **un push directo de un bot nunca tendría ese check**, otra razón para sacar a los bots de `main`).
+
+## 9. Actualización 2026-10-28 (tras la autorización del propietario)
+
+**El modo `evaluate` no existe en este plan.** Intentar crear `main-universal` con `enforcement: evaluate` devuelve «Enforcement evaluate option is not supported on this plan. Please upgrade to Enterprise». **No se creó ningún ruleset** (0 en el repositorio) y no hay garantía de observación: no se puede ver qué *habría* bloqueado una regla sin activarla. Lo que sí se sabe:
+
+- La protección clásica de `main` **ya impide** force-push y borrado (`allow_force_pushes=false`, `allow_deletions=false`), pero con `enforce_admins=false`: un administrador puede saltársela. El ruleset universal sin bypass añadiría exactamente eso (cerrar al administrador).
+- Verificado en el laboratorio: ningún workflow hace force-push ni borra ramas (`git grep` sin resultados) y los pushes de los bots son fast-forward; por tanto la capa universal activa no debería rechazar ningún push de producción. Es una inferencia respaldada por la lectura del código y por el laboratorio, **no una observación en `main`**.
+- Alternativa honesta para ganar evidencia sin activar nada: vigilar `main` con un control detectivo (sección 4) durante un ciclo diario y registrar cualquier push no fast-forward. No se ha implementado.
+
+La decisión de pasar a `active` (que cierra al administrador) queda para el propietario.
+
+## 10. Plan para integrar las protecciones sin interrumpir GitHub Actions
+
+Dependencia: mientras algún workflow empuje a `main` con `GITHUB_TOKEN`, no puede haber check requerido. Escritores actuales y destino propuesto:
+
+| Escritor | Hoy | Destino | PR |
+|---|---|---|---|
+| `backup.yml` record, `record-restore.yml` | `main:evidence/` | rama `evidence` | #70 (desactivada por defecto) |
+| `daily.yml`, `publish.yml`, `site.yml` | `main:logs/` | rama `logs` (ya prevista en `CODEOWNERS` y en #27) | pendiente de diseño aparte |
+
+Orden: (1) #70 fusionada y modo `dual` verificado; (2) `branch`; (3) lo mismo para `logs/` con su propia PR; (4) cuando `main` ya no reciba ningún push de bot, crear `main-ci` con `gateway-tests` (bypass solo del administrador); (5) capa universal `active`. Hasta (4) **no se exige ningún check**. Cada paso se puede revertir con `enforcement=disabled` o vaciando `EVIDENCE_MODE`. Controles que se mantienen: pines de acciones por SHA, `permissions` mínimos por job, entornos restringidos a `main`, y recuperación administrativa (sección 6).
