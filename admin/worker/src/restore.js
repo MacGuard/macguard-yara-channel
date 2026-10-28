@@ -150,15 +150,23 @@ export async function loadRecoveryStatus(env, deps, token, nowMs) {
       if (!r.ok) { if (!(optional && r.status === 404)) unavailable.push({ source: name, reason: r.status === 403 || r.status === 429 ? 'rate_limited' : `http_${r.status}` }); return null; } return r; }
     catch { unavailable.push({ source: name, reason: 'unreachable' }); return null; }
   };
-  const [runsR, trustR, evR, ...toolR] = await Promise.all([
+  // Where the evidence log lives: EVIDENCE_REFS is a comma-separated list of git refs (default `main`, today's place). During the move to the evidence branch set `evidence,main`: both copies are read and
+  // united without duplicates, so a record that is only in one of them is never hidden. A ref that cannot be read is reported in `unavailable`; the others are still used.
+  const evRefs = String(env.EVIDENCE_REFS || 'main').split(',').map((x) => x.trim()).filter((x) => /^[A-Za-z0-9._-]{1,60}$/.test(x)).slice(0, 3); if (!evRefs.length) evRefs.push('main');
+  const [runsR, trustR, evRs, ...toolR] = await Promise.all([
     get('backup_runs', `${api}/repos/${repo}/actions/workflows/backup.yml/runs?per_page=20&exclude_pull_requests=true`, gh),
     get('trust_policy', `${raw}/${repo}/main/gateway/environments/backup-trust.json`, { Accept: 'application/json' }),
-    get('evidence', `${raw}/${repo}/main/evidence/backups.jsonl`, { Accept: 'text/plain' }, { optional: true }),
+    Promise.all(evRefs.map((ref) => get(evRefs.length === 1 ? 'evidence' : `evidence:${ref}`, `${raw}/${repo}/${ref}/evidence/backups.jsonl`, { Accept: 'text/plain' }, { optional: true }))),
     ...VERIFIER_TOOLS.map((p) => get(`tool:${p}`, `${raw}/${repo}/main/${p}`, { Accept: 'text/plain' }, { method: 'HEAD', optional: true })),
   ]);
   const jsonOf = async (r, name) => { if (!r) return null; try { return await r.json(); } catch { unavailable.push({ source: name, reason: 'malformed' }); return null; } };
   const runsBody = await jsonOf(runsR, 'backup_runs'), trust = await jsonOf(trustR, 'trust_policy');
-  let evidence = null; if (evR) { const text = await evR.text(); evidence = text.length > 2_000_000 ? (unavailable.push({ source: 'evidence', reason: 'too_large' }), null) : parseEvidence(text); }
+  let evidence = null, seen = new Set();
+  for (const [i, evR] of evRs.entries()) {
+    if (!evR) continue; const text = await evR.text(), name = evRefs.length === 1 ? 'evidence' : `evidence:${evRefs[i]}`;
+    if (text.length > 2_000_000) { unavailable.push({ source: name, reason: 'too_large' }); continue; }
+    evidence = evidence || []; for (const rec of parseEvidence(text)) { const key = JSON.stringify(rec); if (!seen.has(key)) { seen.add(key); evidence.push(rec); } }
+  }
   const runs = (runsBody && runsBody.workflow_runs) || null, jobs = {};
   await Promise.all((runs || []).slice(0, 8).filter((r) => r.status === 'completed' || r.status === 'in_progress').map(async (r) => { const jr = await get(`jobs:${r.id}`, `${api}/repos/${repo}/actions/runs/${r.id}/jobs?per_page=100`, gh); const b = await jsonOf(jr, `jobs:${r.id}`); if (b && Array.isArray(b.jobs)) jobs[r.id] = b.jobs; }));
   const diagnoses = {};   // the cause of the latest failed backup of each resource, from the annotation the failing job wrote
