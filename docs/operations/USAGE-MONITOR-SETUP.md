@@ -1,5 +1,8 @@
 # Monitor de cuotas y costes: puesta en marcha (2026-10-27)
 
+> **ESTADO ACTUAL: `NOT_CONFIGURED`. NO EXISTE VIGILANCIA ACTIVA DE GASTO NI DE CUOTAS.** Faltan los cuatro secretos del entorno `macguard-monitoring` y la variable `USAGE_MONITOR_ENABLED` no está fijada, así que el monitor y el vigilante se omiten por diseño. Ningún umbral (50/75/90/100 % ni 20/50/100/150 €) avisa a nadie hasta completar esta puesta en marcha: el consumo de Cloudflare, Backblaze y Scaleway debe revisarse a mano. Que el workflow aparezca en verde **no** significa que se esté vigilando nada: lo indica el resumen del job `status`.
+
+
 Workflow: `.github/workflows/usage-monitor.yml` (cron `17 * * * *`, entorno `macguard-monitoring`, restringido a la rama `main`). Código: `scripts/usage_monitor.mjs`. Límites: `config/usage-limits.json`.
 
 ## Estado
