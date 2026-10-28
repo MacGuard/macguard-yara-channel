@@ -16,6 +16,9 @@ const audit = async (w, action) => (await auditRows(w.db, 2000)).filter((e) => !
 const chainOk = async (w) => assert.equal((await verifyChain(await auditRows(w.db, 5000))).ok, true, 'the audit chain verifies');
 
 /** Three published rules (a, b, c) in release 1, and four people: ada and bob (ADMIN), rita (REVIEWER), vera (VIEWER). */
+// "No people": a login must not appear as a TOKEN of its own. A bare substring check also matches inside the hex digests of the snapshot (policy_set_sha256 / rejected_sha256 change on every run and
+// "...0285aada5" contains "ada"), which made this test fail on about 1.7% of the runs for no reason. Boundaries are non-alphanumerics, so "ada", "ada@x" and "by ada" leak; "metadata" and hex do not.
+export const leaksLogin = (value, login) => new RegExp(`(^|[^A-Za-z0-9])${login}([^A-Za-z0-9]|$)`, 'i').test(JSON.stringify(value));
 async function fx(items = ['a', 'b', 'c']) {
   const w = await world(); const r = await w.submit(items.map((c) => cand(c))); assert.equal(r.status, 200);
   const ids = r.data.results.map((x) => x.id), cs = items.map((c) => cand(c));
@@ -265,7 +268,7 @@ test('GET /api/pipeline/policy-snapshot: only daily.yml and publish.yml, the act
   await w.db.prepare('UPDATE candidates SET archived_at = ? WHERE id = ?').bind('2026-10-21T00:00:00.000Z', fresh).run();
   const s = (await get(await w.pipelineToken('publish.yml'))).data; assert.deepEqual(s.policies.map((x) => x.id), [p.id]); assert.deepEqual(s.lifted.map((x) => x.id), [q2.id]); assert.deepEqual(s.rejected, [cand('r').sha256], 'an archived rejection is still a rejection');
   assert.equal(s.policy_set_sha256, await sha256hex(canonical(s.policies))); assert.equal(s.rejected_sha256, await sha256hex(canonical(s.rejected)));
-  assert.deepEqual(Object.keys(s.policies[0]).sort(), ['created_at', 'criticality', 'id', 'path', 'scope', 'scope_key', 'sha256', 'source', 'version', 'withdrawal']); assert.ok(!JSON.stringify(s).includes('reported as unsafe')); assert.ok(!JSON.stringify(s).includes('ada'));
+  assert.deepEqual(Object.keys(s.policies[0]).sort(), ['created_at', 'criticality', 'id', 'path', 'scope', 'scope_key', 'sha256', 'source', 'version', 'withdrawal']); assert.ok(!JSON.stringify(s).includes('reported as unsafe')); assert.ok(!leaksLogin(s, 'ada'), 'no people');
   assert.equal(s.audit_head.seq, q(w, 'SELECT MAX(seq) AS n FROM audit')[0].n); assert.ok(cs.length);
 });
 test('the policy endpoints never touch anything outside their tables and the rows they name', async () => {
@@ -353,4 +356,11 @@ test('M-06 schema.sql and the migration apply statement by statement with the sp
     for (const s of stmts) db.exec(s);
     assert.equal(db.prepare("SELECT COUNT(*) AS n FROM sqlite_master WHERE name LIKE 'polic%'").get().n >= 26, true, name);
   }
+});
+
+test('leaksLogin flags a login as its own token and ignores the same letters inside hex digests and words (the flake of the policy-snapshot test)', () => {
+  assert.equal(leaksLogin({ policy_set_sha256: 'd52da5ba9c7aba3840d305783e4caf68e75203c2e50764fdc72f25b0285aada5' }, 'ada'), false, 'a digest that merely ends in "aada5"');
+  assert.equal(leaksLogin({ x: 'metadata', y: 'Adapter', z: 'cascada' }, 'ada'), false);
+  for (const leak of [{ actor: 'ada' }, { by: 'ada@example.org' }, { note: 'approved by ada today' }, ['ada'], { login: 'ADA' }]) assert.equal(leaksLogin(leak, 'ada'), true, JSON.stringify(leak));
+  assert.equal(leaksLogin({ hash: 'ada0000000000000000000000000000' }, 'ada'), false, 'hex starting with ada is not the login');
 });
