@@ -3,7 +3,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { execFileSync, spawnSync } from 'node:child_process';
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import { homedir, tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { world } from './helpers.js';
@@ -43,4 +43,18 @@ test('ci_profile.sh: one profile per resource with its own prefix, database and 
   assert.equal(g.SIG_ID, p.SIG_ID, 'one workflow identity for both'); assert.equal(g.RECIPIENT, p.RECIPIENT); assert.match(run('panel', '--shell').stdout, /^ED_PUB='ssh-ed25519 /m); assert.equal(run('nope').status, 2);
   const res = JSON.parse(readFileSync(join(ROOT, 'gateway/environments/backup-resources.json'), 'utf8')).resources; assert.notEqual(res.gateway.prefix, res.panel.prefix); assert.match(readFileSync(join(ROOT, 'gateway/environments/panel-d1.wrangler.toml'), 'utf8'), /database_name = "macguard-quarantine"/);
   assert.ok(!/token|secret|key/i.test(readFileSync(join(ROOT, 'gateway/environments/panel-d1.wrangler.toml'), 'utf8').replace(/^#.*$/gm, '').replace(/database_id|account_id/g, '')), 'the export config holds no credential');
+});
+
+test('the panel export given as a FILE (streamed by sqlite3) gives exactly the same verdicts as the string, good or damaged, and leaves no temporary directory', async () => {
+  const { sql } = await panelDump(), dir = mkdtempSync(join(tmpdir(), 'mg-pvf-')), before = readdirSync(tmpdir()).filter((n) => n.startsWith('mg-load-')).length;
+  try {
+    const cases = { good: sql, truncated: sql.slice(0, sql.length - 300), garbage: 'this is not sql;', brokenAudit: sql + "\nUPDATE audit SET prev_hash = '" + 'f'.repeat(64) + "' WHERE rowid = (SELECT MAX(rowid) FROM audit);" };
+    for (const [name, text] of Object.entries(cases)) {
+      const f = join(dir, name + '.sql'); writeFileSync(f, text);
+      const a = await verifyPanelRestore(text), b = await verifyPanelRestore({ file: f });
+      assert.deepEqual(b.checks.map((c) => [c.name, c.ok]), a.checks.map((c) => [c.name, c.ok]), name); assert.equal(b.ok, a.ok, name);
+    }
+    assert.equal((await verifyPanelRestore({ file: join(dir, 'good.sql') })).ok, true);
+    assert.equal(readdirSync(tmpdir()).filter((n) => n.startsWith('mg-load-')).length, before, 'no mg-load-* directory left behind');
+  } finally { rmSync(dir, { recursive: true, force: true }); }
 });
