@@ -306,16 +306,28 @@ jobs:
         with:
           name: package
           path: ${{ github.workspace }}/.backup-work/package
+      - name: Evidence branch (only while EVIDENCE_MODE is dual or branch)
+        if: ${{ vars.EVIDENCE_MODE == 'dual' || vars.EVIDENCE_MODE == 'branch' }}
+        continue-on-error: ${{ vars.EVIDENCE_MODE == 'dual' }}   # in dual mode a missing branch must not stop the main write
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: evidence
+          path: evidence-wt
       - name: Per-provider results of this run, then the record
         env:
           GH_TOKEN: ${{ github.token }}
           RUN_ID: ${{ github.run_id }}
+          EVIDENCE_MODE: ${{ vars.EVIDENCE_MODE }}
         run: |
           set -eu
           gh api "repos/$GITHUB_REPOSITORY/actions/runs/$RUN_ID/jobs?per_page=100" --paginate --jq '.jobs[] | {name, conclusion, completed_at}' > "$RUNNER_TEMP/jobs.ndjson"
           PROV=$(jq -s -c 'def r(n): (map(select(.name == n)) | .[0]) // {}; {b2: {write: r("write (b2)").conclusion, read: r("read (b2)").conclusion, write_at: r("write (b2)").completed_at, read_at: r("read (b2)").completed_at}, scaleway: {write: r("write (scaleway)").conclusion, read: r("read (scaleway)").conclusion, write_at: r("write (scaleway)").completed_at, read_at: r("read (scaleway)").completed_at}, r2: {write: r("write (r2)").conclusion, read: r("read (r2)").conclusion, write_at: r("write (r2)").completed_at, read_at: r("read (r2)").completed_at}}' "$RUNNER_TEMP/jobs.ndjson")
-          node gateway/tools/backup_record.mjs backup --resource "$RESOURCE" --package "$WORK/package" --run-id "$RUN_ID" --run-url "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$RUN_ID" --providers "$PROV"
-          sh gateway/tools/commit_evidence.sh "$RESOURCE backup run $RUN_ID"
+          if [ -z "${EVIDENCE_MODE:-}" ] || [ "$EVIDENCE_MODE" = main ]; then   # today's behaviour, untouched
+            node gateway/tools/backup_record.mjs backup --resource "$RESOURCE" --package "$WORK/package" --run-id "$RUN_ID" --run-url "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$RUN_ID" --providers "$PROV"
+            sh gateway/tools/commit_evidence.sh "$RESOURCE backup run $RUN_ID"
+          else   # dual | branch (docs/operations/EVIDENCE-MIGRATION.md); any other value is refused by evidence_write.sh
+            sh gateway/tools/evidence_write.sh "$EVIDENCE_MODE" "$RESOURCE backup run $RUN_ID" -- node gateway/tools/backup_record.mjs backup --resource "$RESOURCE" --package "$WORK/package" --run-id "$RUN_ID" --run-url "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$RUN_ID" --providers "$PROV"
+          fi
 
   selftest:
     # Proves the keyless path with this very identity and no credentials: a SYNTHETIC statement (stamp 20000101T000000Z, files of fixed text) is signed, verified and published as an artifact. It touches no provider.

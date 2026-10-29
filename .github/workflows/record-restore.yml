@@ -64,6 +64,13 @@ jobs:
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: '22'
+      - name: Evidence branch (only while EVIDENCE_MODE is dual or branch)
+        if: ${{ vars.EVIDENCE_MODE == 'dual' || vars.EVIDENCE_MODE == 'branch' }}
+        continue-on-error: ${{ vars.EVIDENCE_MODE == 'dual' }}   # in dual mode a missing branch must not stop the main write
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: evidence
+          path: evidence-wt
       - name: Validate against the backup record and append
         env:
           RUN_ID: ${{ inputs.run_id }}
@@ -73,7 +80,13 @@ jobs:
           MODE: ${{ inputs.mode }}
           RESTORED_AT: ${{ inputs.restored_at }}
           ACTOR: ${{ github.actor }}
+          EVIDENCE_MODE: ${{ vars.EVIDENCE_MODE }}
         run: |
           set -eu
-          sh gateway/tools/evidence_retry.sh "restore of run $RUN_ID from $PROVIDER ($MODE) recorded" -- \
-            node gateway/tools/backup_record.mjs restore --run-id "$RUN_ID" --provider "$PROVIDER" --plaintext-sha256 "$SHA" --duration-s "$DUR" --mode "$MODE" --by "$ACTOR" ${RESTORED_AT:+--restored-at "$RESTORED_AT"}
+          if [ -z "${EVIDENCE_MODE:-}" ] || [ "$EVIDENCE_MODE" = main ]; then   # today's behaviour, untouched
+            sh gateway/tools/evidence_retry.sh "restore of run $RUN_ID from $PROVIDER ($MODE) recorded" -- \
+              node gateway/tools/backup_record.mjs restore --run-id "$RUN_ID" --provider "$PROVIDER" --plaintext-sha256 "$SHA" --duration-s "$DUR" --mode "$MODE" --by "$ACTOR" ${RESTORED_AT:+--restored-at "$RESTORED_AT"}
+          else   # dual | branch (docs/operations/EVIDENCE-MIGRATION.md)
+            sh gateway/tools/evidence_write.sh "$EVIDENCE_MODE" "restore of run $RUN_ID from $PROVIDER ($MODE) recorded" -- \
+              node gateway/tools/backup_record.mjs restore --run-id "$RUN_ID" --provider "$PROVIDER" --plaintext-sha256 "$SHA" --duration-s "$DUR" --mode "$MODE" --by "$ACTOR" ${RESTORED_AT:+--restored-at "$RESTORED_AT"}
+          fi
