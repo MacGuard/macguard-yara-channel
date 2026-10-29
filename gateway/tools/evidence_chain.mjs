@@ -9,7 +9,7 @@
 //                                      exit 0 only when the sidecar matches the log AND (with --checkpoint) the checkpoint's Sigstore signature verifies for the authorised workflow identity AND the checkpoint is a prefix
 //                                      of the log. A checkpoint without --bundle is refused unless --allow-unsigned (local tests): an unsigned file proves nothing.
 //   node evidence_chain.mjs checkpoint [--dir evidence]                  print the checkpoint statement for the current head
-import { createHash } from 'node:crypto';
+import { X509Certificate, createHash } from 'node:crypto';
 import { spawnSync } from 'node:child_process';
 import { appendFileSync, existsSync, readFileSync, realpathSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
@@ -22,7 +22,34 @@ export const OIDC_ISSUER = 'https://token.actions.githubusercontent.com';
 export function verifyCheckpointSignature({ checkpointFile, bundleFile, identity = CHECKPOINT_IDENTITY, issuer = OIDC_ISSUER }) {
   const r = spawnSync('cosign', ['verify-blob', '--bundle', bundleFile, '--certificate-identity', identity, '--certificate-oidc-issuer', issuer, checkpointFile], { encoding: 'utf8' });
   if (r.error) return { ok: false, problem: 'cosign is not available, so the checkpoint signature cannot be verified' };
-  return r.status === 0 ? { ok: true } : { ok: false, problem: 'the checkpoint signature does not verify for the authorised identity' };
+  if (r.status !== 0) return { ok: false, problem: 'the checkpoint signature does not verify for the authorised identity' };
+  return checkBundleBinding({ checkpointFile, bundleFile, identity, issuer });   // cosign's verdict is necessary, not sufficient: the bundle itself must also say what we require
+}
+
+const OID_ISSUER_V1 = Buffer.from([0x2b, 0x06, 0x01, 0x04, 0x01, 0x83, 0xbf, 0x30, 0x01, 0x01]);   // 1.3.6.1.4.1.57264.1.1, Fulcio "OIDC issuer"
+/** The extension value that follows OID_ISSUER_V1 in a DER certificate (an OCTET STRING holding the issuer URL), or null. */
+function issuerExtension(der) {
+  const at = der.indexOf(OID_ISSUER_V1); if (at < 0) return null; let p = at + OID_ISSUER_V1.length;
+  if (der[p] === 0x01 && der[p + 1] === 0x01) p += 3;   // optional BOOLEAN "critical"
+  if (der[p] !== 0x04) return null; let len = der[p + 1]; p += 2; if (len === 0x81) { len = der[p]; p += 1; } else if (len === 0x82) { len = (der[p] << 8) | der[p + 1]; p += 2; } else if (len > 0x82) return null;
+  return der.subarray(p, p + len).toString('utf8');
+}
+/** Facts read from the bundle itself, independent of what cosign said: it signs exactly these bytes (SHA-256), the certificate names exactly this workflow identity and OIDC issuer, and a transparency log
+ *  entry with an inclusion proof is present. It is not a signature check (cosign is): it makes sure a bundle cannot be accepted for a different file, identity or issuer, or without transparency evidence. */
+export function checkBundleBinding({ checkpointFile, bundleFile, identity, issuer }) {
+  const no = (problem) => ({ ok: false, problem: 'the signature bundle does not bind what is required: ' + problem });
+  let j; try { j = JSON.parse(readFileSync(bundleFile, 'utf8')); } catch { return no('it is not valid JSON'); }
+  const vm = j.verificationMaterial || {}, sig = j.messageSignature;
+  if (!sig || !sig.messageDigest || sig.messageDigest.algorithm !== 'SHA2_256' || typeof sig.messageDigest.digest !== 'string') return no('it carries no SHA-256 message signature');
+  if (Buffer.from(sig.messageDigest.digest, 'base64').toString('hex') !== createHash('sha256').update(readFileSync(checkpointFile)).digest('hex')) return no('its digest is not the SHA-256 of the checkpoint file');
+  const certB64 = (vm.certificate && vm.certificate.rawBytes) || (vm.x509CertificateChain && vm.x509CertificateChain.certificates && vm.x509CertificateChain.certificates[0] && vm.x509CertificateChain.certificates[0].rawBytes);
+  if (!certB64) return no('it carries no signing certificate');
+  let cert; try { cert = new X509Certificate(Buffer.from(certB64, 'base64')); } catch { return no('its certificate is unreadable'); }
+  if (cert.subjectAltName !== 'URI:' + identity) return no('the certificate identity is not exactly the authorised workflow');
+  if (issuerExtension(cert.raw) !== issuer) return no('the certificate OIDC issuer is not exactly the authorised issuer');
+  const tl = Array.isArray(vm.tlogEntries) ? vm.tlogEntries[0] : null, ip = tl && tl.inclusionProof;
+  if (!tl || !ip || !ip.rootHash || !(Number(ip.treeSize) > 0) || !Array.isArray(ip.hashes) || !(ip.checkpoint && ip.checkpoint.envelope)) return no('it carries no transparency log entry with an inclusion proof');
+  return { ok: true };
 }
 const sha = (s) => createHash('sha256').update(s).digest('hex');
 export const GENESIS = sha('macguard.evidence-chain/1');

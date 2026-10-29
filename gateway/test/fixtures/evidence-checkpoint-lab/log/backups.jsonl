@@ -1,0 +1,3 @@
+{"kind":"backup","resource":"lab","run_id":1,"stamp":"SYN1"}
+{"kind":"backup","resource":"lab","run_id":2,"stamp":"SYN2"}
+{"kind":"restore","resource":"lab","run_id":1,"provider":"b2","stamp":"SYN1"}

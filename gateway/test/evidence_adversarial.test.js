@@ -8,7 +8,7 @@ import { tmpdir } from 'node:os';
 import { delimiter, dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createHash } from 'node:crypto';
-import { CHECKPOINT_IDENTITY, OIDC_ISSUER, check, checkpointOf, verifyAgainstCheckpoint } from '../tools/evidence_chain.mjs';
+import { OIDC_ISSUER, check, checkpointOf, extend, verifyAgainstCheckpoint } from '../tools/evidence_chain.mjs';
 import { reconcile } from '../tools/evidence_reconcile.mjs';
 import { append } from '../tools/backup_record.mjs';
 
@@ -157,33 +157,35 @@ test('truncation: the log AND the chain cut together are consistent with themsel
 });
 
 // ---- checkpoint tampering and signature identity (cosign replaced by a stub that binds signature = hash of the bytes + identity) ----
-function cosignStub() {
+function cosignStub() {   // stands in for cosign's CRYPTOGRAPHIC verdict only (the real one is exercised in the Actions lab); it is as strict as it can be without keys: file digest, identity and issuer must all match
   const dir = mkdtempSync(join(tmpdir(), 'mg-cosign-')), log = join(dir, 'argv.log');
-  writeFileSync(join(dir, 'cosign'), `#!/bin/sh
-echo "$@" >> "${log}"
-[ "$1" = verify-blob ] || exit 2
-shift; B=""; ID=""; ISS=""; while [ $# -gt 1 ]; do case "$1" in --bundle) B=$2; shift 2;; --certificate-identity) ID=$2; shift 2;; --certificate-oidc-issuer) ISS=$2; shift 2;; *) shift;; esac; done
-FILE=$1; H=$(shasum -a 256 "$FILE" | cut -d' ' -f1)
-[ "$ISS" = "${OIDC_ISSUER}" ] || { echo "wrong issuer" >&2; exit 1; }
-grep -qx "sig sha=$H id=$ID" "$B" || { echo "signature does not match" >&2; exit 1; }
+  writeFileSync(join(dir, 'cosign'), `#!${process.execPath}
+const fs = require('node:fs'), crypto = require('node:crypto'), a = process.argv.slice(2);
+fs.appendFileSync(${JSON.stringify(log)}, a.join(' ') + '\\n');
+if (a[0] !== 'verify-blob') process.exit(2);
+const opt = (n) => a[a.indexOf(n) + 1], b = JSON.parse(fs.readFileSync(opt('--bundle'), 'utf8'));
+const digest = Buffer.from(b.messageSignature.messageDigest.digest, 'base64').toString('hex');
+process.exit(opt('--certificate-oidc-issuer') === ${JSON.stringify(OIDC_ISSUER)} && opt('--certificate-identity') === process.env.STUB_ID && crypto.createHash('sha256').update(fs.readFileSync(a[a.length - 1])).digest('hex') === digest ? 0 : 1);
 `); chmodSync(join(dir, 'cosign'), 0o755); return { dir, log };
 }
-test('checkpoint: the signature must verify for the AUTHORISED workflow identity and the exact bytes; an altered file, a foreign identity, a missing bundle or a missing cosign are all refused', () => {
-  const w = world(), c = cosignStub(); try {
-    const dir = join(w.root, 'ev-seed'); execFileSync('sh', [join(T, 'evidence_seed.sh'), dir, join(w.root, 'seedmain/evidence/backups.jsonl')], { stdio: 'pipe' });
-    const ev = join(dir, 'evidence'), cpf = join(w.root, 'cp.json'), bundle = join(w.root, 'cp.bundle');
-    const out = execFileSync('node', [join(T, 'evidence_chain.mjs'), 'checkpoint', '--dir', ev], { encoding: 'utf8' }); writeFileSync(cpf, out);
-    const signAs = (id, file = cpf) => writeFileSync(bundle, `sig sha=${sha(readFileSync(file))} id=${id}\n`);
-    const verify = (extra = [], pathDirs = [c.dir]) => spawnSync(process.execPath, [join(T, 'evidence_chain.mjs'), 'verify', '--dir', ev, ...extra], { encoding: 'utf8', env: { ...process.env, PATH: pathDirs.concat(['/usr/bin', '/bin']).join(delimiter) } });
-    signAs(CHECKPOINT_IDENTITY); const ok = verify(['--checkpoint', cpf, '--bundle', bundle]); assert.equal(ok.status, 0, ok.stderr);
-    assert.match(readFileSync(c.log, 'utf8'), new RegExp(`verify-blob --bundle ${bundle.replace(/[/.]/g, '\\$&')} --certificate-identity ${CHECKPOINT_IDENTITY.replace(/[/.@]/g, '\\$&')} --certificate-oidc-issuer ${OIDC_ISSUER.replace(/[/.]/g, '\\$&')} ${cpf.replace(/[/.]/g, '\\$&')}`), 'cosign got the pinned identity and issuer');
-    const cp = JSON.parse(readFileSync(cpf, 'utf8')); writeFileSync(cpf, JSON.stringify({ ...cp, count: cp.count - 1 })); const altered = verify(['--checkpoint', cpf, '--bundle', bundle]); assert.equal(altered.status, 1); assert.match(altered.stderr, /signature does not verify/);
-    writeFileSync(cpf, out); signAs('https://github.com/attacker/repo/.github/workflows/x.yml@refs/heads/main'); const foreign = verify(['--checkpoint', cpf, '--bundle', bundle]); assert.equal(foreign.status, 1); assert.match(foreign.stderr, /authorised identity/);
-    const unsigned = verify(['--checkpoint', cpf]); assert.equal(unsigned.status, 1); assert.match(unsigned.stderr, /unsigned checkpoint is not accepted/);
-    signAs(CHECKPOINT_IDENTITY); assert.equal(verify(['--checkpoint', cpf, '--bundle', bundle], []).status, 1, 'no cosign on PATH: fail closed');
-    assert.equal(verify(['--checkpoint', cpf, '--allow-unsigned'], []).status, 0, 'an unsigned check is possible only by asking for it explicitly');
-    writeFileSync(cpf, JSON.stringify({ ...cp, head: 'f'.repeat(64) })); signAs(CHECKPOINT_IDENTITY); const forged = verify(['--checkpoint', cpf, '--bundle', bundle]); assert.equal(forged.status, 1, 'even a correctly signed checkpoint must match the log'); assert.match(forged.stderr, /altered/);
-  } finally { w.done(); rmSync(c.dir, { recursive: true, force: true }); }
+test('checkpoint (real Sigstore bundle as fixture, cosign verdict simulated): identity, issuer and bytes must match; an altered file, a foreign identity, a foreign issuer, a missing bundle, a missing cosign, and a correctly signed checkpoint that does not match the log are all refused', () => {
+  const c = cosignStub(), tdir = mkdtempSync(join(tmpdir(), 'mg-cp-')), FX = join(T, '..', 'test', 'fixtures', 'evidence-checkpoint-lab');
+  const ID = 'https://github.com/MacGuard/macguard-yara-channel/.github/workflows/sigstore-lab.yml@refs/heads/exp/sigstore-lab', cpf = join(FX, 'checkpoint.json'), bundle = join(FX, 'a.sigstore.json'), ev = join(FX, 'log');
+  const verify = (extra, { pathDirs = [c.dir], dir = ev } = {}) => spawnSync(process.execPath, [join(T, 'evidence_chain.mjs'), 'verify', '--dir', dir, ...extra], { encoding: 'utf8', env: { ...process.env, STUB_ID: ID, PATH: pathDirs.concat(['/usr/bin', '/bin']).join(delimiter) } });
+  try {
+    const ok = verify(['--checkpoint', cpf, '--bundle', bundle, '--identity', ID]); assert.equal(ok.status, 0, ok.stderr);
+    assert.match(readFileSync(c.log, 'utf8'), new RegExp(`--certificate-identity ${ID.replace(/[/.@]/g, '\\$&')} --certificate-oidc-issuer ${OIDC_ISSUER.replace(/[/.]/g, '\\$&')}`), 'cosign got the pinned identity and issuer');
+    const altered = join(tdir, 'cp.json'); writeFileSync(altered, readFileSync(cpf, 'utf8').replace('"count":3', '"count":2')); const a1 = verify(['--checkpoint', altered, '--bundle', bundle, '--identity', ID]); assert.equal(a1.status, 1); assert.match(a1.stderr, /signature does not verify/);
+    const foreign = verify(['--checkpoint', cpf, '--bundle', bundle]); assert.equal(foreign.status, 1, 'default identity is the production workflow, which did not sign this'); assert.match(foreign.stderr, /authorised identity/);
+    const iss = verify(['--checkpoint', cpf, '--bundle', bundle, '--identity', ID, '--issuer', 'https://accounts.google.com']); assert.equal(iss.status, 1);
+    const unsigned = verify(['--checkpoint', cpf, '--identity', ID]); assert.equal(unsigned.status, 1); assert.match(unsigned.stderr, /unsigned checkpoint is not accepted/);
+    assert.equal(verify(['--checkpoint', cpf, '--bundle', bundle, '--identity', ID], { pathDirs: [] }).status, 1, 'no cosign on PATH: fail closed');
+    assert.equal(verify(['--checkpoint', cpf, '--allow-unsigned'], { pathDirs: [] }).status, 0, 'an unsigned check is possible only by asking for it explicitly');
+    const other = join(tdir, 'log'); mkdirSync(other); writeFileSync(join(other, 'backups.jsonl'), text(LOG)); writeFileSync(join(other, 'backups.chain'), extend(text(LOG), ''));
+    const mism = verify(['--checkpoint', cpf, '--bundle', bundle, '--identity', ID], { dir: other }); assert.equal(mism.status, 1, 'even a correctly signed checkpoint must match THIS log'); assert.match(mism.stderr, /altered|removed/);
+    const notlog = join(tdir, 'notlog.json'); const j = JSON.parse(readFileSync(bundle, 'utf8')); j.verificationMaterial.tlogEntries = []; writeFileSync(notlog, JSON.stringify(j));
+    const nt = verify(['--checkpoint', cpf, '--bundle', notlog, '--identity', ID]); assert.equal(nt.status, 1, 'cosign said yes, the bundle itself carries no transparency evidence: refused anyway'); assert.match(nt.stderr, /transparency log entry/);
+  } finally { rmSync(c.dir, { recursive: true, force: true }); rmSync(tdir, { recursive: true, force: true }); }
 });
 
 // ---- rollback ----
