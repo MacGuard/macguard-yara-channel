@@ -124,3 +124,11 @@ Dependencia: mientras algún workflow empuje a `main` con `GITHUB_TOKEN`, no pue
 | `daily.yml`, `publish.yml`, `site.yml` | `main:logs/` | rama `logs` (ya prevista en `CODEOWNERS` y en #27) | pendiente de diseño aparte |
 
 Orden: (1) #70 fusionada y modo `dual` verificado; (2) `branch`; (3) lo mismo para `logs/` con su propia PR; (4) cuando `main` ya no reciba ningún push de bot, crear `main-ci` con `gateway-tests` (bypass solo del administrador); (5) capa universal `active`. Hasta (4) **no se exige ningún check**. Cada paso se puede revertir con `enforcement=disabled` o vaciando `EVIDENCE_MODE`. Controles que se mantienen: pines de acciones por SHA, `permissions` mínimos por job, entornos restringidos a `main`, y recuperación administrativa (sección 6).
+
+## 11. Control detectivo de solo lectura (implementado) y un hecho histórico
+
+`scripts/main_activity_check.sh` consulta la API de actividad del repositorio (`force_push`, `branch_deletion`) para `refs/heads/main` (u otras ramas con `--ref`) y una ventana de tiempo (por defecto 48 h). **No cambia nada**: solo hace lecturas `GET` con `gh api`. Salida `0` si no hay eventos, `1` si los hay (imprime cuándo, qué y quién), `2` si **no pudo responder** (sin acceso, error de la API, argumento inválido): un fallo de consulta no se presenta nunca como «sin eventos». Valida la fecha y las ramas con expresiones ancladas (una prueba descubrió que el primer `case` aceptaba `refs/heads/main&per_page=1`). 4 pruebas con un `gh` simulado (`gateway/test/main_activity_check.test.js`).
+
+No se ha programado ni se ha añadido ningún workflow: ejecutarlo es manual (`sh scripts/main_activity_check.sh`) hasta que se decida otra cosa. Aporta lo que `evaluate` no puede dar en este plan: saber **después** si alguien reescribió o borró una rama protegida, incluido un administrador, que es justo el hueco de `enforce_admins=false`.
+
+**Hecho histórico encontrado al probarlo en real:** la API registra **un force-push sobre `main`** el 2026-10-18T04:33:29Z desde la cuenta del propietario (`before` `ba2cfee7d1…` → `after` `e787db8f27…`; el `before` ya no es alcanzable). La protección clásica lo permitió porque no se aplica a administradores. No se juzga: se deja constancia de que el hueco existe y de que este control lo habría señalado. Ventana de 48 h al 2026-10-29: sin eventos.
