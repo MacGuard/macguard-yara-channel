@@ -7,6 +7,7 @@ import { chmodSync, closeSync, mkdtempSync, openSync, readFileSync, readSync, re
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
+import { privateDir, releaseDir, trackChild } from './private_tmp.mjs';   // plaintext dirs survive no exit, exception or signal
 
 export const AGE_MAGIC = 'age-encryption.org/v1';
 
@@ -22,7 +23,7 @@ export const shaFile = async (file) => {
 const failText = (code, sig, err) => `age ${sig ? 'killed by ' + sig : 'exited ' + code}${err ? ': ' + err.replace(/\s+/g, ' ').trim().slice(0, 200) : ''}`;
 function runAge(args, inFd, outFd, signal, ageBin) {
   return new Promise((ok, ko) => {
-    const c = spawn(ageBin, args, { stdio: [inFd, outFd, 'pipe'], signal }); let e = '';
+    const c = trackChild(spawn(ageBin, args, { stdio: [inFd, outFd, 'pipe'], signal })); let e = '';
     c.stderr.on('data', (d) => { if (e.length < 400) e += d; }); c.on('error', ko);
     c.on('close', (code, sig) => (code === 0 ? ok() : ko(new Error(failText(code, sig, e)))));
   });
@@ -54,7 +55,7 @@ export async function ageDecryptFile({ ageBin = 'age', identity, src, dst, signa
 
 // SQL text that may be quoted in an error is replaced: a failed load must not copy data into a log.
 // Private directories still open when the process ends (an exception in a verifier) are removed so a failed run never leaves restored data behind.
-const OPEN = new Set(); process.once('exit', () => { for (const d of OPEN) rmSync(d, { recursive: true, force: true }); });
+// (registry, exit and signal handling: private_tmp.mjs)
 const scrub = (s) => String(s).trim().split('\n')[0].replace(/near "[^"]*"/g, 'near "…"').replace(/\s+/g, ' ').trim().slice(0, 160);   // only the first line: the sqlite3 CLI prints the failing SQL line below it
 
 // journal_mode/synchronous OFF: the database is throwaway (created empty, only read afterwards), and without them the CLI commits and fsyncs every statement (measured: 249 s instead of 16 s for a 129 MB export).  (locking_mode and cache_size were tried: no measurable effect on the whole run, so they are not set.)
@@ -66,22 +67,23 @@ const scrub = (s) => String(s).trim().split('\n')[0].replace(/near "[^"]*"/g, 'n
 export async function loadExport(sql, { sqliteBin = 'sqlite3', signal, tmpRoot = tmpdir() } = {}) {
   if (sql && sql.db && sql.close) return sql;   // already loaded (runBackup loads once and shares it)
   if (typeof sql === 'string') return loadMemory(sql);
-  const { file } = sql, dir = mkdtempSync(join(tmpRoot, 'mg-load-')); chmodSync(dir, 0o700); OPEN.add(dir);
-  const dbFile = join(dir, 'restore.db'), done = (extra) => ({ close() { try { extra.db && extra.db.close(); } catch { /* already closed */ } rmSync(dir, { recursive: true, force: true }); OPEN.delete(dir); }, ...extra });
+  const { file } = sql, dir = privateDir(tmpRoot, 'mg-load-');
+  const dbFile = join(dir, 'restore.db'), done = (extra) => ({ close() { try { extra.db && extra.db.close(); } catch { /* already closed */ } releaseDir(dir); }, ...extra });
   const fd = openSync(file, 'r');
   try {
     const res = await new Promise((ok) => {
-      const c = spawn(sqliteBin, ['-safe', '-bail', '-cmd', 'PRAGMA foreign_keys = OFF', '-cmd', 'PRAGMA journal_mode = OFF', '-cmd', 'PRAGMA synchronous = OFF', dbFile], { stdio: [fd, 'ignore', 'pipe'], signal, cwd: dir }); let e = '';
+      const c = trackChild(spawn(sqliteBin, ['-safe', '-bail', '-cmd', 'PRAGMA foreign_keys = OFF', '-cmd', 'PRAGMA journal_mode = OFF', '-cmd', 'PRAGMA synchronous = OFF', dbFile], { stdio: [fd, 'ignore', 'pipe'], signal, cwd: dir })); let e = '';
       c.stderr.on('data', (d) => { if (e.length < 600) e += d; });
       c.on('error', (err) => ok({ spawnError: err }));
       c.on('close', (code, sig) => ok({ code, sig, e }));
     });
     if (res.spawnError) {
       if (res.spawnError.code !== 'ENOENT') return done({ error: scrub(res.spawnError.message) });
-      rmSync(dir, { recursive: true, force: true }); OPEN.delete(dir); return loadMemory(readFileSync(file, 'utf8'));   // no sqlite3 CLI: same result, whole file in memory
+      releaseDir(dir); return loadMemory(readFileSync(file, 'utf8'));   // no sqlite3 CLI: same result, whole file in memory
     }
     if (res.code !== 0) return done({ error: scrub(res.sig ? 'sqlite3 killed by ' + res.sig : res.e || `sqlite3 exited ${res.code}`) });
-    const db = new DatabaseSync(dbFile); db.exec('PRAGMA foreign_keys = OFF'); return done({ db });
+    let db; try { db = new DatabaseSync(dbFile); db.exec('PRAGMA foreign_keys = OFF'); } catch (e) { try { db && db.close(); } catch { /* not open */ } releaseDir(dir); return { error: scrub(e.message), close() {} }; }   // the restored file is removed NOW, not at process exit
+    return done({ db });
   } finally { closeSync(fd); }
 }
 function loadMemory(text) {

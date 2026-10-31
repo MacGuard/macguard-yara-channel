@@ -10,11 +10,13 @@ export function panelRowCounts(db) { const out = {}; for (const { name } of db.p
 export async function verifyPanelRestore(sql, { manifest = null } = {}) {
   const checks = [], add = (name, ok, detail = '') => checks.push({ name, ok: !!ok, detail });
   const L = await loadExport(sql); if (L.error) { add('the export loads into an empty database', false, L.error); L.close(); return { ok: false, checks }; }   // a string, { file } (streamed) or an already loaded export
-  add('the export loads into an empty database', true); const db = L.db;
-  const ic = db.prepare('PRAGMA integrity_check').get(); add('SQLite integrity_check', ic.integrity_check === 'ok', JSON.stringify(ic));
-  const have = new Set(db.prepare("SELECT name FROM sqlite_master WHERE type='table'").all().map((r) => r.name)); const miss = BASE_TABLES.filter((t) => !have.has(t)); add('the base tables of the panel exist', !miss.length, miss.length ? `missing: ${miss.join(', ')}` : '');
-  add('no dangling foreign keys', db.prepare('PRAGMA foreign_key_check').all().length === 0);
-  let chain; try { chain = await verifyAuditChain(shim(db)); } catch (e) { chain = { ok: false, error: String(e.message).slice(0, 80) }; } add('audit hash chain intact', chain.ok === true, chain.ok ? `${chain.entries} entries` : JSON.stringify(chain).slice(0, 100));
-  if (manifest && manifest.row_counts) { const now = panelRowCounts(db), diff = Object.keys(manifest.row_counts).filter((t) => now[t] !== manifest.row_counts[t]); add('row counts equal the manifest', !diff.length, diff.join(', ')); }
-  L.close(); return { ok: checks.every((c) => c.ok), checks };
+  try {   // the loaded export is a plaintext FILE: closed and removed even if a check throws (as verifyRestore in backup_lib)
+    add('the export loads into an empty database', true); const db = L.db;
+    const ic = db.prepare('PRAGMA integrity_check').get(); add('SQLite integrity_check', ic.integrity_check === 'ok', JSON.stringify(ic));
+    const have = new Set(db.prepare("SELECT name FROM sqlite_master WHERE type='table'").all().map((r) => r.name)); const miss = BASE_TABLES.filter((t) => !have.has(t)); add('the base tables of the panel exist', !miss.length, miss.length ? `missing: ${miss.join(', ')}` : '');
+    add('no dangling foreign keys', db.prepare('PRAGMA foreign_key_check').all().length === 0);
+    let chain; try { chain = await verifyAuditChain(shim(db)); } catch (e) { chain = { ok: false, error: String(e.message).slice(0, 80) }; } add('audit hash chain intact', chain.ok === true, chain.ok ? `${chain.entries} entries` : JSON.stringify(chain).slice(0, 100));
+    if (manifest && manifest.row_counts) { const now = panelRowCounts(db), diff = Object.keys(manifest.row_counts).filter((t) => now[t] !== manifest.row_counts[t]); add('row counts equal the manifest', !diff.length, diff.join(', ')); }
+  } finally { L.close(); }
+  return { ok: checks.every((c) => c.ok), checks };
 }

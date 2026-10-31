@@ -15,6 +15,7 @@ import { verifyRestore } from './backup_lib.mjs';
 import { ageDecryptFile, shaFile } from './stream_io.mjs';
 import { makeRecord, classify, safeEmit, outboxFromEnv } from './telemetry.mjs';
 import { ANCHOR_FILES, ANCHOR_BUNDLE, CHECKPOINT_BUNDLE, CHECKPOINT_FILES, anchorFiles, verifyAnchor, compareHeads, verifyCheckpoint, bestCheckpoint, checkAgainstCheckpoint } from './backup_anchor.mjs';
+import { privateDir } from './private_tmp.mjs';
 
 export const FILES = ['d1-export.sql.age', 'manifest.json', 'SHA256SUMS'], PROVIDERS = ['b2', 'scaleway', 'r2'];
 const STAMP = /^\d{8}T\d{6}Z$/, sha = (b) => createHash('sha256').update(b).digest('hex'), iso = (d) => d.toISOString().replace(/\.\d{3}Z$/, 'Z'), hmac = (k, s) => createHmac('sha256', k).update(s).digest();
@@ -175,7 +176,7 @@ async function drillCore({ root = ROOT_DEFAULT, config = DEFAULT_CONFIG, name, i
     const localSums = join(root, stamp, 'SHA256SUMS'), localRecord = existsSync(localSums), anchored = signed || localRecord;
     if (localRecord && sha(readFileSync(localSums)) !== sha(got['SHA256SUMS'])) return res({ ok: false, backup: stamp, anchored, reason: 'the destination holds a different SHA256SUMS than the local record of this backup' });
     // Streaming: the ciphertext goes to a private directory, age decrypts it into a 0600 file (the plaintext never passes through this process), the hash is computed from the file and sqlite3 loads it from the file.
-    const work = mkdtempSync(join(resolve(root), '.drill-')); chmodSync(work, 0o700); const plain = join(work, 'plain.sql'), manifest = JSON.parse(got['manifest.json'].toString('utf8')); let v;
+    const work = privateDir(resolve(root), '.drill-'); const plain = join(work, 'plain.sql'), manifest = JSON.parse(got['manifest.json'].toString('utf8')); let v;
     try {
       writeFileSync(join(work, 'c.age'), got['d1-export.sql.age'], { mode: 0o600 });
       await ageDecryptFile({ ageBin, identity: identityFile, src: join(work, 'c.age'), dst: plain });

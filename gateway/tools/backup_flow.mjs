@@ -7,6 +7,7 @@ import { homedir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { verifyRestore, rowCounts } from './backup_lib.mjs';
 import { AGE_MAGIC, ageDecryptFile, ageEncryptFile, loadExport, shaFile } from './stream_io.mjs';
+import { privateDir } from './private_tmp.mjs';
 
 export const ROOT_DEFAULT = join(homedir(), 'macguard-backups', 'gateway');
 const sha = (b) => createHash('sha256').update(b).digest('hex'), now = (d) => d.toISOString().replace(/\.\d{3}Z$/, 'Z'), stampOf = (d) => now(d).replace(/[-:]/g, '');
@@ -19,7 +20,7 @@ export async function runBackup({ exportFn, root = ROOT_DEFAULT, recipient = nul
   mkdirSync(root, { recursive: true, mode: 0o700 }); chmodSync(root, 0o700);
   const status = existsSync(join(root, 'status.json')) ? JSON.parse(readFileSync(join(root, 'status.json'), 'utf8')) : {}, started = clock();
   const fail = (stage, e) => { const st = { ...status, last_attempt_at: now(started), last_status: 'failed', last_failed_stage: stage, last_error: String(e?.message ?? e).slice(0, 200) }; writeFileSync(join(root, 'status.json'), JSON.stringify(st, null, 2) + '\n', { mode: 0o600 }); return { ok: false, stage, error: st.last_error }; };
-  const tmp = mkdtempSync(join(homedir(), '.mg-backup-')); chmodSync(tmp, 0o700); let L;
+  const tmp = privateDir(homedir(), '.mg-backup-'); let L;
   try {
     const plain = join(tmp, 'd1-export.sql');
     try { await exportFn(plain); } catch (e) { return fail('export', e); }
@@ -81,7 +82,7 @@ export async function rekeyBackup({ dir, identityFile, newRecipient, newIdentity
   dir = resolve(dir); root = resolve(root); if (isTemp(root)) throw new Error('refusing to keep backups in a temporary directory');
   if (!/^age1[a-z0-9]{50,}$/.test(newRecipient ?? '')) throw new Error('the new recipient is not an age public key');
   const manifest = JSON.parse(readFileSync(join(dir, 'manifest.json'), 'utf8')); if (manifest.stored_file !== 'd1-export.sql.age') throw new Error('this backup is not age-encrypted');
-  const tmp = mkdtempSync(join(homedir(), '.mg-rekey-')); chmodSync(tmp, 0o700);
+  const tmp = privateDir(homedir(), '.mg-rekey-');
   try {
     // Streaming: old ciphertext -> private plaintext file -> new ciphertext file; neither is ever held in memory.
     const oldEnc = join(dir, 'd1-export.sql.age'); if (await shaFile(oldEnc) !== manifest.stored_sha256) throw new Error('the stored ciphertext does not match its recorded checksum');
