@@ -7,13 +7,14 @@ import { homedir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { verifyRestore } from './backup_lib.mjs';
 import { ageDecryptFile } from './stream_io.mjs';
+import { privateDir } from './private_tmp.mjs';
 
 const arg = (n, d = null) => { const i = process.argv.indexOf(n); return i > 0 ? process.argv[i + 1] : d; };
 const file = arg('--export'), staging = arg('--staging'), identity = arg('--identity'), apply = process.argv.includes('--apply'), PROD = 'macguard-gateway';
 if (!file || !staging) { console.error('usage: restore_to_staging.mjs --export FILE --staging NAME [--identity KEY] [--apply --confirm-database NAME]'); process.exit(2); }
 if (staging === PROD || !/^[a-z0-9][a-z0-9-]*-(staging|restore-test|scratch)$/.test(staging)) { console.error(`refusing: the target must be a database named like <something>-staging, -restore-test or -scratch, never ${PROD}`); process.exit(2); }
 // Streaming: an .age export is decrypted by age into a private 0600 file (never into this process), verified by sqlite3 from that file, and the same file is what `--apply` uploads.
-const work = mkdtempSync(join(homedir(), '.mg-restore-')); chmodSync(work, 0o700); process.once('exit', () => rmSync(work, { recursive: true, force: true }));
+const work = privateDir(homedir(), '.mg-restore-');   // removed on exit and on signals (private_tmp.mjs)
 let plain = file;
 if (file.endsWith('.age')) { if (!identity) { console.error('an .age export needs --identity KEYFILE'); process.exit(2); } plain = join(work, 'restore.sql'); try { await ageDecryptFile({ identity, src: file, dst: plain }); } catch (e) { console.error(`the backup does not decrypt: ${String(e.message).slice(0, 160)}`); process.exit(1); } }
 const v = await verifyRestore({ file: plain }); for (const c of v.checks) console.log(`${c.ok ? 'PASS' : 'FAIL'}  ${c.name}${c.detail ? ' (' + c.detail + ')' : ''}`); if (!v.ok) { console.error('the export does not verify: nothing will be restored'); process.exit(1); }

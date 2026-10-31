@@ -13,6 +13,7 @@ import { dirname, join, resolve, relative, isAbsolute } from 'node:path';
 import { ROOT_DEFAULT, isTemp } from './backup_flow.mjs';
 import { verifyRestore } from './backup_lib.mjs';
 import { ageDecryptFile, shaFile } from './stream_io.mjs';
+import { privateDir } from './private_tmp.mjs';
 
 const sha = (p) => createHash('sha256').update(readFileSync(p)).digest('hex'), STAMP = /^\d{8}T\d{6}Z$/, FILES = ['d1-export.sql.age', 'manifest.json', 'SHA256SUMS'], iso = (d) => d.toISOString().replace(/\.\d{3}Z$/, 'Z');
 const stampsOf = (dir) => (existsSync(dir) ? readdirSync(dir).filter((n) => STAMP.test(n)).sort() : []);
@@ -59,7 +60,7 @@ export async function restoreDrill({ root = ROOT_DEFAULT, dest, identityFile, cl
   try {
     const sums = readFileSync(join(dir, 'SHA256SUMS'), 'utf8').trim().split('\n').map((l) => l.split(/\s+/)); for (const [h, f] of sums) if (sha(join(dir, f)) !== h) return record({ at, backup: stamp, ok: false, reason: `checksum mismatch in ${f}` });
     // Streaming: age decrypts into a private 0600 file, the hash comes from that file and sqlite3 loads it from there; the plaintext never passes through this process.
-    const manifest = JSON.parse(readFileSync(join(dir, 'manifest.json'), 'utf8')), work = mkdtempSync(join(tmpdir(), 'mg-offsite-')); chmodSync(work, 0o700); const plain = join(work, 'plain.sql'); let v;
+    const manifest = JSON.parse(readFileSync(join(dir, 'manifest.json'), 'utf8')), work = privateDir(tmpdir(), 'mg-offsite-'); const plain = join(work, 'plain.sql'); let v;
     try {
       await ageDecryptFile({ ageBin, identity: identityFile, src: join(dir, 'd1-export.sql.age'), dst: plain });
       if (await shaFile(plain) !== manifest.plaintext_sha256) return record({ at, backup: stamp, ok: false, reason: 'the decrypted bytes do not match the manifest' });
