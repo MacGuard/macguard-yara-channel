@@ -36,9 +36,12 @@ export function buildBackupRecord({ pkg, runId, runUrl, providers, resource = 'g
 export const readRecords = (file) => (existsSync(file) ? readFileSync(file, 'utf8').split('\n').filter(Boolean).map((l) => { try { return JSON.parse(l); } catch { return null; } }).filter(Boolean) : []);
 /** Is `b` a second report of the restoration that `a` already records? Identity is the RESTORATION, never the time the workflow ran (`at` differs on every dispatch, which is why the old key never matched):
  *  - both carry restored_at (the moment the restore itself happened, reported by restore_from_run.sh): same backup run, provider, mode, plaintext hash and restored_at;
- *  - otherwise (older or manual reports): same run, provider, mode, hash AND the same reported duration and reporter, i.e. the same report. A genuinely new restore has a new restored_at and is a new event. */
+ *  - otherwise (older or manual reports): same run, provider, mode, hash AND the same reported duration and reporter, i.e. the same report. A genuinely new restore has a new restored_at and is a new event.
+ *  - mixed (only one carries restored_at): additionally, the restore cannot have happened AFTER the legacy line was reported; a restored_at later than the legacy `at` is a new restoration. */
+const notAfterReport = (withTime, legacy) => !legacy.at || Date.parse(withTime.restored_at) <= Date.parse(legacy.at);
 export const sameRestore = (a, b) => a.kind === 'restore' && b.kind === 'restore' && a.run_id === b.run_id && a.provider === b.provider && a.mode === b.mode && a.plaintext_sha256 === b.plaintext_sha256
-  && (a.restored_at && b.restored_at ? a.restored_at === b.restored_at : a.duration_s === b.duration_s && a.by === b.by);
+  && (a.restored_at && b.restored_at ? a.restored_at === b.restored_at
+    : a.duration_s === b.duration_s && a.by === b.by && (a.restored_at ? notAfterReport(a, b) : b.restored_at ? notAfterReport(b, a) : true));
 export function append(file, rec) {
   const have = readRecords(file);
   if (rec.kind === 'backup' && have.some((r) => r.kind === 'backup' && r.run_id === rec.run_id)) return { added: false, reason: 'this run is already recorded' };
