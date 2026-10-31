@@ -1,0 +1,36 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "macguard.codex-review/1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "base_sha", "head_sha", "summary", "reviewed_files", "findings", "limitations"],
+  "properties": {
+    "schema": { "type": "string", "enum": ["macguard.codex-review/1"] },
+    "base_sha": { "type": "string", "pattern": "^[0-9a-f]{40}$" },
+    "head_sha": { "type": "string", "pattern": "^[0-9a-f]{40}$" },
+    "summary": { "type": "string" },
+    "reviewed_files": { "type": "array", "items": { "type": "string" } },
+    "findings": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "severity", "title", "file", "line", "description", "evidence", "fix_size", "shared_critical", "suggested_fix", "confidence"],
+        "properties": {
+          "id": { "type": "string", "pattern": "^F[0-9]{1,3}$" },
+          "severity": { "type": "string", "enum": ["BLOCKER", "HIGH", "MEDIUM", "LOW"] },
+          "title": { "type": "string" },
+          "file": { "type": "string" },
+          "line": { "type": ["integer", "null"] },
+          "description": { "type": "string" },
+          "evidence": { "type": "string" },
+          "fix_size": { "type": "string", "enum": ["small", "large", "unknown"] },
+          "shared_critical": { "type": "boolean" },
+          "suggested_fix": { "type": "string" },
+          "confidence": { "type": "string", "enum": ["confirmed", "likely", "speculative"] }
+        }
+      }
+    },
+    "limitations": { "type": "array", "items": { "type": "string" } }
+  }
+}
