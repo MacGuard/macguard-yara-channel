@@ -67,6 +67,7 @@ mkdir -p "$OUT_ROOT"
 BATCH_DIR="$OUT_ROOT/batches/$BATCH"; mkdir -p "$BATCH_DIR/runs" "$OUT_ROOT/locks" "$OUT_ROOT/index"
 exec 8>"$OUT_ROOT/locks/batch-$BATCH.lock"; flock -n 8 || die 3 "another review of batch $BATCH is running"
 exec 9>"$OUT_ROOT/locks/pair-${BASE}_${HEAD}.lock"; flock -n 9 || die 3 'this (base, head) pair is already being reviewed'
+exec 7>"$OUT_ROOT/locks/head-$HEAD.lock"; flock -n 7 || die 3 'this commit is already being reviewed (another batch or base)'   # serialises the per-HEAD ledger check+reservation
 
 PAIR_INDEX="$OUT_ROOT/index/${BASE}_${HEAD}"
 if [[ -e $PAIR_INDEX && $FORCE -eq 0 ]]; then die 3 "already reviewed: $(cat "$PAIR_INDEX") (use --force to review again; it still consumes budget)"; fi
@@ -158,9 +159,9 @@ INPUTS_BEFORE=$(inputs_hash)
 START=$(date -u +%Y-%m-%dT%H:%M:%SZ)
 set +e
 # setsid: Codex and every descendant share one process group that is killed afterwards (a grandchild ignoring SIGTERM cannot outlive
-# the review). 8>&- 9>&-: the lock descriptors are NOT inherited, so a straggler can never hold the batch/pair locks.
+# the review). 7>&- 8>&- 9>&-: the lock descriptors are NOT inherited, so a straggler can never hold the batch/pair locks.
 setsid env -i HOME="$HOME" USER="${USER:-$(id -un)}" LANG=C.UTF-8 PATH="$CPATH" ${CODEX_HOME:+CODEX_HOME="$CODEX_HOME"} \
-  timeout --kill-after=30 "$TIMEOUT" "${CMD[@]}" <"$EV/prompt.txt" >"$EV/codex/stdout.raw" 2>"$EV/codex/stderr.raw" 8>&- 9>&- &
+  timeout --kill-after=30 "$TIMEOUT" "${CMD[@]}" <"$EV/prompt.txt" >"$EV/codex/stdout.raw" 2>"$EV/codex/stderr.raw" 7>&- 8>&- 9>&- &
 CPID=$!
 wait "$CPID"; RC=$?
 kill -KILL -- "-$CPID" 2>/dev/null; CPID=''
