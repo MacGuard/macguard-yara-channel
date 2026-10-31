@@ -56,7 +56,9 @@ export async function ageDecryptFile({ ageBin = 'age', identity, src, dst, signa
 // SQL text that may be quoted in an error is replaced: a failed load must not copy data into a log.
 // Private directories still open when the process ends (an exception in a verifier) are removed so a failed run never leaves restored data behind.
 // (registry, exit and signal handling: private_tmp.mjs)
-const scrub = (s) => String(s).trim().split('\n')[0].replace(/near "[^"]*"/g, 'near "…"').replace(/\s+/g, ' ').trim().slice(0, 160);   // only the first line: the sqlite3 CLI prints the failing SQL line below it
+// Everything from the first quote on is dropped: SQLite quotes the offending SQL/data in several forms (near "…", unrecognized token: "'…", …), and a truncated
+// export would otherwise copy up to 160 characters of DATA into status.json and the CI log. The error kind and position (e.g. "near line 39") are kept.
+const scrub = (s) => { const t = String(s).trim().split('\n')[0].replace(/\s+/g, ' ').trim(), q = t.search(/["'`]/); return (q < 0 ? t : t.slice(0, q).trimEnd() + ' "…"').slice(0, 160); };   // only the first line: the sqlite3 CLI prints the failing SQL line below it
 
 // journal_mode/synchronous OFF: the database is throwaway (created empty, only read afterwards), and without them the CLI commits and fsyncs every statement (measured: 249 s instead of 16 s for a 129 MB export).  (locking_mode and cache_size were tried: no measurable effect on the whole run, so they are not set.)
 /** Loads an export into an isolated SQLite and returns { db, close() } or { error, close() }.
