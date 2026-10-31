@@ -23,11 +23,12 @@ Runs `scripts/review.sh`, which asks the official Codex CLI to review `HEAD_SHA`
 
 | Requirement | How |
 |---|---|
-| Read-only | `codex exec --sandbox read-only --ephemeral`, `approval_policy="never"`, cwd = a `git archive` snapshot of HEAD (no `.git`, `chmod a-w`). Repo fingerprint (HEAD, refs, status, staged + unstaged diff, untracked contents) and snapshot hash are compared before/after → exit 7 on any change. |
+| Read-only | `codex exec --sandbox read-only --ephemeral`, `approval_policy="never"`, cwd = a `git archive` snapshot of HEAD (no `.git`, `chmod a-w`). The sandbox is the primary control; as a tripwire, exit 7 if any of these change: repo HEAD/refs/status (incl. ignored), staged and unstaged diff, untracked file contents, path/size/mtime of ignored files, git config and hooks, the snapshot, or the review inputs (prompt, diff, schema copy, command). Not covered: files outside the repo and evidence dir. |
 | Exact SHAs | Only full SHAs; the JSON must echo the same `base_sha`/`head_sha` or it is rejected. |
-| Structured output | `--output-schema` + local validation of the schema and semantic checks (SHAs, unique ids, cited files exist). |
-| Timeout / duplicates | `timeout --kill-after=30`; `flock` per batch and per (base, head); a completed pair is refused unless `--force`. |
-| No secrets | Child env reduced to `HOME USER LANG PATH` (+`CODEX_HOME`); stdout/stderr/JSON are redacted (GitHub, OpenAI, AWS, Slack, age, JWT, bearer, PEM keys) before being stored. |
+| Structured output | `--output-schema` + validation against the skill's own schema file (not the copy Codex saw), full-match patterns, and semantic checks (SHAs, unique ids, cited files exist). |
+| Timeout / duplicates | `timeout --kill-after=30` inside its own process group (`setsid`), killed as a group afterwards; lock descriptors are not inherited by Codex. `flock` per batch and per (base, head); a completed pair is refused unless `--force`. |
+| Interruption | SIGINT/TERM/HUP: Codex's group is killed, the snapshot and unredacted raw logs are deleted, `INTERRUPTED` is written. The round **stays counted**; a later fix round looks back to the last *completed* round. |
+| No secrets | Child env reduced to `HOME USER LANG PATH` (+`CODEX_HOME`); stdout/stderr/JSON are redacted before being stored (GitHub, OpenAI, AWS key ids, Google `AIza`, Slack, age, JWT, bearer, PEM keys, `password=`/`secret_access_key=`/`api_key=`/`client_secret=` values). Pattern-based: not a guarantee for unknown formats. |
 | Evidence | per run: `prompt.txt`, `diff.patch`, `diff.stat`, `changed_files.txt`, `command.txt`, `codex/{stdout.log,stderr.log,exit_code,last_message.json}`, `meta.json`, `decision.json`, `repo_state.*`, `snapshot.*`, `SHA256SUMS`. |
 
 Exit codes: `0` valid, no BLOCKER/HIGH reported · `1` valid with BLOCKER/HIGH · `2` usage/precondition · `3` duplicate/running · `4` anti-loop budget exhausted · `5` Codex failed/timed out · `6` invalid JSON · `7` safety violation.
@@ -36,7 +37,7 @@ Exit codes: `0` valid, no BLOCKER/HIGH reported · `1` valid with BLOCKER/HIGH �
 
 ## Anti-loop policy (enforced by the script, not by goodwill)
 
-Per batch: **at most 2 ordinary rounds + 1 fix round**. Failed and timed-out attempts also count. No unlimited Claude → Codex → Claude cycles.
+Per batch: **at most 2 ordinary rounds + 1 fix round**. Across all batches: **at most 2 reviews of the same HEAD commit** (`ledger.tsv`), so a new `--batch` or `--force` cannot buy more reviews of unchanged code. Failed, timed-out and interrupted attempts also count. No unlimited Claude → Codex → Claude cycles. A new batch for *new* code (a new commit) is legitimate; using one to dodge a refusal is not, and the human gate must be told about every batch used.
 
 | Result of a round | `decision` | What to do |
 |---|---|---|

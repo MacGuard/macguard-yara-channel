@@ -49,7 +49,7 @@ done
 [[ -z $NODE_DIR || -x $NODE_DIR/node ]] || die 2 "--node-dir has no executable node: $NODE_DIR"
 [[ -n $NODE_DIR ]] || { n=$(command -v node 2>/dev/null) && NODE_DIR=$(dirname "$n"); } || true   # default: the caller's node (e.g. nvm's), never a guess
 [[ -f $SCHEMA_SRC ]] || die 2 "schema not found: $SCHEMA_SRC"
-for t in git python3 flock timeout sha256sum tar; do command -v "$t" >/dev/null || die 2 "missing tool: $t"; done
+for t in git python3 flock timeout setsid realpath sha256sum tar; do command -v "$t" >/dev/null || die 2 "missing tool: $t"; done
 command -v "$CODEX_BIN" >/dev/null || die 2 "codex CLI not found: $CODEX_BIN"
 
 REPO=$(git rev-parse --show-toplevel 2>/dev/null) || die 2 'not inside a git repository'
@@ -58,10 +58,11 @@ for s in "$BASE" "$HEAD"; do git -C "$REPO" cat-file -e "$s^{commit}" 2>/dev/nul
 git -C "$REPO" merge-base --is-ancestor "$BASE" "$HEAD" || die 2 'base is not an ancestor of head: refusing an ambiguous diff'
 
 # Evidence must live outside the repository AND outside the main checkout that owns this worktree.
-mkdir -p "$OUT_ROOT"; OUT_ROOT=$(cd "$OUT_ROOT" && pwd -P)
+OUT_ROOT=$(realpath -m "$OUT_ROOT")   # resolved (symlinks included) BEFORE anything is created
 for inside in "$(cd "$REPO" && pwd -P)" "$(dirname "$COMMON")"; do
   case "$OUT_ROOT/" in "$inside"/*) die 2 "evidence directory $OUT_ROOT is inside the repository ($inside)";; esac
 done
+mkdir -p "$OUT_ROOT"
 
 BATCH_DIR="$OUT_ROOT/batches/$BATCH"; mkdir -p "$BATCH_DIR/runs" "$OUT_ROOT/locks" "$OUT_ROOT/index"
 exec 8>"$OUT_ROOT/locks/batch-$BATCH.lock"; flock -n 8 || die 3 "another review of batch $BATCH is running"
@@ -78,22 +79,39 @@ if [[ $KIND == ordinary ]]; then
   ((n_ord < MAX_ORDINARY)) || die 4 "batch $BATCH used its $MAX_ORDINARY ordinary reviews: stop the loop; open an issue / exclude / block per SKILL.md"
 else
   ((n_fix < MAX_FIX)) || die 4 "batch $BATCH already used its fix round: open an issue and exclude the feature, or block the release"
-  last=$(tail -n1 "$ROUNDS" | cut -f3); [[ -n $last && -f $last/decision.json ]] || die 4 'a fix round needs a previous completed round'
+  last=''; while IFS=$'\t' read -r _ _ r _; do [[ -f $r/decision.json ]] && last=$r; done <"$ROUNDS"   # last COMPLETED round (an interrupted one has no decision)
+  [[ -n $last ]] || die 4 'a fix round needs a previous completed round'
   [[ $(python3 -c 'import json,sys;print(json.load(open(sys.argv[1]))["decision"])' "$last/decision.json") == fix-and-rereview ]] \
     || die 4 'the previous round did not authorise a fix round (only a small BLOCKER/HIGH does)'
 fi
+# Global cap per HEAD across ALL batches: opening another --batch (or --force) cannot buy more reviews of the same code.
+LEDGER="$OUT_ROOT/ledger.tsv"; touch "$LEDGER"
+n_head=$(awk -F'\t' -v h="$HEAD" '$1==h' "$LEDGER" | wc -l)
+((n_head < MAX_ORDINARY)) || die 4 "commit $HEAD was already reviewed $n_head times (any batch): new code needs a new commit"
 
 STAMP=$(date -u +%Y%m%dT%H%M%SZ)   # mktemp -d creates the run directory exclusively: an earlier attempt's evidence is never reused or overwritten
 RUN=$(mktemp -d "$BATCH_DIR/runs/$STAMP-${HEAD:0:12}-$KIND-XXXXXX"); mkdir "$RUN/snapshot" "$RUN/codex"
-printf '%s\t%s\t%s\t%s\n' "$STAMP" "$KIND" "$RUN" "$HEAD" >>"$ROUNDS"
+printf '%s\t%s\t%s\t%s\n' "$STAMP" "$KIND" "$RUN" "$HEAD" >>"$ROUNDS"; printf '%s\t%s\t%s\t%s\n' "$HEAD" "$KIND" "$BATCH" "$RUN" >>"$LEDGER"
 EV="$RUN"   # all evidence files live directly under the run directory
 
-# Fingerprint of the repository: HEAD, refs, status, staged diff, unstaged diff and the CONTENT of untracked (non-ignored) files.
+# Interruption: kill Codex's whole process group, never leave the read-only snapshot or unredacted raw logs behind. The round stays counted.
+CPID=''
+cleanup() { [[ -n $CPID ]] && kill -KILL -- "-$CPID" 2>/dev/null; chmod -R u+w "$RUN/snapshot" 2>/dev/null; rm -rf "$RUN/snapshot" "$RUN/codex/stdout.raw" "$RUN/codex/stderr.raw"; }
+trap cleanup EXIT
+trap '[[ -f $EV/decision.json ]] || echo "interrupted by signal" >"$EV/INTERRUPTED"; exit 130' INT TERM HUP
+
+# Fingerprint of the repository: HEAD, refs, status (incl. ignored), staged diff, unstaged diff, CONTENT of untracked files,
+# path/size/mtime of ignored files (e.g. node_modules), and the git config and hooks (code that git would execute).
 repo_state() {
-  git -C "$REPO" rev-parse HEAD; git -C "$REPO" for-each-ref --format='%(refname) %(objectname)'; git -C "$REPO" status --porcelain=v1 -uall
+  git -C "$REPO" rev-parse HEAD; git -C "$REPO" for-each-ref --format='%(refname) %(objectname)'; git -C "$REPO" status --porcelain=v1 -uall --ignored
   git -C "$REPO" diff --cached --binary | sha256sum; git -C "$REPO" diff --binary | sha256sum
   (cd "$REPO" && git ls-files -o --exclude-standard -z | LC_ALL=C sort -z | xargs -0 -r sha256sum)
+  (cd "$REPO" && git ls-files -o -i --exclude-standard -z | LC_ALL=C sort -z | xargs -0 -r stat -c '%n %s %Y')
+  local p g=(); for p in "$COMMON/config" "$COMMON/hooks" "$(git -C "$REPO" rev-parse --absolute-git-dir)/config.worktree"; do [[ -e $p ]] && g+=("$p"); done
+  ((${#g[@]})) && find "${g[@]}" -type f -print0 | LC_ALL=C sort -z | xargs -0 -r sha256sum
+  return 0
 }
+inputs_hash() { (cd "$EV" && sha256sum prompt.txt diff.patch diff.stat changed_files.txt review.schema.json command.txt) | sha256sum | cut -d' ' -f1; }
 tree_hash() { (cd "$1" && find . -type f -print0 | LC_ALL=C sort -z | xargs -0 -r sha256sum) | sha256sum | cut -d' ' -f1; }
 
 repo_state | sha256sum | cut -d' ' -f1 >"$EV/repo_state.before"
@@ -136,25 +154,32 @@ CMD=("$CODEX_BIN" exec --sandbox read-only --ephemeral --skip-git-repo-check --c
 CMD+=(-)
 printf '%q ' "${CMD[@]}" >"$EV/command.txt"; echo >>"$EV/command.txt"
 
+INPUTS_BEFORE=$(inputs_hash)
 START=$(date -u +%Y-%m-%dT%H:%M:%SZ)
 set +e
-env -i HOME="$HOME" USER="${USER:-$(id -un)}" LANG=C.UTF-8 PATH="$CPATH" ${CODEX_HOME:+CODEX_HOME="$CODEX_HOME"} \
-  timeout --kill-after=30 "$TIMEOUT" "${CMD[@]}" <"$EV/prompt.txt" >"$EV/codex/stdout.raw" 2>"$EV/codex/stderr.raw"
-RC=$?
+# setsid: Codex and every descendant share one process group that is killed afterwards (a grandchild ignoring SIGTERM cannot outlive
+# the review). 8>&- 9>&-: the lock descriptors are NOT inherited, so a straggler can never hold the batch/pair locks.
+setsid env -i HOME="$HOME" USER="${USER:-$(id -un)}" LANG=C.UTF-8 PATH="$CPATH" ${CODEX_HOME:+CODEX_HOME="$CODEX_HOME"} \
+  timeout --kill-after=30 "$TIMEOUT" "${CMD[@]}" <"$EV/prompt.txt" >"$EV/codex/stdout.raw" 2>"$EV/codex/stderr.raw" 8>&- 9>&- &
+CPID=$!
+wait "$CPID"; RC=$?
+kill -KILL -- "-$CPID" 2>/dev/null; CPID=''
 set -e
 END=$(date -u +%Y-%m-%dT%H:%M:%SZ)
 echo "$RC" >"$EV/codex/exit_code"
+INPUTS_OK=1; [[ $(inputs_hash) == "$INPUTS_BEFORE" ]] || INPUTS_OK=0
 
 # ---- post-processing: redact, safety, validation, decision, checksums (single python step, stdlib only) ----
 repo_state | sha256sum | cut -d' ' -f1 >"$EV/repo_state.after"
 chmod -R u+w "$RUN/snapshot"; tree_hash "$RUN/snapshot" >"$EV/snapshot.after"
 set +e
-python3 - "$EV" "$BASE" "$HEAD" "$KIND" "$RC" "$START" "$END" "$TIMEOUT" "$("$CODEX_BIN" --version 2>/dev/null | head -1)" "$n_fix" "$MAX_FIX" <<'PY'
+python3 - "$EV" "$BASE" "$HEAD" "$KIND" "$RC" "$START" "$END" "$TIMEOUT" "$("$CODEX_BIN" --version 2>/dev/null | head -1)" "$n_fix" "$MAX_FIX" "$SCHEMA_SRC" "$INPUTS_OK" <<'PY'
 import json, os, re, sys, hashlib
-ev, base, head, kind, rc, start, end, timeout, codex_ver, n_fix, max_fix = sys.argv[1:]
+ev, base, head, kind, rc, start, end, timeout, codex_ver, n_fix, max_fix, schema_src, inputs_ok = sys.argv[1:]
 rc, n_fix, max_fix = int(rc), int(n_fix), int(max_fix)
 SECRET = [r'gh[pousr]_[A-Za-z0-9]{20,}', r'github_pat_[A-Za-z0-9_]{20,}', r'sk-[A-Za-z0-9_-]{20,}', r'AKIA[0-9A-Z]{16}', r'xox[abposr]-[A-Za-z0-9-]{10,}',
           r'AGE-SECRET-KEY-1[0-9A-Z]{20,}', r'eyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}', r'(?i)bearer\s+[A-Za-z0-9._~+/-]{20,}',
+          r'AIza[0-9A-Za-z_-]{35}', r'(?i)(aws_secret_access_key|secret_access_key|password|passwd|api[_-]?key|client_secret)(["\']?\s*[:=]\s*["\']?)[^\s"\']{8,}',
           r'-----BEGIN [A-Z ]*PRIVATE KEY-----[\s\S]*?-----END [A-Z ]*PRIVATE KEY-----']
 def redact(t):
     n = 0
@@ -175,7 +200,7 @@ def validate(v, s, path='$'):
     def ok(t): return (isinstance(v, int) and not isinstance(v, bool)) if t == 'integer' else isinstance(v, tmap[t]) and not (t != 'boolean' and isinstance(v, bool))
     if types and not any(ok(t) for t in types): return [f'{path}: expected {types}']
     if 'enum' in s and v not in s['enum']: errs.append(f'{path}: {v!r} not in {s["enum"]}')
-    if 'pattern' in s and isinstance(v, str) and not re.search(s['pattern'], v): errs.append(f'{path}: does not match {s["pattern"]}')
+    if 'pattern' in s and isinstance(v, str) and not re.fullmatch(s['pattern'].lstrip('^').rstrip('$'), v): errs.append(f'{path}: does not match {s["pattern"]}')
     if isinstance(v, dict):
         for r in s.get('required', []):
             if r not in v: errs.append(f'{path}: missing {r}')
@@ -191,6 +216,7 @@ def validate(v, s, path='$'):
 safety = []
 if open(os.path.join(ev, 'repo_state.before')).read() != open(os.path.join(ev, 'repo_state.after')).read(): safety.append('the repository state changed during the review')
 if open(os.path.join(ev, 'snapshot.before')).read() != open(os.path.join(ev, 'snapshot.after')).read(): safety.append('the reviewed snapshot changed during the review')
+if inputs_ok != '1': safety.append('the review inputs (prompt, diff, schema copy, command) changed during the review')
 
 errors, review = [], None
 if rc == 124 or rc == 137: errors.append(f'codex timed out after {timeout}s (exit {rc})')
@@ -201,7 +227,7 @@ else:
     except Exception as e: errors.append(f'final message is not JSON: {e}')
 schema_errors = []
 if review is not None:
-    schema_errors = validate(review, json.load(open(os.path.join(ev, 'review.schema.json'))))
+    schema_errors = validate(review, json.load(open(schema_src)))   # the skill's own schema, never the copy Codex could have seen
     if not schema_errors:
         if review['base_sha'] != base or review['head_sha'] != head: schema_errors.append('the JSON names other SHAs than the ones reviewed')
         ids = [f['id'] for f in review['findings']]
@@ -245,7 +271,7 @@ set -e
 DECIDED=$(python3 -c 'import json,sys;print(json.load(open(sys.argv[1]))["exit_code"])' "$EV/decision.json" 2>/dev/null || echo none)
 [[ $DECIDED == "$CODE" ]] || { echo "codex-review: post-processing failed (exit $CODE, decision $DECIDED)" >&2; CODE=6; }
 (cd "$EV" && find . -path ./snapshot -prune -o -type f ! -name SHA256SUMS -print0 | LC_ALL=C sort -z | xargs -0 sha256sum >SHA256SUMS)
-rm -rf "$RUN/snapshot"   # the snapshot is reproducible from HEAD_SHA; its hash stays in snapshot.before/after
+# the snapshot is removed by the EXIT trap; it is reproducible from HEAD_SHA and its hash stays in snapshot.before/after
 [[ $CODE -le 1 ]] && echo "$RUN" >"$PAIR_INDEX"
 printf 'codex-review: decision=%s exit=%s evidence=%s\n' "$(python3 -c 'import json,sys;print(json.load(open(sys.argv[1]))["decision"])' "$EV/decision.json" 2>/dev/null || echo unknown)" "$CODE" "$RUN"
 exit "$CODE"
