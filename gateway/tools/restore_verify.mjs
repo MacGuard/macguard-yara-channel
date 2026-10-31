@@ -6,11 +6,12 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { verifyRestore } from './backup_lib.mjs';
 import { ageDecryptFile, shaFile } from './stream_io.mjs';
+import { privateDir } from './private_tmp.mjs';
 const args = process.argv.slice(2), idi = args.indexOf('--identity'), identity = idi >= 0 ? args.splice(idi, 2)[1] : null, ri = args.indexOf('--resource'), resource = ri >= 0 ? args.splice(ri, 2)[1] : 'gateway', [file, manifestFile] = args; if (!file) { console.error('usage: restore_verify.mjs EXPORT.sql|EXPORT.sql.age [MANIFEST.json] [--identity KEYFILE]'); process.exit(2); }
 if (file.endsWith('.age') && !identity) { console.error('an .age file needs --identity KEYFILE'); process.exit(2); }
 const manifest = manifestFile ? JSON.parse(readFileSync(manifestFile, 'utf8')) : null;
 const verify = resource === 'panel' ? (await import('../../admin/worker/tools/panel_backup_verify.mjs')).verifyPanelRestore : resource === 'intel' ? (await import('../../admin/worker/tools/intel_backup_verify.mjs')).verifyIntelRestore : verifyRestore;   // each protected database has its own verifier
-const work = mkdtempSync(join(tmpdir(), 'mg-restore-')); chmodSync(work, 0o700);
+const work = privateDir(tmpdir(), 'mg-restore-');
 async function main() {
   let plain = file;
   if (file.endsWith('.age')) {

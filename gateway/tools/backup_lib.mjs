@@ -21,8 +21,9 @@ const tables = (raw) => Object.fromEntries(raw.prepare("SELECT name FROM sqlite_
 export async function verifyRestore(sqlText, { schemaFile = new URL('../schema.sql', import.meta.url), manifest = null } = {}) {
   const checks = [], add = (name, ok, detail = '') => checks.push({ name, ok: !!ok, detail });
   const L = await loadExport(sqlText); if (L.error) { add('the export loads into an empty database', false, L.error); L.close(); return { ok: false, checks }; }   // a string, { file } (streamed) or an already loaded export
-  add('the export loads into an empty database', true); const db = L.db;   // foreign keys are OFF: load order is not dependency order; foreign_key_check below verifies the result
-  const ref = new DatabaseSync(':memory:'); ref.exec(readFileSync(schemaFile, 'utf8'));
+  add('the export loads into an empty database', true); const db = L.db; let ref;   // foreign keys are OFF: load order is not dependency order; foreign_key_check below verifies the result
+  try {   // the restored database is a plaintext FILE since O1: close it and remove its directory even if a check throws
+  ref = new DatabaseSync(':memory:'); ref.exec(readFileSync(schemaFile, 'utf8'));
   const got = tables(db), want = tables(ref); const missing = Object.keys(want).filter((t) => !(t in got)), changed = Object.keys(want).filter((t) => t in got && got[t] !== want[t]);
   // A table that only a not-yet-applied migration creates is reported as pending (a known, documented difference), anything else missing is a failure.
   const pending = new Set(readdirSync(new URL('../migrations/', import.meta.url)).filter((f) => f.endsWith('.sql')).flatMap((f) => [...readFileSync(new URL('../migrations/' + f, import.meta.url), 'utf8').matchAll(/CREATE TABLE (?:IF NOT EXISTS )?(\w+)/g)].map((m) => m[1])));
@@ -44,6 +45,7 @@ export async function verifyRestore(sqlText, { schemaFile = new URL('../schema.s
   const ptr = db.prepare('SELECT version FROM policy_pointer').get(); add('a policy pointer exists and points at a stored version', ptr && db.prepare('SELECT 1 x FROM policy_versions WHERE version = ?').get(ptr.version) !== undefined);
   if (manifest) { const counts = Object.fromEntries(Object.keys(got).map((t) => [t, db.prepare(`SELECT COUNT(*) n FROM ${t}`).get().n])); const diff = Object.entries(manifest.row_counts ?? {}).filter(([t, n]) => counts[t] !== n).map(([t, n]) => `${t}: manifest ${n}, restored ${counts[t]}`);
     add('row counts equal the manifest', !diff.length, diff.slice(0, 4).join('; ')); }
-  L.close(); ref.close(); return { ok: checks.every((c) => c.ok), checks };
+  return { ok: checks.every((c) => c.ok), checks };
+  } finally { L.close(); ref?.close(); }
 }
 export const rowCounts = (raw) => Object.fromEntries(Object.keys(tables(raw)).map((t) => [t, raw.prepare(`SELECT COUNT(*) n FROM ${t}`).get().n]));
