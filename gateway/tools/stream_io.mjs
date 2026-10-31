@@ -53,12 +53,20 @@ export async function ageDecryptFile({ ageBin = 'age', identity, src, dst, signa
   } catch (e) { rmSync(part, { force: true }); throw e; } finally { closeSync(inFd); if (outFd !== undefined) closeSync(outFd); }
 }
 
-// SQL text that may be quoted in an error is replaced: a failed load must not copy data into a log.
+// A failed load must not copy DATA into an error: it ends up in status.json and the (public) CI log. SQLite puts the offending text into its messages in
+// many forms, quoted (near "…", unrecognized token: "'…") and unquoted (no such column: <token>, no such function: <token>, CHECK constraint failed:
+// <expr with literals>), so nothing is copied from the message: the error is REBUILT from an allowlist of fixed phrases plus the line number.
 // Private directories still open when the process ends (an exception in a verifier) are removed so a failed run never leaves restored data behind.
 // (registry, exit and signal handling: private_tmp.mjs)
-// Everything from the first quote on is dropped: SQLite quotes the offending SQL/data in several forms (near "…", unrecognized token: "'…", …), and a truncated
-// export would otherwise copy up to 160 characters of DATA into status.json and the CI log. The error kind and position (e.g. "near line 39") are kept.
-const scrub = (s) => { const t = String(s).trim().split('\n')[0].replace(/\s+/g, ' ').trim(), q = t.search(/["'`]/); return (q < 0 ? t : t.slice(0, q).trimEnd() + ' "…"').slice(0, 160); };   // only the first line: the sqlite3 CLI prints the failing SQL line below it
+const KINDS = ['incomplete input', 'unrecognized token', 'syntax error', 'no such column', 'no such table', 'no such function', 'constraint failed', 'datatype mismatch',
+  'malformed JSON', 'database disk image is malformed', 'file is not a database', 'unable to open database', 'not authorized', 'too big', 'out of memory',
+  'database or disk is full', 'disk I/O error', 'readonly', 'interrupted'];
+export const scrub = (s) => {
+  const t = String(s), own = /^sqlite3 (killed by SIG[A-Z0-9]+|exited -?\d+)$/.exec(t.trim());   // produced by this module, no external text
+  if (own) return own[0];
+  const kind = KINDS.find((k) => t.includes(k)) || 'unclassified error', line = /^(?:Parse|Runtime) error near line (\d+)/.exec(t.trim());   // a kind found inside data only picks the label
+  return `sqlite: ${kind}${line ? ' near line ' + line[1] : ''}`;
+};
 
 // journal_mode/synchronous OFF: the database is throwaway (created empty, only read afterwards), and without them the CLI commits and fsyncs every statement (measured: 249 s instead of 16 s for a 129 MB export).  (locking_mode and cache_size were tried: no measurable effect on the whole run, so they are not set.)
 /** Loads an export into an isolated SQLite and returns { db, close() } or { error, close() }.
@@ -80,7 +88,7 @@ export async function loadExport(sql, { sqliteBin = 'sqlite3', signal, tmpRoot =
       c.on('close', (code, sig) => ok({ code, sig, e }));
     });
     if (res.spawnError) {
-      if (res.spawnError.code !== 'ENOENT') return done({ error: scrub(res.spawnError.message) });
+      if (res.spawnError.code !== 'ENOENT') return done({ error: `sqlite3 could not start (${/^[A-Z0-9_]+$/.test(String(res.spawnError.code)) ? res.spawnError.code : 'error'})` });
       releaseDir(dir); return loadMemory(readFileSync(file, 'utf8'));   // no sqlite3 CLI: same result, whole file in memory
     }
     if (res.code !== 0) return done({ error: scrub(res.sig ? 'sqlite3 killed by ' + res.sig : res.e || `sqlite3 exited ${res.code}`) });
