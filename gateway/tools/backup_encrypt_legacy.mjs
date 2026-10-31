@@ -11,6 +11,7 @@ import { homedir } from 'node:os';
 import { basename, join, resolve } from 'node:path';
 import { isTemp } from './backup_flow.mjs';
 import { verifyRestore } from './backup_lib.mjs';
+import { privateDir } from './private_tmp.mjs';
 
 const sha = (b) => createHash('sha256').update(b).digest('hex'), STAMP = /^\d{8}T\d{6}Z$/;
 export const DEFAULT_OUT = join(homedir(), 'macguard-backups', 'gateway-legacy-encrypted');
@@ -42,7 +43,7 @@ export async function encryptLegacy({ src, recipient, out = DEFAULT_OUT, ageBin 
 export function withIdentity({ identityFile = null, fromKeychain = false, service = 'macguard-gateway-prod', account = 'BACKUP_AGE_IDENTITY' }, fn) {
   if (identityFile) return fn(identityFile);
   if (!fromKeychain) throw new Error('an identity file or --identity-from-keychain is required');
-  const tmp = mkdtempSync(join(homedir(), '.mg-legacy-')); chmodSync(tmp, 0o700);
+  const tmp = privateDir(homedir(), '.mg-legacy-');
   try { const f = join(tmp, 'id.txt'); writeFileSync(f, execFileSync('security', ['find-generic-password', '-s', service, '-a', account, '-w'], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }), { mode: 0o600 }); return fn(f); }
   finally { rmSync(tmp, { recursive: true, force: true }); }
 }
