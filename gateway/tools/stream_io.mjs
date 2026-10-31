@@ -62,9 +62,9 @@ const KINDS = ['incomplete input', 'unrecognized token', 'syntax error', 'no suc
   'malformed JSON', 'database disk image is malformed', 'file is not a database', 'unable to open database', 'not authorized', 'too big', 'out of memory',
   'database or disk is full', 'disk I/O error', 'readonly', 'interrupted'];
 export const scrub = (s) => {
-  const t = String(s), own = /^sqlite3 (killed by SIG[A-Z0-9]+|exited -?\d+)$/.exec(t.trim());   // produced by this module, no external text
+  const t = String(s).trim().split('\n')[0], own = /^sqlite3 (killed by SIG[A-Z0-9]+|exited -?\d+)$/.exec(t.trim());   // produced by this module, no external text
   if (own) return own[0];
-  const kind = KINDS.find((k) => t.includes(k)) || 'unclassified error', line = /^(?:Parse|Runtime) error near line (\d+)/.exec(t.trim());   // a kind found inside data only picks the label
+  const kind = KINDS.find((k) => t.includes(k)) || 'unclassified error', line = /^(?:Parse|Runtime) error near line (\d+)/.exec(t);   // first line only: the CLI repeats the failing SQL (data) below it
   return `sqlite: ${kind}${line ? ' near line ' + line[1] : ''}`;
 };
 

@@ -9,6 +9,8 @@ import { homedir, tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { loadExport, scrub } from '../tools/stream_io.mjs';
 import { runBackup } from '../tools/backup_flow.mjs';
+import { DatabaseSync } from 'node:sqlite';
+import { dumpSql } from '../tools/backup_lib.mjs';
 
 const MARK = 'DATAMARKERQX7', LOW = MARK.toLowerCase();
 const failing = {
@@ -43,6 +45,22 @@ test('end to end: a backup whose export fails to load records no data in status.
       const st = readFileSync(join(root, 'status.json'), 'utf8'); assert.ok(!st.includes(MARK) && !st.toLowerCase().includes(LOW), st);
     }
   } finally { rmSync(root, { recursive: true, force: true }); }
+});
+
+test('verify: a policy document that is not JSON fails the check without quoting it (status.json, result); the backup is recorded as failed', async () => {
+  const db = new DatabaseSync(':memory:'); db.exec(readFileSync(new URL('../schema.sql', import.meta.url), 'utf8'));
+  const cols = db.prepare('PRAGMA table_info(policy_versions)').all().map((c) => c.name);
+  db.prepare(`INSERT INTO policy_versions(${cols.join(',')}) VALUES (${cols.map(() => '?').join(',')})`).run(...cols.map((c) => (c === 'version' ? 1 : c === 'kind' ? 'seed' : c === 'doc' ? `${MARK} note` : 'x')));
+  const sql = dumpSql(db); db.close(); const root = mkdtempSync(join(homedir(), '.mg-redact-bk-'));
+  try {
+    const r = await runBackup({ exportFn: async (p) => writeFileSync(p, sql), root, clock: () => new Date('2026-10-31T00:00:00Z') });   // used to THROW with `Unexpected token … "DATAMARKER"…` (public CI log) and record nothing
+    assert.equal(r.ok, false); assert.equal(r.stage, 'verify'); assert.ok(!JSON.stringify(r).includes(MARK));
+    const st = readFileSync(join(root, 'status.json'), 'utf8'); assert.match(st, /"last_status": "failed"/); assert.ok(!st.includes(MARK), st);
+  } finally { rmSync(root, { recursive: true, force: true }); }
+});
+test('the label comes from the first line only: a known phrase inside the DATA the CLI echoes below does not pick it', async () => {
+  const root = mkdtempSync(join(tmpdir(), 'mg-redact-')), f = join(root, 'e.sql'); writeFileSync(f, `CREATE TABLE t(a,b);\nINSERT INTO t VALUES(${MARK}, 'incomplete input');`);
+  try { const L = await loadExport({ file: f }, { tmpRoot: root }); assert.equal(L.error, 'sqlite: no such column near line 2'); L.close(); } finally { rmSync(root, { recursive: true, force: true }); }
 });
 
 // ---- negative controls: the diagnosis that IS useful survives, a valid export still loads, and scrub copies nothing it does not know ----

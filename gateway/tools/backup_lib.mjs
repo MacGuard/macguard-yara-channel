@@ -40,7 +40,8 @@ export async function verifyRestore(sqlText, { schemaFile = new URL('../schema.s
   const shim = { prepare: (sql) => { let a = []; const s = { bind: (...x) => { a = x; return s; }, first: async () => db.prepare(sql).get(...a) ?? null, all: async () => ({ results: db.prepare(sql).all(...a) }) }; return s; } };
   const au = await verifyAudit(shim); add('audit hash chain intact', au.ok, au.ok ? '' : 'breaks at seq ' + au.at);
   let pol = true, why = ''; let prev = '0'.repeat(64);
-  for (const r of db.prepare('SELECT * FROM policy_versions ORDER BY version').all()) { if ((await sha256Hex(canonical(JSON.parse(r.doc)))) !== r.doc_sha256 || r.prev_sha256 !== prev && r.version > 1) { pol = false; why = 'version ' + r.version; break; } prev = r.doc_sha256; }
+  const parsed = (doc) => { try { return JSON.parse(doc); } catch { return undefined; } };   // never JSON.parse's own error: it quotes the start of the document (row data) into the CI log
+  for (const r of db.prepare('SELECT * FROM policy_versions ORDER BY version').all()) { const d = parsed(r.doc); if (d === undefined) { pol = false; why = 'version ' + r.version + ' is not valid JSON'; break; } if ((await sha256Hex(canonical(d))) !== r.doc_sha256 || r.prev_sha256 !== prev && r.version > 1) { pol = false; why = 'version ' + r.version; break; } prev = r.doc_sha256; }
   add('policy versions: each document matches its hash and the chain links', pol, why);
   const ptr = db.prepare('SELECT version FROM policy_pointer').get(); add('a policy pointer exists and points at a stored version', ptr && db.prepare('SELECT 1 x FROM policy_versions WHERE version = ?').get(ptr.version) !== undefined);
   if (manifest) { const counts = Object.fromEntries(Object.keys(got).map((t) => [t, db.prepare(`SELECT COUNT(*) n FROM ${t}`).get().n])); const diff = Object.entries(manifest.row_counts ?? {}).filter(([t, n]) => counts[t] !== n).map(([t, n]) => `${t}: manifest ${n}, restored ${counts[t]}`);
