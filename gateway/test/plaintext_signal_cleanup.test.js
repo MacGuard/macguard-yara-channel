@@ -78,3 +78,42 @@ test('privateDir directories are 0700 and are registered until released', async 
     releaseDir(d); assert.ok(!existsSync(d)); assert.ok(!_open().includes(d));
   } finally { s.done(); }
 });
+
+// ---- QA round on 221a2d7: D1 (a signal deferred by a synchronous call was lost), D2 (re-arm after a signal) ----
+test('D1: a signal during a child run with runTracked (async) stops the run and still ends by SIGTERM; the next step never runs', async () => {
+  const s = sandbox(); try {
+    const sh = join(s.root, 'slow.sh'); writeFileSync(sh, `#!/bin/sh\necho $$ > "${join(s.root, 'slow.pid')}"\nexec sleep 30\n`); chmodSync(sh, 0o755);
+    const c = child(`import { privateDir, runTracked } from '${TOOLS}private_tmp.mjs'; import { writeFileSync } from 'node:fs';
+const d = privateDir('${s.root}', '.mg-restore-'); writeFileSync(d + '/plain.sql', '${MARK}');
+await runTracked('${sh}', []); console.log('STEP2 (remote write) RAN');`, s.root);
+    const pid = Number(await waitFor(() => existsSync(join(s.root, 'slow.pid')) && readFileSync(join(s.root, 'slow.pid'), 'utf8').trim()));
+    c.p.kill('SIGTERM'); const r = await c.done;
+    assert.equal(r.signal, 'SIGTERM', `code=${r.code} ${r.err}`); assert.doesNotMatch(r.out, /STEP2/); assert.deepEqual(leftovers(s.root), []);
+    assert.ok(await waitFor(() => !alive(pid), 3000), 'the tracked child was killed');
+  } finally { s.done(); }
+});
+
+test('D1: once every plaintext directory is released, the listeners are gone and a synchronous call is killed by SIGTERM as by default', async () => {
+  const s = sandbox(); try {
+    const c = child(`import { privateDir, releaseDir } from '${TOOLS}private_tmp.mjs'; import { execFileSync } from 'node:child_process';
+const d = privateDir('${s.root}', 'mg-restore-'); const during = process.listenerCount('SIGTERM') === 1; releaseDir(d);
+console.log(JSON.stringify({ during, listeners: process.listenerCount('SIGTERM') }));
+execFileSync('sleep', ['3']); console.log('AFTER SYNC CALL');`, s.root);
+    await new Promise((r) => setTimeout(r, 600));   // the child is inside execFileSync('sleep 3') by now
+    c.p.kill('SIGTERM'); const r = await c.done;
+    const st = JSON.parse(r.out.split('\n')[0]); assert.deepEqual(st, { during: true, listeners: 0 });
+    assert.equal(r.signal, 'SIGTERM', `default behaviour restored outside plaintext windows (code=${r.code})`); assert.doesNotMatch(r.out, /AFTER SYNC CALL/);
+  } finally { s.done(); }
+});
+
+test('D2: after a signal handled by the program itself, a NEW plaintext directory is protected again', async () => {
+  const s = sandbox(); try {
+    const c = child(`import { privateDir } from '${TOOLS}private_tmp.mjs'; import { existsSync } from 'node:fs';
+const a = privateDir('${s.root}', 'mg-restore-'); process.on('SIGTERM', () => {});   // the program keeps running after a signal
+process.kill(process.pid, 'SIGTERM'); await new Promise((r) => setTimeout(r, 200));
+const aGone = !existsSync(a), after1 = process.listenerCount('SIGTERM'); privateDir('${s.root}', 'mg-restore-');
+console.log(JSON.stringify({ aGone, after1, relisten: process.listenerCount('SIGTERM') })); process.exit(0);`, s.root);
+    const r = await c.done; assert.equal(r.code, 0, r.err); assert.deepEqual(JSON.parse(r.out.trim()), { aGone: true, after1: 1, relisten: 2 }, 'only the program handler after the signal; ours again for the new directory');
+    assert.deepEqual(leftovers(s.root), [], 'b removed at exit');
+  } finally { s.done(); }
+});

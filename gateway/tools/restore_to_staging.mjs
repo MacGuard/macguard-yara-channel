@@ -1,13 +1,12 @@
 // PREPARED, NOT RUN: restores a verified export into a STAGING D1 database to rehearse recovery on real D1. Default is a dry run that prints the exact commands. `--apply` additionally requires
 // `--confirm-database <name>` equal to the staging name, and the tool REFUSES any name that is, or starts like, the production database. It never restores over production.
 // Usage: node tools/restore_to_staging.mjs --export FILE.sql [--identity KEY] --staging macguard-gateway-staging [--env environments/production.wrangler.toml] [--apply --confirm-database NAME]
-import { execFileSync } from 'node:child_process';
 import { chmodSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { verifyRestore } from './backup_lib.mjs';
 import { ageDecryptFile } from './stream_io.mjs';
-import { privateDir } from './private_tmp.mjs';
+import { privateDir, runTracked } from './private_tmp.mjs';
 
 const arg = (n, d = null) => { const i = process.argv.indexOf(n); return i > 0 ? process.argv[i + 1] : d; };
 const file = arg('--export'), staging = arg('--staging'), identity = arg('--identity'), apply = process.argv.includes('--apply'), PROD = 'macguard-gateway';
@@ -23,5 +22,6 @@ const cmds = [`CLOUDFLARE_ACCOUNT_ID=${account} npx wrangler@4.149.0 d1 create $
 console.log((apply ? 'APPLYING:\n' : 'DRY RUN (nothing executed):\n') + cmds.map((c) => '  ' + c).join('\n'));
 if (apply) {
   if (arg('--confirm-database') !== staging) { console.error('--apply needs --confirm-database equal to the staging name'); process.exit(2); }
-  const tmp = work, f = plain; try { const run = (...a) => execFileSync('npx', ['--yes', 'wrangler@4.149.0', ...a], { env: { ...process.env, CLOUDFLARE_ACCOUNT_ID: account }, stdio: 'inherit' }); run('d1', 'create', staging); run('d1', 'execute', staging, '--remote', '--file', f, '-y'); } finally { rmSync(tmp, { recursive: true, force: true }); }
+  // async (runTracked), not execFileSync: a signal during the upload must stop it; a deferred signal was lost with execFileSync.
+  const tmp = work, f = plain; try { const run = (...a) => runTracked('npx', ['--yes', 'wrangler@4.149.0', ...a], { env: { ...process.env, CLOUDFLARE_ACCOUNT_ID: account } }); await run('d1', 'create', staging); await run('d1', 'execute', staging, '--remote', '--file', f, '-y'); } finally { rmSync(tmp, { recursive: true, force: true }); }
 }
