@@ -57,7 +57,7 @@ function build(fig) {
    (the page behind is hidden, so a focused link there would be invisible) and Escape or the same button closes it */
 document.addEventListener('keydown', function (e) {
   var fig = document.querySelector('.diagram.dg-full'); if (!fig || e.key !== 'Tab') return;
-  var f = Array.prototype.filter.call(fig.querySelectorAll('button, a[href], summary, [tabindex]:not([tabindex="-1"])'), function (x) { return x.offsetParent !== null || x === document.activeElement; });
+  var f = Array.prototype.filter.call(fig.querySelectorAll('button, a[href], summary, [tabindex]:not([tabindex="-1"])'), function (x) { var d = x.parentElement && x.parentElement.closest('details'); return (x.getClientRects().length > 0 && !(d && !d.open && x.tagName !== 'SUMMARY')) || x === document.activeElement; });   /* content of a closed <details> is not focusable */
   if (!f.length) return; var first = f[0], last = f[f.length - 1], a = document.activeElement;
   if (!fig.contains(a)) { first.focus(); e.preventDefault(); }
   else if (e.shiftKey && a === first) { last.focus(); e.preventDefault(); }
