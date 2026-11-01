@@ -34,18 +34,44 @@ export function buildBackupRecord({ pkg, runId, runUrl, providers, resource = 'g
 }
 
 export const readRecords = (file) => (existsSync(file) ? readFileSync(file, 'utf8').split('\n').filter(Boolean).map((l) => { try { return JSON.parse(l); } catch { return null; } }).filter(Boolean) : []);
-/** Is `b` a second report of the restoration that `a` already records? Identity is the RESTORATION, never the time the workflow ran (`at` differs on every dispatch, which is why the old key never matched):
- *  - both carry restored_at (the moment the restore itself happened, reported by restore_from_run.sh): same backup run, provider, mode, plaintext hash and restored_at;
- *  - otherwise (older or manual reports): same run, provider, mode, hash AND the same reported duration and reporter, i.e. the same report. A genuinely new restore has a new restored_at and is a new event.
- *  - mixed (only one carries restored_at): additionally, the restore cannot have happened AFTER the legacy line was reported; a restored_at later than the legacy `at` is a new restoration. */
-const notAfterReport = (withTime, legacy) => !legacy.at || Date.parse(withTime.restored_at) <= Date.parse(legacy.at);
-export const sameRestore = (a, b) => a.kind === 'restore' && b.kind === 'restore' && a.run_id === b.run_id && a.provider === b.provider && a.mode === b.mode && a.plaintext_sha256 === b.plaintext_sha256
-  && (a.restored_at && b.restored_at ? a.restored_at === b.restored_at
-    : a.duration_s === b.duration_s && a.by === b.by && (a.restored_at ? notAfterReport(a, b) : b.restored_at ? notAfterReport(b, a) : true));
+/** How a new restore report `b` relates to an existing line `a` (issue #82). Identity is the RESTORATION, never the time the workflow ran:
+ *  - 'same'       a second report of the restoration `a` already records: recording it again would be a false duplicate;
+ *  - 'different'  another restoration: it is recorded;
+ *  - 'ambiguous'  the evidence cannot tell: it is REFUSED with RESTORE_AMBIGUOUS (never dropped silently, never recorded twice).
+ *  Rules, for the same backup run, provider, mode and plaintext hash (anything else is 'different'):
+ *  - both carry restored_at (the moment of the restore, printed by restore_from_run.sh): equal -> same, otherwise different;
+ *  - the new report has NO restored_at and the same duration and reporter as `a`: same if it is the very same report (equal `at`, e.g. a replayed
+ *    command), otherwise ambiguous (a re-report and a new drill look identical);
+ *  - only `a` lacks restored_at (a legacy line): same duration and reporter and restored_at <= a.at -> same (a restore cannot happen after it was
+ *    reported); restored_at more than SKEW after a.at -> different; inside the clock-skew window, or a legacy line with no parseable `at` -> ambiguous;
+ *  - different duration or reporter -> different. */
+const SKEW_MS = 5 * 60000;   // the same tolerance buildRestoreRecord accepts for a restored_at "in the future"
+export function classifyRestore(a, b) {
+  if (a.kind !== 'restore' || b.kind !== 'restore' || a.run_id !== b.run_id || a.provider !== b.provider || a.mode !== b.mode || a.plaintext_sha256 !== b.plaintext_sha256) return 'different';
+  if (a.restored_at && b.restored_at) return a.restored_at === b.restored_at ? 'same' : 'different';
+  if (a.duration_s !== b.duration_s || a.by !== b.by) return 'different';
+  if (!b.restored_at) return a.at !== undefined && a.at === b.at ? 'same' : 'ambiguous';
+  const t = Date.parse(b.restored_at), at = Date.parse(a.at);
+  if (Number.isNaN(at) || Number.isNaN(t)) return 'ambiguous';
+  return t <= at ? 'same' : t > at + SKEW_MS ? 'different' : 'ambiguous';
+}
+/** Kept for callers and tests: true only when the two reports are certainly the same restoration (either argument order). */
+export const sameRestore = (a, b) => classifyRestore(a, b) === 'same' || classifyRestore(b, a) === 'same';
+export class AmbiguousRestoreError extends Error {
+  constructor(line) {
+    super(`RESTORE_AMBIGUOUS: a restore line already exists for this run, provider, mode and hash with the same duration and reporter (recorded at ${line.at ?? 'unknown time'}${line.restored_at ? ', restored_at ' + line.restored_at : ''}); `
+      + 'without restored_at (or inside the clock-skew window) a new drill cannot be told from a repeated report. Report again with --restored-at (restore_from_run.sh prints it). Nothing was written.');
+    this.code = 'RESTORE_AMBIGUOUS';
+  }
+}
 export function append(file, rec) {
   const have = readRecords(file);
   if (rec.kind === 'backup' && have.some((r) => r.kind === 'backup' && r.run_id === rec.run_id)) return { added: false, reason: 'this run is already recorded' };
-  if (rec.kind === 'restore' && have.some((r) => sameRestore(r, rec))) return { added: false, reason: 'this restoration is already recorded' };
+  if (rec.kind === 'restore') {
+    const rel = have.map((r) => [r, classifyRestore(r, rec)]);
+    if (rel.some(([, c]) => c === 'same')) return { added: false, reason: 'this restoration is already recorded' };
+    const amb = rel.find(([, c]) => c === 'ambiguous'); if (amb) throw new AmbiguousRestoreError(amb[0]);
+  }
   mkdirSync(dirname(file), { recursive: true }); appendFileSync(file, JSON.stringify(rec) + '\n'); return { added: true };
 }
 
@@ -70,5 +96,5 @@ if (import.meta.url === `file://${process.argv[1]}`) {
     if (cmd === 'backup') { const r = append(file, buildBackupRecord({ resource: arg('--resource', 'gateway'), pkg: arg('--package'), runId: arg('--run-id'), runUrl: arg('--run-url'), providers: JSON.parse(arg('--providers', '{}')) })); console.log(JSON.stringify(r)); }
     else if (cmd === 'restore') { const r = append(file, buildRestoreRecord({ file, runId: arg('--run-id'), provider: arg('--provider'), plaintextSha256: arg('--plaintext-sha256'), durationS: arg('--duration-s'), mode: arg('--mode'), by: arg('--by'), restoredAt: arg('--restored-at') || null })); console.log(JSON.stringify(r)); }
     else { console.error('usage: backup_record.mjs backup|restore ...'); process.exit(2); }
-  } catch (e) { console.error('refused: ' + String(e.message).split('\n')[0]); process.exit(1); }
+  } catch (e) { console.error('refused: ' + String(e.message).split('\n')[0]); process.exit(e.code === 'RESTORE_AMBIGUOUS' ? 3 : 1); }
 }
