@@ -70,7 +70,7 @@ async function move(db, row, to, set, actor, detail, now, audit, extra = {}) {
   const cols = Object.keys(set), audits = [...(audit ? [{ actor, role: audit.role || 'SYSTEM', action: `publication.${to.toLowerCase()}`, target: row.id, detail: { mode: row.mode, resource: `${row.resource_kind}:${row.resource_id}`, version: row.resource_version, ...detail } }] : []), ...(extra.audits || [])];
   const c = await commit(db, async () => [
     db.prepare(`UPDATE publication_requests SET state = ?, version = version + 1, updated_at = ?${cols.map((k) => `, ${k} = ?`).join('')} WHERE id = ? AND version = ? AND state = ?`).bind(to, now, ...cols.map((k) => set[k]), row.id, row.version, row.state),
-    db.prepare(GUARD), eventStmt(db, row.id, row.state, to, actor, detail, now), ...(await auditStmts(db, audits, now))], async () => { const cur = await get(db, row.id); return !!cur && cur.version === row.version && cur.state === row.state; });
+    db.prepare(GUARD), ...(extra.stmts ? extra.stmts() : []), eventStmt(db, row.id, row.state, to, actor, detail, now), ...(await auditStmts(db, audits, now))], async () => { const cur = await get(db, row.id); return !!cur && cur.version === row.version && cur.state === row.state && (!extra.stillValid || await extra.stillValid()); }).catch((e) => { if (extra.onError) return { ok: false, error: e }; throw e; });
   if (!c.ok) return conflictOut();
   return { ok: true, row: await get(db, row.id) };
 }
@@ -197,10 +197,13 @@ export async function dispatch(db, id, actor, now, deps = {}) {
   if (!row.authorization_sha256 || row.authorization_sha256 !== await authSha(row)) return bad(409, 'the authorisation does not match this request');
   if (row.authorization_expires_at && row.authorization_expires_at <= now) return bad(409, 'the authorisation has expired: ask again', { code: 'authorization_expired' });
   // a new dispatch is a new execution: the run that claims it next (F6) is bound afresh
-  const q = await move(db, row, 'QUEUED', { dispatched_at: now, state_reason: null, run_id: null, run_url: null, evidence: J({ ...row.evidence, claim: null }) }, actor.login, { dispatching: true }, now, { role: actor.role }); if (!q.ok) return out(q);
+  // every dispatch has its own id, recorded with the QUEUED transition: the workflow carries it in its run-name and only a run bound to it can claim the request (F6)
+  const dispatchId = (deps.uuid || (() => crypto.randomUUID()))();
+  const q = await move(db, row, 'QUEUED', { dispatched_at: now, state_reason: null, run_id: null, run_url: null, evidence: J({ ...row.evidence, claim: null, dispatch_id: dispatchId }) }, actor.login, { dispatching: true, dispatch_id: dispatchId }, now, { role: actor.role },
+    { stmts: () => [db.prepare('INSERT INTO publication_request_dispatches (dispatch_id, request_id, at, by_login) VALUES (?,?,?,?)').bind(dispatchId, row.id, now, actor.login)] }); if (!q.ok) return out(q);
   const block = async (cause, message) => { const b = await move(db, q.row, 'BLOCKED', { state_reason: cause }, 'system', { cause, ...(message ? { message } : {}) }, now, { role: 'SYSTEM' }); return b.ok ? b.row : q.row; };
   if (!deps.dispatch) return { status: 200, body: { request: await block('dispatcher_not_configured'), blocked: 'dispatcher_not_configured', note: 'authorised, but this panel has no credential to request a GitHub Actions run; the daily run will still apply it' } };
-  try { const r = await deps.dispatch({ request_id: q.row.id }); if (r && r.ok === false) throw new Error(r.error || 'dispatch refused'); }
+  try { const r = await deps.dispatch({ request_id: q.row.id, dispatch_id: dispatchId }); if (r && r.ok === false) throw new Error(r.error || 'dispatch refused'); }
   catch (e) { return { status: 200, body: { request: await block('github_unavailable', String(e.message).slice(0, 120)), blocked: 'github_unavailable', note: 'GitHub Actions did not accept the run; the authorisation is kept and the daily run will still apply it' } }; }
   return { status: 200, body: { request: q.row } };
 }
@@ -231,13 +234,18 @@ const PROGRESS = ['RUNNING', 'VALIDATING', 'SIGNING', 'PUBLISHING', 'VERIFYING']
 export async function report(db, id, rep, now, deps = {}) {
   const row = await get(db, id); if (!row || row.mode !== 'EXPEDITED') return bad(404, 'not found');
   if (!rep || typeof rep !== 'object' || ![...PROGRESS, 'APPLIED', 'FAILED', 'BLOCKED'].includes(rep.state)) return bad(400, 'state must be one of RUNNING, VALIDATING, SIGNING, PUBLISHING, VERIFYING, APPLIED, FAILED, BLOCKED');
-  const run = deps.run && /^\d{1,20}$/.test(String(deps.run.run_id || '')) ? { run_id: String(deps.run.run_id), run_attempt: Number(deps.run.run_attempt) || null } : null;
+  const run = deps.run && /^\d{1,20}$/.test(String(deps.run.run_id || '')) ? { run_id: String(deps.run.run_id), run_attempt: Number(deps.run.run_attempt) || null, event_name: deps.run.event_name ?? null, actor_id: deps.run.actor_id == null ? null : String(deps.run.actor_id) } : null;
   if (!run) return bad(403, 'a report must come from an identified workflow run (run_id in its OIDC token)', { code: 'run_identity_required' });
   const meta = { run_id: run.run_id }; if (rep.run_id !== undefined) { if (!/^\d{1,20}$/.test(String(rep.run_id))) return bad(400, 'run_id must be numeric'); if (String(rep.run_id) !== run.run_id) return bad(400, 'run_id must be the run of the token that signs the report'); }
   if (rep.run_url !== undefined) { if (!/^https:\/\/github\.com\/[A-Za-z0-9._-]+\/[A-Za-z0-9._-]+\/actions\/runs\/\d+$/.test(String(rep.run_url)) || !String(rep.run_url).endsWith(`/actions/runs/${run.run_id}`)) return bad(400, 'run_url must be the GitHub Actions URL of the reporting run'); meta.run_url = rep.run_url; }
-  const claim = row.evidence.claim || null;
-  if (!claim) { if (row.state !== 'QUEUED' || rep.state !== 'RUNNING') return bad(403, 'this request has not been claimed by a run: the run that executes it reports RUNNING first', { code: 'not_claimed' }); }
-  else if (claim.run_id !== run.run_id || (claim.run_attempt ?? null) !== run.run_attempt) return bad(403, 'this request belongs to another workflow execution', { code: 'other_execution' });
+  // F6: the request is executed by the run bound to its CURRENT dispatch, and only by it. The claim is recorded once (append-only, dispatch and run unique).
+  const dispatchRow = await currentDispatch(db, row.id), claim = dispatchRow ? await db.prepare('SELECT * FROM publication_request_claims WHERE dispatch_id = ?').bind(dispatchRow.dispatch_id).first() : null;
+  if (!claim) {
+    if (row.state !== 'QUEUED' || rep.state !== 'RUNNING') return bad(403, 'this request has not been claimed by a run: the run that executes it reports RUNNING first', { code: 'not_claimed' });
+    if (!dispatchRow) return bad(409, 'this request has no recorded dispatch: it cannot be claimed', { code: 'no_dispatch' });
+    if (await db.prepare('SELECT 1 AS x FROM publication_request_claims WHERE run_id = ?').bind(run.run_id).first()) return bad(403, 'this run already claimed a request: one run executes one request', { code: 'run_already_claimed' });
+    const b = await bindingError(row, dispatchRow, run, deps); if (b) return b;
+  } else if (claim.run_id !== run.run_id || claim.run_attempt !== run.run_attempt || (run.actor_id !== null && claim.actor_id !== run.actor_id)) return bad(403, 'this request belongs to another workflow execution', { code: 'other_execution' });
   if (rep.commit_sha !== undefined) { if (!/^[0-9a-f]{40}$/.test(String(rep.commit_sha))) return bad(400, 'commit_sha must be 40 hex characters'); meta.commit_sha = rep.commit_sha; }
   if (rep.minutes !== undefined) { if (typeof rep.minutes !== 'number' || rep.minutes < 0 || rep.minutes > 600) return bad(400, 'minutes must be a number between 0 and 600'); meta.cost_minutes = rep.minutes; }
   const actor = `workflow:publish-expedited.yml`;
@@ -247,6 +255,11 @@ export async function report(db, id, rep, now, deps = {}) {
     if (row.state !== 'VERIFYING') return bad(409, `the request is ${row.state}: it must be VERIFYING before it can be applied`);
     if (!/^[A-Za-z0-9._-]{3,80}$/.test(String(rep.release_tag || '')) || !meta.commit_sha && !row.commit_sha || !meta.run_id && !row.run_id) return bad(400, 'APPLIED needs release_tag, commit_sha and run_id');
     // verifyRelease answers the verified release only if it contains THIS exact change (F3); sync then derives the effective state from it, and APPLIED needs both
+    // F3: only the ACTIVE authorised release (the latest public one, or the one an authorised operation pinned) may satisfy the request; an older historical
+    // release that happens to list the same path and SHA-256 does not. If the active release cannot be determined now, nothing changes (retry later).
+    let active; try { active = deps.activeRelease ? await deps.activeRelease() : null; } catch { active = null; }
+    if (!active || !active.tag) return bad(503, 'the active release cannot be determined right now: nothing was changed, report again later', { code: 'active_release_unknown' });
+    if (rep.release_tag !== active.tag) return unwrap(await move(db, row, 'FAILED', { ...meta, state_reason: 'release_not_active' }, actor, { failure_reason: 'the release is not the active authorised release', release_tag: String(rep.release_tag).slice(0, 80), active_tag: active.tag, basis: active.basis }, now, { role: 'PIPELINE' }));
     const ok = deps.verifyRelease ? await deps.verifyRelease(rep.release_tag, row) : false; if (!ok) return unwrap(await move(db, row, 'FAILED', { ...meta, state_reason: 'release_not_verifiable' }, actor, { failure_reason: 'the release is not public and verifiable, or it does not contain the requested change', release_tag: rep.release_tag }, now, { role: 'PIPELINE' }));
     const base = { ...meta, release_tag: rep.release_tag, evidence: J({ ...row.evidence, hashes: rep.hashes || null, release_tag: rep.release_tag }) };   // what was recorded before (emergency, claim) is kept (F4)
     if (!deps.sync) return bad(500, 'no effective-state sync is configured: nothing was changed');
@@ -255,8 +268,78 @@ export async function report(db, id, rep, now, deps = {}) {
   }
   const i = PROGRESS.indexOf(rep.state), cur = PROGRESS.indexOf(row.state);
   if (row.state === 'QUEUED' ? rep.state !== 'RUNNING' : i !== cur + 1) return bad(409, `the request is ${row.state}: the next step is ${row.state === 'QUEUED' ? 'RUNNING' : PROGRESS[cur + 1] || 'APPLIED'}`);
-  if (!claim) meta.evidence = J({ ...row.evidence, claim: { run_id: run.run_id, run_attempt: run.run_attempt, at: now } });
-  return unwrap(await move(db, row, rep.state, meta, actor, { reported: rep.state, ...(claim ? {} : { claimed_by_run: run.run_id, run_attempt: run.run_attempt }) }, now, null));
+  if (!claim) {   // the claim, the transition, its event and audit entry: one transaction. A concurrent claim of the same dispatch, or this run claiming another request, aborts it.
+    meta.evidence = J({ ...row.evidence, claim: { run_id: run.run_id, run_attempt: run.run_attempt, dispatch_id: dispatchRow.dispatch_id, at: now } });
+    const m = await move(db, row, rep.state, meta, actor, { reported: rep.state, claimed_by_run: run.run_id, run_attempt: run.run_attempt, dispatch_id: dispatchRow.dispatch_id }, now, { role: 'PIPELINE' }, {
+      stmts: () => [db.prepare('INSERT INTO publication_request_claims (dispatch_id, request_id, run_id, run_attempt, actor_id, at) VALUES (?,?,?,?,?,?)').bind(dispatchRow.dispatch_id, row.id, run.run_id, run.run_attempt, run.actor_id, now)],
+      stillValid: async () => !(await db.prepare('SELECT 1 AS x FROM publication_request_claims WHERE dispatch_id = ? OR run_id = ?').bind(dispatchRow.dispatch_id, run.run_id).first()), onError: true });
+    if (!m.ok && m.error) return bad(409, 'the request or this run was claimed concurrently: nothing was changed', { code: 'claim_conflict' });
+    return unwrap(m);
+  }
+  return unwrap(await move(db, row, rep.state, meta, actor, { reported: rep.state }, now, null));
+}
+
+// ---- F6: binding of a claim to the authorised execution -------------------------------------------------------------------------------------------------------------------------------------------
+export const RUN_NAME = (requestId, dispatchId) => `publish-expedited ${requestId} ${dispatchId}`;   // the workflow's run-name: publish-expedited ${{ inputs.request_id }} ${{ inputs.dispatch_id }}
+const WORKFLOW_PATH = '.github/workflows/publish-expedited.yml', CLOCK_SKEW_MS = 5000;
+export const currentDispatch = async (db, id) => db.prepare('SELECT dispatch_id, request_id, at FROM publication_request_dispatches WHERE request_id = ? ORDER BY at DESC, rowid DESC LIMIT 1').bind(id).first();
+/** null when the run of the signed token is the execution the Worker asked for THIS request and dispatch; otherwise the refusal. deps: { dispatcherId, lookupRun(run_id) }.
+ *  Fails closed: no configured dispatcher identity, a GitHub API failure or any mismatch means no claim. Nothing secret is returned or logged. */
+async function bindingError(row, d, run, deps) {
+  const no = (code, error, status = 403) => bad(status, error, { code });
+  if (!deps.dispatcherId || !/^\d{1,20}$/.test(String(deps.dispatcherId))) return no('dispatcher_identity_not_configured', 'the identity that dispatches expedited runs is not configured: no run can claim a request', 503);
+  if (run.event_name !== 'workflow_dispatch') return no('not_dispatched', 'only a workflow_dispatch run can claim a request');
+  if (run.actor_id !== String(deps.dispatcherId)) return no('foreign_dispatcher', 'this run was not dispatched by the panel');
+  if (run.run_attempt !== 1) return no('rerun_cannot_claim', 'a re-run cannot claim a request: the panel dispatches a new run');
+  if (typeof deps.lookupRun !== 'function') return no('run_lookup_unavailable', 'the run cannot be checked against GitHub: nothing was claimed', 503);
+  let gh; try { gh = await deps.lookupRun(run.run_id); } catch { gh = null; }
+  if (!gh || typeof gh !== 'object') return no('run_lookup_failed', 'GitHub could not confirm this run: nothing was claimed, report again later', 503);
+  const checks = [
+    ['run_id', String(gh.id) === run.run_id], ['event', gh.event === 'workflow_dispatch'], ['workflow', gh.path === WORKFLOW_PATH], ['branch', gh.head_branch === 'main'],
+    ['triggering_actor', String(gh.triggering_actor && gh.triggering_actor.id) === String(deps.dispatcherId)], ['actor', String(gh.actor && gh.actor.id) === String(deps.dispatcherId)],
+    ['run_attempt', Number(gh.run_attempt) === run.run_attempt], ['run_name', gh.display_title === RUN_NAME(row.id, d.dispatch_id)],
+    ['created_after_dispatch', Number.isFinite(Date.parse(gh.created_at)) && Date.parse(gh.created_at) >= Date.parse(d.at) - CLOCK_SKEW_MS],
+  ];
+  const failed = checks.filter(([, ok]) => !ok).map(([k]) => k);
+  return failed.length ? bad(403, 'this run is not the execution dispatched for this request', { code: 'run_not_bound', failed }) : null;
+}
+
+// ---- F3: the active authorised release, and its explicit, audited pin (rollback) ---------------------------------------------------------------------------------------------------------------
+export const pins = async (db) => (await db.prepare('SELECT seq, at, kind, tag, manifest_sha256, previous_tag, by_login, by_id, by_role, reason FROM publication_release_pins ORDER BY seq DESC LIMIT 100').all()).results;
+/** The release that may satisfy publication requests now: the pinned one while a PIN is in force, otherwise the latest public release (`latestTag`). */
+export async function activeRelease(db, latestTag) {
+  const last = await db.prepare('SELECT seq, kind, tag FROM publication_release_pins ORDER BY seq DESC LIMIT 1').first();
+  if (last && last.kind === 'PIN') return { tag: last.tag, basis: 'pinned', pin_seq: last.seq };
+  return latestTag ? { tag: latestTag, basis: 'latest', pin_seq: last ? last.seq : 0 } : null;
+}
+/** PIN a verified public release (a rollback when it is not the latest) or UNPIN. An authorised operation: the permission is checked by the route and again here;
+ *  `expect_seq` (the last pin the operator saw) makes concurrent pins fail instead of overwriting each other. deps.fetchPublication(tag) verifies the release. */
+export async function pin(db, v, actor, now, deps = {}) {
+  const roles = actor.roles || [actor.role];
+  if (!can(roles, 'publication.expedite.approve')) return bad(403, 'the permission publication.expedite.approve is required to pin or unpin the active release', { code: 'forbidden' });
+  if (!v || !['PIN', 'UNPIN'].includes(v.kind)) return bad(400, 'kind must be PIN or UNPIN');
+  if (typeof v.reason !== 'string' || visible(v.reason) < 10 || v.reason.length > 2000) return bad(400, 'a reason of 10 to 2000 visible characters is required');
+  if (!Number.isInteger(v.expect_seq) || v.expect_seq < 0) return bad(400, 'expect_seq (the last pin you saw, 0 for none) is required');
+  const last = await db.prepare('SELECT seq, kind, tag FROM publication_release_pins ORDER BY seq DESC LIMIT 1').first(), seq = last ? last.seq : 0;
+  if (v.expect_seq !== seq) return bad(409, 'the pin changed since you saw it', { code: 'stale', seq });
+  let latest = null; try { latest = deps.fetchPublication ? await deps.fetchPublication(null) : null; } catch { latest = null; }
+  const previous = last && last.kind === 'PIN' ? last.tag : (latest && latest.ok ? latest.tag : null);
+  let row;
+  if (v.kind === 'UNPIN') { if (!last || last.kind !== 'PIN') return bad(409, 'nothing is pinned'); row = { tag: null, manifest_sha256: null }; }
+  else {
+    if (typeof v.tag !== 'string' || !/^[A-Za-z0-9._-]{3,80}$/.test(v.tag)) return bad(400, 'tag is required');
+    let pub = null; try { pub = deps.fetchPublication ? await deps.fetchPublication(v.tag) : null; } catch { pub = null; }
+    if (!pub || !pub.ok || pub.tag !== v.tag) return bad(409, 'only a public, verifiable release can be pinned', { code: 'not_verifiable' });
+    row = { tag: v.tag, manifest_sha256: pub.manifest_sha256 };
+  }
+  const rollback = v.kind === 'PIN' && !!latest && latest.ok && latest.tag !== v.tag;
+  const c = await commit(db, async () => [
+    db.prepare("SELECT CASE WHEN (SELECT COALESCE(MAX(seq), 0) FROM publication_release_pins) = ? THEN 1 ELSE json('not-json') END").bind(seq),
+    db.prepare('INSERT INTO publication_release_pins (at, kind, tag, manifest_sha256, previous_tag, by_login, by_id, by_role, reason) VALUES (?,?,?,?,?,?,?,?,?)').bind(now, v.kind, row.tag, row.manifest_sha256, previous, actor.login, actor.id, actor.role, v.reason.trim()),
+    ...(await auditStmts(db, [{ actor: actor.login, role: actor.role, action: v.kind === 'PIN' ? 'publication.release_pinned' : 'publication.release_unpinned', target: row.tag || previous || 'release', detail: { tag: row.tag, previous_tag: previous, manifest_sha256: row.manifest_sha256, rollback, reason: v.reason.trim(), by_id: actor.id } }], now))],
+  async () => ((await db.prepare('SELECT COALESCE(MAX(seq), 0) AS s FROM publication_release_pins').first()).s === seq)).catch(() => ({ ok: false }));
+  if (!c.ok) return bad(409, 'the pin changed while it was being recorded: nothing was changed', { code: 'stale' });
+  return { status: 200, body: { active: await activeRelease(db, latest && latest.ok ? latest.tag : null), rollback, pins: await pins(db) } };
 }
 
 // ---- evidence of the exact change in a verified release (F2, F3) ---------------------------------------------------------------------------------------------------------------------------------
@@ -287,7 +370,9 @@ export async function pendingScheduled(db, now = new Date().toISOString()) { ret
  *  (F2): without that a request stays PENDING for a later run, it is never closed on the word of the caller. */
 export async function dailyApplied(db, ids, run, now, deps = {}) {
   const res = { applied: [], skipped: [] };
-  const okRun = /^\d{1,20}$/.test(String(run.run_id || '')) && /^[A-Za-z0-9._-]{3,80}$/.test(String(run.release_tag || '')) && typeof deps.evidence === 'function';
+  let okRun = /^\d{1,20}$/.test(String(run.run_id || '')) && /^[A-Za-z0-9._-]{3,80}$/.test(String(run.release_tag || '')) && typeof deps.evidence === 'function';
+  // F3: only the ACTIVE authorised release closes requests (latest public release, or the pinned one); an older release listing the same path and SHA-256 does not
+  if (okRun) { let active = null; try { active = deps.activeRelease ? await deps.activeRelease() : null; } catch { active = null; } if (!active || active.tag !== run.release_tag) { okRun = false; res.not_active = active ? { active_tag: active.tag, basis: active.basis } : { active_tag: null }; } }
   for (const id of ids) { const row = await get(db, id); if (!okRun || !row || row.mode !== 'SCHEDULED' || row.state !== 'PENDING' || (row.criticality === 'CRITICAL' && (!row.authorized_by_id || row.authorized_by_id === row.requested_by_id || row.authorization_sha256 !== await authSha(row)))) { res.skipped.push(id); continue; }
     if (!(await deps.evidence(row))) { res.skipped.push(id); continue; }
     const m = await move(db, row, 'APPLIED', { run_id: String(run.run_id), release_tag: run.release_tag, applied_at: now }, 'workflow:daily.yml', { run_id: String(run.run_id), release_tag: run.release_tag, evidence: 'exact change listed in the verified release; effective state synced' }, now, { role: 'PIPELINE' }); (m.ok ? res.applied : res.skipped).push(id); }
@@ -301,12 +386,22 @@ export async function reconcile(db, now, deps = {}) {
   return res;
 }
 
+const GITHUB = 'https://api.github.com';   // the only GitHub host this module talks to: one write (the fixed dispatch) and one read (a run, F6)
+/** F6: reads back ONE run of this repository from GitHub (who triggered it, its run-name, when it was created). Read-only, with the dispatch credential; never logged. */
+export function makeRunLookup(env, deps) {
+  return async (runId) => {
+    if (!env.GITHUB_DISPATCH_TOKEN || !env.REPO || !/^\d{1,20}$/.test(String(runId))) throw new Error('run lookup unavailable');
+    const r = await deps.fetch(`${env.GITHUB_API || GITHUB}/repos/${env.REPO}/actions/runs/${runId}`, { method: 'GET', headers: { Authorization: `Bearer ${env.GITHUB_DISPATCH_TOKEN}`, Accept: 'application/vnd.github+json', 'User-Agent': 'macguard-panel' }, redirect: 'manual' });
+    if (!r || r.status !== 200) throw new Error('run lookup failed'); return r.json();
+  };
+}
 /** The only way this Worker asks GitHub for a run: a fixed workflow, a fixed ref, one UUID input, a credential that can do nothing else. */
 export function makeDispatcher(env, deps) {
   if (!env.GITHUB_DISPATCH_TOKEN || !env.REPO) return null;
-  return async ({ request_id }) => {
+  return async ({ request_id, dispatch_id }) => {
     if (!UUID.test(request_id) && !/^[0-9a-f-]{8,64}$/.test(request_id)) throw new Error('invalid request id');
-    const r = await deps.fetch(`https://api.github.com/repos/${env.REPO}/actions/workflows/publish-expedited.yml/dispatches`, { method: 'POST', headers: { Authorization: `Bearer ${env.GITHUB_DISPATCH_TOKEN}`, Accept: 'application/vnd.github+json', 'Content-Type': 'application/json', 'User-Agent': 'macguard-panel' }, body: JSON.stringify({ ref: 'main', inputs: { request_id } }), redirect: 'manual' });
+    if (!/^[0-9a-f-]{8,64}$/.test(String(dispatch_id || ''))) throw new Error('invalid dispatch id');
+    const r = await deps.fetch(`${GITHUB}/repos/${env.REPO}/actions/workflows/publish-expedited.yml/dispatches`, { method: 'POST', headers: { Authorization: `Bearer ${env.GITHUB_DISPATCH_TOKEN}`, Accept: 'application/vnd.github+json', 'Content-Type': 'application/json', 'User-Agent': 'macguard-panel' }, body: JSON.stringify({ ref: 'main', inputs: { request_id, dispatch_id } }), redirect: 'manual' });
     if (r.status !== 204) throw new Error(`GitHub answered ${r.status}`); return { ok: true };
   };
 }

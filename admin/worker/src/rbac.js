@@ -118,6 +118,7 @@ export const ROUTES = [
   ['GET', /^\/api\/intel\/records$/, 'INTEL_BY_FAMILY'], ['GET', /^\/api\/intel\/records\/.+$/, 'INTEL_BY_FAMILY'],
   ['GET', /^\/api\/audit$/, 'audit.read'], ['GET', /^\/api\/audit\/verify$/, 'audit.verify'],
   ['GET', /^\/api\/publication-requests$/, 'publication.read'], ['GET', new RegExp(`^/api/publication-requests/${ID}$`), 'publication.read'], ['POST', /^\/api\/publication-requests$/, 'PUBLICATION_REQUEST'], ['POST', new RegExp(`^/api/publication-requests/${ID}/(cancel|dispatch|approve|emergency|execute-emergency|review)$`), 'PUBLICATION_REQUEST'],
+  ['GET', /^\/api\/publication-releases\/pins$/, 'publication.read'], ['POST', /^\/api\/publication-releases\/pins$/, 'publication.expedite.approve'],
   ['GET', /^\/api\/audit\/anchors$/, 'audit.read'], ['POST', /^\/api\/intel\/decisions$/, 'INTEL_DECISION'],
   ['GET', /^\/api\/source-requests$/, 'sources.requests.read'], ['POST', /^\/api\/source-requests$/, 'sources.propose'], ['POST', new RegExp(`^/api/source-requests/${ID}/(accept|reject)$`), 'sources.review'], ['POST', new RegExp(`^/api/source-requests/${ID}/cancel$`), 'sources.propose'],
   ['GET', /^\/api\/restore\/status$/, 'backups.read'], ['GET', /^\/api\/restore\/procedures$/, 'restore.guide'], ['POST', /^\/api\/restore\/event$/, 'restore.drill.record'],

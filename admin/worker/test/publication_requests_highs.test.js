@@ -8,6 +8,7 @@ import { world, cand, rid } from './helpers.js';
 import { verifyChain } from '../src/core.js';
 import { auditRows } from '../src/store.js';
 import * as P from '../src/publication_requests.js';
+import { bindRuns, ghRun, runToken } from './publication_requests_runs.js';
 
 const chainOk = async (w) => assert.equal((await verifyChain(await auditRows(w.db, 5000))).ok, true, 'the audit chain verifies');
 async function fx() {
@@ -27,7 +28,7 @@ const body = async (w, id, over = {}) => ({ mode: 'SCHEDULED', action: 'PUBLISH'
 const expedite = async (w, user, id) => w.call('POST', '/api/publication-requests', { user, body: await body(w, id, { mode: 'EXPEDITED', reason: 'a customer reports the rule is needed today', confirm: id }) });
 const rows = (w, sql, ...a) => w.db.raw.prepare(sql).all(...a).map((r) => ({ ...r }));
 /** a report signed by the OIDC token of run `run` (attempt 1 unless given) */
-const report = async (w, id, b, run = '555', attempt = 1) => w.call('POST', `/api/pipeline/expedite/${id}/report`, { bearer: await w.pipelineToken('publish-expedited.yml', { run_id: run, run_attempt: String(attempt) }), body: { run_id: run, ...b } });   // the body states the same run as the token unless a test says otherwise
+const report = async (w, id, b, run = '555', attempt = 1) => { bindRuns(w); if (!w.ghRuns.has(String(run))) ghRun(w, run, id); return w.call('POST', `/api/pipeline/expedite/${id}/report`, { bearer: await runToken(w, run, attempt), body: { run_id: run, ...b } }); };   // the body states the same run as the token unless a test says otherwise
 const toVerifying = async (w, id, run = '555') => { for (const st of ['RUNNING', 'VALIDATING', 'SIGNING', 'PUBLISHING', 'VERIFYING']) { const r = await report(w, id, { state: st }, run); assert.equal(r.status, 200, `${st} ${JSON.stringify(r.data)}`); } };
 /** the database, except that the first write matching `re` fails (alone or inside a batch: a batch is one transaction, so it fails as a whole) */
 function faulty(db, re) {

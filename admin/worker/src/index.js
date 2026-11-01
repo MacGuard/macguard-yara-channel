@@ -31,6 +31,9 @@ async function readJson(request, max) {
   try { return { body: JSON.parse(text) }; } catch { return { body: null }; }
 }
 
+// F3: the release that may satisfy publication requests now (pinned, or the latest public one); throws when it cannot be determined, so nothing changes
+const activeRelease = (env, deps, db) => async () => { const latest = await fetchPublication(env, deps, null); const pinned = await pubReq.activeRelease(db, latest.ok ? latest.tag : null); if (!pinned) throw new Error('active release unknown'); return pinned; };
+
 export async function handle(request, env, deps) {
   const url = new URL(request.url), now = deps.now(), db = env.DB, method = request.method, path = url.pathname;
   try {
@@ -68,8 +71,8 @@ export async function handle(request, env, deps) {
       if (method === 'POST' && expd && expd[2]) {   // publish-expedited.yml only: progress, failure, or the verified result of ITS OWN request
         if (v.workflow !== 'publish-expedited.yml') return err(403, 'only the expedited publication workflow reports on its request');
         // the run identity comes from the signed token (F6); the release must be public, verified AND carry this exact change (F3), and the effective state is synced from it before APPLIED
-        const iso2 = new Date(now * 1000).toISOString(), run = { run_id: String(v.claims.run_id ?? ''), run_attempt: Number(v.claims.run_attempt) || null };
-        const r = await pubReq.report(db, expd[1], body, iso2, { run,
+        const iso2 = new Date(now * 1000).toISOString(), run = { run_id: String(v.claims.run_id ?? ''), run_attempt: Number(v.claims.run_attempt) || null, event_name: v.claims.event_name ?? null, actor_id: v.claims.actor_id ?? null };
+        const r = await pubReq.report(db, expd[1], body, iso2, { run, dispatcherId: env.EXPEDITE_DISPATCHER_ID, lookupRun: pubReq.makeRunLookup(env, deps), activeRelease: activeRelease(env, deps, db),
           verifyRelease: async (tag, row) => { const pub = await fetchPublication(env, deps, tag); return pub.ok && (await pubReq.covers(db, row, pub)) ? pub : false; },
           sync: async (row, tag, pub) => { if (!(await pubReq.syncFromRelease(db, row, pub, { trigger: 'expedited', run_url: body.run_url, token_run_id: run.run_id, run_attempt: run.run_attempt, role: 'PIPELINE' }, actor, iso2))) throw new Error('the effective state did not reach the requested state from this release'); } });
         return json(r.body, r.status);
@@ -80,7 +83,7 @@ export async function handle(request, env, deps) {
         if (body.run_id !== undefined && String(body.run_id) !== runId) return err(400, 'run_id must be the run of the token that signs the report');
         const pub = RELEASE_TAG.test(tag) ? await fetchPublication(env, deps, tag) : { ok: false };
         const evidence = async (row) => pub.ok && (await pubReq.covers(db, row, pub)) && pubReq.syncFromRelease(db, row, pub, { trigger: 'daily', token_run_id: runId, run_attempt: Number(v.claims.run_attempt) || null, role: 'PIPELINE' }, actor, iso2);
-        return json({ schema: 1, ...(await pubReq.dailyApplied(db, body.ids, { run_id: runId, release_tag: tag }, iso2, { evidence })), ...(pub.ok ? {} : { note: 'no verifiable public release with that tag: nothing was applied' }) }); }
+        return json({ schema: 1, ...(await pubReq.dailyApplied(db, body.ids, { run_id: runId, release_tag: tag }, iso2, { evidence, activeRelease: activeRelease(env, deps, db) })), ...(pub.ok ? {} : { note: 'no verifiable public release with that tag: nothing was applied' }) }); }
       if (path === '/api/pipeline/released' || path === '/api/pipeline/revalidation-failed') {
         if (!Array.isArray(body.hashes) || body.hashes.some((h) => !/^[0-9a-f]{64}$/.test(h))) return err(400, 'hashes required');
         const ev = path.endsWith('released') ? 'released' : 'revalidation_failed';
@@ -163,6 +166,11 @@ export async function handle(request, env, deps) {
         }
         return { inv };
       };
+      if (path === '/api/publication-releases/pins') {   // F3: the active authorised release; PIN (rollback to a verified release) / UNPIN are authorised, audited, append-only
+        if (method === 'GET') { const latest = await fetchPublication(env, deps, null); return json({ schema: 1, active: await pubReq.activeRelease(db, latest.ok ? latest.tag : null), latest_available: !!latest.ok, pins: await pubReq.pins(db) }); }
+        const rd = await readJson(request, 20_000); if (rd.tooLarge) return err(413, 'request too large');
+        const r = await pubReq.pin(db, rd.body, { ...actor, roles }, iso, { fetchPublication: (tag) => fetchPublication(env, deps, tag) }); return json(r.body, r.status);
+      }
       if (path === '/api/publication-requests' || path.startsWith('/api/publication-requests/')) {   // desired state of a resource: SCHEDULED (the daily run applies it, nothing starts) or EXPEDITED (asks for ONE run of a fixed workflow). Never publishes from here.
         const pm = path.match(/^\/api\/publication-requests\/([0-9a-f-]{8,64})(?:\/(cancel|dispatch|approve|emergency|execute-emergency|review))?$/), pdeps = { uuid: deps.uuid, env, dispatch: pubReq.makeDispatcher(env, deps) };
         if (method === 'GET' && path === '/api/publication-requests') return json(await pubReq.list(db, { state: url.searchParams.get('state') || undefined, mode: url.searchParams.get('mode') || undefined }));

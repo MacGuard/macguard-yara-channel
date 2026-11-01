@@ -7,6 +7,7 @@ import { world, cand, rid, REPO, ORIGIN } from './helpers.js';
 import { verifyChain } from '../src/core.js';
 import { auditRows } from '../src/store.js';
 import { TRANSITIONS, STATES } from '../src/publication_requests.js';
+import { bindRuns, ghRun, runToken, currentDispatchOf } from './publication_requests_runs.js';
 
 const T1 = 'rules-20261026-1';
 const chainOk = async (w) => assert.equal((await verifyChain(await auditRows(w.db, 5000))).ok, true, 'the audit chain verifies');
@@ -28,8 +29,10 @@ const expedite = async (w, user, id, over = {}) => w.call('POST', '/api/publicat
 const rows = (w, sql, ...a) => w.db.raw.prepare(sql).all(...a).map((r) => ({ ...r }));
 const wf = async (w, wfName = 'publish-expedited.yml') => w.pipelineToken(wfName);
 // a report is signed by the OIDC token of ONE run (review F6): the run stated in the body (when numeric), else the run that already reported on this request
+// the run is one the panel dispatched for THIS request (F6 binding, see publication_requests_runs.js); GitHub is asked about it only when it claims
 const report = async (w, id, b, bearerWf) => { w.runs = w.runs || {}; const run = b && /^\d{1,20}$/.test(String(b.run_id ?? '')) ? String(b.run_id) : (w.runs[id] || '555'); w.runs[id] = run;
-  return w.call('POST', `/api/pipeline/expedite/${id}/report`, { bearer: await w.pipelineToken(bearerWf || 'publish-expedited.yml', { run_id: run, run_attempt: '1' }), body: b }); };
+  bindRuns(w); if (!w.ghRuns.has(run)) ghRun(w, run, id);
+  return w.call('POST', `/api/pipeline/expedite/${id}/report`, { bearer: bearerWf && bearerWf !== 'publish-expedited.yml' ? await w.pipelineToken(bearerWf, { run_id: run, run_attempt: '1' }) : await runToken(w, run), body: b }); };
 const daily = (w, run) => w.pipelineToken('daily.yml', { run_id: run, run_attempt: '1' });
 const entry = (w, id) => { const r = w.db.raw.prepare('SELECT path, sha256, bytes FROM candidates WHERE id = ?').get(id); return { path: r.path, sha256: r.sha256, bytes: r.bytes }; };
 
@@ -42,7 +45,8 @@ test('1. an ordinary change is saved for the next daily run: nothing is dispatch
 });
 test('2. an authorised expedited change asks for exactly one run of the fixed workflow with one validated input', async () => {
   const w = await fx(); const id = w.ids[0]; const r = await expedite(w, w.pat, id); assert.equal(r.status, 200, JSON.stringify(r.data)); assert.equal(r.data.request.state, 'QUEUED'); assert.equal(w.dispatches.length, 1);
-  const d = w.dispatches[0]; assert.equal(d.url, `https://api.github.com/repos/${REPO}/actions/workflows/publish-expedited.yml/dispatches`); assert.deepEqual(JSON.parse(d.init.body), { ref: 'main', inputs: { request_id: r.data.request.id } }); assert.equal(d.init.method, 'POST');
+  const d = w.dispatches[0]; assert.equal(d.url, `https://api.github.com/repos/${REPO}/actions/workflows/publish-expedited.yml/dispatches`); const disp = currentDispatchOf(w, r.data.request.id); assert.ok(disp, 'the dispatch is recorded');
+  assert.deepEqual(JSON.parse(d.init.body), { ref: 'main', inputs: { request_id: r.data.request.id, dispatch_id: disp.dispatch_id } }, 'two validated inputs: the request and THIS dispatch (the run-name binds the run to both, F6)'); assert.equal(d.init.method, 'POST');
   assert.equal(r.data.request.authorized_by, 'pat'); assert.match(r.data.request.authorization_sha256, /^[0-9a-f]{64}$/); assert.deepEqual(rows(w, 'SELECT from_state, to_state FROM publication_request_events ORDER BY seq').map((e) => `${e.from_state}>${e.to_state}`), ['null>AWAITING_APPROVAL', 'AWAITING_APPROVAL>AUTHORIZED', 'AUTHORIZED>QUEUED']);
 });
 test('3. permissions: a viewer cannot ask for anything, a reviewer may only propose, a security administrator only for security actions; confirmation, reason and exact version are required', async () => {
@@ -120,13 +124,14 @@ test('12. 13. 14. a failing run keeps the previous state: quality gate, invalid 
 test('15. the release verifies but the panel sync fails: SYNC_PENDING, then reconciliation completes it WITHOUT republishing', async () => {
   const w = await fx(); const ex = (await expedite(w, w.pat, w.ids[0])).data.request; for (const st of ['RUNNING', 'VALIDATING', 'SIGNING', 'PUBLISHING', 'VERIFYING']) await report(w, ex.id, { state: st, run_id: '600' });
   const { report: rep, reconcile, get } = await import('../src/publication_requests.js'); const now = new Date().toISOString(); let fail = true, syncs = 0;
-  const deps = { run: { run_id: '600', run_attempt: 1 }, verifyRelease: async () => true, sync: async () => { syncs++; if (fail) throw new Error('D1 unavailable'); } };
+  const deps = { run: { run_id: '600', run_attempt: 1 }, activeRelease: async () => ({ tag: T1, basis: 'latest' }), verifyRelease: async () => true, sync: async () => { syncs++; if (fail) throw new Error('D1 unavailable'); } };
   const r1 = await rep(w.db, ex.id, { state: 'APPLIED', release_tag: T1, commit_sha: 'a'.repeat(40), run_id: '600', hashes: { manifest: 'x' } }, now, deps); assert.equal(r1.body.request.state, 'SYNC_PENDING'); assert.equal(rows(w, 'SELECT COUNT(*) AS n FROM publication_requests WHERE state = ?', 'APPLIED')[0].n, 0, 'not APPLIED until the panel agrees');
   assert.deepEqual((await reconcile(w.db, now, deps)).synced, [], 'still failing: stays pending'); fail = false; assert.deepEqual((await reconcile(w.db, now, deps)).synced, [ex.id]); assert.equal((await get(w.db, ex.id)).state, 'APPLIED'); assert.equal(w.dispatches.length, 1, 'nothing was dispatched again');
 });
 test('15b. APPLIED needs the release to be verifiable: an unverifiable release ends FAILED, never APPLIED', async () => {
   const w = await fx(); const ex = (await expedite(w, w.pat, w.ids[0])).data.request; for (const st of ['RUNNING', 'VALIDATING', 'SIGNING', 'PUBLISHING', 'VERIFYING']) await report(w, ex.id, { state: st, run_id: '601' });
-  const r = await report(w, ex.id, { state: 'APPLIED', release_tag: 'rules-20261026-9', commit_sha: 'b'.repeat(40), run_id: '601' }); assert.equal(r.data.request.state, 'FAILED'); assert.equal(r.data.request.state_reason, 'release_not_verifiable');
+  await w.release(T1, [entry(w, w.ids[1])]);   // the active (latest, verifiable) release, but it does not carry this request's rule
+  const r = await report(w, ex.id, { state: 'APPLIED', release_tag: T1, commit_sha: 'b'.repeat(40), run_id: '601' }); assert.equal(r.data.request.state, 'FAILED', JSON.stringify(r.data)); assert.equal(r.data.request.state_reason, 'release_not_verifiable');
   assert.equal((await report(w, ex.id, { state: 'SIGNING' })).status, 409, 'states only move forward');
 });
 test('16. GitHub Actions unavailable or no dispatcher configured: the request is BLOCKED with the exact cause, the authorisation is kept, retry works, and the daily run still covers it', async () => {
@@ -148,7 +153,9 @@ test('18. replay of an old authorisation: an expired one cannot be dispatched, a
 });
 test('19. concurrent catalogue updates: two reports race for the same step and only one wins; the other changes nothing', async () => {
   const w = await fx(); const ex = (await expedite(w, w.pat, w.ids[0])).data.request; const { report: rep } = await import('../src/publication_requests.js'); const now = new Date().toISOString();
-  const rs = await Promise.all([rep(w.db, ex.id, { state: 'RUNNING', run_id: '800' }, now, { run: { run_id: '800', run_attempt: 1 } }), rep(w.db, ex.id, { state: 'RUNNING', run_id: '801' }, now, { run: { run_id: '801', run_attempt: 1 } })]); assert.equal(rs.filter((r) => r.status === 200).length, 1, 'one run claims it');
+  // both runs pass every binding check (as if GitHub had started the same dispatch twice): the claim itself is atomic, one wins
+  const bound = (id) => ({ run: { run_id: id, run_attempt: 1, event_name: 'workflow_dispatch', actor_id: '41898282' }, dispatcherId: '41898282', lookupRun: async (rid) => ghRun(w, rid, ex.id) });
+  const rs = await Promise.all([rep(w.db, ex.id, { state: 'RUNNING', run_id: '800' }, now, bound('800')), rep(w.db, ex.id, { state: 'RUNNING', run_id: '801' }, now, bound('801'))]); assert.equal(rs.filter((r) => r.status === 200).length, 1, 'one run claims it');
   assert.equal(rows(w, "SELECT COUNT(*) AS n FROM publication_request_events WHERE request_id = ? AND to_state = 'RUNNING'", ex.id)[0].n, 1, 'one transition, one event');
 });
 test('20. reconciliation after a failure: a run that never reports back is closed as FAILED (previous state kept), and nothing is republished', async () => {
@@ -167,7 +174,8 @@ test('the workflow can only read and report ITS OWN authorised request, with its
 });
 test('no path publishes from Cloudflare: the only outbound GitHub call is the fixed dispatch, the Worker holds no general write credential, the state machine has no skip, and every state is reachable only through a recorded event', async () => {
   const src = readFileSync(new URL('../src/publication_requests.js', import.meta.url), 'utf8'), idx = readFileSync(new URL('../src/index.js', import.meta.url), 'utf8');
-  assert.equal((src.match(/api\.github\.com/g) || []).length, 1, 'one GitHub URL in the module: the dispatch'); assert.match(src, /publish-expedited\.yml\/dispatches/); assert.doesNotMatch(src, /\/releases|\/contents|\/git\/|createRelease|upload/i);
+  assert.equal((src.match(/api\.github\.com/g) || []).length, 1, 'one GitHub host in the module'); assert.match(src, /publish-expedited\.yml\/dispatches/);
+  assert.deepEqual([...src.matchAll(/method: '(POST|PUT|PATCH|DELETE)'/g)].map((m) => m[1]), ['POST'], 'one write: the fixed dispatch (the run lookup of F6 is a GET)'); assert.match(src, /\/actions\/runs\/\$\{runId\}`, \{ method: 'GET'/); assert.doesNotMatch(src, /\/releases|\/contents|\/git\/|createRelease|upload/i);
   assert.doesNotMatch(idx, /method: 'PUT'|method: 'PATCH'|uploads\.github/, 'the Worker never writes releases or contents'); assert.deepEqual([...new Set(Object.values(TRANSITIONS).flat())].filter((s) => !STATES.includes(s)), []);
   for (const [from, tos] of Object.entries(TRANSITIONS)) for (const to of tos) assert.ok(STATES.includes(from) && STATES.includes(to)); assert.deepEqual(TRANSITIONS.APPLIED, []); assert.ok(!TRANSITIONS.AUTHORIZED.includes('APPLIED') && !TRANSITIONS.QUEUED.includes('APPLIED') && !TRANSITIONS.RUNNING.includes('APPLIED'), 'nothing jumps to APPLIED');
 });
