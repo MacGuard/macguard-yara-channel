@@ -1,6 +1,7 @@
 // Verification of a D1 export in an ISOLATED local SQLite (never the remote database). `verifyRestore` loads a SQL export into a fresh in-memory database and checks structure, integrity and the
 // two hash chains the gateway relies on. `dumpSql` produces an export from a local database (used by the tests; production exports come from `wrangler d1 export`).
 import { DatabaseSync } from 'node:sqlite';
+import { loadExport } from './stream_io.mjs';
 import { readdirSync, readFileSync } from 'node:fs';
 import { verifyAudit } from '../src/audit.js';
 import { canonical, sha256Hex } from '../src/util.js';
@@ -19,10 +20,10 @@ const tables = (raw) => Object.fromEntries(raw.prepare("SELECT name FROM sqlite_
 
 export async function verifyRestore(sqlText, { schemaFile = new URL('../schema.sql', import.meta.url), manifest = null } = {}) {
   const checks = [], add = (name, ok, detail = '') => checks.push({ name, ok: !!ok, detail });
-  const db = new DatabaseSync(':memory:');
-  db.exec('PRAGMA foreign_keys = OFF');                                                  // load order is not dependency order; foreign_key_check below verifies the result
-  try { db.exec(sqlText); add('the export loads into an empty database', true); } catch (e) { add('the export loads into an empty database', false, String(e.message).slice(0, 160)); db.close(); return { ok: false, checks }; }
-  const ref = new DatabaseSync(':memory:'); ref.exec(readFileSync(schemaFile, 'utf8'));
+  const L = await loadExport(sqlText); if (L.error) { add('the export loads into an empty database', false, L.error); L.close(); return { ok: false, checks }; }   // a string, { file } (streamed) or an already loaded export
+  add('the export loads into an empty database', true); const db = L.db; let ref;   // foreign keys are OFF: load order is not dependency order; foreign_key_check below verifies the result
+  try {   // the restored database is a plaintext FILE since O1: close it and remove its directory even if a check throws
+  ref = new DatabaseSync(':memory:'); ref.exec(readFileSync(schemaFile, 'utf8'));
   const got = tables(db), want = tables(ref); const missing = Object.keys(want).filter((t) => !(t in got)), changed = Object.keys(want).filter((t) => t in got && got[t] !== want[t]);
   // A table that only a not-yet-applied migration creates is reported as pending (a known, documented difference), anything else missing is a failure.
   const pending = new Set(readdirSync(new URL('../migrations/', import.meta.url)).filter((f) => f.endsWith('.sql')).flatMap((f) => [...readFileSync(new URL('../migrations/' + f, import.meta.url), 'utf8').matchAll(/CREATE TABLE (?:IF NOT EXISTS )?(\w+)/g)].map((m) => m[1])));
@@ -39,11 +40,13 @@ export async function verifyRestore(sqlText, { schemaFile = new URL('../schema.s
   const shim = { prepare: (sql) => { let a = []; const s = { bind: (...x) => { a = x; return s; }, first: async () => db.prepare(sql).get(...a) ?? null, all: async () => ({ results: db.prepare(sql).all(...a) }) }; return s; } };
   const au = await verifyAudit(shim); add('audit hash chain intact', au.ok, au.ok ? '' : 'breaks at seq ' + au.at);
   let pol = true, why = ''; let prev = '0'.repeat(64);
-  for (const r of db.prepare('SELECT * FROM policy_versions ORDER BY version').all()) { if ((await sha256Hex(canonical(JSON.parse(r.doc)))) !== r.doc_sha256 || r.prev_sha256 !== prev && r.version > 1) { pol = false; why = 'version ' + r.version; break; } prev = r.doc_sha256; }
+  const parsed = (doc) => { try { return JSON.parse(doc); } catch { return undefined; } };   // never JSON.parse's own error: it quotes the start of the document (row data) into the CI log
+  for (const r of db.prepare('SELECT * FROM policy_versions ORDER BY version').all()) { const d = parsed(r.doc); if (d === undefined) { pol = false; why = 'version ' + r.version + ' is not valid JSON'; break; } if ((await sha256Hex(canonical(d))) !== r.doc_sha256 || r.prev_sha256 !== prev && r.version > 1) { pol = false; why = 'version ' + r.version; break; } prev = r.doc_sha256; }
   add('policy versions: each document matches its hash and the chain links', pol, why);
   const ptr = db.prepare('SELECT version FROM policy_pointer').get(); add('a policy pointer exists and points at a stored version', ptr && db.prepare('SELECT 1 x FROM policy_versions WHERE version = ?').get(ptr.version) !== undefined);
   if (manifest) { const counts = Object.fromEntries(Object.keys(got).map((t) => [t, db.prepare(`SELECT COUNT(*) n FROM ${t}`).get().n])); const diff = Object.entries(manifest.row_counts ?? {}).filter(([t, n]) => counts[t] !== n).map(([t, n]) => `${t}: manifest ${n}, restored ${counts[t]}`);
     add('row counts equal the manifest', !diff.length, diff.slice(0, 4).join('; ')); }
-  db.close(); ref.close(); return { ok: checks.every((c) => c.ok), checks };
+  return { ok: checks.every((c) => c.ok), checks };
+  } finally { L.close(); ref?.close(); }
 }
 export const rowCounts = (raw) => Object.fromEntries(Object.keys(tables(raw)).map((t) => [t, raw.prepare(`SELECT COUNT(*) n FROM ${t}`).get().n]));

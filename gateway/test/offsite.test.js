@@ -1,5 +1,6 @@
 // Off-machine copy and restore drill. Local: the "off-machine" destination is a second directory; no network, no Keychain.
 import test from 'node:test';
+import { HAVE_AGE } from './tools_available.js';
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync, readdirSync } from 'node:fs';
@@ -11,7 +12,6 @@ import { offsiteSync, restoreDrill, custodyCheck } from '../tools/backup_offsite
 import { world } from './helpers.js';
 import { audit } from '../src/audit.js';
 
-const HAVE_AGE = existsSync('/usr/local/bin/age') && process.platform === 'darwin';
 const keypair = (dir, name) => { const f = join(dir, name); execFileSync('age-keygen', ['-o', f], { stdio: 'ignore' }); return { file: f, pub: execFileSync('age-keygen', ['-y', f], { encoding: 'utf8' }).trim() }; };
 async function setup() {
   const w = await world({ now: '2026-10-24T05:00:00Z' }); await w.tenant('t1'); await audit(w.db, w.clock, 't1', 'x.y', {});
