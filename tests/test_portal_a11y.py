@@ -95,5 +95,9 @@ class LanguageOfParts(unittest.TestCase):
         self.assertIn("'draw_error': 'No se pudo dibujar el diagrama. Su código está debajo.'", src)
         js = (WEB / 'docs.js').read_text(); self.assertIn('ui.draw_error', js); self.assertNotIn("<p class=\"badmsg\">The diagram", js)
 
+    def test_the_english_half_of_the_404_page_is_marked(self):
+        h = (WEB / '404.html').read_text()
+        self.assertIn('<html lang="es">', h); self.assertIn('<p lang="en">This address does not exist', h); self.assertIn('<main><h1>404</h1>', h)
+
 if __name__ == '__main__':
     unittest.main()
