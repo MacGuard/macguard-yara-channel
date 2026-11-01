@@ -22,7 +22,7 @@ var X={es:{kind:function(k){return k.kind==='TEXT'?'Texto libre':'Tipo detectado
   load:'Loading…',fail:'The query could not be completed. No data is shown.',none:'No results.',cont:'No matches in the years searched so far; press “Next” to keep searching earlier years.',n:function(n,more){return n+' result(s) on this page'+(more?'; there are more':'')},page:function(p){return 'Page '+p},
   na:'Not available',kev_y:'In KEV since ',kev_n:'Not listed',kev_u:'Unknown',rules_y:'Yes',rules_n:'No verified rule',src_na:'source not available',src_ok:'available',src_h:'Sources: ',
   states:{APPROVED:'approved',RETAINED:'retained (licence or approval pending)',BLOCKED:'blocked',UNAVAILABLE:'not available'}}};
-var x=function(){return X[MG.L()]||X.es},API=MG.apiBase(),mode=API?'api':'static',kevIdx=null,srcs=null,stack=[],cur=null,last=null,busy=false;
+var x=function(){return X[MG.L()]||X.es},API=MG.apiBase(),mode=API?'api':'static',kevIdx=null,srcs=null,stack=[],cur=null,last=null,gen=0;   /* every search or reset starts a new generation; an answer from an older one is dropped (Codex pr81 F2) */
 var F=['vendor','product','cwe','kev','date_from','date_to','cvss_min','cvss_max','epss_min','has_rules','source','access'],FID={vendor:'f-vendor',product:'f-product',cwe:'f-cwe',kev:'f-kev',date_from:'f-from',date_to:'f-to',cvss_min:'f-cvss-min',cvss_max:'f-cvss-max',epss_min:'f-epss',has_rules:'f-rules',source:'f-source',access:'f-access'};
 function filters(){var f={},k=MG.idKind($('vq').value);F.forEach(function(n){var v=String($(FID[n]).value||'').trim();if(v)f[n]=v});
  if(f.cwe){var c=MG.idKind(f.cwe);f.cwe=c&&c.kind==='CWE'?c.id:null;if(!f.cwe)delete f.cwe}
@@ -46,29 +46,30 @@ function setState(msg,cls){var m=$('vmode');m.textContent=msg;m.className='state
 function pager(more){$('vprev').disabled=stack.length===0;$('vnext').disabled=!more;$('vpage').textContent=x().page(stack.length+1)}
 function sources(list){var ul=$('vsources'),t=x();ul.textContent='';if(!list||!list.length)return;ul.appendChild(el('li',{class:'muted',text:t.src_h}));
  list.forEach(function(s){var st=s.status||s.approval_state;ul.appendChild(el('li',{text:(s.name||s.id)+': '+(t.states[st]||st||t.src_na)}))})}
-function run(cursor){if(busy)return;var q=filters(),t=x();$('vkind').textContent=$('vq').value.trim()?(q.k?t.kind(q.k):t.bad):'';
- if($('vq').value.trim()&&!q.k)return;busy=true;$('vcount').textContent=t.load;cur=cursor||null;
- var p=mode==='api'?searchApi(q,cursor):searchStatic(q,cursor);
- p.then(function(r){busy=false;if(!r)return;last=r;$('vcount').textContent=r.items.length?t.n(r.items.length,!!r.next):(r.next?t.cont:t.none);pager(!!r.next)},function(){busy=false;
+function run(cursor){var q=filters(),t=x();$('vkind').textContent=$('vq').value.trim()?(q.k?t.kind(q.k):t.bad):'';
+ if($('vq').value.trim()&&!q.k)return;var g=++gen;$('vcount').textContent=t.load;cur=cursor||null;
+ var p=mode==='api'?searchApi(q,cursor,g):searchStatic(q,cursor,g);
+ p.then(function(r){if(g!==gen||!r)return;last=r;$('vcount').textContent=r.items.length?t.n(r.items.length,!!r.next):(r.next?t.cont:t.none);pager(!!r.next)},function(){if(g!==gen)return;
   document.querySelector('#vtable tbody').textContent='';$('vcount').textContent='';setState(t.fail,'badmsg');pager(false)})}
 /* only the parameters the gateway accepts (macguard.intel-search/1); the access level is not a server filter (the server decides what each caller may see) */
 var API_PARAMS=['kev','cwe','vendor','product','cvss_min','cvss_max','epss_min','date_from','date_to','has_rules','has_iocs','source'];
-function searchApi(q,cursor){var u=new URLSearchParams();if(q.k)u.set('q',q.k.id);Object.keys(q.f).forEach(function(n){if(API_PARAMS.indexOf(n)>=0)u.set(n,q.f[n])});u.set('limit','25');if(cursor)u.set('cursor',cursor);
+function searchApi(q,cursor,g){var u=new URLSearchParams();if(q.k)u.set('q',q.k.id);Object.keys(q.f).forEach(function(n){if(API_PARAMS.indexOf(n)>=0)u.set(n,q.f[n])});u.set('limit','25');if(cursor)u.set('cursor',cursor);
  return MG.getT(API+'/v1/vulns/search?'+u.toString(),10000).then(function(r){if(!r||r.schema!=='macguard.intel-search/1'||!Array.isArray(r.items))throw new Error('contract');
+  if(g!==gen)return null;
   var acc=q.f.access,items=r.items.slice(0,100).filter(function(it){var rs=it&&it.access&&Array.isArray(it.access.restricted_sections)?it.access.restricted_sections:[];return !acc||(acc==='premium'?rs.length>0:rs.length===0)});   /* access: a view filter on this page only */
   rowsApi(items);sources(r.sources);setState(x().api);
   return {items:r.items,next:typeof r.next_cursor==='string'&&r.next_cursor.length<=512?r.next_cursor:null}})}
-function searchStatic(q,cursor){var t=x();
+function searchStatic(q,cursor,g){var t=x();
  if(!kevIdx){document.querySelector('#vtable tbody').textContent='';setState(t.off);return Promise.resolve({items:[],next:null})}
  if(q.k&&q.k.kind!=='CVE'&&q.k.kind!=='TEXT'&&q.k.kind!=='CWE'){document.querySelector('#vtable tbody').textContent='';setState(t.needapi);return Promise.resolve({items:[],next:null})}
  var f={vendor:q.f.vendor,product:q.f.product,cwe:q.f.cwe,date_from:q.f.date_from,date_to:q.f.date_to};
  if(q.k&&q.k.kind==='CVE')f.cve=q.k.id;else if(q.k&&q.k.kind==='CWE')f.cwe=q.k.id;else if(q.k)f.text=q.k.id;
- return MG.kev.search(f,cursor,25).then(function(r){rowsStatic(r.items);setState(t.stat(kevIdx.source&&kevIdx.source.catalog_version));return {items:r.items,next:r.next}})}
+ return MG.kev.search(f,cursor,25).then(function(r){if(g!==gen)return null;rowsStatic(r.items);setState(t.stat(kevIdx.source&&kevIdx.source.catalog_version));return {items:r.items,next:r.next}})}
 function apply(){if(mode==='static'){var dis=['f-cvss-min','f-cvss-max','f-epss','f-rules','f-source','f-access'];dis.forEach(function(i){$(i).disabled=true});$('api-filters').setAttribute('aria-disabled','true')}
  if(last){if(mode==='api')run(cur);else run(cur)}else if(mode==='static'&&!kevIdx)setState(x().off)}
 MG.i18n(D,function(){if(document.readyState!=='loading')apply()});
 $('vform').addEventListener('submit',function(ev){ev.preventDefault();stack=[];run(null)});
-$('vform').addEventListener('reset',function(){setTimeout(function(){stack=[];last=null;document.querySelector('#vtable tbody').textContent='';$('vcount').textContent='';$('vkind').textContent='';pager(false)},0)});
+$('vform').addEventListener('reset',function(){gen++;setTimeout(function(){stack=[];last=null;document.querySelector('#vtable tbody').textContent='';$('vcount').textContent='';$('vkind').textContent='';pager(false)},0)});
 $('vnext').addEventListener('click',function(){if(!last||!last.next)return;stack.push(cur);run(last.next)});
 $('vprev').addEventListener('click',function(){if(!stack.length)return;run(stack.pop())});
 var init=new URLSearchParams(location.search).get('q');if(init&&init.length<=128)$('vq').value=init;

@@ -194,7 +194,7 @@ def write(site: pathlib.Path, root: pathlib.Path, rows: list) -> dict:
     """Writes sources.json, kev/ (only from a verified package) and hub.json; extends packages.json and families.json. Returns hub.json."""
     latest = json.loads((site / 'latest.json').read_text()) if (site / 'latest.json').exists() else None
     (site / 'sources.json').write_text(json.dumps(sources(root), indent=1, sort_keys=True) + '\n')
-    pkgs, refused, kev_index = [], [], None
+    pkgs, refused, kev_index, kev_cands = [], [], None, []
     for p in intel_packages(root):
         if not p['ok']:
             refused.append({'dir': p['dir'].name, 'reason': p['reason']}); continue
@@ -216,13 +216,20 @@ def write(site: pathlib.Path, root: pathlib.Path, rows: list) -> dict:
         out_dir.mkdir(parents=True, exist_ok=True)
         for n in entry['assets']: (out_dir / n).write_bytes((p['dir'] / n).read_bytes())
         pkgs.append(entry)
-        if kev is not None and kev_index is None:
-            kev_index, shards = kev_shards(kev, {'tag': entry['tag'], 'package_sha256': entry['package_sha256'], 'manifest_sha256': entry['manifest_sha256'], 'url': entry['url'],
-                                                 'assets': entry['assets']})
-            for name, body in shards.items():
-                (site / name).parent.mkdir(parents=True, exist_ok=True)
-                (site / name).write_text(json.dumps(body, separators=(',', ':'), sort_keys=True) + '\n')
-            (site / 'kev' / 'index.json').write_text(json.dumps(kev_index, indent=1, sort_keys=True) + '\n')
+        if kev is not None: kev_cands.append((kev, entry))
+    # Search, records and hub counts use the NEWEST verified KEV catalogue (signed dataset metadata first, then the release), never the first
+    # directory found: release names sort oldest first. Older verified packages stay listed as downloads only.
+    if kev_cands:
+        def _newest(c):
+            src, e = c[0].get('source') or {}, c[1]
+            return (str(src.get('date_released') or ''), str(src.get('catalog_version') or ''), str(e.get('published_at') or ''), str(e.get('tag') or ''))
+        kev, entry = max(kev_cands, key=_newest)
+        kev_index, shards = kev_shards(kev, {'tag': entry['tag'], 'package_sha256': entry['package_sha256'], 'manifest_sha256': entry['manifest_sha256'], 'url': entry['url'],
+                                             'assets': entry['assets']})
+        for name, body in shards.items():
+            (site / name).parent.mkdir(parents=True, exist_ok=True)
+            (site / name).write_text(json.dumps(body, separators=(',', ':'), sort_keys=True) + '\n')
+        (site / 'kev' / 'index.json').write_text(json.dumps(kev_index, indent=1, sort_keys=True) + '\n')
     pj_file = site / 'packages.json'
     pj = json.loads(pj_file.read_text()) if pj_file.exists() else {'packages': []}
     pj['intel'] = pkgs; pj['intel_refused'] = refused

@@ -15,7 +15,7 @@ class Node {
   find(tag) { return [this.tag === tag ? [this] : [], ...this.kids.map((k) => (k.find ? k.find(tag) : []))].flat(); }
 }
 const tick = () => new Promise((r) => setTimeout(r, 0)), settle = async () => { for (let i = 0; i < 40; i++) await tick(); };
-function page({ api = '', search = '', files = {}, apiAnswers = {} }) {
+function page({ api = '', search = '', files = {}, apiAnswers = {}, hold = null }) {
   const byId = {}, requested = [];
   const node = (id) => (byId[id] ||= new Node('div', id));
   const meta = api ? { getAttribute: () => api } : null;
@@ -26,7 +26,7 @@ function page({ api = '', search = '', files = {}, apiAnswers = {} }) {
   const respond = (body, type = 'application/json') => { const bytes = typeof body === 'string' ? Buffer.from(body) : Buffer.from(JSON.stringify(body));
     return { ok: true, status: 200, headers: { get: () => type }, json: async () => JSON.parse(bytes.toString()), arrayBuffer: async () => bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.length), text: async () => bytes.toString() }; };
   const fetch = async (u) => { requested.push(String(u));
-    if (api && String(u).startsWith(api)) { const path = String(u).slice(api.length); const k = Object.keys(apiAnswers).find((p) => path.startsWith(p)); if (!k) return { ok: false, status: 404, headers: { get: () => 'application/json' } }; return respond(apiAnswers[k]); }
+    if (api && String(u).startsWith(api)) { const path = String(u).slice(api.length); if (hold && path.startsWith(hold.prefix)) await hold.promise; const k = Object.keys(apiAnswers).find((p) => path.startsWith(p)); if (!k) return { ok: false, status: 404, headers: { get: () => 'application/json' } }; return respond(apiAnswers[k]); }
     if (files[u] !== undefined) return respond(files[u]); return { ok: false, status: 404, headers: { get: () => 'text/html' } }; };
   const ctx = { document, location, fetch, URLSearchParams, TextEncoder, TextDecoder, AbortController, setTimeout, clearTimeout, console, navigator: { language: 'es' },
     localStorage: { getItem: () => null, setItem() {} }, crypto: webcrypto };
@@ -68,6 +68,15 @@ const rows = (p) => p.node('vtable-tbody').kids.map((tr) => tr.kids.map((td) => 
   for (const f of ['common.js', 'kevstatic.js', 'vulns.js']) p.run(f); await settle();
   p.node('vq').value = 'xz'; p.node('f-access').value = 'premium'; p.node('vform').fire('submit'); await settle();
   out.api_access = { requests: p.requested.filter((u) => u.startsWith(api + '/v1/vulns/search')), rows: rows(p) }; }
+// 5c. Codex pr81 F2: a new search (or a reset) while a request is pending supersedes it; the stale answer is never rendered
+for (const action of ['resubmit', 'reset']) { const api = 'https://api.example.test'; let release; const promise = new Promise((r) => { release = r; });
+  const p = page({ api, files, hold: { prefix: '/v1/vulns/search?q=oldq', promise },
+    apiAnswers: { '/v1/vulns/sources': fx('api-sources.json'), '/v1/vulns/search?q=oldq': fx('api-search.json'), '/v1/vulns/search?q=newq': { schema: 'macguard.intel-search/1', items: [], next_cursor: null } } });
+  for (const f of ['common.js', 'kevstatic.js', 'vulns.js']) p.run(f); await settle();
+  p.node('vq').value = 'oldq'; p.node('vform').fire('submit'); await settle();
+  if (action === 'resubmit') { p.node('vq').value = 'newq'; p.node('vform').fire('submit'); } else { p.node('vq').value = ''; p.node('vform').fire('reset'); }
+  await settle(); release(); await settle(); await new Promise((r) => setTimeout(r, 5)); await settle();
+  out['api_race_' + action] = { requests: p.requested.filter((u) => u.startsWith(api + '/v1/vulns/search')), rows: rows(p), count: p.node('vcount').textContent }; }
 // 6. vulnerability page, static KEV: a listed CVE, a CVE not in KEV, a non-CVE id
 for (const [name, id] of [['vuln_kev', 'CVE-2021-44228'], ['vuln_notkev', 'CVE-2020-0001'], ['vuln_euvd', 'EUVD-2025-1'], ['vuln_bad', 'CVE-1']]) {
   const p = page({ files, search: '?id=' + encodeURIComponent(id) }); for (const f of ['common.js', 'vulnrecord.js', 'kevstatic.js', 'vuln.js']) p.run(f); await settle();

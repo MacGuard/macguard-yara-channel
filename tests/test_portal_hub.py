@@ -109,6 +109,19 @@ class BuildTests(unittest.TestCase):
                 pj = json.loads((site / 'packages.json').read_text()); self.assertEqual(pj['intel'], []); self.assertEqual(len(pj['intel_refused']), 1)
                 fam = {f['id']: f for f in json.loads((site / 'families.json').read_text())['families']}; self.assertNotEqual(fam['cisa_kev']['state'], 'PUBLISHED')
 
+    def test_the_newest_verified_kev_catalogue_feeds_search_even_when_an_older_release_sorts_first(self):
+        # Codex pr81 F1: release dirs are walked in name order; an older catalogue in a dir that sorts first must not win.
+        newer = make_package(self.tmp / 'n', kev_doc())
+        old_src = {**kev_doc()['source'], 'catalog_version': '2098.01.01', 'date_released': '2098-01-01T00:00:00Z'}
+        older = make_package(self.tmp / 'o', kev_doc(ITEMS[:1], source=old_src))
+        shutil.move(str(older / 'intel-release' / 'cisa-kev'), str(newer / 'intel-release' / 'a-older-cisa-kev'))
+        self.assertLess('a-older-cisa-kev', 'cisa-kev')
+        site, hub = build(newer)
+        idx = json.loads((site / 'kev' / 'index.json').read_text())
+        self.assertEqual(idx['source']['catalog_version'], '2099.01.01'); self.assertEqual(idx['count']['value'], 3)
+        self.assertEqual(hub['stats']['kev']['catalog_version'], '2099.01.01'); self.assertEqual(hub['stats']['kev']['records'], 3)
+        self.assertEqual(len(json.loads((site / 'packages.json').read_text())['intel']), 2, 'the older verified package stays listed as a download')
+
     def test_the_kev_dataset_is_validated_field_by_field(self):
         bad = {'unsorted': kev_doc(list(reversed(ITEMS))), 'count': kev_doc(count=99), 'licence': kev_doc(source={'license': 'proprietary'}),
                'bad id': kev_doc([{**ITEMS[0], 'cve_id': 'CVE-21-1'}]), 'bad cwe': kev_doc([{**ITEMS[0], 'cwes': ['79']}]), 'bad date': kev_doc([{**ITEMS[0], 'date_added': '10/12/2021'}]),
@@ -234,6 +247,11 @@ class BrowserLogicTests(unittest.TestCase):
         self.assertIn('PREMIUM', row[8]); self.assertTrue(a['next']); self.assertTrue(any('cursor=opaque-1' in u for u in self.out['api_next']))
 
     def test_vulnerability_page_static_and_api(self):
+        for action in ('resubmit', 'reset'):   # Codex pr81 F2
+            r = self.out['api_race_' + action]
+            self.assertEqual(r['rows'], [], f'{action}: the superseded answer for oldq must never be rendered')
+            if action == 'resubmit': self.assertTrue(any('q=newq' in u for u in r['requests']), 'the second submission is sent, not dropped')
+            else: self.assertEqual(r['count'], '', 'a reset stays cleared')
         k = self.out['vuln_kev']; self.assertIn('Synthetic Apache Log4j2 RCE', k['body']); self.assertIn('En el catálogo KEV', k['body']); self.assertIn('Sin regla verificada disponible', k['body'])
         self.assertIn('<script>alert(1)</script>', k['body'], 'markup in data stays literal text'); self.assertIn('CC0-1.0', k['body'])
         for h in k['links']: self.assertRegex(h, r'^intel/cisa-kev/[A-Za-z0-9._-]+$')

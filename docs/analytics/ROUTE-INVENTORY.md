@@ -59,9 +59,6 @@ Target for every route below: **api.mac-guard.com**, served by the single Worker
 | GET | `/v1/account/usage` | account | API key | account.read | api-rate |
 | GET | `/v1/account/analytics` | account | API key | account.read | api-rate |
 | GET | `/v1/account/entitlements` | account | API key | account.read | api-rate |
-| GET | `/v1/vulns/search` | vulns | none | public capabilities; Premium sections need their capabilities + scope intel.query | api-rate |
-| GET | `/v1/vulns/sources` | vulns | none | public capabilities; Premium sections need their capabilities + scope intel.query | api-rate |
-| GET | `/v1/vulns/{id}` | vulns | none | public capabilities; Premium sections need their capabilities + scope intel.query | api-rate |
 
 ## Per area: function, dependencies, risk, smoke test, rollback
 
@@ -78,5 +75,4 @@ Target for every route below: **api.mac-guard.com**, served by the single Worker
 | x402 | x402 pay-per-request (experimental, OFF) | facilitator (none) | must stay disabled | GET /x402/anything -> 404 | n/a |
 | admin-policy | Commercial policy: propose, approve, apply, rollback | D1 | changing the commercial mode; Cloudflare Access recommended in front | GET /admin/v1/policy without credentials -> 401 | POST /admin/v1/policy/rollback |
 | admin-analytics | Analytics API, dashboards, reports, costs, CRM, exclusions, forced GitHub sync | D1; GitHub API for the sync | cost/CRM data is commercially sensitive | GET /admin/v1/analytics/kpis without credentials -> 401 | redeploy previous version |
-| vulns | Public vulnerability search, records and source availability (rules.mac-guard.com portal) | INTEL D1 (binding INTEL, read model 0006) + D1 counters | Premium sections removed server-side; anonymous per-IP limit; nothing restricted cached publicly | GET /v1/vulns/search?q=CVE-2021-44228 -> 200 macguard.intel-search/1 | redeploy previous version (read-only routes) |
 | admin-tenants | Tenants and API-key lifecycle | D1 (KEY_PEPPER secret) | a new key is shown once; audit chain | GET /admin/v1/tenants without credentials -> 401 | revoke the key / suspend the tenant |
