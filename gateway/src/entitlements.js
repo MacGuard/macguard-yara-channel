@@ -107,7 +107,8 @@ export function snapshot(ctx, eff, ent, grants = [], nowMs = Date.now()) {
   return { schema: SCHEMA, subject: { kind: 'organization', id: ctx.tenant.id }, plan: ctx.tenant.plan, access_mode: ent.accessMode, capabilities: [...ent.caps].sort(), preview_capabilities: [...ent.preview].sort(),
     source: ent.preview.size ? 'preview' : (Object.values(ent.via).some((v) => v.startsWith('grant:')) ? 'manual' : 'subscription'), version: ctx.policy?.version ?? null,
     granted_at: iso(new Date(nowMs)), expires_at: deps[0] ?? null, revoked_at: null,
-    grants: mine.map((x) => ({ capability: x.capability, source: x.source, granted_at: x.granted_at, expires_at: x.expires_at ?? null, revoked_at: x.revoked_at ?? null })) };
+    // the CURRENT grants only (history stays in D1): revoked or expired rows are left out, newest first, within the contract's 200-entry limit
+    grants: mine.filter((x) => active(x, nowMs)).sort((p, q) => String(q.granted_at).localeCompare(String(p.granted_at))).slice(0, 200).map((x) => ({ capability: x.capability, source: x.source, granted_at: x.granted_at, expires_at: x.expires_at ?? null, revoked_at: x.revoked_at ?? null })) };
 }
 
 // Explicit grants (admin tooling): append-style, revocation keeps the row.

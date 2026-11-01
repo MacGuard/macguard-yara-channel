@@ -191,3 +191,10 @@ test('M2: an empty, malformed or past expiry is refused when granting, and a sto
   for (const bad of [{ expires_at: '' }, { revoked_at: '' }, { granted_at: '' }, { expires_at: 'never' }]) assert.equal(can(P({ grants: [G('research.poc.metadata.read', bad)] }), 'research.poc.metadata.read', NOW), false, JSON.stringify(bad));
   assert.equal(can(P({ grants: [G('research.poc.metadata.read')] }), 'research.poc.metadata.read', NOW), true, 'null expiry is still a valid permanent grant');
 });
+test('Codex round 2 (MEDIUM): the entitlements snapshot lists only current grants, at most 200, so a long grant history never breaks the contract', async () => {
+  const { snapshot } = await import('../src/entitlements.js');
+  const old = Array.from({ length: 250 }, (_, i) => G('rules.premium.read', { granted_at: '2026-01-01T00:00:00Z', revoked_at: `2026-02-01T00:00:${String(i % 60).padStart(2, '0')}Z` }));
+  const cur = G('research.poc.metadata.read'), ctx = { tenant: { id: 'org1', plan: 'community' }, policy: { version: 3 } };
+  const ent = resolve(P({ grants: [...old, cur] }), NOW), snap = snapshot(ctx, null, ent, [...old, cur], NOW);
+  assert.equal(snap.grants.length, 1); assert.equal(snap.grants[0].capability, 'research.poc.metadata.read'); assert.deepEqual(validate(SCHEMA, snap, 'snapshot'), []);
+});
