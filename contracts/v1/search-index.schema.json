@@ -1,0 +1,402 @@
+{
+ "$schema": "https://json-schema.org/draft/2020-12/schema",
+ "title": "Rule-level search index of one YARA release",
+ "description": "macguard.search-index/1, produced by scripts/rule_index.py from an unpacked release whose files matched the signed manifest. Identity of a rule is (file path, rule name): yara:<path>#<name>. Assertions repeat what a rule's own meta: block says (status asserted_by_rule_metadata); they never mean the rule detects that sample or the exploitation of that CVE, and they are not correlations. Sorted and byte-deterministic. Additive changes keep the number.",
+ "type": "object",
+ "additionalProperties": false,
+ "required": [
+  "schema",
+  "generator",
+  "release",
+  "note",
+  "counts",
+  "entities",
+  "assertions"
+ ],
+ "properties": {
+  "schema": {
+   "const": "macguard.search-index/1"
+  },
+  "generator": {
+   "const": "scripts/rule_index.py"
+  },
+  "note": {
+   "type": "string"
+  },
+  "release": {
+   "type": "object",
+   "additionalProperties": false,
+   "required": [
+    "tag",
+    "manifest_sha256",
+    "rules_root",
+    "files"
+   ],
+   "properties": {
+    "tag": {
+     "type": "string",
+     "pattern": "^rules-[0-9]{8}-[0-9]{1,20}$"
+    },
+    "manifest_sha256": {
+     "type": "string",
+     "pattern": "^[0-9a-f]{64}$"
+    },
+    "rules_root": {
+     "type": [
+      "string",
+      "null"
+     ],
+     "pattern": "^[0-9a-f]{64}$"
+    },
+    "files": {
+     "type": "integer",
+     "minimum": 0
+    }
+   }
+  },
+  "counts": {
+   "type": "object",
+   "additionalProperties": false,
+   "required": [
+    "files",
+    "files_indexed",
+    "files_skipped_not_yara",
+    "files_decode_errors",
+    "rules",
+    "unique_rule_names",
+    "rules_private",
+    "rules_global",
+    "rules_incomplete",
+    "rules_duplicate_id_dropped",
+    "rules_with_uuid",
+    "rules_by_source",
+    "assertions",
+    "assertions_by_type",
+    "hash_mentions_by_kind",
+    "distinct_hashes_by_kind",
+    "distinct_cves",
+    "hash_meta_without_valid_hash",
+    "hash_like_runs_rejected",
+    "meta_values_not_copied_too_long"
+   ],
+   "properties": {
+    "files": {
+     "type": "integer",
+     "minimum": 0
+    },
+    "files_indexed": {
+     "type": "integer",
+     "minimum": 0
+    },
+    "files_skipped_not_yara": {
+     "type": "integer",
+     "minimum": 0
+    },
+    "files_decode_errors": {
+     "type": "integer",
+     "minimum": 0
+    },
+    "rules": {
+     "type": "integer",
+     "minimum": 0
+    },
+    "unique_rule_names": {
+     "type": "integer",
+     "minimum": 0
+    },
+    "rules_private": {
+     "type": "integer",
+     "minimum": 0
+    },
+    "rules_global": {
+     "type": "integer",
+     "minimum": 0
+    },
+    "rules_incomplete": {
+     "type": "integer",
+     "minimum": 0
+    },
+    "rules_duplicate_id_dropped": {
+     "type": "integer",
+     "minimum": 0
+    },
+    "rules_with_uuid": {
+     "type": "integer",
+     "minimum": 0
+    },
+    "assertions": {
+     "type": "integer",
+     "minimum": 0
+    },
+    "distinct_cves": {
+     "type": "integer",
+     "minimum": 0
+    },
+    "hash_meta_without_valid_hash": {
+     "type": "integer",
+     "minimum": 0
+    },
+    "hash_like_runs_rejected": {
+     "type": "integer",
+     "minimum": 0
+    },
+    "meta_values_not_copied_too_long": {
+     "type": "integer",
+     "minimum": 0
+    },
+    "rules_by_source": {
+     "type": "object",
+     "additionalProperties": {
+      "type": "integer",
+      "minimum": 0
+     }
+    },
+    "assertions_by_type": {
+     "type": "object",
+     "additionalProperties": false,
+     "properties": {
+      "rule_meta_mentions_hash": {
+       "type": "integer",
+       "minimum": 0
+      },
+      "rule_meta_mentions_cve": {
+       "type": "integer",
+       "minimum": 0
+      }
+     }
+    },
+    "hash_mentions_by_kind": {
+     "$ref": "#/$defs/by_hash_kind"
+    },
+    "distinct_hashes_by_kind": {
+     "$ref": "#/$defs/by_hash_kind"
+    }
+   }
+  },
+  "entities": {
+   "type": "array",
+   "items": {
+    "$ref": "#/$defs/rule"
+   }
+  },
+  "assertions": {
+   "type": "array",
+   "items": {
+    "$ref": "#/$defs/assertion"
+   }
+  }
+ },
+ "$defs": {
+  "by_hash_kind": {
+   "type": "object",
+   "additionalProperties": false,
+   "required": [
+    "md5",
+    "sha1",
+    "sha256"
+   ],
+   "properties": {
+    "md5": {
+     "type": "integer",
+     "minimum": 0
+    },
+    "sha1": {
+     "type": "integer",
+     "minimum": 0
+    },
+    "sha256": {
+     "type": "integer",
+     "minimum": 0
+    }
+   }
+  },
+  "rule": {
+   "type": "object",
+   "additionalProperties": false,
+   "required": [
+    "id",
+    "kind",
+    "path",
+    "name",
+    "tags",
+    "modifiers",
+    "line",
+    "file_sha256",
+    "source",
+    "meta"
+   ],
+   "properties": {
+    "id": {
+     "type": "string",
+     "pattern": "^yara:[A-Za-z0-9._@+/-]+\\.yara?#[A-Za-z_][A-Za-z0-9_]{0,127}$",
+     "maxLength": 1200
+    },
+    "kind": {
+     "const": "rule"
+    },
+    "path": {
+     "type": "string",
+     "pattern": "^[A-Za-z0-9._@+/-]+\\.yara?$"
+    },
+    "name": {
+     "type": "string",
+     "pattern": "^[A-Za-z_][A-Za-z0-9_]{0,127}$"
+    },
+    "tags": {
+     "type": "array",
+     "items": {
+      "type": "string",
+      "pattern": "^[A-Za-z_][A-Za-z0-9_]*$"
+     }
+    },
+    "modifiers": {
+     "type": "array",
+     "items": {
+      "enum": [
+       "global",
+       "private"
+      ]
+     }
+    },
+    "line": {
+     "type": "integer",
+     "minimum": 1
+    },
+    "file_sha256": {
+     "type": "string",
+     "pattern": "^[0-9a-f]{64}$"
+    },
+    "source": {
+     "type": [
+      "string",
+      "null"
+     ]
+    },
+    "meta": {
+     "type": "object",
+     "additionalProperties": false,
+     "required": [
+      "uuid",
+      "author",
+      "date",
+      "references"
+     ],
+     "properties": {
+      "uuid": {
+       "type": [
+        "string",
+        "null"
+       ],
+       "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+      },
+      "author": {
+       "type": [
+        "string",
+        "null"
+       ],
+       "maxLength": 1024
+      },
+      "date": {
+       "type": [
+        "string",
+        "null"
+       ],
+       "maxLength": 1024
+      },
+      "references": {
+       "type": "array",
+       "items": {
+        "type": "string",
+        "maxLength": 1024
+       }
+      }
+     }
+    }
+   }
+  },
+  "assertion": {
+   "type": "object",
+   "additionalProperties": false,
+   "required": [
+    "id",
+    "type",
+    "subject",
+    "value",
+    "value_kind",
+    "meta_key",
+    "match",
+    "status",
+    "provenance"
+   ],
+   "properties": {
+    "id": {
+     "type": "string",
+     "pattern": "^assert:[0-9a-f]{64}$"
+    },
+    "type": {
+     "enum": [
+      "rule_meta_mentions_hash",
+      "rule_meta_mentions_cve"
+     ]
+    },
+    "subject": {
+     "type": "string",
+     "pattern": "^yara:[A-Za-z0-9._@+/-]+\\.yara?#[A-Za-z_][A-Za-z0-9_]{0,127}$",
+     "maxLength": 1200
+    },
+    "value": {
+     "type": "string",
+     "pattern": "^([0-9a-f]{32}|[0-9a-f]{40}|[0-9a-f]{64}|CVE-[0-9]{4}-[0-9]{4,7})$"
+    },
+    "value_kind": {
+     "enum": [
+      "md5",
+      "sha1",
+      "sha256",
+      "cve"
+     ]
+    },
+    "meta_key": {
+     "type": "string",
+     "pattern": "^[A-Za-z_][A-Za-z0-9_]*$"
+    },
+    "match": {
+     "enum": [
+      "whole_value",
+      "embedded"
+     ]
+    },
+    "status": {
+     "const": "asserted_by_rule_metadata"
+    },
+    "provenance": {
+     "type": "object",
+     "additionalProperties": false,
+     "required": [
+      "release_tag",
+      "path",
+      "file_sha256",
+      "line"
+     ],
+     "properties": {
+      "release_tag": {
+       "type": "string",
+       "pattern": "^rules-[0-9]{8}-[0-9]{1,20}$"
+      },
+      "path": {
+       "type": "string"
+      },
+      "file_sha256": {
+       "type": "string",
+       "pattern": "^[0-9a-f]{64}$"
+      },
+      "line": {
+       "type": "integer",
+       "minimum": 1
+      }
+     }
+    }
+   }
+  }
+ }
+}
