@@ -19,7 +19,7 @@ const items = ['title', 'skip'].map(mk), sel = { value: '', onchange: null }, ht
 const theme = { onclick: null, attrs: {}, setAttribute(k, v) { this.attrs[k] = String(v); } }, cls = new Set();
 const store = { lang: stored === '-' ? null : stored };
 const ctx = { document: { querySelector: (q) => (q === '#lang' ? sel : q === '#theme' ? theme : null), querySelectorAll: () => items, documentElement: html, body: { classList: { add: (c) => cls.add(c), toggle: (c) => (cls.has(c) ? cls.delete(c) : cls.add(c)), contains: (c) => cls.has(c) } } },
-  localStorage: { getItem: (k) => store[k] ?? null, setItem: (k, v) => { store[k] = v; } }, navigator: { language: 'es-ES' } };
+  localStorage: { getItem: (k) => store[k] ?? null, setItem: (k, v) => { store[k] = v; } }, navigator: { language: 'en-US' } };
 vm.createContext(ctx); vm.runInContext(fs.readFileSync(file, 'utf8'), ctx);
 const before = { ...theme.attrs }; theme.onclick(); const after = { ...theme.attrs };
 console.log(JSON.stringify({ lang: html.lang, sel: sel.value, texts: Object.fromEntries(items.map((e) => [e.dataset.i, e.textContent])), theme: { before, after } }));
