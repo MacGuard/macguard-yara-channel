@@ -121,7 +121,7 @@ export async function exploitationStatus(db, vulnId, { kevSource = 'cisa-kev' } 
   // the most recently OBSERVED KEV event of that source, read on its own (never cut off by the page of other sources' evidence; a late historical import never wins)
   const last = await db.prepare("SELECT kind, listed_at, due_date, required_action, observed_at FROM intel_exploitation_evidence WHERE vuln_id = ? AND source_id = ? AND kind IN ('KEV_LISTED','KEV_DELISTED') ORDER BY observed_at DESC, id DESC LIMIT 1").bind(vulnId, kevSource).first();   // the most recently OBSERVED KEV event wins (not the last imported: a late historical import never overrides a newer observation)
   let kev;
-  if (last && last.kind === 'KEV_LISTED') kev = { status: 'LISTED', source: kevSource, date_added: last.listed_at, due_date: last.due_date, required_action: last.required_action, as_of: snap?.snapshot_at ?? last.observed_at };
+  if (last && last.kind === 'KEV_LISTED') kev = { status: 'LISTED', source: kevSource, date_added: last.listed_at, due_date: last.due_date, required_action: last.required_action, as_of: snap && snap.snapshot_at >= last.observed_at ? snap.snapshot_at : last.observed_at };   // never attribute a listing to a snapshot older than the listing itself
   else if (snap) kev = { status: 'NOT_LISTED', source: kevSource, as_of: snap.snapshot_at, note: 'not in the KEV catalogue as of this snapshot; this is not evidence that it is not exploited' };
   else kev = { status: 'UNKNOWN', source: kevSource, as_of: null, note: 'no KEV snapshot available' };
   const inWild = ev.filter((e) => e.kind !== 'KEV_DELISTED');

@@ -266,3 +266,22 @@ test('R2-F3: concurrent EPSS imports never fail and the NEWEST score ends up cur
   assert.equal((await addEpss(db, v, { score_date: '2026-10-29', probability: 0.9, percentile: 0.9, keepHistory: true }, NOW)).latest_updated, false);
   assert.equal(db.raw.prepare('SELECT probability FROM intel_epss_latest WHERE vuln_id = ?').get(v).probability, 0.2); assert.equal(count(db, 'SELECT COUNT(*) AS n FROM intel_epss_history WHERE vuln_id = ?', v), 3);
 });
+
+// ---- Codex r1-canonical fix round (budget exhausted after it; verified here by tests only) ----
+test('FR-F1: concurrent imports of the same relationship both succeed and keep their evidence (no read-then-insert race)', async () => {
+  const db = fresh(), rule = await putEntity(db, { type: 'rule', namespace: 'suricata', key: '2000105' }, NOW), cve = await putVulnerability(db, { namespace: 'cve', key: 'CVE-2024-1234' }, NOW);
+  // Force the interleaving deterministically: any read of the relationships table waits until BOTH imports have reached it (as two Workers would).
+  let arrived = 0, open; const gate = new Promise((r) => { open = r; }); setTimeout(() => open(), 300);
+  const racy = { ...db, prepare: (sql) => { const st = db.prepare(sql); if (!/FROM intel_relationships WHERE id = \?/.test(sql)) return st;
+    const first = st.first.bind(st); return Object.assign(st, { bind: (...a) => { st.bind(...a); return Object.assign(st, { first: async () => { if (++arrived === 2) open(); await gate; return first(); } }); } }); } };
+  const mk = (ref) => relate(racy, { type: 'RULE_ASSOCIATED_WITH_CVE', from: rule, to: cve, source_id: 'et', method: 'asserted_by_source', evidence: [{ kind: 'source_statement', ref }] }, NOW);
+  const r = await Promise.allSettled([mk('feed/a'), mk('feed/b')]); assert.deepEqual(r.map((x) => x.status), ['fulfilled', 'fulfilled'], JSON.stringify(r.map((x) => x.reason?.message)));
+  assert.equal(r.filter((x) => x.value.created).length, 1, 'exactly one created it'); assert.equal(count(db, 'SELECT COUNT(*) AS n FROM intel_relationships'), 1);
+  assert.equal(count(db, 'SELECT COUNT(*) AS n FROM intel_relationship_evidence'), 2, 'both evidences kept'); assert.equal(count(db, 'SELECT COUNT(*) AS n FROM intel_relationship_state'), 1);
+});
+test('FR-F3: a KEV listing newer than the latest snapshot is reported as of the listing itself, never as of the older snapshot', async () => {
+  const db = fresh(), v = await putVulnerability(db, { namespace: 'cve', key: 'CVE-2024-6666' }, NOW);
+  await recordSnapshot(db, { source_id: 'cisa-kev', snapshot_at: '2026-10-01T00:00:00Z', item_count: 1700, sha256: 'c'.repeat(64) }, NOW);
+  await addExploitation(db, v, { source_id: 'cisa-kev', kind: 'KEV_LISTED', listed_at: '2026-10-20', evidence_ref: 'kev/x', observed_at: '2026-10-20T08:00:00Z' }, NOW);
+  const k = (await exploitationStatus(db, v)).kev; assert.equal(k.status, 'LISTED'); assert.equal(k.as_of, '2026-10-20T08:00:00Z');
+});

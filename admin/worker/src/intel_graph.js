@@ -109,12 +109,12 @@ const evidenceStmt = (db, relId, e, now) => {
 export async function relate(db, { type, from, to, source_id, method, version = null, exposure = 'internal', observed_at, evidence = [] }, now) {
   if (!EXPOSURE.includes(exposure)) throw new GraphError('exposure must be public, internal or restricted');
   const id = await relationshipId({ type, from, to, source_id, method });
-  const existed = await db.prepare('SELECT 1 AS x FROM intel_relationships WHERE id = ?').bind(id).first();
-  const stmts = [];
-  if (!existed) stmts.push(db.prepare('INSERT INTO intel_relationships (id,type,from_id,to_id,source_id,method,version,exposure,observed_at,created_at) VALUES (?,?,?,?,?,?,?,?,?,?)').bind(id, type, from, to, source_id, method, version, exposure, observed_at ?? now, now));
+  // INSERT OR IGNORE inside the same batch as the evidence: two concurrent imports of the same relationship both succeed, and neither loses its evidence
+  // (a separate existence check raced; Codex r1-canonical fix round, F1). The identity is content-derived, so the ignored row is identical.
+  const stmts = [db.prepare('INSERT OR IGNORE INTO intel_relationships (id,type,from_id,to_id,source_id,method,version,exposure,observed_at,created_at) VALUES (?,?,?,?,?,?,?,?,?,?)').bind(id, type, from, to, source_id, method, version, exposure, observed_at ?? now, now)];
   for (const e of evidence) stmts.push(evidenceStmt(db, id, e, now));
-  if (stmts.length) await db.batch(stmts);
-  return { id, created: !existed };
+  const res = await db.batch(stmts);
+  return { id, created: Number(res[0]?.meta?.changes ?? 0) > 0 };
 }
 export async function addEvidence(db, relId, e, now) { await evidenceStmt(db, relId, e, now).run(); }
 
