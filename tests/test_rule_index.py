@@ -265,5 +265,28 @@ class PathIdentity(unittest.TestCase):
         self.assertEqual(validate(idx, SCHEMA), [])
 
 
+class UnicodeDigits(unittest.TestCase):
+    """Codex: identifiers spelt with non-ASCII digits or hyphens in meta never become assertions; a non-ASCII tag is refused."""
+
+    def test_no_assertion_from_lookalikes(self):
+        fw = str.maketrans('0123456789', '\uff10\uff11\uff12\uff13\uff14\uff15\uff16\uff17\uff18\uff19')
+        ar = str.maketrans('0123456789', '\u0660\u0661\u0662\u0663\u0664\u0665\u0666\u0667\u0668\u0669')
+        vals = ['CVE-2024-1234'.translate(fw), 'CVE-2024-1234'.translate(ar), 'CVE\u20102024\u20111234', 'CVE\u22122024\u22121234',
+                'CVE-\u00b2\u2070\u00b2\u2074-1234', SHA256[:-1] + '\uff10', MD5.translate(fw)]
+        meta = ' '.join(f'h{i} = "{v}"' for i, v in enumerate(vals))
+        src = f'rule Uni {{ meta: {meta} description = "{" ".join(vals)}" condition: true }}'
+        with tempfile.TemporaryDirectory() as d:
+            idx = rule_index.build_index(make_release(pathlib.Path(d) / 'rel', {'rules/u.yar': (src, 'x')}), TAG)
+        self.assertEqual([e['name'] for e in idx['entities']], ['Uni'])
+        self.assertEqual(idx['assertions'], [])
+        self.assertEqual(validate(json.loads(rule_index.dumps(idx)), SCHEMA), [])
+
+    def test_unicode_tag_refused(self):
+        with tempfile.TemporaryDirectory() as d:
+            rel = make_release(pathlib.Path(d) / 'rel')
+            for tag in ('rules-\uff12\uff10\uff19\uff19\uff10\uff11\uff10\uff11-1', 'rules-20990101-\u0661'):
+                with self.subTest(tag=tag), self.assertRaises(rule_index.RefusedRelease): rule_index.build_index(rel, tag)
+
+
 if __name__ == '__main__':
     unittest.main()

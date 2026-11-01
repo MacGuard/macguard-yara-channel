@@ -17,6 +17,8 @@ intelligence ids), so no 'macguard' kind is invented here.
 """
 import encodings.idna  # noqa: F401  (registers the 'idna' codec under -I as well)
 import ipaddress, re, unicodedata
+# Every pattern is compiled with re.ASCII: Python's \d, \s, \w and IGNORECASE are Unicode-aware by default, and fullwidth or Arabic-Indic
+# digits, or the Kelvin sign and long s under IGNORECASE, must never become an identifier. The one Unicode-aware step is IDNA for domains.
 from typing import NamedTuple
 from urllib.parse import urlsplit
 
@@ -35,28 +37,28 @@ class Candidate(NamedTuple):
     confidence: str
 
 
-_CTRL = re.compile(r'[\x00-\x1f\x7f]')
-_CVE = re.compile(r'CVE([-_ ])(\d{4})\1(\d{4,7})', re.I)
-_EUVD = re.compile(r'EUVD-(\d{4})-(\d+)', re.I)   # sequence length as web/common.js (bounded by MAX_INPUT)
-_GCVE = re.compile(r'GCVE-(\d{1,9})-(\d{4})-(\d+)', re.I)
-_GHSA = re.compile(r'GHSA(?:-[23456789cfghjmpqrvwx]{4}){3}', re.I)
-_CWE = re.compile(r'CWE-(\d{1,5})', re.I)
-_HEX = re.compile(r'[0-9a-fA-F]+')
-_HASH_PREFIX = re.compile(r'(sha-?256|sha-?1|md5)\s*[:=]\s*(.+)', re.I)
+_CTRL = re.compile(r'[\x00-\x1f\x7f]', re.A)
+_CVE = re.compile(r'CVE([-_ ])(\d{4})\1(\d{4,7})', re.I | re.A)
+_EUVD = re.compile(r'EUVD-(\d{4})-(\d+)', re.I | re.A)   # sequence length as web/common.js (bounded by MAX_INPUT)
+_GCVE = re.compile(r'GCVE-(\d{1,9})-(\d{4})-(\d+)', re.I | re.A)
+_GHSA = re.compile(r'GHSA(?:-[23456789cfghjmpqrvwx]{4}){3}', re.I | re.A)
+_CWE = re.compile(r'CWE-(\d{1,5})', re.I | re.A)
+_HEX = re.compile(r'[0-9a-fA-F]+', re.A)
+_HASH_PREFIX = re.compile(r'(sha-?256|sha-?1|md5)\s*[:=]\s*(.+)', re.I | re.A)
 _HASH_LEN = {64: 'sha256', 40: 'sha1', 32: 'md5'}
-_UUID = re.compile(r'[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}')
-_SIGMA_PREFIX = re.compile(r'sigma\s*[: ]\s*(.+)', re.I)
-_SID = (re.compile(r'sid\s*:\s*(\d{1,10})\s*;?', re.I), re.compile(r'sid\s+(\d{1,10})', re.I), re.compile(r'\d{1,3}:(\d{1,10})'))
-_LABEL = re.compile(r'[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?')
-_IDENT = re.compile(r'[A-Za-z_][A-Za-z0-9_]*')
-_YARA_PATH = re.compile(r'[A-Za-z0-9._\-/ +@()\[\]]+\.(?:yara|yar)', re.I)   # the release path charset (tlog.check_inventory); length checked against MAX_YARA_PATH
+_UUID = re.compile(r'[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}', re.A)
+_SIGMA_PREFIX = re.compile(r'sigma\s*[: ]\s*(.+)', re.I | re.A)
+_SID = (re.compile(r'sid\s*:\s*(\d{1,10})\s*;?', re.I | re.A), re.compile(r'sid\s+(\d{1,10})', re.I | re.A), re.compile(r'\d{1,3}:(\d{1,10})', re.A))
+_LABEL = re.compile(r'[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?', re.A)
+_IDENT = re.compile(r'[A-Za-z_][A-Za-z0-9_]*', re.A)
+_YARA_PATH = re.compile(r'[A-Za-z0-9._\-/ +@()\[\]]+\.(?:yara|yar)', re.I | re.A)   # the release path charset (tlog.check_inventory); length checked against MAX_YARA_PATH
 _YARA_KEYWORDS = frozenset('''all and any ascii at base64 base64wide condition contains defined endswith entrypoint false filesize for fullword global
  icontains iendswith iequals import in include int16 int16be int32 int32be int8 int8be istartswith matches meta nocase none not of or private rule
  startswith strings them true uint16 uint16be uint32 uint32be uint8 uint8be wide xor'''.split())
 # Last labels that are also common file extensions: such a "domain" is as likely a file name (several are real TLDs: zip, py, sh, mov).
 _FILE_EXT_TLDS = frozenset('yar yara exe dll sys bin json txt log zip rar gz tgz tar py sh js mov pdf doc docx xls xlsx ps1 bat vbs jar apk dmg pkg app plist conf cfg ini xml html htm php'.split())
-_DEFANG = ((re.compile(r'\[\.\]|\(\.\)|\{\.\}|\[dot\]|\(dot\)', re.I), '.'), (re.compile(r'\[:\]'), ':'), (re.compile(r'\[://\]'), '://'),
-           (re.compile(r'^hxxp', re.I), 'http'), (re.compile(r'^h\[tt\]p', re.I), 'http'))
+_DEFANG = ((re.compile(r'\[\.\]|\(\.\)|\{\.\}|\[dot\]|\(dot\)', re.I | re.A), '.'), (re.compile(r'\[:\]', re.A), ':'), (re.compile(r'\[://\]', re.A), '://'),
+           (re.compile(r'^hxxp', re.I | re.A), 'http'), (re.compile(r'^h\[tt\]p', re.I | re.A), 'http'))
 
 
 def _clean(text):
@@ -172,7 +174,7 @@ def _domain(t):
 
 def _url(t):
     t, refanged = _refang(t)
-    if not re.match(r'https?://', t, re.I): return None
+    if not re.match(r'https?://', t, re.I | re.A): return None
     try:
         s = urlsplit(t)
         port = s.port
@@ -197,8 +199,8 @@ def _url(t):
 
 
 def _cpe23(t):
-    if not t.lower().startswith('cpe:2.3:'): return None
-    parts = re.split(r'(?<!\\):', t)
+    if not t.isascii() or not t.lower().startswith('cpe:2.3:'): return None   # a CPE 2.3 formatted string is printable ASCII
+    parts = re.split(r'(?<!\\):', t, flags=re.A)
     if len(parts) != 13 or any(p == '' for p in parts): return None
     if parts[2].lower() not in ('a', 'o', 'h', '*', '-'): return None
     return ':'.join(p.lower() for p in parts), 'exact'
@@ -280,8 +282,8 @@ def normalize(kind, text):
 
 
 # ---- extraction from free text (rule metadata) ------------------------------------------------------------------------------------------
-_HEX_RUN = re.compile(r'(?<![0-9A-Za-z])[0-9A-Fa-f]+(?![0-9A-Za-z])')
-_CVE_RUN = re.compile(r'(?<![0-9A-Za-z])CVE-\d{4}-\d+(?![0-9A-Za-z])', re.I)
+_HEX_RUN = re.compile(r'(?<![0-9A-Za-z])[0-9A-Fa-f]+(?![0-9A-Za-z])', re.A)
+_CVE_RUN = re.compile(r'(?<![0-9A-Za-z])CVE-\d{4}-\d+(?![0-9A-Za-z])', re.I | re.A)
 
 
 def extract_hashes(text):

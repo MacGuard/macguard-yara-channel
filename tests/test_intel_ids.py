@@ -159,6 +159,49 @@ class Caps(unittest.TestCase):
         self.assertEqual(len(url), intel_ids.MAX_INPUT); self.assertEqual(normalize('url', url), url); self.assertEqual(classify(url + 'p'), [])
 
 
+FW = str.maketrans('0123456789', '\uff10\uff11\uff12\uff13\uff14\uff15\uff16\uff17\uff18\uff19')        # fullwidth
+AR = str.maketrans('0123456789', '\u0660\u0661\u0662\u0663\u0664\u0665\u0666\u0667\u0668\u0669')        # Arabic-Indic
+SUP = str.maketrans('0123456789', '\u2070\u00b9\u00b2\u00b3\u2074\u2075\u2076\u2077\u2078\u2079')       # superscript
+HYPHENS = ('\u2010', '\u2011', '\u2212')
+
+
+class UnicodeLookalikes(unittest.TestCase):
+    """Codex: Python's \\d / \\s / IGNORECASE are Unicode-aware. No non-ASCII digit, hyphen or letter may become an identifier."""
+    ASCII_KINDS = set(intel_ids.KINDS) - {'domain', 'url'}
+
+    def assert_no_id(self, text):
+        got = {c.kind for c in classify(text)} & self.ASCII_KINDS
+        self.assertEqual(got, set(), f'{text!r} -> {classify(text)}')
+        for c in classify(text): self.assertTrue(c.normalized.isascii(), c)
+
+    def test_digits(self):
+        base = ['CVE-2024-1234', 'CWE-79', 'sid:2000001', 'SID 5', '1:2000001', '192.0.2.1', '2001:db8::1', 'EUVD-2024-1', 'GCVE-1-2024-7',
+                'CVE_2024_1234', SHA256, SHA1, MD5, UUID, 'sigma:' + UUID]
+        for tr in (FW, AR, SUP):
+            for b in base:
+                v = b.translate(tr)
+                if v == b: continue
+                with self.subTest(v=v):
+                    self.assert_no_id(v)
+                    for kind in ('cve', 'cwe', 'suricata_sid', 'ipv4', 'ipv6', 'sha256', 'sha1', 'md5', 'uuid'):
+                        with self.assertRaises(ValueError): normalize(kind, v)
+        self.assertEqual(intel_ids.extract_cves('CVE-2024-1234'.translate(FW) + ' CVE-\uff12\uff10\uff12\uff14-1234 CVE-2024-' + '1234'.translate(AR)), [])
+        self.assertEqual(intel_ids.extract_hashes(SHA256[:-1] + '\uff10'), [])
+
+    def test_hyphens(self):
+        for h in HYPHENS:
+            for v in ('CVE-2024-1234', 'CWE-79', 'EUVD-2024-1', 'GCVE-1-2024-7', 'GHSA-jfh8-c2jp-5v3q', UUID, 'sha-256:' + SHA256):
+                with self.subTest(v=v.replace('-', h)): self.assert_no_id(v.replace('-', h))
+            self.assertEqual(intel_ids.extract_cves('CVE-2024-1234'.replace('-', h)), [])
+
+    def test_casefold_lookalikes(self):
+        # Kelvin sign and long s fold to k / s under Unicode IGNORECASE
+        for v in ('\u017fid:5', '\u017fha256:' + SHA256, '\u017figma:' + UUID, 'CVE-2024-1234'.replace('E', '\u0395'),
+                  'rules/\u212a.yar:R', 'cpe:2.3:a:\u212a:p:1:*:*:*:*:*:*:*', 'h\u0445\u0445p://example.com/'):
+            with self.subTest(v=v): self.assert_no_id(v)
+        self.assertEqual(kinds('\uff25\uff38\uff21\uff2d\uff30\uff2c\uff25\u3002com')['domain'][0], 'example.com', 'IDNA stays the one intended Unicode step')
+
+
 VECTORS = ['cve-2021-44228', 'CVE-2021-0001', 'CWE-79', 'cwe-079', 'GHSA-jfh8-c2jp-5v3q', 'EUVD-2024-1', 'EUVD-2024-1234567890', 'GCVE-1-2024-7', 'GCVE-1-2024-1234567890', SHA256.upper(), SHA1, MD5,
            'sid:2000001', 'SID 5', '1:2000001', 'CVE-2021-123', SHA256[:63]]
 PY_TO_JS = {'cve': 'CVE', 'euvd': 'EUVD', 'gcve': 'GCVE', 'ghsa': 'GHSA', 'cwe': 'CWE', 'sha256': 'SHA256', 'sha1': 'SHA1', 'md5': 'MD5', 'suricata_sid': 'SID'}

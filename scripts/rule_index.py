@@ -22,11 +22,11 @@ import intel_ids, tlog
 
 SCHEMA = 'macguard.search-index/1'
 STATUS = 'asserted_by_rule_metadata'
-TAG_RE = re.compile(r'rules-\d{8}-\d{1,20}')
+TAG_RE = re.compile(r'rules-\d{8}-\d{1,20}', re.A)
 MAX_FILE = 16 * 1024 * 1024       # a single rule file larger than this is refused
 MAX_META_VALUE = 1024             # longer meta strings are not copied into the entity (assertions are still extracted from them)
-HASHY_KEY = re.compile(r'(hash|sha|md5|sample)', re.I)
-REF_KEY = re.compile(r'(reference|ref|url|link)\d*', re.I)
+HASHY_KEY = re.compile(r'(hash|sha|md5|sample)', re.I | re.A)
+REF_KEY = re.compile(r'(reference|ref|url|link)\d*', re.I | re.A)
 YARA_EXT = ('.yar', '.yara')
 
 
@@ -81,8 +81,8 @@ def verify_against_manifest(root):
 
 
 # ---- tolerant YARA scanner ---------------------------------------------------------------------------------------------------------------
-_IDENT = re.compile(r'[A-Za-z_][A-Za-z0-9_]*')
-_NUM = re.compile(r'-?(?:0x[0-9A-Fa-f]+|\d+(?:\.\d+)?)(?:KB|MB)?')
+_IDENT = re.compile(r'[A-Za-z_][A-Za-z0-9_]*', re.A)
+_NUM = re.compile(r'-?(?:0x[0-9A-Fa-f]+|\d+(?:\.\d+)?)(?:KB|MB)?', re.A)
 _ESC = {'n': '\n', 't': '\t', 'r': '\r', '"': '"', '\\': '\\'}
 
 
@@ -124,7 +124,7 @@ class _Scanner:
             if c == '\n': return ''.join(out)   # unterminated: stop at end of line
             if c == '\\' and self.i + 1 < self.n:
                 e = s[self.i + 1]
-                if e == 'x' and re.fullmatch(r'[0-9A-Fa-f]{2}', s[self.i + 2:self.i + 4]):
+                if e == 'x' and re.fullmatch(r'[0-9A-Fa-f]{2}', s[self.i + 2:self.i + 4], re.A):
                     out.append(chr(int(s[self.i + 2:self.i + 4], 16))); self._adv(4); continue
                 out.append(_ESC.get(e, '\\' + e)); self._adv(2); continue
             out.append(c); self._adv()
@@ -282,6 +282,9 @@ def build_index(release_dir, release_tag):
                              'line': r['line'], 'file_sha256': f['sha256'], 'source': f.get('source') if isinstance(f.get('source'), str) else None,
                              'meta': info}
     assertions = list({a['id']: a for a in assertions}.values())
+    for x in [(e['id'], e['path'], e['name'], *e['tags'], e['meta']['uuid'] or '') for e in entities.values()] + \
+             [(a['id'], a['subject'], a['value'], a['meta_key'], a['provenance']['path']) for a in assertions]:
+        if not all(v.isascii() for v in x): raise RefusedRelease(f'internal: non-ASCII identifier {x[0][:80]!r}')   # the contract is ASCII-only
     assertions.sort(key=lambda a: (a['subject'], a['provenance']['line'], a['type'], a['meta_key'], a['value']))
     by_type = {}
     for a in assertions: by_type.setdefault(a['type'], []).append(a)
