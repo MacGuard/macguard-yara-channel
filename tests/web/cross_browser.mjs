@@ -4,7 +4,7 @@
 //  3. requires every Mermaid diagram of two docs pages to render (window.__docsDiagrams) and fit without horizontal page scroll;
 //  4. runs axe-core (WCAG 2.x A/AA + 2.2 AA) at 1280 and 390 px, light and dark.
 // The site needs verification.json (written by the site workflow from the release history); copy the live one next to a local build.
-// usage: PW_DIR=<dir with node_modules/playwright and axe-core> node tests/web/cross_browser.mjs <site-dir> [engine,engine]
+// usage: PW_DIR=<dir with node_modules/playwright and axe-core> [PW_EXECUTABLE_WEBKIT=<pw_run.sh>] node tests/web/cross_browser.mjs <site-dir> [engine,engine]
 import { createRequire } from 'node:module';
 import { createServer } from 'node:http';
 import { readFileSync, existsSync, statSync } from 'node:fs';
@@ -36,7 +36,8 @@ function serve(mode) {
 const results = []; const rec = (engine, name, ok, detail = '') => { results.push({ engine, name, ok, detail }); console.log(`${ok ? 'PASS' : 'FAIL'} [${engine}] ${name}${detail ? ' — ' + detail : ''}`); };
 
 for (const name of engines) {
-  const browser = await pw[name].launch();
+  const exe = process.env['PW_EXECUTABLE_' + name.toUpperCase()];   // optional: a browser build patched to find user-space libraries (no sudo)
+  const browser = await pw[name].launch(exe ? { executablePath: exe } : {});
   try {
     for (const mode of ['', 'tamper', 'missing']) {
       const { srv, base } = await serve(mode); const page = await browser.newPage({ viewport: { width: 1100, height: 900 } });
