@@ -67,6 +67,9 @@ export function normalizeKey(type, namespace, key) {
     case 'cve': { const c = k.toUpperCase(); if (!/^CVE-\d{4}-\d{4,}$/.test(c)) throw new GraphError('cve: CVE-YYYY-NNNN'); return c; }
     case 'ghsa': { const g = k.toLowerCase(); if (!/^ghsa(-[23456789cfghjmpqrvwx]{4}){3}$/.test(g)) throw new GraphError('ghsa: GHSA-xxxx-xxxx-xxxx'); return 'GHSA' + g.slice(4); }
     case 'euvd': { const e = k.toUpperCase(); if (!/^EUVD-\d{4}-\d+$/.test(e)) throw new GraphError('euvd: EUVD-YYYY-N'); return e; }
+    // R1 (0005): GCVE ids keep their GNA (assigning authority); only GCVE-0 is defined as the CVE space (see gcveToCve). CWE is a weakness classification.
+    case 'gcve': { const m = k.toUpperCase().match(/^GCVE-(\d{1,10})-(\d{4})-(\d{1,19})$/); if (!m) throw new GraphError('gcve: GCVE-<GNA>-YYYY-N'); return `GCVE-${+m[1]}-${m[2]}-${m[3]}`; }
+    case 'cwe': { const m = k.toUpperCase().match(/^CWE-(\d{1,6})$/); if (!m) throw new GraphError('cwe: CWE-N'); return `CWE-${+m[1]}`; }
     case 'mitre-attack': { const a = k.toUpperCase(); if (!/^(T\d{4}(\.\d{3})?|TA\d{4}|S\d{4}|G\d{4}|M\d{4})$/.test(a)) throw new GraphError('mitre-attack: T1234, T1234.001, TA0001, S/G/M1234'); return a; }
     case 'suricata': case 'snort': { const m = k.match(/^(?:(\d{1,10}):)?(\d{1,10})$/); if (!m) throw new GraphError(`${namespace}: [gid:]sid`); return `${m[1] ? +m[1] : 1}:${+m[2]}`; }
     case 'sigma': { const s = k.toLowerCase(); if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(s)) throw new GraphError('sigma: rule UUID'); return s; }
@@ -76,6 +79,12 @@ export function normalizeKey(type, namespace, key) {
   }
 }
 export const entityId = (type, namespace, key) => `${type}:${namespace}:${normalizeKey(type, namespace, key)}`;
+/** GCVE-0 is the CVE namespace inside GCVE: GCVE-0-YYYY-N corresponds to CVE-YYYY-N. Any other GNA has NO CVE equivalent by definition (returns null);
+ *  an equivalence for those exists only if a source asserts it (ALIAS_OF). Never extends the GCVE-0 rule to other assigners. */
+export function gcveToCve(key) {
+  const g = normalizeKey('vulnerability', 'gcve', key), m = g.match(/^GCVE-0-(\d{4})-(\d+)$/);
+  return m && m[2].length >= 4 ? `CVE-${m[1]}-${m[2]}` : null;
+}
 
 const hex = (buf) => [...new Uint8Array(buf)].map((b) => b.toString(16).padStart(2, '0')).join('');
 /** Deterministic id: the same (type, endpoints, source, method) is the same relationship however many times it is imported. */
