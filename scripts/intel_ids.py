@@ -22,6 +22,8 @@ from urllib.parse import urlsplit
 
 MAX_INPUT = 2048          # longer input is never classified (URLs are the longest kind)
 MAX_RULE_NAME = 128       # YARA identifier limit
+MAX_YARA_PATH = 400       # tlog.check_inventory path limit
+MAX_YARA_ID = len('yara:') + MAX_YARA_PATH + len('#') + MAX_RULE_NAME   # longest valid rule identity (534)
 CONFIDENCE_ORDER = ('exact', 'pattern', 'ambiguous')
 KINDS = ('cve', 'euvd', 'gcve', 'ghsa', 'cwe', 'sha256', 'sha1', 'md5', 'ipv4', 'ipv6', 'domain', 'url', 'cpe23', 'suricata_sid',
          'uuid', 'sigma_id', 'yara_rule', 'yara_rule_name')
@@ -35,8 +37,8 @@ class Candidate(NamedTuple):
 
 _CTRL = re.compile(r'[\x00-\x1f\x7f]')
 _CVE = re.compile(r'CVE([-_ ])(\d{4})\1(\d{4,7})', re.I)
-_EUVD = re.compile(r'EUVD-(\d{4})-(\d{1,9})', re.I)
-_GCVE = re.compile(r'GCVE-(\d{1,9})-(\d{4})-(\d{1,9})', re.I)
+_EUVD = re.compile(r'EUVD-(\d{4})-(\d+)', re.I)   # sequence length as web/common.js (bounded by MAX_INPUT)
+_GCVE = re.compile(r'GCVE-(\d{1,9})-(\d{4})-(\d+)', re.I)
 _GHSA = re.compile(r'GHSA(?:-[23456789cfghjmpqrvwx]{4}){3}', re.I)
 _CWE = re.compile(r'CWE-(\d{1,5})', re.I)
 _HEX = re.compile(r'[0-9a-fA-F]+')
@@ -47,7 +49,7 @@ _SIGMA_PREFIX = re.compile(r'sigma\s*[: ]\s*(.+)', re.I)
 _SID = (re.compile(r'sid\s*:\s*(\d{1,10})\s*;?', re.I), re.compile(r'sid\s+(\d{1,10})', re.I), re.compile(r'\d{1,3}:(\d{1,10})'))
 _LABEL = re.compile(r'[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?')
 _IDENT = re.compile(r'[A-Za-z_][A-Za-z0-9_]*')
-_YARA_PATH = re.compile(r'[A-Za-z0-9._\-/ +@()\[\]]{1,395}\.(?:yara|yar)', re.I)   # the release path charset (tlog.check_inventory)
+_YARA_PATH = re.compile(r'[A-Za-z0-9._\-/ +@()\[\]]+\.(?:yara|yar)', re.I)   # the release path charset (tlog.check_inventory); length checked against MAX_YARA_PATH
 _YARA_KEYWORDS = frozenset('''all and any ascii at base64 base64wide condition contains defined endswith entrypoint false filesize for fullword global
  icontains iendswith iequals import in include int16 int16be int32 int32be int8 int8be istartswith matches meta nocase none not of or private rule
  startswith strings them true uint16 uint16be uint32 uint32be uint8 uint8be wide xor'''.split())
@@ -238,7 +240,7 @@ def _yara_rule(t):
     if t.startswith('yara:') and '#' in body: path, _, name = body.rpartition('#')
     elif ':' in body: path, _, name = body.rpartition(':')
     else: return None
-    if len(path) > 400 or not _YARA_PATH.fullmatch(path) or any(seg in ('', '.', '..') for seg in path.split('/')): return None
+    if len(path) > MAX_YARA_PATH or not _YARA_PATH.fullmatch(path) or any(seg in ('', '.', '..') for seg in path.split('/')): return None
     if not _IDENT.fullmatch(name) or len(name) > MAX_RULE_NAME or name in _YARA_KEYWORDS: return None
     return f'yara:{path}#{name}', 'exact'
 
@@ -253,6 +255,7 @@ _PARSERS = {'cve': _cve, 'euvd': _euvd, 'gcve': _gcve, 'ghsa': _ghsa, 'cwe': _cw
             'md5': _hash('md5'), 'ipv4': _ipv4, 'ipv6': _ipv6, 'domain': _domain, 'url': _url, 'cpe23': _cpe23, 'suricata_sid': _sid,
             'uuid': _uuid, 'sigma_id': _sigma, 'yara_rule': _yara_rule, 'yara_rule_name': _yara_rule_name}
 assert tuple(_PARSERS) == KINDS
+assert MAX_INPUT >= MAX_YARA_ID   # the global cap never cuts off a valid identity
 
 
 def classify(text):

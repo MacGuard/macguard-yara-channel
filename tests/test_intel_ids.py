@@ -122,7 +122,44 @@ class Extraction(unittest.TestCase):
                          ['CVE-2021-44228', 'CVE-2019-0708'])
 
 
-VECTORS = ['cve-2021-44228', 'CVE-2021-0001', 'CWE-79', 'cwe-079', 'GHSA-jfh8-c2jp-5v3q', 'EUVD-2024-1', 'GCVE-1-2024-7', SHA256.upper(), SHA1, MD5,
+class Caps(unittest.TestCase):
+    """Per-kind caps agree with the producers: the longest valid identity is accepted, one character more is not."""
+
+    def test_yara_identity_boundary(self):
+        import tlog
+        name = 'R' * intel_ids.MAX_RULE_NAME
+        for ext in ('.yar', '.YARA'):
+            path = 'rules/' + 'a' * 190 + '/' + 'b' * (intel_ids.MAX_YARA_PATH - 197 - len(ext)) + ext
+            with self.subTest(ext=ext):
+                self.assertEqual(len(path), 400); self.assertIsNone(tlog.check_inventory([{'path': path, 'sha256': '0' * 64}]))
+                ident = f'yara:{path}#{name}'
+                self.assertEqual(len(ident), intel_ids.MAX_YARA_ID)
+                self.assertEqual(classify(ident), [intel_ids.Candidate('yara_rule', ident, 'exact')])
+                self.assertEqual(normalize('yara_rule', ident), ident)
+                self.assertEqual(normalize('yara_rule', f'{path}:{name}'), ident)
+                for bad in (f'yara:{path[:6]}c{path[6:]}#{name}', f'yara:{path}#{name}R'):   # path 401 / name 129: max + 1
+                    self.assertEqual(len(bad), intel_ids.MAX_YARA_ID + 1)
+                    self.assertEqual(classify(bad), [])
+                    with self.assertRaises(ValueError): normalize('yara_rule', bad)
+                self.assertTrue(tlog.check_inventory([{'path': path[:6] + 'c' + path[6:], 'sha256': '0' * 64}]), 'tlog refuses 401 too')
+        self.assertGreaterEqual(intel_ids.MAX_INPUT, intel_ids.MAX_YARA_ID)
+
+    def test_other_kind_caps(self):
+        self.assertEqual(normalize('yara_rule_name', 'N' * 128), 'N' * 128); self.assertEqual(kinds('N' * 129), {})
+        self.assertEqual(normalize('cve', 'CVE-2024-1234567'), 'CVE-2024-1234567')   # 7 digits: portal_hub / intel_package limit (documented)
+        self.assertEqual(normalize('euvd', 'EUVD-2024-' + '9' * 12), 'EUVD-2024-' + '9' * 12, 'web/common.js has no EUVD length cap')
+        self.assertEqual(normalize('gcve', 'GCVE-1-2024-' + '9' * 12), 'GCVE-1-2024-' + '9' * 12)
+        self.assertEqual(normalize('suricata_sid', 'sid:4294967295'), 'sid:4294967295'); self.assertEqual(kinds('sid:4294967296'), {})
+        self.assertEqual(normalize('cwe', 'CWE-99999'), 'CWE-99999'); self.assertEqual(kinds('CWE-100000'), {})
+        label = 'a' * 63
+        dom = '.'.join([label] * 3 + ['b' * 61])   # 253 characters
+        self.assertEqual(len(dom), 253); self.assertEqual(normalize('domain', dom + '.'), dom)
+        self.assertEqual(kinds('c' + dom), {}); self.assertEqual(kinds('a' * 64 + '.com'), {})
+        url = 'https://example.com/' + 'p' * (intel_ids.MAX_INPUT - 20)
+        self.assertEqual(len(url), intel_ids.MAX_INPUT); self.assertEqual(normalize('url', url), url); self.assertEqual(classify(url + 'p'), [])
+
+
+VECTORS = ['cve-2021-44228', 'CVE-2021-0001', 'CWE-79', 'cwe-079', 'GHSA-jfh8-c2jp-5v3q', 'EUVD-2024-1', 'EUVD-2024-1234567890', 'GCVE-1-2024-7', 'GCVE-1-2024-1234567890', SHA256.upper(), SHA1, MD5,
            'sid:2000001', 'SID 5', '1:2000001', 'CVE-2021-123', SHA256[:63]]
 PY_TO_JS = {'cve': 'CVE', 'euvd': 'EUVD', 'gcve': 'GCVE', 'ghsa': 'GHSA', 'cwe': 'CWE', 'sha256': 'SHA256', 'sha1': 'SHA1', 'md5': 'MD5', 'suricata_sid': 'SID'}
 
