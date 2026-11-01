@@ -29,7 +29,9 @@ const PLAN_EXTRA = Object.freeze({ community: [], intelligence: [], business: ['
 export function accessMode(doc, commercialMode) {
   const e = doc?.entitlements;
   if (e === undefined || e === null) return commercialMode === 'FREE_LAUNCH' ? 'OPEN_PREMIUM_PREVIEW' : 'ENFORCED';
-  return e && typeof e === 'object' && ACCESS_MODES.includes(e.access_mode) ? e.access_mode : 'INVALID';
+  if (!e || typeof e !== 'object' || !ACCESS_MODES.includes(e.access_mode)) return 'INVALID';
+  // The preview only exists where the EFFECTIVE commercial mode of this tenant/product is FREE_LAUNCH (an override or product mode that charges enforces).
+  return e.access_mode === 'OPEN_PREMIUM_PREVIEW' && commercialMode !== 'FREE_LAUNCH' ? 'ENFORCED' : e.access_mode;
 }
 // Policy validation for the `entitlements` block (called from policy.js validatePolicy).
 export function validateEntitlementsBlock(d) {
@@ -37,13 +39,15 @@ export function validateEntitlementsBlock(d) {
   const e = d.entitlements, errs = [];
   if (typeof e !== 'object' || Array.isArray(e) || Object.keys(e).some((k) => !['access_mode', 'note'].includes(k)) || !ACCESS_MODES.includes(e.access_mode)) return [`entitlements.access_mode must be one of ${ACCESS_MODES}`];
   if (e.access_mode === 'OPEN_PREMIUM_PREVIEW') {
-    const charging = [d.mode, d.scheduled?.mode, ...Object.values(d.products || {}).map((p) => p?.mode)].some((m) => m && m !== 'FREE_LAUNCH');
+    const charging = [d.mode, d.scheduled?.mode, ...Object.values(d.products || {}).map((p) => p?.mode), ...(d.overrides || []).map((o) => o?.mode)].some((m) => m && m !== 'FREE_LAUNCH');
     if (charging || d.billing?.live === true) errs.push('entitlements.access_mode OPEN_PREMIUM_PREVIEW cannot be combined with a charging mode or live billing: set ENFORCED first');
   }
   return errs;
 }
 
-const active = (g, nowMs) => Date.parse(g.granted_at) <= nowMs && (!g.revoked_at || Date.parse(g.revoked_at) > nowMs) && (!g.expires_at || Date.parse(g.expires_at) > nowMs);
+// A grant applies only with valid timestamps: an unparseable granted_at/revoked_at/expires_at (e.g. '' written by other tooling) fails CLOSED. Only null means "no expiry / not revoked".
+const ts = (v) => (typeof v === 'string' ? Date.parse(v) : NaN);
+const active = (g, nowMs) => ts(g.granted_at) <= nowMs && (g.revoked_at == null || ts(g.revoked_at) > nowMs) && (g.expires_at == null || ts(g.expires_at) > nowMs);
 
 // principal: { anonymous?, user?: {id}, organizations?: [{id}], plan, subscribed, features: Set|[], accessMode, grants: [{subject:{kind,id}, capability, granted_at, expires_at, revoked_at, source}] }
 // A user inherits the grants of the organizations it belongs to (membership is resolved by the caller from verified data, never from the request).
@@ -113,6 +117,9 @@ export async function grant(db, clock, { subjectKind = 'organization', subjectId
   if (!['manual', 'subscription'].includes(source)) throw new HttpError(400, 'invalid_source', 'A stored grant is manual or subscription; preview is never stored.');
   if (!reason || !grantedBy) throw new HttpError(400, 'invalid_grant', 'A grant needs a reason and who granted it.');
   const now = iso(clock());
+  // null = no expiry; anything else must be a real future UTC timestamp (an empty or malformed value must never become permanent access)
+  if (expiresAt !== null && (typeof expiresAt !== 'string' || !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d{1,3})?Z$/.test(expiresAt) || !Number.isFinite(Date.parse(expiresAt)) || Date.parse(expiresAt) <= Date.parse(now)))
+    throw new HttpError(400, 'invalid_expiry', 'expires_at must be null or a future UTC timestamp.');
   await db.prepare('INSERT INTO entitlement_grants(subject_kind,subject_id,capability,granted_at,expires_at,revoked_at,source,reason,granted_by) VALUES (?,?,?,?,?,NULL,?,?,?)')
     .bind(subjectKind, subjectId, capability, now, expiresAt, source, String(reason).slice(0, 300), grantedBy).run();
   return { granted_at: now };

@@ -155,7 +155,7 @@ test('expired grant, plan downgrade and revoked key close access, including a do
   await w.db.prepare("UPDATE tenants SET plan = 'community' WHERE id = 'p1'").run();          // what a canceled/expired subscription does (stripe.js sync / sweepPastDue)
   const d = await w.call(path, { key }); assert.equal(d.status, 403); assert.equal(d.json.error.code, 'not_entitled'); assert.equal(d.json.error.required_capability, 'rules.premium.download');
   assert.equal((await w.call('/v1/premium/releases', { key })).status, 403);
-  await grant(w.db, w.clock, { subjectId: 'p1', capability: 'rules.premium.read', reason: 'trial', grantedBy: 'admin:test', expiresAt: '2026-10-23T09:00:00Z' });
+  await w.db.prepare("INSERT INTO entitlement_grants(subject_kind,subject_id,capability,granted_at,expires_at,revoked_at,source,reason,granted_by) VALUES ('organization','p1','rules.premium.read','2026-10-01T00:00:00Z','2026-10-23T09:00:00Z',NULL,'manual','trial','admin:test')").run();   // a trial grant that has since expired (grant() refuses a past expiry)
   assert.equal((await w.call('/v1/premium/releases', { key })).status, 403, 'an expired grant gives nothing');
   const { revokeKey } = await import('../src/auth.js'); await revokeKey(w.db, w.clock, 'p1', key.split('_')[1]); assert.equal((await w.call('/v1/account/entitlements', { key })).status, 401);
   assert.equal((await w.call('/v1/premium/releases', { key: key.slice(0, -3) + 'abc' })).status, 401, 'a tampered key is just unauthenticated');
@@ -174,4 +174,20 @@ test('ENFORCED with an explicit PoC metadata grant: only that organization gets 
   const ea = await w.call('/v1/account/entitlements', { key: a }), eb = await w.call('/v1/account/entitlements', { key: b });
   assert.ok(ea.json.capabilities.includes('research.poc.metadata.read')); assert.equal(ea.json.entitlements.source, 'manual'); assert.equal(ea.json.entitlements.expires_at, '2026-12-01T00:00:00Z');
   assert.ok(!eb.json.capabilities.includes('research.poc.metadata.read')); assert.deepEqual(validate(SCHEMA, ea.json.entitlements, 'e'), []);
+});
+
+// ---- Codex review entitlements-20261101 round 1: two MEDIUM findings ----
+test('M1: a tenant override that charges cannot keep the preview: the policy is refused, and even a stored doc enforces for that tenant', () => {
+  const d = clone(SEED); d.entitlements = { access_mode: 'OPEN_PREMIUM_PREVIEW' };
+  d.overrides = [...(d.overrides || []), { tenant_id: 't1', product: 'api', mode: 'PAID', until: '2027-01-01T00:00:00Z', reason: 'negotiated paid pilot' }];
+  assert.ok(validatePolicy(d).some((e) => /cannot be combined/.test(e)), 'validation covers tenant overrides');
+  assert.equal(accessMode(d, 'PAID'), 'ENFORCED', 'defence in depth: the effective mode of that tenant is PAID, so no preview');
+  assert.equal(accessMode(d, 'FREE_LAUNCH'), 'OPEN_PREMIUM_PREVIEW', 'other tenants keep the preview');
+  for (const c of PREMIUM) assert.equal(can(P({ accessMode: accessMode(d, 'PAID'), features: [] }), c, NOW), false, c);
+});
+test('M2: an empty, malformed or past expiry is refused when granting, and a stored unparseable timestamp fails closed (never permanent access)', async () => {
+  const w = await apiWorld(), base = { subjectId: 't1', capability: 'research.poc.metadata.read', reason: 'reviewed research partner', grantedBy: 'admin:test' };
+  for (const expiresAt of ['', 'tomorrow', '2026-13-01T00:00:00Z', 1893456000000, '2020-01-01T00:00:00Z']) await assert.rejects(grant(w.db, w.clock, { ...base, expiresAt }), /expires_at must be null or a future/, String(expiresAt));
+  for (const bad of [{ expires_at: '' }, { revoked_at: '' }, { granted_at: '' }, { expires_at: 'never' }]) assert.equal(can(P({ grants: [G('research.poc.metadata.read', bad)] }), 'research.poc.metadata.read', NOW), false, JSON.stringify(bad));
+  assert.equal(can(P({ grants: [G('research.poc.metadata.read')] }), 'research.poc.metadata.read', NOW), true, 'null expiry is still a valid permanent grant');
 });
