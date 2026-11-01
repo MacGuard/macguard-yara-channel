@@ -15,7 +15,7 @@ HERE=$(cd "$(dirname "$0")" && pwd); TB=${TMPDIR:-/tmp}; TB=${TB%/}
 # remove it at that moment, so its name is recognisable and it carries its origin. Leftovers of earlier runs are REPORTED here, never deleted automatically:
 # only directories with this prefix, owned by this user, whose recorded process is no longer running. (Runs before this change used an anonymous tmp.XXXXXX.)
 for old in "$TB"/mg-restore-run.*; do
-  [ -d "$old" ] && [ -n "$(find "$old" -maxdepth 0 -user "$(id -u)" 2>/dev/null)" ] || continue; pid=$(sed -n 's/^pid=\([0-9][0-9]*\)$/\1/p' "$old/.mg-origin" 2>/dev/null)
+  [ -d "$old" ] && [ ! -L "$old" ] && [ -n "$(find "$old" -maxdepth 0 -user "$(id -u)" 2>/dev/null)" ] || continue; pid=$(sed -n 's/^pid=\([0-9][0-9]*\)$/\1/p' "$old/.mg-origin" 2>/dev/null)
   [ -n "$pid" ] && kill -0 "$pid" 2>/dev/null && continue
   echo "WARNING: leftover of an interrupted restore (it may hold the age identity and decrypted data): $old  (check, then: rm -rf '$old')" >&2
 done
@@ -44,7 +44,7 @@ gh workflow run record-restore.yml --repo $REPO --ref main -f run_id=$RUN -f pro
 done
 [ "$(echo $HASHES | tr ' ' '\n' | sort -u | wc -l | tr -d ' ')" = 1 ] && [ "$(echo $HASHES | wc -w | tr -d ' ')" = 3 ] && echo "PASS  the three restored plaintexts are identical (sha256 $(echo $HASHES | cut -d' ' -f1))" || { echo "FAIL  the three providers did not all restore to the same plaintext"; BAD=1; }
 if [ -n "$RECORDS" ]; then
-  if [ "$BAD" = 0 ] && [ "${MG_RECORD:-}" = 1 ]; then echo "$RECORDS" | sed '/^$/d' | while read -r c; do sh -c "$c" >/dev/null && echo "RECORDED: ${c#*provider=}" | cut -d' ' -f1; done
+  if [ "$BAD" = 0 ] && [ "${MG_RECORD:-}" = 1 ]; then echo "$RECORDS" | sed '/^$/d' | while read -r c; do sh -c "$c" >/dev/null && echo "RECORDED: $(echo "${c#*provider=}" | cut -d' ' -f1)"; done
   else echo "To record a PASS as evidence (a repo admin; the hash must equal the signed manifest's):$RECORDS"; fi
 fi
 exit $BAD
