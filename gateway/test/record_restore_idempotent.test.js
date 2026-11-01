@@ -17,8 +17,9 @@ test('the same restoration reported twice is ONE record even when the workflow r
       const file = s.file + (restoredAt ? '.with' : '.without'); writeFileSync(file, JSON.stringify(BACKUP) + '\n');
       const first = rec(file, { restoredAt, at: '2026-10-27T08:06:57Z' }), again = rec(file, { restoredAt, at: '2026-10-27T19:44:02Z' });   // a different execution time
       assert.notEqual(first.at, again.at);
-      assert.equal(append(file, first).added, true); const r = append(file, again);
-      assert.deepEqual([r.added, r.reason], [false, 'this restoration is already recorded']); assert.equal(readRecords(file).filter((x) => x.kind === 'restore').length, 1);
+      assert.equal(append(file, first).added, true);
+      if (restoredAt) { const r = append(file, again); assert.deepEqual([r.added, r.reason], [false, 'this restoration is already recorded']); }
+      else assert.throws(() => append(file, again), (e) => e.code === 'RESTORE_AMBIGUOUS', 'without restored_at a second report is refused explicitly (#82), never dropped silently'); assert.equal(readRecords(file).filter((x) => x.kind === 'restore').length, 1);
     }
   } finally { s.done(); }
 });
@@ -42,7 +43,7 @@ test('anything that makes it a different restoration is never merged: provider, 
 test('legacy reports (no restored_at) are matched by content, and a legacy line still matches a new report of the same content; different duration or reporter is a different event', () => {
   const s = sb(); try {
     const legacy = rec(s.file); append(s.file, legacy);
-    assert.equal(append(s.file, rec(s.file, { at: '2026-10-28T01:00:00Z' })).added, false, 'identical report content');
+    assert.throws(() => append(s.file, rec(s.file, { at: '2026-10-28T01:00:00Z' })), (e) => e.code === 'RESTORE_AMBIGUOUS', 'identical content without restored_at: refused explicitly (#82)');
     assert.equal(append(s.file, rec(s.file, { restoredAt: '2026-10-27T08:00:00Z' })).added, false, 'new-style report of the same content as a legacy line');
     assert.equal(append(s.file, rec(s.file, { durationS: 231 })).added, true, 'different duration'); assert.equal(append(s.file, rec(s.file, { by: 'someone-else' })).added, true, 'different reporter');
   } finally { s.done(); }
