@@ -15,12 +15,14 @@ INDEX_STUB = r"""
 const vm = require('vm'), fs = require('fs');
 const [file, stored] = process.argv.slice(1);
 const mk = (i) => ({ dataset: { i }, textContent: '' });
-const items = ['title', 'skip'].map(mk), sel = { value: '', onchange: null }, theme = { onclick: null }, html = { lang: 'es' };
+const items = ['title', 'skip'].map(mk), sel = { value: '', onchange: null }, html = { lang: 'es' };
+const theme = { onclick: null, attrs: {}, setAttribute(k, v) { this.attrs[k] = String(v); } }, cls = new Set();
 const store = { lang: stored === '-' ? null : stored };
-const ctx = { document: { querySelector: (q) => (q === '#lang' ? sel : q === '#theme' ? theme : null), querySelectorAll: () => items, documentElement: html, body: { classList: { add() {}, toggle() {}, contains: () => false } } },
+const ctx = { document: { querySelector: (q) => (q === '#lang' ? sel : q === '#theme' ? theme : null), querySelectorAll: () => items, documentElement: html, body: { classList: { add: (c) => cls.add(c), toggle: (c) => (cls.has(c) ? cls.delete(c) : cls.add(c)), contains: (c) => cls.has(c) } } },
   localStorage: { getItem: (k) => store[k] ?? null, setItem: (k, v) => { store[k] = v; } }, navigator: { language: 'es-ES' } };
 vm.createContext(ctx); vm.runInContext(fs.readFileSync(file, 'utf8'), ctx);
-console.log(JSON.stringify({ lang: html.lang, sel: sel.value, texts: Object.fromEntries(items.map((e) => [e.dataset.i, e.textContent])) }));
+const before = { ...theme.attrs }; theme.onclick(); const after = { ...theme.attrs };
+console.log(JSON.stringify({ lang: html.lang, sel: sel.value, texts: Object.fromEntries(items.map((e) => [e.dataset.i, e.textContent])), theme: { before, after } }));
 """
 
 
@@ -58,6 +60,25 @@ class StatusMessages(unittest.TestCase):
         self.assertRegex(js, r"setAttribute\('role', 'status'\)"); self.assertRegex(js, r"announce\(ui\.copied \|\| 'Copied'\)")
         self.assertIn('.sr-status{', (WEB / 'docs.css').read_text())
 
+
+
+class ThemeToggle(unittest.TestCase):
+    """WCAG 4.1.2 / 3.1.2: the theme button was named "Claro / oscuro · Light / dark" (two languages in one name) and did not expose its state.
+    It is now "Tema oscuro" / "Dark theme" in the page language with aria-pressed."""
+    PAGES = ['index.html', 'catalog.html', 'guide.html', 'indicators.html', 'packages.html', 'plans.html', 'releases.html', 'rules.html', 'transparency.html', 'vulnerabilities.html', 'vuln.html']
+
+    def test_every_page_has_a_one_language_toggle_with_a_state(self):
+        for name in self.PAGES:
+            h = (WEB / name).read_text(); self.assertNotIn('Light / dark', h, name)
+            self.assertIn('<button id="theme" type="button" aria-label="Tema oscuro" data-t-label="theme" aria-pressed="false">', h, name)
+        common = (WEB / 'common.js').read_text()
+        self.assertIn("theme:'Tema oscuro'", common); self.assertIn("theme:'Dark theme'", common); self.assertIn("th.setAttribute('aria-pressed'", common)
+
+    def test_the_home_names_the_toggle_in_its_language_and_reports_the_state(self):
+        r = IndexLanguage.run_index(self, 'en')
+        self.assertEqual(r['theme']['before'], {'aria-label': 'Dark theme', 'aria-pressed': 'false'})
+        self.assertEqual(r['theme']['after']['aria-pressed'], 'true', 'a click turns the dark theme on and says so')
+        self.assertEqual(IndexLanguage.run_index(self, 'es')['theme']['before']['aria-label'], 'Tema oscuro')
 
 if __name__ == '__main__':
     unittest.main()

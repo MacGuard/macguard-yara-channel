@@ -16,8 +16,8 @@ MG.sha256=function(bytes){if(!(window.crypto&&crypto.subtle))return Promise.reje
 MG.getT=function(u,ms){var c=window.AbortController?new AbortController():null,t=c?setTimeout(function(){c.abort()},ms||8000):null;
  return fetch(u,{cache:'no-store',credentials:'omit',redirect:'error',signal:c?c.signal:undefined}).then(function(r){if(t)clearTimeout(t);if(!r.ok)throw new Error('HTTP '+r.status);if((r.headers.get('content-type')||'').indexOf('json')<0)throw new Error('not JSON');return r.json()},function(e){if(t)clearTimeout(t);throw e})};
 /* Shared navigation and footer texts of every portal page (a page dictionary overrides them). The Spanish text is also the one already in the HTML. */
-MG.NAV={es:{nav_home:'Inicio',nav_catalog:'Biblioteca',nav_iocs:'Indicadores',nav_vulns:'Vulnerabilidades',nav_packages:'Descargas',nav_plans:'Planes',nav_transparency:'Transparencia',nav_docs:'Documentación',skip:'Saltar al contenido',disclaimer:'Proyecto independiente. Sin afiliación ni aval de las fuentes.'},
- en:{nav_home:'Home',nav_catalog:'Library',nav_iocs:'Indicators',nav_vulns:'Vulnerabilities',nav_packages:'Downloads',nav_plans:'Plans',nav_transparency:'Transparency',nav_docs:'Documentation',skip:'Skip to content',disclaimer:'Independent project. Not affiliated with or endorsed by upstream sources.'}};
+MG.NAV={es:{nav_home:'Inicio',nav_catalog:'Biblioteca',nav_iocs:'Indicadores',nav_vulns:'Vulnerabilidades',nav_packages:'Descargas',nav_plans:'Planes',nav_transparency:'Transparencia',nav_docs:'Documentación',skip:'Saltar al contenido',theme:'Tema oscuro',disclaimer:'Proyecto independiente. Sin afiliación ni aval de las fuentes.'},
+ en:{nav_home:'Home',nav_catalog:'Library',nav_iocs:'Indicators',nav_vulns:'Vulnerabilities',nav_packages:'Downloads',nav_plans:'Plans',nav_transparency:'Transparency',nav_docs:'Documentation',skip:'Skip to content',theme:'Dark theme',disclaimer:'Independent project. Not affiliated with or endorsed by upstream sources.'}};
 /* i18n: elements with data-t="key" take dict[lang][key] (or MG.NAV); missing keys keep the Spanish text already in the HTML. */
 MG.i18n=function(dict,onchange){
  var sel=MG.$('lang'),dark=false;
@@ -29,7 +29,9 @@ MG.i18n=function(dict,onchange){
   if(onchange)onchange(l)}
  if(sel){sel.value=MG.lang();sel.addEventListener('change',function(){MG.setLang(sel.value);apply()})}
  try{if(localStorage.getItem('theme')==='dark')document.body.classList.add('dark')}catch(e){}
- var th=MG.$('theme');if(th)th.addEventListener('click',function(){document.body.classList.toggle('dark');try{localStorage.setItem('theme',document.body.classList.contains('dark')?'dark':'light')}catch(e){}});
+ /* WCAG 4.1.2: the theme button is a toggle ("Dark theme", one language per page) whose state is exposed with aria-pressed */
+ var th=MG.$('theme');function thSync(){if(th)th.setAttribute('aria-pressed',document.body.classList.contains('dark')?'true':'false')}thSync();
+ if(th)th.addEventListener('click',function(){document.body.classList.toggle('dark');thSync();try{localStorage.setItem('theme',document.body.classList.contains('dark')?'dark':'light')}catch(e){}});
  apply();return apply};
 MG.L=function(){var s=MG.$('lang');return s?s.value:MG.lang()};
 /* Merkle (RFC 6962 hashing, RFC 9162 verification) with SubtleCrypto. Inputs and outputs are Uint8Array. */
