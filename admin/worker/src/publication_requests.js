@@ -308,8 +308,8 @@ async function bindingError(row, d, run, deps) {
 export const pins = async (db) => (await db.prepare('SELECT seq, at, kind, tag, manifest_sha256, previous_tag, by_login, by_id, by_role, reason FROM publication_release_pins ORDER BY seq DESC LIMIT 100').all()).results;
 /** The release that may satisfy publication requests now: the pinned one while a PIN is in force, otherwise the latest public release (`latestTag`). */
 export async function activeRelease(db, latestTag) {
-  const last = await db.prepare('SELECT seq, kind, tag FROM publication_release_pins ORDER BY seq DESC LIMIT 1').first();
-  if (last && last.kind === 'PIN') return { tag: last.tag, basis: 'pinned', pin_seq: last.seq };
+  const last = await db.prepare('SELECT seq, kind, tag, manifest_sha256 FROM publication_release_pins ORDER BY seq DESC LIMIT 1').first();
+  if (last && last.kind === 'PIN') return { tag: last.tag, basis: 'pinned', pin_seq: last.seq, manifest_sha256: last.manifest_sha256 };
   return latestTag ? { tag: latestTag, basis: 'latest', pin_seq: last ? last.seq : 0 } : null;
 }
 /** PIN a verified public release (a rollback when it is not the latest) or UNPIN. An authorised operation: the permission is checked by the route and again here;

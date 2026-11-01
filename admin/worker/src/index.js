@@ -32,7 +32,11 @@ async function readJson(request, max) {
 }
 
 // F3: the release that may satisfy publication requests now (pinned, or the latest public one); throws when it cannot be determined, so nothing changes
-const activeRelease = (env, deps, db) => async () => { const latest = await fetchPublication(env, deps, null); const pinned = await pubReq.activeRelease(db, latest.ok ? latest.tag : null); if (!pinned) throw new Error('active release unknown'); return pinned; };
+// A PIN authorises one exact manifest (its SHA-256 is recorded with the pin): if the assets under that tag were replaced or the release recreated, the pinned release
+// no longer counts as active until an authorised operation pins it again (fails closed: 503 / not_active). Codex pr53-highs-fix round 2, HIGH.
+const activeRelease = (env, deps, db) => async () => { const latest = await fetchPublication(env, deps, null); const pinned = await pubReq.activeRelease(db, latest.ok ? latest.tag : null); if (!pinned) throw new Error('active release unknown');
+  if (pinned.basis === 'pinned') { const pub = await fetchPublication(env, deps, pinned.tag); if (!pub.ok || !pinned.manifest_sha256 || pub.manifest_sha256 !== pinned.manifest_sha256) throw new Error('the pinned release no longer matches the authorised manifest'); }
+  return pinned; };
 
 export async function handle(request, env, deps) {
   const url = new URL(request.url), now = deps.now(), db = env.DB, method = request.method, path = url.pathname;

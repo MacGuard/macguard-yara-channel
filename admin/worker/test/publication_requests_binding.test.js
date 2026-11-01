@@ -173,3 +173,15 @@ test('migrations 0008 and 0009 are byte-identical to the reviewed head 5703ca4 (
     assert.equal(read(`../migrations/${f}`), orig, f);
   }
 });
+test('F3 (Codex pr53-highs-fix round 2, HIGH): a PIN authorises one exact manifest; replacing the assets under the pinned tag closes nothing (fails closed) until re-pinned', async () => {
+  const w = await fx(); await releases(w, [[OLD, [w.entry(w.ids[0])], { publishedAt: '2026-10-20T03:40:00Z' }], [NEW, [w.entry(w.ids[0])], { publishedAt: '2026-11-01T03:40:00Z' }]]);
+  assert.equal((await pinReq(w, w.ada, { kind: 'PIN', tag: OLD, reason: 'roll back: the newest release broke a customer deployment', expect_seq: 0 })).status, 200);
+  // the OLD tag's assets are replaced with a manifest that now lists the requested rule (ids[1]): not what was authorised
+  await releases(w, [[OLD, [w.entry(w.ids[0]), w.entry(w.ids[1])], { publishedAt: '2026-10-20T03:40:00Z' }], [NEW, [w.entry(w.ids[0])], { publishedAt: '2026-11-01T03:40:00Z' }]]);
+  const b = await expedite(w, w.ids[1]); await toVerifying(w, b.id, 3903);
+  const r = await send(w, b.id, { state: 'APPLIED', release_tag: OLD, commit_sha: 'c'.repeat(40) }, 3903);
+  assert.notEqual(r.data?.request?.state, 'APPLIED', JSON.stringify(r.data)); assert.equal(r.status, 503, 'the pinned release no longer matches its authorised manifest');
+  assert.equal(rows(w, 'SELECT state FROM publication_requests WHERE id = ?', b.id)[0].state, 'VERIFYING', 'nothing changed');
+  assert.equal((await pinReq(w, w.ada, { kind: 'PIN', tag: OLD, reason: 'reviewed the replaced assets and re-authorised them', expect_seq: 1 })).status, 200);
+  assert.equal((await send(w, b.id, { state: 'APPLIED', release_tag: OLD, commit_sha: 'c'.repeat(40) }, 3903)).data.request.state, 'APPLIED', 'after an authorised re-pin it works');
+});
