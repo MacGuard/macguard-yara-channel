@@ -8,13 +8,14 @@
 // Rules: write-once (an existing key with different bytes is a conflict, never overwritten; nothing is ever deleted here); a destination that fails does not stop the others and never touches their
 // objects; "three copies" is claimed only when all three destinations have verified the same bytes recently.
 import { createHash, createHmac } from 'node:crypto';
-import { execFileSync } from 'node:child_process';
-import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
+import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { ROOT_DEFAULT } from './backup_flow.mjs';
 import { verifyRestore } from './backup_lib.mjs';
+import { ageDecryptFile, shaFile } from './stream_io.mjs';
 import { makeRecord, classify, safeEmit, outboxFromEnv } from './telemetry.mjs';
 import { ANCHOR_FILES, ANCHOR_BUNDLE, CHECKPOINT_BUNDLE, CHECKPOINT_FILES, anchorFiles, verifyAnchor, compareHeads, verifyCheckpoint, bestCheckpoint, checkAgainstCheckpoint } from './backup_anchor.mjs';
+import { privateDir } from './private_tmp.mjs';
 
 export const FILES = ['d1-export.sql.age', 'manifest.json', 'SHA256SUMS'], PROVIDERS = ['b2', 'scaleway', 'r2'];
 const STAMP = /^\d{8}T\d{6}Z$/, sha = (b) => createHash('sha256').update(b).digest('hex'), iso = (d) => d.toISOString().replace(/\.\d{3}Z$/, 'Z'), hmac = (k, s) => createHmac('sha256', k).update(s).digest();
@@ -174,10 +175,15 @@ async function drillCore({ root = ROOT_DEFAULT, config = DEFAULT_CONFIG, name, i
     // self-consistent backup. The local SHA256SUMS of the same stamp is the reference that bucket cannot forge. Without a local copy (disaster recovery) the drill still runs but reports `anchored: false`.
     const localSums = join(root, stamp, 'SHA256SUMS'), localRecord = existsSync(localSums), anchored = signed || localRecord;
     if (localRecord && sha(readFileSync(localSums)) !== sha(got['SHA256SUMS'])) return res({ ok: false, backup: stamp, anchored, reason: 'the destination holds a different SHA256SUMS than the local record of this backup' });
-    const tmp = join(resolve(root), `.drill-${process.pid}.age`); writeFileSync(tmp, got['d1-export.sql.age'], { mode: 0o600 });
-    let sql; try { sql = execFileSync(ageBin, ['-d', '-i', identityFile, tmp], { maxBuffer: 1 << 30 }).toString('utf8'); } finally { try { execFileSync('rm', ['-f', tmp]); } catch { /* best effort */ } }
-    const manifest = JSON.parse(got['manifest.json'].toString('utf8')); if (sha(sql) !== manifest.plaintext_sha256) return res({ ok: false, backup: stamp, reason: 'the decrypted bytes do not match the manifest' });
-    const v = await verifyRestore(sql, { manifest }); return res({ ok: v.ok, backup: stamp, anchored, anchor: signed ? 'signature' : localRecord ? 'local-record' : 'none', sequence: signed ? JSON.parse(got['ANCHOR.json']).sequence : undefined, checks: v.checks.length, failed: v.checks.filter((x) => !x.ok).map((x) => x.name), reason: v.ok ? null : 'restore checks failed' });
+    // Streaming: the ciphertext goes to a private directory, age decrypts it into a 0600 file (the plaintext never passes through this process), the hash is computed from the file and sqlite3 loads it from the file.
+    const work = privateDir(resolve(root), '.drill-'); const plain = join(work, 'plain.sql'), manifest = JSON.parse(got['manifest.json'].toString('utf8')); let v;
+    try {
+      writeFileSync(join(work, 'c.age'), got['d1-export.sql.age'], { mode: 0o600 });
+      await ageDecryptFile({ ageBin, identity: identityFile, src: join(work, 'c.age'), dst: plain });
+      if (await shaFile(plain) !== manifest.plaintext_sha256) return res({ ok: false, backup: stamp, reason: 'the decrypted bytes do not match the manifest' });
+      v = await verifyRestore({ file: plain }, { manifest });
+    } finally { rmSync(work, { recursive: true, force: true }); }
+    return res({ ok: v.ok, backup: stamp, anchored, anchor: signed ? 'signature' : localRecord ? 'local-record' : 'none', sequence: signed ? JSON.parse(got['ANCHOR.json']).sequence : undefined, checks: v.checks.length, failed: v.checks.filter((x) => !x.ok).map((x) => x.name), reason: v.ok ? null : 'restore checks failed' });
   } catch (e) { return res({ ok: false, reason: String(e?.message ?? e).split('\n')[0].slice(0, 160) }); }
 }
 

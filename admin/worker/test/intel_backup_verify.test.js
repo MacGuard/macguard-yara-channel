@@ -1,7 +1,9 @@
 // Isolated restore check of an INTEL export (what the backup pipeline runs before encrypting): a good export passes every check; each kind of damage is caught by name.
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { newDb } from './d1shim.js';
 import { seedIntel } from './intel_fixture.js';
 import { verifyIntelRestore, intelRowCounts } from '../tools/intel_backup_verify.mjs';
@@ -28,4 +30,17 @@ test('damage is caught by name: wrong counts, an orphan record, a broken hash, i
   assert.deepEqual(failed(await verifyIntelRestore(sql + "\nUPDATE intel_records SET doc = '{oops' WHERE id = 'kev:CVE-2024-1001';")), ['the export loads into an empty database'], 'the schema itself refuses a document that is not JSON');
   assert.deepEqual(failed(await verifyIntelRestore(sql + "\nINSERT INTO intel_decisions (record_id, family, action, from_state, to_state, reason, actor, actor_id, at, request_id, audited) VALUES ('missing:1','kev','hold','x','RETENIDA','orphan decision test','rita',12,'2026-10-26T10:00:00Z','req-backup-0000000002',0);")).sort(), ['every decision points to an existing record', 'no decision is waiting for its audit entry']);
   const cut = sql.slice(0, sql.length - 400); const t = await verifyIntelRestore(cut, { manifest: { row_counts: counts } }); assert.equal(t.ok, false, 'a truncated export never passes');
+});
+
+test('the same export given as a FILE (streamed by sqlite3, not held in memory) gives exactly the same verdicts as the string, good or damaged, and leaves no temporary directory', async () => {
+  const { sql, counts } = await exportOf({ decisions: true }), dir = mkdtempSync(join(tmpdir(), 'mg-ivf-')), before = readdirSync(tmpdir()).filter((n) => n.startsWith('mg-load-')).length;
+  try {
+    const cases = { good: [sql, { row_counts: counts }], wrongCounts: [sql, { row_counts: { ...counts, intel_records: counts.intel_records + 1 } }], truncated: [sql.slice(0, sql.length - 400), { row_counts: counts }], orphan: [sql + "\nUPDATE intel_records SET doc_sha256 = '" + 'z'.repeat(64) + "' WHERE id = 'kev:CVE-2024-1000';", null] };
+    for (const [name, [text, manifest]] of Object.entries(cases)) {
+      const f = join(dir, name + '.sql'); writeFileSync(f, text);
+      const a = await verifyIntelRestore(text, { manifest }), b = await verifyIntelRestore({ file: f }, { manifest });
+      assert.deepEqual(b.checks.map((c) => [c.name, c.ok]), a.checks.map((c) => [c.name, c.ok]), name); assert.equal(b.ok, a.ok, name);
+    }
+    assert.equal(readdirSync(tmpdir()).filter((n) => n.startsWith('mg-load-')).length, before, 'no mg-load-* directory left behind');
+  } finally { rmSync(dir, { recursive: true, force: true }); }
 });
