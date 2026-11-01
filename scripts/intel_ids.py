@@ -47,7 +47,7 @@ _SIGMA_PREFIX = re.compile(r'sigma\s*[: ]\s*(.+)', re.I)
 _SID = (re.compile(r'sid\s*:\s*(\d{1,10})\s*;?', re.I), re.compile(r'sid\s+(\d{1,10})', re.I), re.compile(r'\d{1,3}:(\d{1,10})'))
 _LABEL = re.compile(r'[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?')
 _IDENT = re.compile(r'[A-Za-z_][A-Za-z0-9_]*')
-_YARA_PATH = re.compile(r'[A-Za-z0-9._@+-]+(?:/[A-Za-z0-9._@+-]+)*\.yara?')
+_YARA_PATH = re.compile(r'[A-Za-z0-9._\-/ +@()\[\]]{1,395}\.(?:yara|yar)', re.I)   # the release path charset (tlog.check_inventory)
 _YARA_KEYWORDS = frozenset('''all and any ascii at base64 base64wide condition contains defined endswith entrypoint false filesize for fullword global
  icontains iendswith iequals import in include int16 int16be int32 int32be int8 int8be istartswith matches meta nocase none not of or private rule
  startswith strings them true uint16 uint16be uint32 uint32be uint8 uint8be wide xor'''.split())
@@ -238,7 +238,7 @@ def _yara_rule(t):
     if t.startswith('yara:') and '#' in body: path, _, name = body.rpartition('#')
     elif ':' in body: path, _, name = body.rpartition(':')
     else: return None
-    if not _YARA_PATH.fullmatch(path) or any(seg in ('', '.', '..') for seg in path.split('/')): return None
+    if len(path) > 400 or not _YARA_PATH.fullmatch(path) or any(seg in ('', '.', '..') for seg in path.split('/')): return None
     if not _IDENT.fullmatch(name) or len(name) > MAX_RULE_NAME or name in _YARA_KEYWORDS: return None
     return f'yara:{path}#{name}', 'exact'
 

@@ -145,6 +145,7 @@
   "rules_duplicate_id_dropped": 0,
   "rules_global": 1,
   "rules_incomplete": 0,
+  "rules_name_too_long_skipped": 0,
   "rules_private": 2,
   "rules_with_uuid": 1,
   "unique_rule_names": 3

@@ -9,7 +9,9 @@ no unlisted file may sit under rules/, and the manifest's rules_root and stats m
 no partial index. This checks integrity against the manifest only; the manifest's signature and log inclusion are verify_release.py's job and
 must have passed before this runs (the build wiring does that; this script never fetches anything).
 
-Identity of a rule = (file path, rule name): `yara:<path>#<name>`. The same name in two files is two rules.
+Identity of a rule = (file path, rule name): `yara:<path>#<name>`. The same name in two files is two rules. Paths are exactly what
+tlog.check_inventory accepts (letters, digits, . _ - / space + @ ( ) [ ], any case of .yar/.yara) and never contain '#', while a rule name
+is a YARA identifier, so the id splits unambiguously on its last '#'. No escaping is applied.
 Assertions are what a rule's OWN meta: block says, nothing more: `rule_meta_mentions_hash` and `rule_meta_mentions_cve`, status
 `asserted_by_rule_metadata`. They do not mean the rule detects that sample or the exploitation of that CVE, and they are not correlations.
 Output is sorted and byte-deterministic: no timestamps, no absolute paths, compact JSON with sorted keys.
@@ -145,9 +147,17 @@ class _Scanner:
             self._adv()
 
     def _hex(self):
-        """At a '{' that starts a hex string: consume to the matching '}' (hex strings do not nest braces)."""
-        j = self.s.find('}', self.i)
-        self._adv((j + 1 if j >= 0 else self.n) - self.i)
+        """At a '{' that starts a hex string: consume to its closing '}'. Hex strings do not nest braces but may hold /* */ and // comments,
+        and a '}' (or 'meta:', 'rule X {') inside such a comment must never end the hex string."""
+        s = self.s
+        self._adv()
+        while self.i < self.n:
+            if s.startswith('/*', self.i):
+                j = s.find('*/', self.i + 2); self._adv((j + 2 if j >= 0 else self.n) - self.i); continue
+            if s.startswith('//', self.i):
+                j = s.find('\n', self.i); self._adv((j if j >= 0 else self.n) - self.i); continue
+            c = s[self.i]; self._adv()
+            if c == '}': return
 
     def rules(self):
         s = self.s
@@ -231,7 +241,7 @@ def build_index(release_dir, release_tag):
     manifest, manifest_sha = verify_against_manifest(root)
     entities, assertions, seen = {}, [], set()
     c = {'files': len(manifest['files']), 'files_indexed': 0, 'files_skipped_not_yara': 0, 'files_decode_errors': 0, 'rules': 0,
-         'rules_private': 0, 'rules_global': 0, 'rules_incomplete': 0, 'rules_duplicate_id_dropped': 0, 'rules_with_uuid': 0,
+         'rules_name_too_long_skipped': 0, 'rules_private': 0, 'rules_global': 0, 'rules_incomplete': 0, 'rules_duplicate_id_dropped': 0, 'rules_with_uuid': 0,
          'meta_values_not_copied_too_long': 0, 'hash_meta_without_valid_hash': 0, 'hash_like_runs_rejected': 0}
     for f in sorted(manifest['files'], key=lambda f: f['path']):
         path = f['path']
@@ -243,7 +253,8 @@ def build_index(release_dir, release_tag):
         c['files_indexed'] += 1
         prov = {'release_tag': release_tag, 'path': path, 'file_sha256': f['sha256']}
         for r in scan(text):
-            rid = f'yara:{path}#{r["name"]}'
+            if len(r['name']) > intel_ids.MAX_RULE_NAME: c['rules_name_too_long_skipped'] += 1; continue   # YARA itself refuses these
+            rid = f'yara:{path}#{r["name"]}'   # tlog.check_inventory paths never contain '#': split an id on its LAST '#'
             if rid in seen: c['rules_duplicate_id_dropped'] += 1; continue
             seen.add(rid)
             c['rules'] += 1

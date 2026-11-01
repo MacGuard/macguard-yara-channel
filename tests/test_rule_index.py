@@ -208,5 +208,62 @@ class Index(Base):
         self.assertEqual(example, json.loads(rule_index.dumps(rule_index.build_index(self.d, TAG))), 'regenerate the example from this fixture')
 
 
+A32 = 'a' * 32
+
+
+class FakedBoundaries(unittest.TestCase):
+    """Codex F1: text inside comments, strings, hex strings and regexes never becomes a rule header or a meta pair."""
+
+    def meta_of(self, src):
+        return [(r['name'], [(k, v) for k, v, _ in r['meta']], r['complete']) for r in rule_index.scan(src)]
+
+    def test_comment_inside_hex_string(self):
+        for body in ('{ 41 /* } meta: hash = "%s" */ 42 }' % A32, '{ 41 // } meta: hash = "%s"\n 42 }' % A32,
+                     '{ 41 /* } rule Fake { meta: hash = "%s" condition: true } */ 42 }' % A32, '{ 41 /* meta: */ [2-4] /* { */ 42 }'):
+            with self.subTest(body=body):
+                self.assertEqual(self.meta_of('rule Real { strings: $a = %s condition: $a }\nrule After { meta: k = "v" condition: true }' % body),
+                                 [('Real', [], True), ('After', [('k', 'v')], True)])
+
+    def test_strings_and_regexes_with_comment_openers(self):
+        src = ('rule Real { meta: a = "/* not a comment" b = "meta: x = \\"y\\" }" strings: $s = "/* } meta: hash = \\"%s\\"" '
+               '$r = /a}b\\/*c meta:/ $q = /[}/*]x/ condition: $s or $r or $q or "x}" matches /}/ }\nrule After { condition: true }') % A32
+        self.assertEqual(self.meta_of(src), [('Real', [('a', '/* not a comment'), ('b', 'meta: x = "y" }')], True), ('After', [], True)])
+
+    def test_index_emits_no_assertion_from_a_comment(self):
+        with tempfile.TemporaryDirectory() as d:
+            rel = make_release(pathlib.Path(d) / 'rel', {'rules/x/x.yar': ('rule Real { strings: $a = { 41 /* } meta: hash = "%s" */ 42 } condition: $a }' % A32, 'x')})
+            idx = rule_index.build_index(rel, TAG)
+        self.assertEqual(idx['assertions'], [])
+        self.assertEqual([e['name'] for e in idx['entities']], ['Real'])
+
+
+class PathIdentity(unittest.TestCase):
+    """Codex F2: every path tlog.check_inventory accepts is indexed, satisfies the contract, and round-trips through the identifier."""
+    PATHS = ['rules/community/My Rules (1).yar', 'rules/c/UPPER.YAR', 'rules/c/x.Yara', 'rules/c/a+b@c[1]-_.yar']
+
+    def test_odd_paths(self):
+        import intel_ids
+        with tempfile.TemporaryDirectory() as d:
+            rel = make_release(pathlib.Path(d) / 'rel', {p: ('rule R_1 { meta: hash = "%s" condition: true }' % A32, 'c') for p in self.PATHS})
+            idx = json.loads(rule_index.dumps(rule_index.build_index(rel, TAG)))
+        self.assertEqual(validate(idx, SCHEMA), [])
+        self.assertEqual(sorted(e['path'] for e in idx['entities']), sorted(self.PATHS))
+        for e in idx['entities']:
+            with self.subTest(path=e['path']):
+                self.assertEqual(e['id'], f"yara:{e['path']}#R_1")
+                self.assertEqual(e['id'].rpartition('#')[::2], ('yara:' + e['path'], 'R_1'))
+                self.assertEqual(intel_ids.normalize('yara_rule', e['id']), e['id'])
+                self.assertEqual(intel_ids.normalize('yara_rule', f"{e['path']}:R_1"), e['id'])
+        self.assertIsNone(tlog.check_inventory([{'path': p, 'sha256': '0' * 64} for p in self.PATHS]))
+        self.assertTrue(tlog.check_inventory([{'path': 'rules/a#b.yar', 'sha256': '0' * 64}]), "'#' never reaches an id")
+
+    def test_overlong_rule_name_not_emitted(self):
+        with tempfile.TemporaryDirectory() as d:
+            rel = make_release(pathlib.Path(d) / 'rel', {'rules/x.yar': ('rule %s { condition: true } rule Ok { condition: true }' % ('N' * 129), 'x')})
+            idx = json.loads(rule_index.dumps(rule_index.build_index(rel, TAG)))
+        self.assertEqual(([e['name'] for e in idx['entities']], idx['counts']['rules_name_too_long_skipped']), (['Ok'], 1))
+        self.assertEqual(validate(idx, SCHEMA), [])
+
+
 if __name__ == '__main__':
     unittest.main()
