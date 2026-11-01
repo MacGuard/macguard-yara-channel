@@ -312,3 +312,8 @@ test('X-F4: the export keeps the version_limit of a range (never a broader range
   await addAffectedRange(db, { vuln_id: v, product: { namespace: 'purl', key: 'pkg:npm/example' }, scheme: 'SEMVER', introduced: '1.0.0', version_limit: '2.0.0', source_id: 'osv', evidence: SRC }, NOW);
   const rec = await vulnerabilityRecord(db, v); assert.equal(rec.affected[0].version_limit, '2.0.0'); assert.deepEqual(validate(VSCHEMA, rec, 'rec'), []);
 });
+test('delta review (MEDIUM): a record with a KEV delisting validates against macguard.intel-vulnerability/1 (basis is a declared field)', async () => {
+  const db = fresh(), v = await putVulnerability(db, { namespace: 'cve', key: 'CVE-2026-4444' }, NOW);
+  await addExploitation(db, v, { source_id: 'cisa-kev', kind: 'KEV_DELISTED', evidence_ref: 'kev/c', observed_at: '2026-10-20T00:00:00Z' }, NOW);
+  const rec = await vulnerabilityRecord(db, v); assert.equal(rec.exploitation.kev.basis, 'delisting'); assert.deepEqual(validate(VSCHEMA, rec, 'rec'), []);
+});
