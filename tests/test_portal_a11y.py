@@ -100,5 +100,43 @@ class LanguageOfParts(unittest.TestCase):
         h = (WEB / '404.html').read_text()
         self.assertIn('<html lang="es">', h); self.assertIn('<p lang="en">This address does not exist', h); self.assertIn('<main><h1>404</h1>', h)
 
+
+def _lum(h):
+    if len(h) == 4: h = '#' + ''.join(ch * 2 for ch in h[1:])
+    c = [int(h[i:i + 2], 16) / 255 for i in (1, 3, 5)]; f = lambda v: v / 12.92 if v <= 0.03928 else ((v + 0.055) / 1.055) ** 2.4
+    return 0.2126 * f(c[0]) + 0.7152 * f(c[1]) + 0.0722 * f(c[2])
+
+
+def _contrast(a, b):
+    x, y = _lum(a), _lum(b); return (max(x, y) + 0.05) / (min(x, y) + 0.05)
+
+
+def _tokens(css, block):
+    """Custom properties declared in every `block{...}` rule of the stylesheet (later declarations win, like the cascade)."""
+    out = {}
+    for body in re.findall(r'(?:^|[}\s])' + re.escape(block) + r'\{([^}]*)\}', css):
+        out.update(re.findall(r'--([\w-]+):(#[0-9a-fA-F]{6}|#[0-9a-fA-F]{3})\b', body))
+    return out
+
+
+class FieldBoundaries(unittest.TestCase):
+    """WCAG 1.4.11: text fields and selects of the portal are identified only by their border (same fill as the panel). The border used
+    --line, 1.25:1 against white and 1.43:1 in dark: invisible for low-vision users. Now a --field border with at least 3:1 against the panel and
+    the page in both themes, applied with a selector that outranks .toolbar input / .herosearch input."""
+    def test_field_border_has_3_to_1_against_panel_and_page_in_both_themes(self):
+        css = (WEB / 'style.css').read_text()
+        for block in (':root', 'body.dark'):
+            tok = {**(_tokens(css, ':root') if block == 'body.dark' else {}), **_tokens(css, block)}
+            for bg in ('panel', 'bg'):
+                with self.subTest(theme=block, against=bg):
+                    self.assertGreaterEqual(_contrast(tok['field'], tok[bg]), 3.0)
+
+    def test_every_field_uses_the_field_border(self):
+        css = (WEB / 'style.css').read_text()
+        self.assertIn(':is(input,select,textarea):not([type=hidden]):not([type=checkbox]):not([type=radio]){border-color:var(--field)}', css)
+        for page in WEB.glob('*.html'):
+            with self.subTest(page=page.name):
+                self.assertNotRegex(page.read_text(), r'<(input|select|textarea)[^>]*style="[^"]*border', 'inline border overrides the field border')
+
 if __name__ == '__main__':
     unittest.main()

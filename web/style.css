@@ -53,3 +53,5 @@ body.dark .badge.kev{border-color:#ff8a80;color:#ff8a80}body.dark .badge.free{bo
 @media (max-width:900px){.hubgrid,.risk{grid-template-columns:1fr}.herosearch input{flex-basis:100%}}
 pre.mono{white-space:pre-wrap;overflow-wrap:anywhere;max-width:100%;overflow-x:auto}
 .panel p,.panel li{overflow-wrap:anywhere}
+/* WCAG 1.4.11: a text field or a select is identified only by its border, so the border needs 3:1 against the panel and the page (it was 1.25:1 light, 1.43:1 dark) */
+:root{--field:#76828f}body.dark{--field:#7488a0}:is(input,select,textarea):not([type=hidden]):not([type=checkbox]):not([type=radio]){border-color:var(--field)}
