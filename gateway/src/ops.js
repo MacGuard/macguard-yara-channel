@@ -83,7 +83,8 @@ export async function execute(deps, ctx, opName, args, { idemKey = null, request
   // CVE data is licensed per product: an indicator search or enrichment that asks for a CVE must pass the SAME gate as the dedicated CVE route (intel.cve),
   // otherwise an IOC grant would expose CVE records the CVE endpoint refuses (Codex entitlements-final-20261101, HIGH).
   const cveIn = opName === 'intel.ioc.search' ? [args.value, ...(args.values || [])] : opName === 'intel.enrich' ? args.indicators : [];
-  if (cveIn.some((v) => intel.typeOf(v) === 'cve')) { const e = effectiveFor(ctx, 'intel.cve', nowMs); authorize(ctx, 'intel.cve', e, await entitlementsFor(db, ctx, e, nowMs, OPS['intel.cve'].capability)); }
+  const cveGate = async () => { const e = effectiveFor(ctx, 'intel.cve', nowMs); authorize(ctx, 'intel.cve', e, await entitlementsFor(db, ctx, e, nowMs, OPS['intel.cve'].capability)); };
+  if (cveIn.some((v) => intel.typeOf(v) === 'cve')) await cveGate();
   const pre = effective(ctx.policy.doc, ctx.tenant, productOf(opName), nowMs, ctx.acceptance);
   let key = idemKey;
   if (opName === 'premium.download') { key = key ?? `dl:${args.release_id}:${clock().toISOString().slice(0, 10)}`; ctx = { ...ctx, usageEventId: await usageEventId(ctx.tenant.id, key) }; }
@@ -91,6 +92,9 @@ export async function execute(deps, ctx, opName, args, { idemKey = null, request
   let out = await run(env, db, clock, ctx, opName, args ?? {}, call, { idemKey: key, requestId, cacheResult: opName !== 'premium.download', extraQuota: (eff) => (opName === 'premium.download' ? [['downloads', eff.quotas.downloads_month, 1]] : []) });
   // An authorisation must be fresh: a repeat of the same logical request (same release, same day) is not counted again, but gets a new short-lived token instead of an old, maybe expired, one.
   if (out.replayed && opName === 'premium.download') out = { ...out, result: await call(args, pre) };
+  // A replay returns the STORED answer of the first request (whatever this request's inputs are): if it holds CVE records, the CVE gate is applied again NOW,
+  // so a downgrade is never bypassed by replaying an Idempotency-Key that was used while the tenant still had CVE access (Codex entitlements-final, fix round, HIGH).
+  if (out.replayed && (opName === 'intel.ioc.search' || opName === 'intel.enrich') && [out.result, ...(Array.isArray(out.result?.results) ? out.result.results : [])].some((x) => x && x.type === 'cve')) await cveGate();
   // Correlation fields leave the server only with intel.correlation.read, resolved NOW (also for an idempotent replay of an older answer).
   if (INTEL_READS.has(opName)) out = { ...out, result: redactIntel(out.result, await entitlementsFor(db, ctx, pre, clock().getTime(), 'intel.correlation.read')) };
   return { ...out, eff: pre, accessMode: accessMode(ctx.policy.doc, pre.mode) };

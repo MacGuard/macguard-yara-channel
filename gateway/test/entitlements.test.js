@@ -224,3 +224,12 @@ test('Codex entitlements-final (HIGH): an IOC grant never exposes CVE records th
   const m = await mcp(w, key, 'tools/call', { name: 'macguard_search_iocs', arguments: { values: [cve] } }); assert.equal(m.json.result.isError, true);
   const ok = await w.call('/v1/intelligence/ioc/search', { key, method: 'POST', json: { values: ['203.0.113.7'] } }); assert.equal(ok.status, 200, 'non-CVE indicators are still served under the IOC grant');
 });
+test('Codex entitlements-final fix round (HIGH): replaying an Idempotency-Key whose stored answer holds CVE records re-applies the CVE gate after a downgrade', async () => {
+  const w = await apiWorld({ policy: enforced() }); const key = await K(w, 'p2', { plan: 'intelligence' }), cve = 'CVE-2026-0001', h = { 'idempotency-key': 'replay-cve-0001' };
+  const first = await w.call('/v1/intelligence/ioc/search', { key, method: 'POST', headers: h, json: { values: [cve] } }); assert.equal(first.status, 200, 'allowed while the plan includes intel');
+  await w.db.prepare("UPDATE tenants SET plan = 'community' WHERE id = 'p2'").run();
+  for (const c of ['ioc.premium.read', 'intel.correlation.read']) await grant(w.db, w.clock, { subjectId: 'p2', capability: c, reason: 'ioc pilot without cve licence', grantedBy: 'admin:test' });
+  const replay = await w.call('/v1/intelligence/ioc/search', { key, method: 'POST', headers: h, json: { values: ['203.0.113.7'] } });
+  assert.equal(replay.status, 403, 'the stored CVE answer is not handed out'); assert.ok(!JSON.stringify(replay.json).includes('CVE-2026-0001'));
+  const fresh = await w.call('/v1/intelligence/ioc/search', { key, method: 'POST', headers: { 'idempotency-key': 'replay-ioc-0002' }, json: { values: ['203.0.113.7'] } }); assert.equal(fresh.status, 200, 'IOC-only work still allowed');
+});
