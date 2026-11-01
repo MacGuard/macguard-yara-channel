@@ -51,7 +51,8 @@ class StatusMessages(unittest.TestCase):
     """WCAG 4.1.3: text that scripts change after load without moving focus is in a live region."""
     def test_the_channel_status_and_the_hub_numbers_of_the_home_are_announced(self):
         h = (WEB / 'index.html').read_text()
-        self.assertEqual(h.count('<p class="status" role="status" data-i="pending">'), 2, 'channel.js rewrites both channel-status lines')
+        self.assertEqual(h.count('<p class="status" role="status" data-i="pending">'), 1, 'one live region: the same text in two would be announced twice')
+        self.assertEqual(h.count('<p class="status" aria-hidden="true" data-i="pending">'), 1, 'the sidebar copy is visual only')
         self.assertIn('<div class="tiles" id="hub-stats" aria-live="polite">', h, 'hub.js replaces "Loading…" by the numbers or an error')
 
     def test_docs_copy_feedback_goes_to_a_status_region(self):
