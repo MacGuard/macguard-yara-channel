@@ -264,6 +264,17 @@ class BrowserLogicTests(unittest.TestCase):
         ku = self.out['kev_unavailable']; self.assertEqual(ku['rows'], []); self.assertTrue(all(not re.search(r'kev/\d{4}', u) for u in ku['requests']), ku['requests'])
         real = self.out['vuln_api_real']; self.assertNotIn('Sin regla verificada disponible', real['body'], 'gateway shape: a withheld section is never "no rule"'); self.assertIn('Premium', real['body'])
 
+    def test_vulnerability_page_keeps_withheld_sections_after_a_language_change(self):
+        # Codex pr81 MEDIUM 1: apiPage mutated the cached API answer, so the second render (language change) lost the restriction markers
+        r = self.out['vuln_api_relang']; self.assertIn('Premium', r['first'])
+        self.assertIn('Premium', r['after'], 'after a language change a withheld section is still withheld'); self.assertNotIn('No verified rule available', r['after'])
+
+    def test_vulnerability_page_leaves_loading_when_the_kev_record_cannot_be_read(self):
+        # Codex pr81 MEDIUM 2: a rejected MG.kev.get (index fine, shard refused) was unhandled and the page stayed in its loading state
+        r = self.out['vuln_kev_refused']; self.assertEqual(r['body'], ''); self.assertFalse(r['hidden'])
+        self.assertIsNone(self.out.get('unhandled'), 'no page script leaves a promise rejection unhandled')
+        self.assertIn('no se muestra ningún dato', r['state'])
+
     def test_hub_shows_only_hub_json_numbers_and_routes_searches(self):
         h = self.out['hub']; self.assertIn('12', h['stats']); self.assertIn('340', h['stats']); self.assertIn('3', h['stats']); self.assertIn('rules-20990101-1', h['recent'])
         self.assertIn('válida', h['integrity']); self.assertEqual(self.out['hub_go_cve'], 'vuln.html?id=CVE-2021-44228'); self.assertEqual(self.out['hub_go_text'], 'vulnerabilities.html?q=openssl')

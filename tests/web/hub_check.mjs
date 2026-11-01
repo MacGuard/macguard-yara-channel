@@ -37,6 +37,7 @@ function page({ api = '', search = '', files = {}, apiAnswers = {}, hold = null 
 const fx = (n) => JSON.parse(readFileSync(`${fxDir}/${n}`, 'utf8'));
 const files = {}; for (const n of ['kev/index.json', 'kev/2021.json', 'kev/2024.json', 'hub.json', 'sources.json']) if (existsSync(`${fxDir}/${n}`)) files[n] = readFileSync(`${fxDir}/${n}`, 'utf8');
 const out = {};
+process.on('unhandledRejection', (e) => { (out.unhandled ||= []).push(String(e).slice(0, 200)); });   // a page script that leaves a promise rejection unhandled is a defect, reported to the tests
 const rows = (p) => p.node('vtable-tbody').kids.map((tr) => tr.kids.map((td) => td.textContent));
 // 1. identifier detection (common.js)
 { const p = page({}); p.run('common.js'); const k = (v) => { const r = p.ctx.MG.idKind(v); return r ? r.kind + ' ' + r.id : null; };
@@ -90,6 +91,15 @@ for (const [name, id] of [['vuln_kev', 'CVE-2021-44228'], ['vuln_notkev', 'CVE-2
   const p = page({ api, files, search: '?id=' + rec.id, apiAnswers: { '/v1/vulns/': { record: rec, restricted: [{ section: 'detections', capability: 'rules.premium.read' }], access_mode: 'ENFORCED' } } });
   for (const f of ['common.js', 'vulnrecord.js', 'kevstatic.js', 'vuln.js']) p.run(f); await settle();
   out.vuln_api_real = { body: p.node('vbody').textContent }; }
+// 7c. Codex pr81 MEDIUM: a language change re-renders the API record from the cached answer; a section withheld as {restricted:true} must still be shown as withheld
+{ const api = 'https://api.example.test', rec = JSON.parse(read('tests/web/fixtures/vuln-record.json')); rec.detections = { restricted: true, capability: 'intel.correlation.read' };
+  const p = page({ api, files, search: '?id=' + rec.id, apiAnswers: { '/v1/vulns/': rec } }); for (const f of ['common.js', 'vulnrecord.js', 'kevstatic.js', 'vuln.js']) p.run(f); await settle();
+  const first = p.node('vbody').textContent; p.node('lang').value = 'en'; p.node('lang').fire('change'); await settle();
+  out.vuln_api_relang = { first, after: p.node('vbody').textContent }; }
+// 7d. Codex pr81 MEDIUM: the KEV index loads but the record's shard is refused (tampered): the page leaves the loading state with an explicit message
+{ const bad = { ...files, 'kev/2021.json': files['kev/2021.json'].replace('Synthetic', 'Tampered') };
+  const p = page({ files: bad, search: '?id=CVE-2021-44228' }); for (const f of ['common.js', 'vulnrecord.js', 'kevstatic.js', 'vuln.js']) p.run(f); await settle();
+  out.vuln_kev_refused = { body: p.node('vbody').textContent, state: p.node('vstate').textContent, hidden: p.node('vstate').hidden }; }
 // 8. hub: stats only from hub.json, search routes by kind
 { const p = page({ files }); p.run('common.js'); p.run('hub.js'); await settle();
   out.hub = { stats: p.node('hub-stats').textContent, integrity: p.node('hub-int').textContent, recent: p.node('hub-rec').textContent };
