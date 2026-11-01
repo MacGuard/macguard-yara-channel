@@ -52,6 +52,11 @@ class StatusMessages(unittest.TestCase):
         self.assertEqual(h.count('<p class="status" role="status" data-i="pending">'), 2, 'channel.js rewrites both channel-status lines')
         self.assertIn('<div class="tiles" id="hub-stats" aria-live="polite">', h, 'hub.js replaces "Loading…" by the numbers or an error')
 
+    def test_docs_copy_feedback_goes_to_a_status_region(self):
+        # the copy buttons keep a fixed aria-label, so "Copied" on the button is never heard; docs.js announces it (browser check: cross_browser.mjs)
+        js = (WEB / 'docs.js').read_text()
+        self.assertRegex(js, r"setAttribute\('role', 'status'\)"); self.assertRegex(js, r"announce\(ui\.copied \|\| 'Copied'\)")
+        self.assertIn('.sr-status{', (WEB / 'docs.css').read_text())
 
 
 if __name__ == '__main__':

@@ -75,6 +75,14 @@ for (const name of engines) {
       }
       await ctx.close();
     }
+    // 5. accessibility interactions of the docs (WCAG 4.1.3)
+    { const ctx = await browser.newContext({ viewport: { width: 390, height: 800 } });
+      const page = await ctx.newPage(); await page.goto(`${base}/docs/en/merkle.html`, { waitUntil: 'networkidle' });
+      await page.waitForFunction(() => window.__docsDiagrams && window.__docsDiagrams.done, null, { timeout: 60000 }).catch(() => {});
+      await page.click('.codeblock .copy'); await page.waitForTimeout(500);
+      const said = await page.evaluate(() => { const s = document.querySelector('.sr-status[role="status"]'); return s ? s.textContent : null; });
+      rec(name, 'docs: copying code is announced in a status message', said === 'Copied', `status=${JSON.stringify(said)}`);
+      await ctx.close(); }
     srv.close();
   } finally { await browser.close(); }
 }

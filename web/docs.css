@@ -18,3 +18,4 @@ article code{font-family:ui-monospace,Menlo,monospace;font-size:.92em;background
 .docs-main .pager{display:flex;justify-content:space-between;gap:12px;margin:34px 0 10px;flex-wrap:wrap}.docs-main .pager a{border:1px solid var(--line);border-radius:8px;padding:8px 12px;text-decoration:none;background:var(--panel)}
 .status-actual{color:#1b6e3c;font-weight:700}.status-proposal{color:#8a5a00;font-weight:700}
 @media(max-width:850px){.docs-side{width:100%}.docs-nav{display:flex;overflow:auto;gap:4px;padding-bottom:6px}.docs-nav a{white-space:nowrap}.docs-main{padding:16px}article h1{font-size:24px}.dg-stage{max-height:60vh}}
+.sr-status{position:absolute;width:1px;height:1px;margin:-1px;padding:0;border:0;overflow:hidden;clip:rect(0 0 0 0);clip-path:inset(50%);white-space:nowrap}

@@ -19,8 +19,14 @@ function btn(label, text, fn) {
 document.querySelectorAll('.codeblock').forEach(function (cb) {
   var b = btn(ui.copy_code || 'Copy', ui.copy_code || 'Copy', function () { copy(cb.querySelector('code').textContent, b, ui.copy_code); }); b.className = 'copy'; cb.appendChild(b);
 });
+/* WCAG 4.1.3: the buttons keep a fixed aria-label, so "Copied" on the button is never heard; one polite status region announces it */
+var live = null;
+function announce(msg) {
+  if (!live) { live = document.createElement('p'); live.className = 'sr-status'; live.setAttribute('role', 'status'); live.setAttribute('aria-live', 'polite'); document.body.appendChild(live); }
+  live.textContent = ''; setTimeout(function () { live.textContent = msg; }, 50);
+}
 function copy(text, button, original) {
-  function done() { var o = button.textContent; button.textContent = ui.copied || 'Copied'; setTimeout(function () { button.textContent = original || o; }, 1500); }
+  function done() { var o = button.textContent; button.textContent = ui.copied || 'Copied'; announce(ui.copied || 'Copied'); setTimeout(function () { button.textContent = original || o; }, 1500); }
   if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(text).then(done, fallback); else fallback();
   function fallback() { var t = document.createElement('textarea'); t.value = text; t.setAttribute('readonly', ''); t.style.position = 'fixed'; t.style.opacity = '0'; document.body.appendChild(t); t.select(); try { document.execCommand('copy'); done(); } catch (e) {} t.remove(); }
 }
