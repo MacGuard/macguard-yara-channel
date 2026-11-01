@@ -75,13 +75,19 @@ for (const name of engines) {
       }
       await ctx.close();
     }
-    // 5. accessibility interactions of the docs (WCAG 4.1.3)
+    // 5. accessibility interactions of the docs (WCAG 4.1.3, 2.4.11/2.1.2), with the element Fullscreen API removed as on iPhone Safari
     { const ctx = await browser.newContext({ viewport: { width: 390, height: 800 } });
+      await ctx.addInitScript(() => { Object.defineProperty(Element.prototype, 'requestFullscreen', { value: undefined, configurable: true }); });
       const page = await ctx.newPage(); await page.goto(`${base}/docs/en/merkle.html`, { waitUntil: 'networkidle' });
       await page.waitForFunction(() => window.__docsDiagrams && window.__docsDiagrams.done, null, { timeout: 60000 }).catch(() => {});
       await page.click('.codeblock .copy'); await page.waitForTimeout(500);
       const said = await page.evaluate(() => { const s = document.querySelector('.sr-status[role="status"]'); return s ? s.textContent : null; });
       rec(name, 'docs: copying code is announced in a status message', said === 'Copied', `status=${JSON.stringify(said)}`);
+      const fig = '#fig-rules-merkle'; await page.locator(`${fig} .dg-bar button[aria-label="Full screen"]`).click(); await page.waitForTimeout(300);
+      const inside = []; for (let i = 0; i < 25; i++) { await page.keyboard.press(i < 20 ? 'Tab' : 'Shift+Tab'); inside.push(await page.evaluate((f) => document.querySelector(f).contains(document.activeElement), fig)); }
+      const overlay = await page.evaluate((f) => document.querySelector(f).classList.contains('dg-full'), fig); await page.keyboard.press('Escape');
+      const closed = await page.evaluate((f) => !document.querySelector(f).classList.contains('dg-full'), fig);
+      rec(name, 'docs: the full-screen fallback overlay keeps keyboard focus inside and Escape closes it', overlay && inside.every(Boolean) && closed, `overlay=${overlay} inside=${inside.filter(Boolean).length}/25 closed=${closed}`);
       await ctx.close(); }
     srv.close();
   } finally { await browser.close(); }

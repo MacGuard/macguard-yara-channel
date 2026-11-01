@@ -53,6 +53,16 @@ function build(fig) {
   fig.insertBefore(bar, stage);
   stage.addEventListener('keydown', function (e) { if (e.key === '+' || e.key === '=') { setScale(fig, fig._scale * 1.25); e.preventDefault(); } else if (e.key === '-') { setScale(fig, fig._scale / 1.25); e.preventDefault(); } else if (e.key === '0') { fit(fig); e.preventDefault(); } });
 }
+/* WCAG 2.4.11/2.1.2: without the Fullscreen API (iPhone Safari) the diagram becomes a fixed overlay that covers the page; Tab stays inside it
+   (the page behind is hidden, so a focused link there would be invisible) and Escape or the same button closes it */
+document.addEventListener('keydown', function (e) {
+  var fig = document.querySelector('.diagram.dg-full'); if (!fig || e.key !== 'Tab') return;
+  var f = Array.prototype.filter.call(fig.querySelectorAll('button, a[href], summary, [tabindex]:not([tabindex="-1"])'), function (x) { return x.offsetParent !== null || x === document.activeElement; });
+  if (!f.length) return; var first = f[0], last = f[f.length - 1], a = document.activeElement;
+  if (!fig.contains(a)) { first.focus(); e.preventDefault(); }
+  else if (e.shiftKey && a === first) { last.focus(); e.preventDefault(); }
+  else if (!e.shiftKey && a === last) { first.focus(); e.preventDefault(); }
+});
 function toggleFull(fig) {
   var on = document.fullscreenElement === fig || fig.classList.contains('dg-full');
   if (on) { if (document.fullscreenElement) document.exitFullscreen(); fig.classList.remove('dg-full'); }
