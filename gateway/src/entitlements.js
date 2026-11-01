@@ -73,7 +73,9 @@ export const can = (principal, capability, nowMs) => CAPABILITIES.includes(capab
 // Explicit grants of the authenticated organization (tenant). Read only when a capability is not already given by plan, policy or preview: one D1 read, not one per request.
 export async function loadGrants(db, tenantId) {
   if (!db || !tenantId) return [];
-  const rows = (await db.prepare("SELECT subject_kind, subject_id, capability, granted_at, expires_at, revoked_at, source FROM entitlement_grants WHERE subject_kind = 'organization' AND subject_id = ?").bind(tenantId).all()).results;
+  let rows;
+  try { rows = (await db.prepare("SELECT subject_kind, subject_id, capability, granted_at, expires_at, revoked_at, source FROM entitlement_grants WHERE subject_kind = 'organization' AND subject_id = ?").bind(tenantId).all()).results; }
+  catch (e) { if (/no such table: entitlement_grants/.test(String(e?.message))) return []; throw e; }   // before migration 0004 is applied: no explicit grants (grants only ADD access, so this fails closed)
   return rows.map((r) => ({ subject: { kind: r.subject_kind, id: r.subject_id }, capability: r.capability, granted_at: r.granted_at, expires_at: r.expires_at, revoked_at: r.revoked_at, source: r.source }));
 }
 export const principalOf = (ctx, eff, grants = []) => ({ anonymous: !ctx?.tenant, organizations: ctx?.tenant ? [{ id: ctx.tenant.id }] : [], plan: ctx?.tenant?.plan ?? 'community', subscribed: !!eff?.subscribed,

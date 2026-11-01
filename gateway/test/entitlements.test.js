@@ -198,3 +198,18 @@ test('Codex round 2 (MEDIUM): the entitlements snapshot lists only current grant
   const ent = resolve(P({ grants: [...old, cur] }), NOW), snap = snapshot(ctx, null, ent, [...old, cur], NOW);
   assert.equal(snap.grants.length, 1); assert.equal(snap.grants[0].capability, 'research.poc.metadata.read'); assert.deepEqual(validate(SCHEMA, snap, 'snapshot'), []);
 });
+test('Codex round 2 (MEDIUM, large): the account endpoint advertises exactly what the premium routes enforce, each resolved with its own product policy', async () => {
+  // premium product charges (PAID) while the api product stays in the free launch: a community key gets the api preview but NOT the premium routes
+  const d = clone(SEED); d.products = { ...(d.products || {}), premium: { mode: 'PAID' } }; delete d.entitlements;
+  const w = await apiWorld({ policy: d }); const key = await K(w);
+  const ent = (await w.call('/v1/account/entitlements', { key })).json, list = await w.call('/v1/premium/releases', { key }), ioc = await w.call('/v1/intelligence/ioc/search', { key, method: 'POST', json: { values: ['203.0.113.7'] } });
+  assert.equal(ent.capabilities.includes('rules.premium.read'), list.status === 200, `advertised ${ent.capabilities.includes('rules.premium.read')} vs route ${list.status}`);
+  assert.equal(ent.capabilities.includes('ioc.premium.read'), ioc.status === 200, `advertised ${ent.capabilities.includes('ioc.premium.read')} vs route ${ioc.status}`);
+  for (const c of PUBLIC) assert.ok(ent.capabilities.includes(c), c);
+});
+test('the Worker deployed BEFORE migration 0004: every route keeps working, no explicit grant is read (fail closed), and granting says the table is missing', async () => {
+  const w = await apiWorld(); const key = await K(w); await w.db.prepare('DROP TABLE entitlement_grants').run();
+  const e = await w.call('/v1/account/entitlements', { key }); assert.equal(e.status, 200); assert.ok(!e.json.capabilities.includes('research.poc.metadata.read'));
+  assert.equal((await w.call('/v1/community/releases')).status, 200);
+  await assert.rejects(grant(w.db, w.clock, { subjectId: 't1', capability: 'research.poc.metadata.read', reason: 'reviewed research partner', grantedBy: 'admin:test' }), /no such table/);
+});

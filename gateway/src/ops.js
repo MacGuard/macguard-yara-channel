@@ -2,9 +2,9 @@
 import { OPS, PLANS } from './plans.js';
 import * as intel from './intel.js';
 import { authorizeDownload, listReleases } from './downloads.js';
-import { monthUsage, run, usageEventId } from './pipeline.js';
+import { authorize, effectiveFor, monthUsage, run, usageEventId } from './pipeline.js';
 import { effective, productOf } from './policy.js';
-import { accessMode, entitlementsFor, loadGrants, redactIntel, snapshot } from './entitlements.js';
+import { PUBLIC, accessMode, entitlementsFor, loadGrants, principalOf, redactIntel, resolve, snapshot } from './entitlements.js';
 import { emit } from './events.js';
 import { kpis } from './kpi.js';
 import { HttpError, windows } from './util.js';
@@ -54,7 +54,23 @@ const H = {
 };
 
 // The capability records of GET /v1/account/entitlements (contract macguard.entitlements/1), next to the existing plan/features/quotas fields.
-const entitlementsView = (ctx, eff, grants, nowMs) => { const s = snapshot(ctx, eff, eff.entitlements, grants, nowMs); return { entitlements: s, capabilities: s.capabilities, access_mode: s.access_mode, preview: s.preview_capabilities.length > 0 }; };
+// A capability that gates operations is listed only if authorize() would let at least one of those operations through for THIS key, each resolved with its OWN
+// product policy (premium routes use the premium product, intel routes the api product): what the endpoint advertises is what the routes enforce.
+// Public capabilities are always listed (they describe the public portal, not the licensed API lookup, which keeps its own commercial gate).
+const CAP_OPS = Object.entries(OPS).reduce((m, [op, s]) => (s.capability && !PUBLIC.includes(s.capability) ? { ...m, [s.capability]: [...(m[s.capability] || []), op] } : m), {});
+function effectiveEntitlements(ctx, grants, nowMs, base) {
+  const caps = new Set(base.caps), via = { ...base.via }, preview = new Set(base.preview);
+  for (const [c, ops] of Object.entries(CAP_OPS)) {
+    let hit = null;
+    for (const op of ops) {
+      const e = effectiveFor(ctx, op, nowMs), ent = resolve(principalOf(ctx, e, grants), nowMs);
+      try { authorize(ctx, op, e, ent); hit = ent; break; } catch (err) { if (!(err instanceof HttpError)) throw err; }
+    }
+    if (hit) { caps.add(c); via[c] = hit.via[c]; if (hit.preview.has(c)) preview.add(c); else preview.delete(c); } else { caps.delete(c); delete via[c]; preview.delete(c); }
+  }
+  return { ...base, caps, via, preview };
+}
+const entitlementsView = (ctx, eff, grants, nowMs) => { const s = snapshot(ctx, eff, effectiveEntitlements(ctx, grants, nowMs, resolve(principalOf(ctx, eff, grants), nowMs)), grants, nowMs); return { entitlements: s, capabilities: s.capabilities, access_mode: s.access_mode, preview: s.preview_capabilities.length > 0 }; };
 const INTEL_READS = new Set(['intel.hash', 'intel.cve', 'intel.ioc.search']);
 
 export async function execute(deps, ctx, opName, args, { idemKey = null, requestId }) {
