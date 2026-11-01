@@ -80,5 +80,20 @@ class ThemeToggle(unittest.TestCase):
         self.assertEqual(r['theme']['after']['aria-pressed'], 'true', 'a click turns the dark theme on and says so')
         self.assertEqual(IndexLanguage.run_index(self, 'es')['theme']['before']['aria-label'], 'Tema oscuro')
 
+
+class LanguageOfParts(unittest.TestCase):
+    """WCAG 3.1.2: deliberately bilingual links and the docs' language switch carry their own lang; docs texts follow the page language."""
+    def test_bilingual_verifier_links_mark_each_language(self):
+        for name in ('rules.html', 'transparency.html'):
+            h = (WEB / name).read_text()
+            self.assertIn('<span lang="es">Descargar verificador</span> · <span lang="en">Download verifier</span>', h, name)
+            self.assertIn('lang="es" hreflang="es">Cómo verificar</a>', h, name); self.assertIn('lang="en" hreflang="en">How to verify</a>', h, name)
+
+    def test_docs_language_switch_pager_and_diagram_error_follow_the_language(self):
+        src = (ROOT / 'scripts' / 'build_docs.py').read_text()
+        self.assertIn('<a id="lang-switch" class="btn" lang="{other}" hreflang="{other}"', src); self.assertNotIn('aria-label="pager"', src)
+        self.assertIn("'draw_error': 'No se pudo dibujar el diagrama. Su código está debajo.'", src)
+        js = (WEB / 'docs.js').read_text(); self.assertIn('ui.draw_error', js); self.assertNotIn("<p class=\"badmsg\">The diagram", js)
+
 if __name__ == '__main__':
     unittest.main()

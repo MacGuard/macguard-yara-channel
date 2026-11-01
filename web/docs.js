@@ -80,7 +80,7 @@ function renderFigure(fig) {
     var holder = document.createElement('div'); holder.innerHTML = r.svg; var svg = holder.firstElementChild; stage.appendChild(svg);
     svg.setAttribute('role', 'img'); svg.setAttribute('aria-label', fig.querySelector('figcaption').textContent); svg.removeAttribute('style');
     fig._nat = natural(svg); fig._minFont = minFont(svg); build(fig); fit(fig); state.rendered++;
-  }).catch(function (e) { state.errors.push({ diagram: fig.getAttribute('data-diagram'), error: String(e && e.message || e).slice(0, 200) }); stage.innerHTML = '<p class="badmsg">The diagram could not be drawn. Its source is below.</p>'; fig.querySelector('.dg-code').open = true; });
+  }).catch(function (e) { state.errors.push({ diagram: fig.getAttribute('data-diagram'), error: String(e && e.message || e).slice(0, 200) }); stage.textContent = ''; var bm = document.createElement('p'); bm.className = 'badmsg'; bm.textContent = ui.draw_error || 'The diagram could not be drawn. Its source is below.'; stage.appendChild(bm); fig.querySelector('.dg-code').open = true; });
 }
 function renderAll() {
   var figs = document.querySelectorAll('figure.diagram'); state.total = figs.length; state.rendered = 0; state.errors = []; state.done = false;

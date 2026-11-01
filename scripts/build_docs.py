@@ -22,11 +22,11 @@ SITE_BASE = 'https://macguard.github.io/macguard-yara-channel/'
 UI = {
     'es': {'docs': 'Documentación', 'home': 'Inicio', 'on_page': 'En esta página', 'other_lang': 'English', 'skip': 'Saltar al contenido', 'prev': 'Anterior', 'next': 'Siguiente', 'lang_label': 'Idioma', 'theme': 'Claro / oscuro',
            'zoom_in': 'Acercar', 'zoom_out': 'Alejar', 'fit': 'Ajustar al ancho', 'reset': 'Tamaño real', 'full': 'Pantalla completa', 'copy': 'Copiar código Mermaid', 'svg': 'Descargar SVG', 'copied': 'Copiado',
-           'desc': 'Descripción del diagrama', 'source': 'Código Mermaid', 'diagram': 'Diagrama', 'copy_code': 'Copiar', 'nojs': 'Sin JavaScript no se dibuja el diagrama: aquí tiene su descripción y su código fuente.', 'rendering': 'Dibujando el diagrama…',
+           'desc': 'Descripción del diagrama', 'source': 'Código Mermaid', 'diagram': 'Diagrama', 'copy_code': 'Copiar', 'pager': 'Paginación', 'draw_error': 'No se pudo dibujar el diagrama. Su código está debajo.', 'nojs': 'Sin JavaScript no se dibuja el diagrama: aquí tiene su descripción y su código fuente.', 'rendering': 'Dibujando el diagrama…',
            'footer': 'Generada desde docs-src/ con scripts/build_docs.py. Proyecto independiente, sin afiliación con las fuentes.', 'sidebar': 'Documentación', 'status_actual': 'ACTUAL', 'status_proposal': 'PROPUESTA'},
     'en': {'docs': 'Documentation', 'home': 'Home', 'on_page': 'On this page', 'other_lang': 'Español', 'skip': 'Skip to content', 'prev': 'Previous', 'next': 'Next', 'lang_label': 'Language', 'theme': 'Light / dark',
            'zoom_in': 'Zoom in', 'zoom_out': 'Zoom out', 'fit': 'Fit to width', 'reset': 'Actual size', 'full': 'Full screen', 'copy': 'Copy Mermaid code', 'svg': 'Download SVG', 'copied': 'Copied',
-           'desc': 'Diagram description', 'source': 'Mermaid code', 'diagram': 'Diagram', 'copy_code': 'Copy', 'nojs': 'Without JavaScript the diagram is not drawn: its description and source code are here.', 'rendering': 'Drawing the diagram…',
+           'desc': 'Diagram description', 'source': 'Mermaid code', 'diagram': 'Diagram', 'copy_code': 'Copy', 'pager': 'Pages', 'draw_error': 'The diagram could not be drawn. Its source is below.', 'nojs': 'Without JavaScript the diagram is not drawn: its description and source code are here.', 'rendering': 'Drawing the diagram…',
            'footer': 'Generated from docs-src/ with scripts/build_docs.py. Independent project, not affiliated with the sources.', 'sidebar': 'Documentation', 'status_actual': 'CURRENT', 'status_proposal': 'PROPOSED'},
 }
 
@@ -184,17 +184,17 @@ def page_html(lang, slug, meta, content, toc, pages, ctx, prev_next):
     pn = ''.join(f'<a rel="{rel}" href="{p["slug"]}.html">{esc(lab)}: {esc(p["title"][lang])}</a>' for rel, lab, p in prev_next if p)
     needs_mermaid = 'class="diagram"' in content
     scripts = (f'<script src="../../{MERMAID_FILE}" integrity="sha256-{sri()}" crossorigin="anonymous"></script>' if needs_mermaid else '') + '<script src="../../docs.js"></script>'
-    ui_json = esc(json.dumps({k: ui[k] for k in ('zoom_in', 'zoom_out', 'fit', 'reset', 'full', 'copy', 'svg', 'copied', 'copy_code')}))
+    ui_json = esc(json.dumps({k: ui[k] for k in ('zoom_in', 'zoom_out', 'fit', 'reset', 'full', 'copy', 'svg', 'copied', 'copy_code', 'draw_error')}))
     return f'''<!doctype html><html lang="{lang}"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>{esc(meta["title"])} · {esc(ui["docs"])} · MacGuard YARA Channel</title>
 <meta name="description" content="{esc(meta.get("summary", ""))}"><link rel="stylesheet" href="../../style.css"><link rel="stylesheet" href="../../docs.css">
 <link rel="alternate" hreflang="{other}" href="../{other}/{slug}.html">
 <a class="skip" href="#main">{esc(ui["skip"])}</a>
 <aside class="docs-side"><h2>🛡 MacGuard</h2><small>YARA Rules Channel</small><nav aria-label="{esc(ui["sidebar"])}"><a class="home" href="../../index.html">{esc(ui["home"])}</a><ol class="docs-nav">{nav}</ol></nav></aside>
-<main id="main" class="docs-main" data-ui="{ui_json}"><header class="docs-top"><div><small>MACGUARD · {esc(ui["docs"]).upper()}</small></div><div><label class="sr" for="lang">{esc(ui["lang_label"])}</label><a id="lang-switch" class="btn" hreflang="{other}" href="../{other}/{slug}.html">{esc(ui["other_lang"])}</a>
+<main id="main" class="docs-main" data-ui="{ui_json}"><header class="docs-top"><div><small>MACGUARD · {esc(ui["docs"]).upper()}</small></div><div><label class="sr" for="lang">{esc(ui["lang_label"])}</label><a id="lang-switch" class="btn" lang="{other}" hreflang="{other}" href="../{other}/{slug}.html">{esc(ui["other_lang"])}</a>
 <button id="theme" type="button" aria-label="{esc(ui["theme"])}">◐</button></div></header>
 <article><h1>{esc(meta["title"])}</h1><p class="lead">{esc(meta.get("summary", ""))}</p>
 <nav class="toc" aria-label="{esc(ui["on_page"])}"><strong>{esc(ui["on_page"])}</strong><ul>{toc_html}</ul></nav>
-{content}</article><nav class="pager" aria-label="pager">{pn}</nav><footer>{esc(ui["footer"])}</footer></main>{scripts}</html>'''
+{content}</article><nav class="pager" aria-label="{esc(ui["pager"])}">{pn}</nav><footer>{esc(ui["footer"])}</footer></main>{scripts}</html>'''
 
 def sri():
     return base64.b64encode(hashlib.sha256((ROOT / 'web' / MERMAID_FILE).read_bytes()).digest()).decode()
