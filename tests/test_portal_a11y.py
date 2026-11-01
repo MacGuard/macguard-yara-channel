@@ -45,5 +45,14 @@ class IndexLanguage(unittest.TestCase):
         self.assertEqual(self.run_index('en')['texts']['skip'], 'Skip to content'); self.assertEqual(self.run_index('es')['texts']['skip'], 'Saltar al contenido')
 
 
+class StatusMessages(unittest.TestCase):
+    """WCAG 4.1.3: text that scripts change after load without moving focus is in a live region."""
+    def test_the_channel_status_and_the_hub_numbers_of_the_home_are_announced(self):
+        h = (WEB / 'index.html').read_text()
+        self.assertEqual(h.count('<p class="status" role="status" data-i="pending">'), 2, 'channel.js rewrites both channel-status lines')
+        self.assertIn('<div class="tiles" id="hub-stats" aria-live="polite">', h, 'hub.js replaces "Loading…" by the numbers or an error')
+
+
+
 if __name__ == '__main__':
     unittest.main()
