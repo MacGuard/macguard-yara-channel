@@ -19,6 +19,13 @@ test('a faithful export restores into an isolated database and passes every inte
 test('a truncated export is detected (it fails to load or is missing tables)', async () => {
   const sql = dumpSql((await populated()).db.raw); const cut = sql.slice(0, Math.floor(sql.length * 0.6)); const r = await verifyRestore(cut); assert.equal(r.ok, false);
 });
+test('an export truncated before the audit and policy tables is a FAILED restore with named checks, never an exception', async () => {
+  const sql = dumpSql((await populated()).db.raw); const at = Math.min(...['CREATE TABLE audit', 'CREATE TABLE policy_versions'].map((s) => sql.indexOf(s)).filter((i) => i > 0)); assert.ok(at > 0);
+  for (const cut of [sql.slice(0, at), sql.slice(0, Math.floor(sql.length * 0.6)), sql.slice(0, Math.floor(sql.length * 0.3))]) {
+    const r = await verifyRestore(cut); assert.equal(r.ok, false);
+    for (const c of r.checks.filter((x) => /audit hash chain|policy versions|policy pointer/.test(x.name))) assert.ok(!/no such table|SQLITE_/i.test(c.detail), `fixed text only, not the raw SQLite message: ${c.detail}`);
+  }
+});
 test('a tampered audit row breaks the chain and the restore is refused', async () => {
   const w = await populated(); const sql = dumpSql(w.db.raw).replace("'test.event'", "'test.forged'"); const r = await verifyRestore(sql); assert.equal(r.ok, false); assert.ok(failed(r).includes('audit hash chain intact'));
 });

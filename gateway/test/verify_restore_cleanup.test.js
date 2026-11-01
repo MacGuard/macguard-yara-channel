@@ -15,7 +15,10 @@ test('verifyRestore: an exception during the checks (unparseable policy document
     writeFileSync(f, "CREATE TABLE policy_versions(version INTEGER, doc TEXT, doc_sha256 TEXT, prev_sha256 TEXT);\nINSERT INTO policy_versions VALUES(1,'{not json','x','0');\n");
     const L = await loadExport({ file: f }, { tmpRoot: root }); assert.equal(L.error, undefined, String(L.error));
     assert.equal(readdirSync(root).filter((n) => n.startsWith('mg-load-')).length, 1, 'the restore database lives on disk while open');
-    await assert.rejects(verifyRestore(L));
+    // the checks themselves no longer throw on a missing table (they fail); an unreadable reference schema still throws inside the try, which is the path under test
+    await assert.rejects(verifyRestore(L, { schemaFile: new URL('file:///nonexistent-mg-schema/schema.sql') }));
     assert.deepEqual(readdirSync(root).filter((n) => n.startsWith('mg-load-')), [], 'no plaintext restore directory is left behind');
+    const L2 = await loadExport({ file: f }, { tmpRoot: root }); const r = await verifyRestore(L2);
+    assert.equal(r.ok, false, 'the unparseable document and the missing tables are FAILED checks'); assert.deepEqual(readdirSync(root).filter((n) => n.startsWith('mg-load-')), [], 'and cleaned up as well');
   } finally { rmSync(d, { recursive: true, force: true }); }
 });
