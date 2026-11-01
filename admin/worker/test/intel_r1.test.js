@@ -118,7 +118,7 @@ test('KEV: UNKNOWN without a snapshot, NOT_LISTED only "as of" a snapshot (never
   const db = fresh(), v = await putVulnerability(db, { namespace: 'cve', key: 'CVE-2025-5555' }, NOW), k = await putVulnerability(db, { namespace: 'cve', key: 'CVE-2025-6666' }, NOW);
   let s = await exploitationStatus(db, v); assert.equal(s.kev.status, 'UNKNOWN'); assert.equal(s.evidence_status, 'NO_EVIDENCE_RECORDED');
   const snap = await recordSnapshot(db, { source_id: 'cisa-kev', snapshot_at: '2026-11-01T06:00:00Z', item_count: 1800, sha256: 'a'.repeat(64) }, NOW);
-  s = await exploitationStatus(db, v); assert.equal(s.kev.status, 'NOT_LISTED'); assert.equal(s.kev.as_of, '2026-11-01T06:00:00Z'); assert.match(s.kev.note, /not evidence that it is not exploited/);
+  s = await exploitationStatus(db, v); assert.equal(s.kev.status, 'NOT_LISTED'); assert.equal(s.kev.as_of, '2026-11-01T06:00:00.000Z', 'stored timestamps are canonical'); assert.match(s.kev.note, /not evidence that it is not exploited/);
   assert.equal(s.evidence_status, 'NO_EVIDENCE_RECORDED'); assert.ok(!JSON.stringify(s).includes('NOT_EXPLOITED'));
   await addExploitation(db, k, { source_id: 'cisa-kev', kind: 'KEV_LISTED', listed_at: '2026-10-15', due_date: '2026-11-05', required_action: 'Apply vendor updates.', evidence_ref: 'kev:CVE-2025-6666', snapshot_id: snap, observed_at: '2026-11-01T06:00:00Z' }, NOW);
   s = await exploitationStatus(db, k); assert.deepEqual([s.kev.status, s.kev.date_added, s.kev.due_date, s.evidence_status], ['LISTED', '2026-10-15', '2026-11-05', 'EVIDENCE_RECORDED']);
@@ -138,7 +138,7 @@ test('affected products and version ranges: a range is its own identity, fixed a
   await assert.rejects(addAffectedRange(db, { vuln_id: v, product, scheme: 'SEMVER', fixed: '2', last_affected: '1', source_id: 'osv' }, NOW), /exclusive/);
   await assert.rejects(addAffectedRange(db, { vuln_id: v, product, scheme: 'ECOSYSTEM', introduced: '0', source_id: 'osv' }, NOW), /ecosystem/);
   assert.throws(() => raw(db, 'UPDATE intel_version_ranges SET fixed = ? WHERE entity_id = ?', '9', a.rangeId), /immutable/);
-  const rec = await vulnerabilityRecord(db, v); assert.equal(rec.affected.length, 2); assert.deepEqual(rec.affected.find((x) => x.scheme === 'SEMVER'), { product: { namespace: 'purl', key: 'pkg:npm/left-pad' }, scheme: 'SEMVER', ecosystem: null, introduced: '1.0.0', fixed: '1.3.1', last_affected: null, source: 'osv', confidence: 'REPORTED' });
+  const rec = await vulnerabilityRecord(db, v); assert.equal(rec.affected.length, 2); assert.deepEqual(rec.affected.find((x) => x.scheme === 'SEMVER'), { product: { namespace: 'purl', key: 'pkg:npm/left-pad' }, scheme: 'SEMVER', ecosystem: null, introduced: '1.0.0', fixed: '1.3.1', last_affected: null, version_limit: null, source: 'osv', confidence: 'REPORTED' });
 });
 
 // ---- rules, IOC, packages, PoC ----
@@ -197,7 +197,7 @@ test('sizing: bytes per vulnerability with realistic field lengths stay within t
   for (let i = 0; i < N; i++) {
     const id = `vulnerability:cve:CVE-2025-${String(10000 + i)}`;
     raw(db, 'INSERT INTO intel_entities (id,type,namespace,key,display,attrs,source_id,first_seen,updated_at) VALUES (?,?,?,?,?,?,?,?,?)', id, 'vulnerability', 'cve', `CVE-2025-${10000 + i}`, 'x'.repeat(90), JSON.stringify({ summary: 'y'.repeat(350), published: NOW, modified: NOW }), 'nvd', NOW, NOW);
-    raw(db, 'INSERT INTO intel_severity_assessments (vuln_id,source_id,cvss_version,availability,vector,base_score,severity,assessed_at,recorded_at) VALUES (?,?,?,?,?,?,?,?,?)', id, 'nvd', '3.1', 'AVAILABLE', V31, 9.8, 'CRITICAL', NOW, NOW);
+    raw(db, 'INSERT INTO intel_severity_assessments (vuln_id,source_id,cvss_version,availability,vector,base_score,severity,assessed_at,recorded_at) VALUES (?,?,?,?,?,?,?,?,?)', id, 'nvd', '3.1', 'AVAILABLE', V31, 9.8, 'CRITICAL', new Date(NOW).toISOString(), NOW);
     raw(db, 'INSERT INTO intel_epss_latest (vuln_id,source_id,score_date,probability,percentile,model_version,recorded_at) VALUES (?,?,?,?,?,?,?)', id, 'first-epss', '2026-10-31', 0.01, 0.5, 'v2025.03.14', NOW);
   }
   const perVuln = (pages() - base) / N;
@@ -283,5 +283,32 @@ test('FR-F3: a KEV listing newer than the latest snapshot is reported as of the 
   const db = fresh(), v = await putVulnerability(db, { namespace: 'cve', key: 'CVE-2024-6666' }, NOW);
   await recordSnapshot(db, { source_id: 'cisa-kev', snapshot_at: '2026-10-01T00:00:00Z', item_count: 1700, sha256: 'c'.repeat(64) }, NOW);
   await addExploitation(db, v, { source_id: 'cisa-kev', kind: 'KEV_LISTED', listed_at: '2026-10-20', evidence_ref: 'kev/x', observed_at: '2026-10-20T08:00:00Z' }, NOW);
-  const k = (await exploitationStatus(db, v)).kev; assert.equal(k.status, 'LISTED'); assert.equal(k.as_of, '2026-10-20T08:00:00Z');
+  const k = (await exploitationStatus(db, v)).kev; assert.equal(k.status, 'LISTED'); assert.equal(k.as_of, '2026-10-20T08:00:00.000Z');
+});
+
+// ---- extraordinary review r1-extra-20261101 (on 327d937) ----
+test('X-F1: timestamps are stored canonical, so a later assessment in the same second wins; a raw non-canonical write is refused', async () => {
+  const db = fresh(), v = await putVulnerability(db, { namespace: 'cve', key: 'CVE-2026-1111' }, NOW);
+  await addSeverity(db, v, { source_id: 'nvd', cvss_version: '3.1', vector: V31, base_score: 9.8, assessed_at: '2026-11-01T00:00:00Z' }, NOW);
+  await addSeverity(db, v, { source_id: 'nvd', cvss_version: '3.1', vector: 'CVSS:3.1/AV:N/AC:H/PR:L/UI:R/S:U/C:L/I:L/A:L', base_score: 4.6, assessed_at: '2026-11-01T00:00:00.500Z' }, NOW);
+  const cur = (await vulnerabilityRecord(db, v)).severity.filter((x) => x.source === 'nvd'); assert.equal(cur.length, 1); assert.equal(cur[0].base_score, 4.6, JSON.stringify(cur));
+  assert.throws(() => raw(db, "INSERT INTO intel_severity_assessments (vuln_id,source_id,cvss_version,availability,vector,base_score,severity,assessed_at,recorded_at) VALUES (?,?,?,?,?,?,?,?,?)", v, 'x', '3.1', 'AVAILABLE', V31, 9.8, 'CRITICAL', '2026-11-01T00:00:00Z', NOW), /CHECK/);
+});
+test('X-F2: a delisting newer than the last snapshot is NOT_LISTED as of the delisting, never as of the older snapshot that still listed it', async () => {
+  const db = fresh(), v = await putVulnerability(db, { namespace: 'cve', key: 'CVE-2026-2222' }, NOW);
+  await recordSnapshot(db, { source_id: 'cisa-kev', snapshot_at: '2026-10-01T00:00:00Z', item_count: 1700, sha256: 'd'.repeat(64) }, NOW);
+  await addExploitation(db, v, { source_id: 'cisa-kev', kind: 'KEV_LISTED', listed_at: '2026-09-01', evidence_ref: 'kev/a', observed_at: '2026-10-01T00:00:00Z' }, NOW);
+  await addExploitation(db, v, { source_id: 'cisa-kev', kind: 'KEV_DELISTED', evidence_ref: 'kev/b', observed_at: '2026-10-20T00:00:00Z' }, NOW);
+  const k = (await exploitationStatus(db, v)).kev; assert.equal(k.status, 'NOT_LISTED'); assert.equal(k.as_of, '2026-10-20T00:00:00.000Z'); assert.match(k.note, /not evidence that it is not exploited/);
+});
+test('X-F3: an alias conflict is detected even behind more than one page of assertions (no bounded first page)', async () => {
+  const db = fresh(), eu = await putVulnerability(db, { namespace: 'euvd', key: 'EUVD-2025-1' }, NOW), c1 = await putVulnerability(db, { namespace: 'cve', key: 'CVE-2025-0001' }, NOW), c2 = await putVulnerability(db, { namespace: 'cve', key: 'CVE-2025-0002' }, NOW);
+  for (let i = 0; i < 205; i++) await recordAlias(db, { from: eu, to: c1, source_id: `src-${i}`, evidence: SRC, observed_at: NOW }, NOW);
+  await recordAlias(db, { from: eu, to: c2, source_id: 'late', evidence: SRC, observed_at: NOW }, NOW);
+  assert.equal(count(db, "SELECT COUNT(*) AS n FROM intel_relationships r JOIN intel_relationship_state s ON s.relationship_id = r.id WHERE r.type = 'ALIAS_OF' AND s.confidence <> 'DISPUTED'"), 0, 'every conflicting alias is DISPUTED');
+});
+test('X-F4: the export keeps the version_limit of a range (never a broader range than the source gave)', async () => {
+  const db = fresh(), v = await putVulnerability(db, { namespace: 'cve', key: 'CVE-2026-3333' }, NOW);
+  await addAffectedRange(db, { vuln_id: v, product: { namespace: 'purl', key: 'pkg:npm/example' }, scheme: 'SEMVER', introduced: '1.0.0', version_limit: '2.0.0', source_id: 'osv', evidence: SRC }, NOW);
+  const rec = await vulnerabilityRecord(db, v); assert.equal(rec.affected[0].version_limit, '2.0.0'); assert.deepEqual(validate(VSCHEMA, rec, 'rec'), []);
 });

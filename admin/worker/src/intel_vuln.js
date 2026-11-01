@@ -10,6 +10,9 @@ const VULN_NS = ['cve', 'euvd', 'gcve', 'ghsa'];
 const DATE = /^\d{4}-\d{2}-\d{2}$/, TS = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d{1,3})?Z$/;
 const okDate = (s) => typeof s === 'string' && DATE.test(s) && !Number.isNaN(Date.parse(s + 'T00:00:00Z')) && new Date(s + 'T00:00:00Z').toISOString().startsWith(s);
 const okTs = (s) => typeof s === 'string' && TS.test(s) && Number.isFinite(Date.parse(s));
+// Every stored timestamp is CANONICAL (YYYY-MM-DDTHH:MM:SS.mmmZ, always 3 fractional digits): text order is then time order, which the 'current' views and
+// ORDER BY rely on (Codex r1-extra F1). Inputs may omit the fraction; they are normalised here and the database CHECKs refuse anything else.
+const canonTs = (s) => new Date(s).toISOString();
 const need = (c, m) => { if (!c) throw new GraphError(m); };
 
 // ---- CVSS vectors: base metrics per version (mandatory, each once, allowed values). Extra (temporal/environmental/supplemental) metrics are allowed but validated. ----
@@ -60,8 +63,11 @@ export async function recordAlias(db, { from, to, source_id, evidence, observed_
   // Equivalence is bidirectional: look at the aliases of BOTH endpoints in BOTH directions. `from` may have only one alias in `to`'s namespace and `to` only one in
   // `from`'s namespace; any other is a conflict (Codex r1-canonical round 2, F1).
   const fromNs = from.split(':')[1];
-  const aliasesIn = async (x, ns, except) => (await db.prepare("SELECT r.id, CASE WHEN r.from_id = ? THEN r.to_id ELSE r.from_id END AS other, s.confidence FROM intel_relationships r JOIN intel_relationship_state s ON s.relationship_id = r.id WHERE r.type = 'ALIAS_OF' AND (r.from_id = ? OR r.to_id = ?) ORDER BY r.id LIMIT ?").bind(x, x, x, MAX_PAGE).all()).results
-    .filter((o) => o.id !== id && o.other.split(':')[1] === ns && o.other !== except);
+  // Filtered IN SQL (other endpoint in `ns`, not `except`, not this relationship) and paged to the end: a bounded first page must never leave a conflict out (Codex r1-extra F3).
+  const aliasesIn = async (x, ns, except) => { const out = []; let after = '';
+    for (;;) { const page = (await db.prepare("SELECT id, other, confidence FROM (SELECT r.id AS id, CASE WHEN r.from_id = ? THEN r.to_id ELSE r.from_id END AS other, s.confidence AS confidence FROM intel_relationships r JOIN intel_relationship_state s ON s.relationship_id = r.id WHERE r.type = 'ALIAS_OF' AND (r.from_id = ? OR r.to_id = ?)) WHERE other LIKE ? AND other <> ? AND id <> ? AND id > ? ORDER BY id LIMIT ?")
+        .bind(x, x, x, `vulnerability:${ns}:%`, except, id, after, MAX_PAGE).all()).results;
+      out.push(...page); if (page.length < MAX_PAGE) return out; after = page[page.length - 1].id; } };
   const clash = [...await aliasesIn(from, toNs, to), ...await aliasesIn(to, fromNs, from)];
   if (clash.length) for (const r of [{ id, confidence: (await db.prepare('SELECT confidence FROM intel_relationship_state WHERE relationship_id = ?').bind(id).first()).confidence }, ...clash])
     if (r.confidence !== 'DISPUTED') await assess(db, r.id, { confidence: 'DISPUTED', reason: `conflicting ${toNs} aliases for ${from}: kept separate, never merged`, actor: 'system' }, now);
@@ -90,7 +96,7 @@ export async function addSeverity(db, vulnId, { source_id, cvss_version, vector 
   let severity = null;
   if (availability === 'AVAILABLE') { need(validCvssVector(cvss_version, vector), `invalid CVSS ${cvss_version} vector`); need(typeof base_score === 'number' && base_score >= 0 && base_score <= 10 && Math.abs(Math.round(base_score * 10) - base_score * 10) < 1e-9, 'base_score 0.0-10.0'); severity = SEV(cvss_version, base_score); }
   else { need(vector === null && base_score === null, 'no vector or score when the source does not provide one'); }
-  await db.prepare('INSERT OR IGNORE INTO intel_severity_assessments (vuln_id,source_id,cvss_version,availability,vector,base_score,severity,assessed_at,recorded_at) VALUES (?,?,?,?,?,?,?,?,?)').bind(vulnId, source_id, cvss_version, availability, vector, base_score, severity, assessed_at, now).run();
+  await db.prepare('INSERT OR IGNORE INTO intel_severity_assessments (vuln_id,source_id,cvss_version,availability,vector,base_score,severity,assessed_at,recorded_at) VALUES (?,?,?,?,?,?,?,?,?)').bind(vulnId, source_id, cvss_version, availability, vector, base_score, severity, canonTs(assessed_at), now).run();
   return severity;
 }
 /** EPSS of one day: updates the latest (only forward in time) and, when `keepHistory`, appends the dated snapshot. */
@@ -105,13 +111,13 @@ export async function addEpss(db, vulnId, { source_id = 'first-epss', score_date
 }
 export async function recordSnapshot(db, { source_id, snapshot_at, item_count, sha256, complete = true }, now) {
   need(okTs(snapshot_at), 'snapshot_at must be a UTC timestamp');
-  await db.prepare('INSERT OR IGNORE INTO intel_source_snapshots (source_id,snapshot_at,item_count,sha256,complete,recorded_at) VALUES (?,?,?,?,?,?)').bind(source_id, snapshot_at, item_count, sha256, complete ? 1 : 0, now).run();
-  return (await db.prepare('SELECT id FROM intel_source_snapshots WHERE source_id = ? AND snapshot_at = ?').bind(source_id, snapshot_at).first()).id;
+  await db.prepare('INSERT OR IGNORE INTO intel_source_snapshots (source_id,snapshot_at,item_count,sha256,complete,recorded_at) VALUES (?,?,?,?,?,?)').bind(source_id, canonTs(snapshot_at), item_count, sha256, complete ? 1 : 0, now).run();
+  return (await db.prepare('SELECT id FROM intel_source_snapshots WHERE source_id = ? AND snapshot_at = ?').bind(source_id, canonTs(snapshot_at)).first()).id;
 }
 export async function addExploitation(db, vulnId, { source_id, kind, listed_at = null, due_date = null, required_action = null, ransomware_use = null, evidence_ref, snapshot_id = null, observed_at }, now) {
   for (const d of [listed_at, due_date]) need(d === null || okDate(d), 'dates are YYYY-MM-DD'); need(okTs(observed_at), 'observed_at must be a UTC timestamp');
   await db.prepare('INSERT OR IGNORE INTO intel_exploitation_evidence (vuln_id,source_id,kind,listed_at,due_date,required_action,ransomware_use,evidence_ref,snapshot_id,observed_at,recorded_at) VALUES (?,?,?,?,?,?,?,?,?,?,?)')
-    .bind(vulnId, source_id, kind, listed_at, due_date, required_action, ransomware_use, evidence_ref, snapshot_id, observed_at, now).run();
+    .bind(vulnId, source_id, kind, listed_at, due_date, required_action, ransomware_use, evidence_ref, snapshot_id, canonTs(observed_at), now).run();
 }
 /** KEV status as of the latest COMPLETE snapshot of `kevSource`: LISTED / NOT_LISTED (as_of that snapshot) / UNKNOWN (no snapshot: the source is unavailable).
  *  Exploitation evidence is EVIDENCE_RECORDED or NO_EVIDENCE_RECORDED: there is no "not exploited" answer, by design. */
@@ -122,6 +128,7 @@ export async function exploitationStatus(db, vulnId, { kevSource = 'cisa-kev' } 
   const last = await db.prepare("SELECT kind, listed_at, due_date, required_action, observed_at FROM intel_exploitation_evidence WHERE vuln_id = ? AND source_id = ? AND kind IN ('KEV_LISTED','KEV_DELISTED') ORDER BY observed_at DESC, id DESC LIMIT 1").bind(vulnId, kevSource).first();   // the most recently OBSERVED KEV event wins (not the last imported: a late historical import never overrides a newer observation)
   let kev;
   if (last && last.kind === 'KEV_LISTED') kev = { status: 'LISTED', source: kevSource, date_added: last.listed_at, due_date: last.due_date, required_action: last.required_action, as_of: snap && snap.snapshot_at >= last.observed_at ? snap.snapshot_at : last.observed_at };   // never attribute a listing to a snapshot older than the listing itself
+  else if (last && last.kind === 'KEV_DELISTED' && (!snap || last.observed_at > snap.snapshot_at)) kev = { status: 'NOT_LISTED', source: kevSource, as_of: last.observed_at, basis: 'delisting', note: 'removed from the KEV catalogue at this time; this is not evidence that it is not exploited' };   // never dated by an older snapshot that still listed it (Codex r1-extra F2)
   else if (snap) kev = { status: 'NOT_LISTED', source: kevSource, as_of: snap.snapshot_at, note: 'not in the KEV catalogue as of this snapshot; this is not evidence that it is not exploited' };
   else kev = { status: 'UNKNOWN', source: kevSource, as_of: null, note: 'no KEV snapshot available' };
   const inWild = ev.filter((e) => e.kind !== 'KEV_DELISTED');
@@ -175,7 +182,7 @@ export async function vulnerabilityRecord(db, vulnId, { maxExposure = 'public' }
   const weak = await edges('out', ['VULN_HAS_WEAKNESS']), adv = await edges('out', ['CVE_HAS_ADVISORY']), poc = await edges('out', ['CVE_HAS_POC_REFERENCE']);
   const ranges = await edges('out', ['VULN_AFFECTS_RANGE']), rules = await edges('in', ['RULE_ASSOCIATED_WITH_CVE', 'RULE_DETECTS_CVE_BEHAVIOUR', 'RULE_DETECTS_CVE']), iocs = await edges('in', ['INDICATOR_ASSOCIATED_WITH_CVE']);
   const affected = [];
-  for (const r of ranges) { const row = await db.prepare('SELECT product_id, scheme, ecosystem, introduced, fixed, last_affected FROM intel_version_ranges WHERE entity_id = ?').bind(r.other).first(); if (row) affected.push({ product: { namespace: ns(row.product_id), key: key(row.product_id) }, scheme: row.scheme, ecosystem: row.ecosystem, introduced: row.introduced, fixed: row.fixed, last_affected: row.last_affected, source: r.source_id, confidence: r.confidence }); }
+  for (const r of ranges) { const row = await db.prepare('SELECT product_id, scheme, ecosystem, introduced, fixed, last_affected, version_limit FROM intel_version_ranges WHERE entity_id = ?').bind(r.other).first(); if (row) affected.push({ product: { namespace: ns(row.product_id), key: key(row.product_id) }, scheme: row.scheme, ecosystem: row.ecosystem, introduced: row.introduced, fixed: row.fixed, last_affected: row.last_affected, version_limit: row.version_limit, source: r.source_id, confidence: r.confidence }); }
   return {
     schema: EXPORT_SCHEMA, id: v.key, namespace: v.namespace, title: v.display ?? null, summary: attrs.summary ?? null, published: attrs.published ?? null, modified: attrs.modified ?? null,
     aliases: aliases.equivalent, disputed_aliases: aliases.disputed,
