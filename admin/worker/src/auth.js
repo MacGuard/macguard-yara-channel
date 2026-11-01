@@ -140,7 +140,7 @@ export async function verifyActionsToken(token, env, deps, now) {
   if (!(claims.exp > now - 30)) return fail('token expired'); if (claims.nbf && claims.nbf > now + 30) return fail('token not yet valid');
   if (claims.repository !== env.REPO) return fail('wrong repository');
   if (claims.ref !== 'refs/heads/main') return fail('only the main branch may call the pipeline API');
-  const allowed = (env.PIPELINE_WORKFLOWS || 'daily.yml,publish.yml').split(',').map((w) => `${env.REPO}/.github/workflows/${w.trim()}@refs/heads/main`);
+  const allowed = (env.PIPELINE_WORKFLOWS || 'daily.yml,publish.yml,publish-expedited.yml').split(',').map((w) => `${env.REPO}/.github/workflows/${w.trim()}@refs/heads/main`);
   if (!allowed.includes(claims.job_workflow_ref)) return fail('this workflow is not allowed to call the pipeline API');
   return { ok: true, claims, workflow: claims.job_workflow_ref.split('@')[0].split('/').pop() };
 }
