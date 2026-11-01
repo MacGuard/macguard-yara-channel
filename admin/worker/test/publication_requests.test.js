@@ -7,6 +7,7 @@ import { world, cand, rid, REPO, ORIGIN } from './helpers.js';
 import { verifyChain } from '../src/core.js';
 import { auditRows } from '../src/store.js';
 import { TRANSITIONS, STATES } from '../src/publication_requests.js';
+import { bindRuns, ghRun, runToken, currentDispatchOf } from './publication_requests_runs.js';
 
 const T1 = 'rules-20261026-1';
 const chainOk = async (w) => assert.equal((await verifyChain(await auditRows(w.db, 5000))).ok, true, 'the audit chain verifies');
@@ -27,7 +28,13 @@ const body = async (w, id, over = {}) => ({ mode: 'SCHEDULED', action: 'PUBLISH'
 const expedite = async (w, user, id, over = {}) => w.call('POST', '/api/publication-requests', { user, body: await body(w, id, { mode: 'EXPEDITED', reason: 'a customer reports the rule is needed today', confirm: id, ...over }) });
 const rows = (w, sql, ...a) => w.db.raw.prepare(sql).all(...a).map((r) => ({ ...r }));
 const wf = async (w, wfName = 'publish-expedited.yml') => w.pipelineToken(wfName);
-const report = async (w, id, b, bearerWf) => w.call('POST', `/api/pipeline/expedite/${id}/report`, { bearer: await wf(w, bearerWf), body: b });
+// a report is signed by the OIDC token of ONE run (review F6): the run stated in the body (when numeric), else the run that already reported on this request
+// the run is one the panel dispatched for THIS request (F6 binding, see publication_requests_runs.js); GitHub is asked about it only when it claims
+const report = async (w, id, b, bearerWf) => { w.runs = w.runs || {}; const run = b && /^\d{1,20}$/.test(String(b.run_id ?? '')) ? String(b.run_id) : (w.runs[id] || '555'); w.runs[id] = run;
+  bindRuns(w); if (!w.ghRuns.has(run)) ghRun(w, run, id);
+  return w.call('POST', `/api/pipeline/expedite/${id}/report`, { bearer: bearerWf && bearerWf !== 'publish-expedited.yml' ? await w.pipelineToken(bearerWf, { run_id: run, run_attempt: '1' }) : await runToken(w, run), body: b }); };
+const daily = (w, run) => w.pipelineToken('daily.yml', { run_id: run, run_attempt: '1' });
+const entry = (w, id) => { const r = w.db.raw.prepare('SELECT path, sha256, bytes FROM candidates WHERE id = ?').get(id); return { path: r.path, sha256: r.sha256, bytes: r.bytes }; };
 
 test('1. an ordinary change is saved for the next daily run: nothing is dispatched, the effective state is untouched, and the daily run recovers it', async () => {
   const w = await fx(); const id = w.ids[0]; const r = await w.call('POST', '/api/publication-requests', { user: w.pat, body: await body(w, id) }); assert.equal(r.status, 200, JSON.stringify(r.data));
@@ -38,7 +45,8 @@ test('1. an ordinary change is saved for the next daily run: nothing is dispatch
 });
 test('2. an authorised expedited change asks for exactly one run of the fixed workflow with one validated input', async () => {
   const w = await fx(); const id = w.ids[0]; const r = await expedite(w, w.pat, id); assert.equal(r.status, 200, JSON.stringify(r.data)); assert.equal(r.data.request.state, 'QUEUED'); assert.equal(w.dispatches.length, 1);
-  const d = w.dispatches[0]; assert.equal(d.url, `https://api.github.com/repos/${REPO}/actions/workflows/publish-expedited.yml/dispatches`); assert.deepEqual(JSON.parse(d.init.body), { ref: 'main', inputs: { request_id: r.data.request.id } }); assert.equal(d.init.method, 'POST');
+  const d = w.dispatches[0]; assert.equal(d.url, `https://api.github.com/repos/${REPO}/actions/workflows/publish-expedited.yml/dispatches`); const disp = currentDispatchOf(w, r.data.request.id); assert.ok(disp, 'the dispatch is recorded');
+  assert.deepEqual(JSON.parse(d.init.body), { ref: 'main', inputs: { request_id: r.data.request.id, dispatch_id: disp.dispatch_id } }, 'two validated inputs: the request and THIS dispatch (the run-name binds the run to both, F6)'); assert.equal(d.init.method, 'POST');
   assert.equal(r.data.request.authorized_by, 'pat'); assert.match(r.data.request.authorization_sha256, /^[0-9a-f]{64}$/); assert.deepEqual(rows(w, 'SELECT from_state, to_state FROM publication_request_events ORDER BY seq').map((e) => `${e.from_state}>${e.to_state}`), ['null>AWAITING_APPROVAL', 'AWAITING_APPROVAL>AUTHORIZED', 'AUTHORIZED>QUEUED']);
 });
 test('3. permissions: a viewer cannot ask for anything, a reviewer may only propose, a security administrator only for security actions; confirmation, reason and exact version are required', async () => {
@@ -62,10 +70,10 @@ test('5. incompatible requests for the same resource: the second is refused unti
 });
 test('6. 7. an expedited change during or after the daily run: the daily run skips what an expedited run already applied, and never applies it twice', async () => {
   const w = await fx(); const id = w.ids[0]; const sch = (await w.call('POST', '/api/publication-requests', { user: w.pat, body: await body(w, w.ids[1]) })).data.request;
-  const ex = (await expedite(w, w.pat, id)).data.request; const daily = await w.pipelineToken('daily.yml');
-  const pending = (await w.call('GET', '/api/pipeline/publication-requests', { bearer: daily })).data.items.map((x) => x.id); assert.deepEqual(pending, [sch.id], 'an expedited request is never offered to the daily run');
-  const ap = await w.call('POST', '/api/pipeline/publication-requests/applied', { bearer: daily, body: { ids: [sch.id, ex.id], run_id: '777', release_tag: T1 } }); assert.equal(ap.status, 200, JSON.stringify(ap.data)); assert.deepEqual(ap.data.applied, [sch.id]); assert.deepEqual(ap.data.skipped, [ex.id], 'the expedited one is skipped, not applied by the daily run');
-  const again = await w.call('POST', '/api/pipeline/publication-requests/applied', { bearer: daily, body: { ids: [sch.id], run_id: '778', release_tag: T1 } }); assert.deepEqual(again.data.applied, [], 'a second report applies nothing'); assert.equal((await w.call('POST', '/api/pipeline/publication-requests/applied', { bearer: await wf(w), body: { ids: [] } })).status, 403, 'the expedited workflow does not report the daily run');
+  const ex = (await expedite(w, w.pat, id)).data.request; const d777 = await daily(w, '777'); await w.release(T1, [entry(w, w.ids[1]), entry(w, id)], { publishedAt: '2026-10-26T03:40:00Z' });   // the release lists both rules
+  const pending = (await w.call('GET', '/api/pipeline/publication-requests', { bearer: d777 })).data.items.map((x) => x.id); assert.deepEqual(pending, [sch.id], 'an expedited request is never offered to the daily run');
+  const ap = await w.call('POST', '/api/pipeline/publication-requests/applied', { bearer: d777, body: { ids: [sch.id, ex.id], run_id: '777', release_tag: T1 } }); assert.equal(ap.status, 200, JSON.stringify(ap.data)); assert.deepEqual(ap.data.applied, [sch.id]); assert.deepEqual(ap.data.skipped, [ex.id], 'the expedited one is skipped, not applied by the daily run');
+  const again = await w.call('POST', '/api/pipeline/publication-requests/applied', { bearer: await daily(w, '778'), body: { ids: [sch.id], run_id: '778', release_tag: T1 } }); assert.deepEqual(again.data.applied, [], 'a second report applies nothing'); assert.equal((await w.call('POST', '/api/pipeline/publication-requests/applied', { bearer: await wf(w), body: { ids: [] } })).status, 403, 'the expedited workflow does not report the daily run');
 });
 test('8. a critical change (withdrawal of a published rule) needs a second identity: requester and approver differ, the approval is bound to the request, and only then is the run asked for', async () => {
   const w = await fx(); const id = w.ids[0]; const cx = (await w.call('GET', `/api/candidates/${id}`, { user: w.ada })).data;
@@ -90,7 +98,7 @@ test('8b. a single administrator uses the emergency path: long reason, a delay, 
   const em = await act(w.ada, 'emergency', { reason: long, no_second_approver: true }); assert.equal(em.status, 200, JSON.stringify(em.data)); const early = await act(w.ada, 'execute-emergency', {}); assert.equal(early.status, 409); assert.equal(early.data.code, 'delay'); assert.equal(w.dispatches.length, 0);
   const { executeEmergency, review } = await import('../src/publication_requests.js'); const later = new Date(Date.now() + 31 * 60 * 1000).toISOString(); const ran = await executeEmergency(w.db, r.data.request.id, { login: 'ada', id: 9001, role: 'ADMIN', roles: ['ADMIN'] }, later, { dispatch: async () => ({ ok: true }) }); assert.equal(ran.status, 200, JSON.stringify(ran.body)); assert.equal(ran.body.request.state, 'QUEUED');
   assert.equal((await review(w.db, r.data.request.id, { outcome: 'APPROPRIATE', reason: 'it was justified' }, { login: 'ada', id: 9001, role: 'ADMIN', roles: ['ADMIN'] }, later)).body.code, 'same_identity', 'the executor cannot review their own emergency');
-  const ok = await review(w.db, r.data.request.id, { outcome: 'APPROPRIATE', reason: 'it was justified by the incident' }, { login: 'sam', id: 9004, role: 'SECURITY_ADMIN', roles: ['SECURITY_ADMIN'] }, later); assert.equal(ok.status, 200); assert.equal(ok.body.request.evidence.emergency.review.outcome, 'APPROPRIATE'); assert.equal((await review(w.db, r.data.request.id, { outcome: 'APPROPRIATE', reason: 'again' }, { login: 'sam', id: 9004, role: 'SECURITY_ADMIN', roles: ['SECURITY_ADMIN'] }, later)).status, 409, 'one review');
+  const ok = await review(w.db, r.data.request.id, { outcome: 'APPROPRIATE', reason: 'it was justified by the incident' }, { login: 'sam', id: 9004, role: 'SECURITY_ADMIN', roles: ['SECURITY_ADMIN'] }, later); assert.equal(ok.status, 200); assert.equal(ok.body.review.outcome, 'APPROPRIATE'); assert.ok(ok.body.request.evidence.emergency.executed_at); assert.equal((await review(w.db, r.data.request.id, { outcome: 'APPROPRIATE', reason: 'again' }, { login: 'sam', id: 9004, role: 'SECURITY_ADMIN', roles: ['SECURITY_ADMIN'] }, later)).status, 409, 'one review');
   assert.ok(rows(w, "SELECT COUNT(*) AS n FROM audit WHERE action IN ('publication.emergency_requested','publication.emergency_executed','publication.emergency_reviewed')")[0].n === 3); await chainOk(w);
 });
 test('9. 10. 11. families without a signed-package pipeline (IOC, signature replacement, intelligence records) are not eligible and nothing is dispatched', async () => {
@@ -116,13 +124,14 @@ test('12. 13. 14. a failing run keeps the previous state: quality gate, invalid 
 test('15. the release verifies but the panel sync fails: SYNC_PENDING, then reconciliation completes it WITHOUT republishing', async () => {
   const w = await fx(); const ex = (await expedite(w, w.pat, w.ids[0])).data.request; for (const st of ['RUNNING', 'VALIDATING', 'SIGNING', 'PUBLISHING', 'VERIFYING']) await report(w, ex.id, { state: st, run_id: '600' });
   const { report: rep, reconcile, get } = await import('../src/publication_requests.js'); const now = new Date().toISOString(); let fail = true, syncs = 0;
-  const deps = { verifyRelease: async () => true, sync: async () => { syncs++; if (fail) throw new Error('D1 unavailable'); } };
+  const deps = { run: { run_id: '600', run_attempt: 1 }, activeRelease: async () => ({ tag: T1, basis: 'latest' }), verifyRelease: async () => true, sync: async () => { syncs++; if (fail) throw new Error('D1 unavailable'); } };
   const r1 = await rep(w.db, ex.id, { state: 'APPLIED', release_tag: T1, commit_sha: 'a'.repeat(40), run_id: '600', hashes: { manifest: 'x' } }, now, deps); assert.equal(r1.body.request.state, 'SYNC_PENDING'); assert.equal(rows(w, 'SELECT COUNT(*) AS n FROM publication_requests WHERE state = ?', 'APPLIED')[0].n, 0, 'not APPLIED until the panel agrees');
   assert.deepEqual((await reconcile(w.db, now, deps)).synced, [], 'still failing: stays pending'); fail = false; assert.deepEqual((await reconcile(w.db, now, deps)).synced, [ex.id]); assert.equal((await get(w.db, ex.id)).state, 'APPLIED'); assert.equal(w.dispatches.length, 1, 'nothing was dispatched again');
 });
 test('15b. APPLIED needs the release to be verifiable: an unverifiable release ends FAILED, never APPLIED', async () => {
   const w = await fx(); const ex = (await expedite(w, w.pat, w.ids[0])).data.request; for (const st of ['RUNNING', 'VALIDATING', 'SIGNING', 'PUBLISHING', 'VERIFYING']) await report(w, ex.id, { state: st, run_id: '601' });
-  const r = await report(w, ex.id, { state: 'APPLIED', release_tag: 'rules-20261026-9', commit_sha: 'b'.repeat(40), run_id: '601' }); assert.equal(r.data.request.state, 'FAILED'); assert.equal(r.data.request.state_reason, 'release_not_verifiable');
+  await w.release(T1, [entry(w, w.ids[1])]);   // the active (latest, verifiable) release, but it does not carry this request's rule
+  const r = await report(w, ex.id, { state: 'APPLIED', release_tag: T1, commit_sha: 'b'.repeat(40), run_id: '601' }); assert.equal(r.data.request.state, 'FAILED', JSON.stringify(r.data)); assert.equal(r.data.request.state_reason, 'release_not_verifiable');
   assert.equal((await report(w, ex.id, { state: 'SIGNING' })).status, 409, 'states only move forward');
 });
 test('16. GitHub Actions unavailable or no dispatcher configured: the request is BLOCKED with the exact cause, the authorisation is kept, retry works, and the daily run still covers it', async () => {
@@ -144,7 +153,9 @@ test('18. replay of an old authorisation: an expired one cannot be dispatched, a
 });
 test('19. concurrent catalogue updates: two reports race for the same step and only one wins; the other changes nothing', async () => {
   const w = await fx(); const ex = (await expedite(w, w.pat, w.ids[0])).data.request; const { report: rep } = await import('../src/publication_requests.js'); const now = new Date().toISOString();
-  const rs = await Promise.all([rep(w.db, ex.id, { state: 'RUNNING', run_id: '800' }, now, {}), rep(w.db, ex.id, { state: 'RUNNING', run_id: '801' }, now, {})]); assert.equal(rs.filter((r) => r.status === 200).length >= 1, true);
+  // both runs pass every binding check (as if GitHub had started the same dispatch twice): the claim itself is atomic, one wins
+  const bound = (id) => ({ run: { run_id: id, run_attempt: 1, event_name: 'workflow_dispatch', actor_id: '41898282' }, dispatcherId: '41898282', lookupRun: async (rid) => ghRun(w, rid, ex.id) });
+  const rs = await Promise.all([rep(w.db, ex.id, { state: 'RUNNING', run_id: '800' }, now, bound('800')), rep(w.db, ex.id, { state: 'RUNNING', run_id: '801' }, now, bound('801'))]); assert.equal(rs.filter((r) => r.status === 200).length, 1, 'one run claims it');
   assert.equal(rows(w, "SELECT COUNT(*) AS n FROM publication_request_events WHERE request_id = ? AND to_state = 'RUNNING'", ex.id)[0].n, 1, 'one transition, one event');
 });
 test('20. reconciliation after a failure: a run that never reports back is closed as FAILED (previous state kept), and nothing is republished', async () => {
@@ -156,26 +167,29 @@ test('the workflow can only read and report ITS OWN authorised request, with its
   const w = await fx(); const ex = (await expedite(w, w.pat, w.ids[0])).data.request;
   const mine = await w.call('GET', `/api/pipeline/expedite/${ex.id}`, { bearer: await wf(w) }); assert.equal(mine.status, 200); assert.equal(mine.data.resource_id, w.ids[0]); assert.equal(mine.data.authorization_sha256, ex.authorization_sha256);
   for (const other of ['daily.yml', 'publish.yml']) assert.equal((await w.call('GET', `/api/pipeline/expedite/${ex.id}`, { bearer: await wf(w, other) })).status, 403, other);
-  assert.equal((await w.call('GET', `/api/pipeline/expedite/${ex.id}`, { user: w.ada })).status, 401, 'a browser session is not a workflow'); assert.equal((await report(w, ex.id, { state: 'APPLIED', release_tag: T1 })).status, 409, 'APPLIED only after VERIFYING');
+  assert.equal((await w.call('GET', `/api/pipeline/expedite/${ex.id}`, { user: w.ada })).status, 401, 'a browser session is not a workflow'); assert.equal((await report(w, ex.id, { state: 'APPLIED', release_tag: T1 })).status, 403, 'an unclaimed request accepts only RUNNING from the run that executes it');
+  assert.equal((await report(w, ex.id, { state: 'RUNNING' })).status, 200); assert.equal((await report(w, ex.id, { state: 'APPLIED', release_tag: T1 })).status, 409, 'APPLIED only after VERIFYING');
   for (const bad of [{ state: 'RUNNING', run_id: 'x; rm -rf /' }, { state: 'RUNNING', run_url: 'https://evil.example.org/run/1' }, { state: 'RUNNING', commit_sha: 'zzz' }, { state: 'ROOT' }, null]) assert.equal((await report(w, ex.id, bad)).status, 400, JSON.stringify(bad));
   const sched = (await w.call('POST', '/api/publication-requests', { user: w.pat, body: await body(w, w.ids[1]) })).data.request; assert.equal((await w.call('GET', `/api/pipeline/expedite/${sched.id}`, { bearer: await wf(w) })).status, 404, 'a scheduled request is not an expedited run');
 });
 test('no path publishes from Cloudflare: the only outbound GitHub call is the fixed dispatch, the Worker holds no general write credential, the state machine has no skip, and every state is reachable only through a recorded event', async () => {
   const src = readFileSync(new URL('../src/publication_requests.js', import.meta.url), 'utf8'), idx = readFileSync(new URL('../src/index.js', import.meta.url), 'utf8');
-  assert.equal((src.match(/api\.github\.com/g) || []).length, 1, 'one GitHub URL in the module: the dispatch'); assert.match(src, /publish-expedited\.yml\/dispatches/); assert.doesNotMatch(src, /\/releases|\/contents|\/git\/|createRelease|upload/i);
+  assert.equal((src.match(/api\.github\.com/g) || []).length, 1, 'one GitHub host in the module'); assert.match(src, /publish-expedited\.yml\/dispatches/);
+  assert.deepEqual([...src.matchAll(/method: '(POST|PUT|PATCH|DELETE)'/g)].map((m) => m[1]), ['POST'], 'one write: the fixed dispatch (the run lookup of F6 is a GET)'); assert.match(src, /\/actions\/runs\/\$\{runId\}`, \{ method: 'GET'/); assert.doesNotMatch(src, /\/releases|\/contents|\/git\/|createRelease|upload/i);
   assert.doesNotMatch(idx, /method: 'PUT'|method: 'PATCH'|uploads\.github/, 'the Worker never writes releases or contents'); assert.deepEqual([...new Set(Object.values(TRANSITIONS).flat())].filter((s) => !STATES.includes(s)), []);
   for (const [from, tos] of Object.entries(TRANSITIONS)) for (const to of tos) assert.ok(STATES.includes(from) && STATES.includes(to)); assert.deepEqual(TRANSITIONS.APPLIED, []); assert.ok(!TRANSITIONS.AUTHORIZED.includes('APPLIED') && !TRANSITIONS.QUEUED.includes('APPLIED') && !TRANSITIONS.RUNNING.includes('APPLIED'), 'nothing jumps to APPLIED');
 });
 
 test('8c. a critical change cannot go through the daily run alone: a reviewer cannot even schedule it, a publisher schedules it only to wait for a second identity, and the daily run sees it only after that authorisation', async () => {
   const w = await fx(); const id = w.ids[0]; w.db.raw.prepare("INSERT INTO policies (id, scope, scope_key, source, path, sha256, candidate_id, criticality, kind, author, author_id, author_role, reason, created_at, request_id, baseline_tag, baseline_published_at, baseline_manifest_sha256, baseline_rules_root, status, withdrawal, version, updated_at) VALUES ('33333333-3333-4333-8333-333333333333','path','path:s:r','s','r','" + 'a'.repeat(64) + "','" + id + "','CRITICAL','WITHDRAWAL','ada',9001,'ADMIN','reported as unsafe','2026-10-26T10:00:00Z','req-policy-0000000003','t','2026-10-25T00:00:00Z','" + 'b'.repeat(64) + "','" + 'c'.repeat(64) + "','ACTIVE','REQUESTED',1,'2026-10-26T10:00:00Z')").run();
-  const pid = '33333333-3333-4333-8333-333333333333', req = { mode: 'SCHEDULED', action: 'REVOKE', resource_kind: 'policy', resource_id: pid, resource_version: 1, request_id: rid(), reason: 'revoke it with the next daily run' }, daily = await w.pipelineToken('daily.yml');
+  const pid = '33333333-3333-4333-8333-333333333333', req = { mode: 'SCHEDULED', action: 'REVOKE', resource_kind: 'policy', resource_id: pid, resource_version: 1, request_id: rid(), reason: 'revoke it with the next daily run' }, d900 = await daily(w, '900');
+  await w.release(T1, [entry(w, w.ids[1])], { publishedAt: '2026-10-26T03:40:00Z' });   // published after the policy baseline, without its path: the revocation is in force
   const rev = await w.call('POST', '/api/publication-requests', { user: w.rita, body: req }); assert.equal(rev.status, 403, 'a reviewer proposes ordinary changes only'); assert.match(rev.data.error, /critical change/);
   const mine = await w.call('POST', '/api/publication-requests', { user: w.pat, body: { ...req, request_id: rid() } }); assert.equal(mine.status, 200, JSON.stringify(mine.data)); assert.equal(mine.data.request.state, 'AWAITING_APPROVAL', 'not PENDING: the daily run cannot pick it up');
-  assert.deepEqual((await w.call('GET', '/api/pipeline/publication-requests', { bearer: daily })).data.items, []); const rid2 = mine.data.request.id;
-  assert.deepEqual((await w.call('POST', '/api/pipeline/publication-requests/applied', { bearer: daily, body: { ids: [rid2], run_id: '900', release_tag: T1 } })).data, { schema: 1, applied: [], skipped: [rid2] }, 'even if reported, an unauthorised critical change is never applied');
+  assert.deepEqual((await w.call('GET', '/api/pipeline/publication-requests', { bearer: d900 })).data.items, []); const rid2 = mine.data.request.id;
+  assert.deepEqual((await w.call('POST', '/api/pipeline/publication-requests/applied', { bearer: d900, body: { ids: [rid2], run_id: '900', release_tag: T1 } })).data, { schema: 1, applied: [], skipped: [rid2] }, 'even if reported, an unauthorised critical change is never applied');
   const act = (user, b) => w.call('POST', `/api/publication-requests/${rid2}/approve`, { user, body: b }); const v = mine.data.request.version;
   assert.equal((await act(w.pat, { reason: 'I asked for it myself', expect_version: v })).status, 403); const ok = await act(w.sam, { reason: 'checked, a second identity authorises', expect_version: v }); assert.equal(ok.status, 200, JSON.stringify(ok.data)); assert.equal(ok.data.request.state, 'PENDING'); assert.equal(w.dispatches.length, 0, 'scheduled: no run is asked for');
-  assert.deepEqual((await w.call('GET', '/api/pipeline/publication-requests', { bearer: daily })).data.items.map((x) => x.id), [rid2]); assert.deepEqual((await w.call('POST', '/api/pipeline/publication-requests/applied', { bearer: daily, body: { ids: [rid2], run_id: '901', release_tag: T1 } })).data.applied, [rid2]);
+  assert.deepEqual((await w.call('GET', '/api/pipeline/publication-requests', { bearer: d900 })).data.items.map((x) => x.id), [rid2]); assert.deepEqual((await w.call('POST', '/api/pipeline/publication-requests/applied', { bearer: await daily(w, '901'), body: { ids: [rid2], run_id: '901', release_tag: T1 } })).data.applied, [rid2]);
   assert.ok(rows(w, "SELECT COUNT(*) AS n FROM audit WHERE action = 'publication.approved'")[0].n === 1); await chainOk(w);
 });

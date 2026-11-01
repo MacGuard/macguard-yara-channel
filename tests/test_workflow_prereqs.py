@@ -49,13 +49,49 @@ class WorkflowPrerequisites(unittest.TestCase):
         # The ONE owner-approved exception (decision of 2026-10-25, recorded in the pull request): backup.yml uses the D1 export token (environment macguard-backup-production) and the per-provider object-store keys held by
         # the six environments archive-<provider>-read/write (one environment per job). It may export and copy; it may never deploy or migrate (the first assertion still applies to it), and no other workflow gains any secret.
         backup_secrets = {"CLOUDFLARE_API_TOKEN", "ARCHIVE_ACCESS_KEY_ID", "ARCHIVE_SECRET_ACCESS_KEY"}
+        # Second owner-approved exception (brief of 2026-10-27, PR #55): the usage monitor holds a READ-ONLY analytics token (Account Analytics: Read, no D1/Workers permission) and the Telegram bot, only in
+        # the environment macguard-monitoring (restricted to main). The watchdog needs Telegram alone. Nobody else gains any secret.
+        monitoring_secrets = {
+            "usage-monitor.yml": {"CLOUDFLARE_ANALYTICS_TOKEN", "TELEGRAM_BOT_TOKEN", "TELEGRAM_CHAT_ID"},
+            "usage-watchdog.yml": {"TELEGRAM_BOT_TOKEN", "TELEGRAM_CHAT_ID"},
+        }
         for wf in WORKFLOWS.glob("*.yml"):
             t = wf.read_text()
             self.assertNotRegex(t, r"wrangler[^\n]*\b(deploy|d1)\b", f"{wf.name} deploys or migrates the private service from CI")
-            allowed = {"CLOUDFLARE_API_TOKEN", "CLOUDFLARE_ACCOUNT_ID", "GITHUB_TOKEN"} | (backup_secrets if wf.name == "backup.yml" else set())
+            allowed = {"CLOUDFLARE_API_TOKEN", "CLOUDFLARE_ACCOUNT_ID", "GITHUB_TOKEN"} | (backup_secrets if wf.name == "backup.yml" else set()) | monitoring_secrets.get(wf.name, set())
             for name in re.findall(r"secrets\.([A-Z0-9_]+)", t):
                 self.assertIn(name, allowed, f"{wf.name}: unexpected secret {name}")
         self.assertNotIn("secrets.", (WORKFLOWS / "daily.yml").read_text().replace("secrets.GITHUB_TOKEN", ""))
+        for name in monitoring_secrets:   # the exception is narrow: never the broad token, and only inside the restricted environment
+            t = (WORKFLOWS / name).read_text()
+            self.assertNotIn("CLOUDFLARE_API_TOKEN", t, f"{name} must not use the broad Cloudflare token")
+            self.assertRegex(t, r"environment:\s*macguard-monitoring", f"{name} must run in the macguard-monitoring environment")
+            self.assertNotRegex(t, r"(?m)^\s*(pull_request|pull_request_target|push)\s*:", f"{name} must not run on PR or push events")
+
+
+    def test_usage_monitor_is_off_unless_enabled_and_never_fails_when_off(self):
+        """The monitor and the watchdog are gated by USAGE_MONITOR_ENABLED. Absent, 'false' or anything but 'true' (GitHub compares strings
+        case-insensitively) skips the job BEFORE any secret, any Cloudflare query or any notification; manual runs are never gated; and a status
+        job that holds no secret and cannot fail makes the NOT_CONFIGURED state visible."""
+        gate = "${{ github.event_name == 'workflow_dispatch' || vars.USAGE_MONITOR_ENABLED == 'true' }}"
+
+        def runs(event, var):   # the gate, evaluated with GitHub's semantics (== on strings ignores case; an unset variable is the empty string)
+            return event == "workflow_dispatch" or (var or "").lower() == "true"
+        table = [("schedule", None, False), ("schedule", "", False), ("schedule", "false", False), ("schedule", "0", False), ("schedule", "yes", False),
+                 ("schedule", "true", True), ("schedule", "TRUE", True), ("workflow_dispatch", None, True), ("workflow_dispatch", "false", True)]
+        for event, var, want in table:
+            self.assertEqual(runs(event, var), want, f"{event} / {var!r}")
+        for name, job in (("usage-monitor.yml", "monitor"), ("usage-watchdog.yml", "watchdog")):
+            t = (WORKFLOWS / name).read_text()
+            body = t[t.index(f"\n  {job}:"):]
+            head = body[: body.index("steps:")]
+            self.assertIn(f"if: {gate}", head, f"{name}: the {job} job must carry the exact gate before its environment, secrets and steps")
+            self.assertLess(head.index("if:"), head.index("environment:"), f"{name}: gate must be declared with the job that owns the environment")
+        m = (WORKFLOWS / "usage-monitor.yml").read_text()
+        status = m[m.index("\n  status:"): m.index("\n  monitor:")]
+        self.assertNotIn("secrets.", status); self.assertNotIn("environment:", status); self.assertNotIn("if:", status.split("steps:")[0])
+        self.assertIn("NOT_CONFIGURED", status); self.assertIn("permissions: {}", status)
+        self.assertNotIn("exit 1", status)
 
 
 if __name__ == "__main__":

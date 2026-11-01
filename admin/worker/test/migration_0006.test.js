@@ -9,6 +9,8 @@ const OLD = readFileSync(new URL('./fixtures/schema_before_0006.sql', import.met
 const UP = readFileSync(new URL('../migrations/0006_five_roles.sql', import.meta.url), 'utf8'), DOWN = readFileSync(new URL('../migrations/0006_rollback.sql', import.meta.url), 'utf8'), NOW_SCHEMA = readFileSync(new URL('../schema.sql', import.meta.url), 'utf8');
 const UP7 = readFileSync(new URL('../migrations/0007_source_requests.sql', import.meta.url), 'utf8');
 const UP8 = readFileSync(new URL('../migrations/0008_publication_requests.sql', import.meta.url), 'utf8');
+const UP9 = readFileSync(new URL('../migrations/0009_publication_request_reviews.sql', import.meta.url), 'utf8');
+const UP10 = readFileSync(new URL('../migrations/0010_publication_execution_binding.sql', import.meta.url), 'utf8');
 const names = (db) => db.prepare("SELECT type, name FROM sqlite_master WHERE type IN ('trigger','index','table') AND name NOT LIKE 'sqlite_%' ORDER BY type, name").all().map((r) => `${r.type}:${r.name}`);
 const fresh = () => { const db = new DatabaseSync(':memory:'); db.exec(OLD); db.prepare("INSERT INTO members (login, role, granted_by, at, user_id, updated_at) VALUES ('ada','ADMIN','x','2026-10-01',13,'2026-10-02'), ('rita','REVIEWER','ada','2026-10-01',12,NULL), ('legacy','VIEWER','ada','2026-10-01',NULL,NULL)").run(); return db; };
 
@@ -17,8 +19,8 @@ test('up: members survive verbatim, the new roles are accepted and unknown ones 
   assert.deepEqual(db.prepare('SELECT login, role, granted_by, at, user_id, updated_at FROM members ORDER BY login').all().map((r) => ({ ...r })), [{ login: 'ada', role: 'ADMIN', granted_by: 'x', at: '2026-10-01', user_id: 13, updated_at: '2026-10-02' }, { login: 'legacy', role: 'VIEWER', granted_by: 'ada', at: '2026-10-01', user_id: null, updated_at: null }, { login: 'rita', role: 'REVIEWER', granted_by: 'ada', at: '2026-10-01', user_id: 12, updated_at: null }]);
   const added = names(db).filter((n) => !before.includes(n)); assert.deepEqual(added.filter((n) => !/approvals/.test(n)), [], 'nothing else changes'); assert.ok(added.includes('table:approvals') && added.length === 7, `the approvals table with its index and five triggers: ${added.join(',')}`); assert.deepEqual(before.filter((n) => !names(db).includes(n)), [], 'every previous table, index and trigger comes back'); for (const r of ['PUBLISHER', 'SECURITY_ADMIN']) db.prepare("INSERT INTO members (login, role, granted_by, at, user_id) VALUES (?,?,?,?,?)").run(`u-${r}`.toLowerCase(), r, 'ada', 'now', r.length);
   assert.throws(() => db.prepare("INSERT INTO members (login, role, granted_by, at) VALUES ('x','ROOT','ada','now')").run(), /CHECK/); assert.throws(() => db.prepare("INSERT INTO members (login, role, granted_by, at, user_id) VALUES ('dup','VIEWER','ada','now',13)").run(), /UNIQUE/, 'the unique id index is back');
-  db.exec(UP7); db.exec(UP7); db.exec(UP8); db.exec(UP8);   // 0007 and 0008 apply after 0006 and are idempotent
-  const fresh2 = new DatabaseSync(':memory:'); fresh2.exec(NOW_SCHEMA); assert.deepEqual(names(fresh2), names(db), 'migrated (0006, 0007, 0008) and fresh databases have the same objects');
+  db.exec(UP7); db.exec(UP7); db.exec(UP8); db.exec(UP8); db.exec(UP9); db.exec(UP9); db.exec(UP10); db.exec(UP10);   // 0007, 0008, 0009 and 0010 apply after 0006 and are idempotent
+  const fresh2 = new DatabaseSync(':memory:'); fresh2.exec(NOW_SCHEMA); assert.deepEqual(names(fresh2), names(db), 'migrated (0006, 0007, 0008, 0009, 0010) and fresh databases have the same objects');
 });
 
 test('up: a policy by a PUBLISHER or a SECURITY_ADMIN is accepted after the migration and refused before; the guard refuses a non-empty policy table', () => {

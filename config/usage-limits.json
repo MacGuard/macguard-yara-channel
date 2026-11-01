@@ -1,0 +1,81 @@
+{
+  "schema": "macguard.usage-limits/1",
+  "note": "Free-tier limits and alert thresholds for the independent usage monitor. Change a number here when a plan changes; nothing else is hard-coded. 'day' limits reset at 00:00 UTC, 'month' limits on the first of the month. Costs are never invented: a currency amount comes only from a provider that returns one.",
+  "plan": {
+    "cloudflare": "free"
+  },
+  "thresholds": {
+    "notice": 0.5,
+    "warning": 0.75,
+    "critical": 0.9,
+    "limit": 1.0
+  },
+  "predictive": {
+    "min_elapsed_fraction": 0.125,
+    "warn_at_projection": 1.0,
+    "note": "linear projection of today's consumption to the end of the UTC day; only after 3 h have elapsed, and only as a prediction"
+  },
+  "metrics": {
+    "d1_rows_read": {
+      "label": "D1 rows read",
+      "period": "day",
+      "limit": 5000000
+    },
+    "d1_rows_written": {
+      "label": "D1 rows written",
+      "period": "day",
+      "limit": 100000
+    },
+    "d1_storage_bytes": {
+      "label": "D1 storage (all databases)",
+      "period": "point",
+      "limit": 5368709120
+    },
+    "workers_requests": {
+      "label": "Workers requests",
+      "period": "day",
+      "limit": 100000
+    },
+    "r2_storage_bytes": {
+      "label": "R2 storage",
+      "period": "point",
+      "limit": 10737418240
+    },
+    "r2_class_a_ops": {
+      "label": "R2 class A operations",
+      "period": "month",
+      "limit": 1000000
+    },
+    "r2_class_b_ops": {
+      "label": "R2 class B operations",
+      "period": "month",
+      "limit": 10000000
+    },
+    "daily_run_age_hours": {
+      "label": "Hours since the last successful daily pipeline",
+      "period": "point",
+      "limit": 72,
+      "note": "notice at 36 h (a missed day), warning 54 h, critical 65 h. GitHub cron may drift or skip, so this is a detector, not a guarantee"
+    }
+  },
+  "costs": {
+    "currency_thresholds": {
+      "EUR": {
+        "notice": 20,
+        "warning": 50,
+        "critical": 100,
+        "containment": 150
+      }
+    },
+    "containment_note": "Reaching the containment threshold does not limit billing and never switches off critical services or the distribution of rules that are already signed: it holds back only non-essential variable-cost operations (extra backups, expedited non-protective runs) and notifies. In this version it is reported and simulated; it changes nothing by itself."
+  },
+  "anomaly": {
+    "fraction_of_limit_per_run": 0.1,
+    "note": "a day metric that grows by this share of its daily limit between two consecutive runs (about one hour) is reported as anomalous even when it is still far from any threshold"
+  },
+  "heartbeat": {
+    "workflow": "usage-monitor.yml",
+    "max_age_hours": 3,
+    "note": "the watchdog workflow alerts when the monitor has no successful run newer than this"
+  }
+}

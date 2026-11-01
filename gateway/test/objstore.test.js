@@ -1,5 +1,6 @@
 // Replication of the encrypted backups to three independent object stores. Local: each "provider" is an in-memory S3-like store (or a local HTTP server for the real signing client); nothing leaves the machine.
 import test from 'node:test';
+import { HAVE_AGE } from './tools_available.js';
 import assert from 'node:assert/strict';
 import http from 'node:http';
 import { createHash } from 'node:crypto';
@@ -17,7 +18,6 @@ import { DEFAULT_CONFIG, PROVIDERS, loadConfig, s3Client, signV4, syncAll, verif
 import { world } from './helpers.js';
 import { audit } from '../src/audit.js';
 
-const HAVE_AGE = existsSync('/usr/local/bin/age') && process.platform === 'darwin';
 const CFG = { ...DEFAULT_CONFIG, destinations: { ...DEFAULT_CONFIG.destinations, scaleway: { ...DEFAULT_CONFIG.destinations.scaleway, bucket: 'macguard-archive-scw' } } };   // all three configured for the tests
 const keypair = (dir, name) => { const f = join(dir, name); execFileSync('age-keygen', ['-o', f], { stdio: 'ignore' }); return { file: f, pub: execFileSync('age-keygen', ['-y', f], { encoding: 'utf8' }).trim() }; };
 const store = ({ failPut = false } = {}) => { const m = new Map(); return { m, async head(k) { return m.has(k); }, async get(k) { return m.get(k) ?? null; }, async put(k, d) { if (failPut) throw new Error('PUT 403'); m.set(k, Buffer.from(d)); } }; };

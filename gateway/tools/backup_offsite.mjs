@@ -7,10 +7,13 @@
 // different bytes = a conflict that stops the run); every copied file is re-read and its checksum compared before the copy counts.
 import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { chmodSync, copyFileSync, existsSync, mkdirSync, readFileSync, readdirSync, statSync, writeFileSync } from 'node:fs';
+import { chmodSync, copyFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { dirname, join, resolve, relative, isAbsolute } from 'node:path';
 import { ROOT_DEFAULT, isTemp } from './backup_flow.mjs';
 import { verifyRestore } from './backup_lib.mjs';
+import { ageDecryptFile, shaFile } from './stream_io.mjs';
+import { privateDir } from './private_tmp.mjs';
 
 const sha = (p) => createHash('sha256').update(readFileSync(p)).digest('hex'), STAMP = /^\d{8}T\d{6}Z$/, FILES = ['d1-export.sql.age', 'manifest.json', 'SHA256SUMS'], iso = (d) => d.toISOString().replace(/\.\d{3}Z$/, 'Z');
 const stampsOf = (dir) => (existsSync(dir) ? readdirSync(dir).filter((n) => STAMP.test(n)).sort() : []);
@@ -56,9 +59,14 @@ export async function restoreDrill({ root = ROOT_DEFAULT, dest, identityFile, cl
   const dir = join(dest, stamp);
   try {
     const sums = readFileSync(join(dir, 'SHA256SUMS'), 'utf8').trim().split('\n').map((l) => l.split(/\s+/)); for (const [h, f] of sums) if (sha(join(dir, f)) !== h) return record({ at, backup: stamp, ok: false, reason: `checksum mismatch in ${f}` });
-    const manifest = JSON.parse(readFileSync(join(dir, 'manifest.json'), 'utf8')), sql = execFileSync(ageBin, ['-d', '-i', identityFile, join(dir, 'd1-export.sql.age')], { maxBuffer: 1 << 30 }).toString('utf8');
-    if (createHash('sha256').update(sql).digest('hex') !== manifest.plaintext_sha256) return record({ at, backup: stamp, ok: false, reason: 'the decrypted bytes do not match the manifest' });
-    const v = await verifyRestore(sql, { manifest }); return record({ at, backup: stamp, ok: v.ok, checks: v.checks.length, failed: v.checks.filter((c) => !c.ok).map((c) => c.name), reason: v.ok ? null : 'restore checks failed' });
+    // Streaming: age decrypts into a private 0600 file, the hash comes from that file and sqlite3 loads it from there; the plaintext never passes through this process.
+    const manifest = JSON.parse(readFileSync(join(dir, 'manifest.json'), 'utf8')), work = privateDir(tmpdir(), 'mg-offsite-'); const plain = join(work, 'plain.sql'); let v;
+    try {
+      await ageDecryptFile({ ageBin, identity: identityFile, src: join(dir, 'd1-export.sql.age'), dst: plain });
+      if (await shaFile(plain) !== manifest.plaintext_sha256) return record({ at, backup: stamp, ok: false, reason: 'the decrypted bytes do not match the manifest' });
+      v = await verifyRestore({ file: plain }, { manifest });
+    } finally { rmSync(work, { recursive: true, force: true }); }
+    return record({ at, backup: stamp, ok: v.ok, checks: v.checks.length, failed: v.checks.filter((c) => !c.ok).map((c) => c.name), reason: v.ok ? null : 'restore checks failed' });
   } catch (e) { return record({ at, backup: stamp, ok: false, reason: String(e?.message ?? e).split('\n')[0].slice(0, 160) }); }
 }
 

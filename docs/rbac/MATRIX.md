@@ -200,6 +200,8 @@ Generated from `admin/worker/src/rbac.js` by `node tools/gen_rbac_matrix.mjs`. A
 | GET | `^/api/publication-requests/[0-9a-f-]{8,64}$` | `publication.read` |
 | POST | `^/api/publication-requests$` | `PUBLICATION_REQUEST` |
 | POST | `^/api/publication-requests/[0-9a-f-]{8,64}/(cancel|dispatch|approve|emergency|execute-emergency|review)$` | `PUBLICATION_REQUEST` |
+| GET | `^/api/publication-releases/pins$` | `publication.read` |
+| POST | `^/api/publication-releases/pins$` | `publication.expedite.approve` |
 | GET | `^/api/audit/anchors$` | `audit.read` |
 | POST | `^/api/intel/decisions$` | `INTEL_DECISION` |
 | GET | `^/api/source-requests$` | `sources.requests.read` |

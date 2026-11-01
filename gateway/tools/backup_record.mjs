@@ -4,7 +4,7 @@
 //            equals the one the signed manifest announced: a copy that was merely downloaded is never recorded as restored.
 // Nothing here reads a secret or the SQL; it holds hashes, sizes, identities and states.
 //   node tools/backup_record.mjs backup  [--resource gateway|panel] --package DIR --run-id N --run-url URL --providers JSON [--file evidence/backups.jsonl]
-//   node tools/backup_record.mjs restore --run-id N --provider P --plaintext-sha256 H --duration-s N --mode drill|real --by LOGIN [--file ...]
+//   node tools/backup_record.mjs restore --run-id N --provider P --plaintext-sha256 H --duration-s N --mode drill|real --by LOGIN [--restored-at ISO8601Z] [--file ...]
 import { createHash, X509Certificate } from 'node:crypto';
 import { existsSync, mkdirSync, readFileSync, writeFileSync, appendFileSync, readdirSync } from 'node:fs';
 import { dirname, join } from 'node:path';
@@ -34,28 +34,41 @@ export function buildBackupRecord({ pkg, runId, runUrl, providers, resource = 'g
 }
 
 export const readRecords = (file) => (existsSync(file) ? readFileSync(file, 'utf8').split('\n').filter(Boolean).map((l) => { try { return JSON.parse(l); } catch { return null; } }).filter(Boolean) : []);
+/** Is `b` a second report of the restoration that `a` already records? Identity is the RESTORATION, never the time the workflow ran (`at` differs on every dispatch, which is why the old key never matched):
+ *  - both carry restored_at (the moment the restore itself happened, reported by restore_from_run.sh): same backup run, provider, mode, plaintext hash and restored_at;
+ *  - otherwise (older or manual reports): same run, provider, mode, hash AND the same reported duration and reporter, i.e. the same report. A genuinely new restore has a new restored_at and is a new event.
+ *  - mixed (only one carries restored_at): additionally, the restore cannot have happened AFTER the legacy line was reported; a restored_at later than the legacy `at` is a new restoration. */
+const notAfterReport = (withTime, legacy) => !legacy.at || Date.parse(withTime.restored_at) <= Date.parse(legacy.at);
+export const sameRestore = (a, b) => a.kind === 'restore' && b.kind === 'restore' && a.run_id === b.run_id && a.provider === b.provider && a.mode === b.mode && a.plaintext_sha256 === b.plaintext_sha256
+  && (a.restored_at && b.restored_at ? a.restored_at === b.restored_at
+    : a.duration_s === b.duration_s && a.by === b.by && (a.restored_at ? notAfterReport(a, b) : b.restored_at ? notAfterReport(b, a) : true));
 export function append(file, rec) {
   const have = readRecords(file);
   if (rec.kind === 'backup' && have.some((r) => r.kind === 'backup' && r.run_id === rec.run_id)) return { added: false, reason: 'this run is already recorded' };
-  if (rec.kind === 'restore' && have.some((r) => r.kind === 'restore' && r.stamp === rec.stamp && r.provider === rec.provider && r.at === rec.at)) return { added: false, reason: 'already recorded' };
+  if (rec.kind === 'restore' && have.some((r) => sameRestore(r, rec))) return { added: false, reason: 'this restoration is already recorded' };
   mkdirSync(dirname(file), { recursive: true }); appendFileSync(file, JSON.stringify(rec) + '\n'); return { added: true };
 }
 
 /** A restore is recorded only for a known backup, a known provider, and when the reported plaintext hash is the one the signed manifest announced. */
-export function buildRestoreRecord({ file, runId, provider, plaintextSha256, durationS, mode, by, at = iso() }) {
+export function buildRestoreRecord({ file, runId, provider, plaintextSha256, durationS, mode, by, restoredAt = null, at = iso() }) {
   if (!PROVIDERS.includes(provider)) throw new Error('unknown provider'); if (!['drill', 'real'].includes(mode)) throw new Error('mode must be drill or real');
   if (!/^[0-9a-f]{64}$/.test(plaintextSha256 || '')) throw new Error('plaintext-sha256 must be 64 hex characters'); if (!/^[A-Za-z0-9-]{1,39}$/.test(by || '')) throw new Error('invalid GitHub login'); if (!Number.isFinite(+durationS) || +durationS < 0 || +durationS > 86400 * 3) throw new Error('duration out of range');
   const b = readRecords(file).find((r) => r.kind === 'backup' && r.run_id === Number(runId)); if (!b) throw new Error('no backup record exists for that run: nothing to attest a restore against');
   const p = b.providers?.[provider]; if (!p || p.write !== 'success' || p.read !== 'success') throw new Error(`${provider} did not write and read back that backup in the run`);
   if (plaintextSha256 !== b.plaintext_sha256) throw new Error('the reported plaintext hash is NOT the one the signed manifest announced: not recorded as a restore');
-  return { schema: 'macguard.backup-evidence/1', kind: 'restore', resource: b.resource ?? 'gateway', at, run_id: b.run_id, stamp: b.stamp, sequence: b.sequence, provider, ok: true, mode, plaintext_sha256: plaintextSha256, duration_s: Math.round(+durationS), by };
+  if (restoredAt) {   // when the restore itself happened (not when it was reported): well formed, not in the future, not before the backup it restores
+    if (!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/.test(restoredAt) || Number.isNaN(Date.parse(restoredAt))) throw new Error('restored-at must be an ISO-8601 UTC time like 2026-10-27T08:00:00Z');
+    if (Date.parse(restoredAt) > Date.parse(at) + 5 * 60000) throw new Error('restored-at is in the future');
+    if (b.at && Date.parse(restoredAt) < Date.parse(b.at)) throw new Error('restored-at is before the backup it claims to restore');
+  }
+  return { schema: 'macguard.backup-evidence/1', kind: 'restore', resource: b.resource ?? 'gateway', at, run_id: b.run_id, stamp: b.stamp, sequence: b.sequence, provider, ok: true, mode, plaintext_sha256: plaintextSha256, duration_s: Math.round(+durationS), by, ...(restoredAt ? { restored_at: restoredAt } : {}) };
 }
 
 if (import.meta.url === `file://${process.argv[1]}`) {
   const [cmd] = process.argv.slice(2), arg = (n, d = null) => { const i = process.argv.indexOf(n); return i > 0 ? process.argv[i + 1] : d; }, file = arg('--file', 'evidence/backups.jsonl');
   try {
     if (cmd === 'backup') { const r = append(file, buildBackupRecord({ resource: arg('--resource', 'gateway'), pkg: arg('--package'), runId: arg('--run-id'), runUrl: arg('--run-url'), providers: JSON.parse(arg('--providers', '{}')) })); console.log(JSON.stringify(r)); }
-    else if (cmd === 'restore') { const r = append(file, buildRestoreRecord({ file, runId: arg('--run-id'), provider: arg('--provider'), plaintextSha256: arg('--plaintext-sha256'), durationS: arg('--duration-s'), mode: arg('--mode'), by: arg('--by') })); console.log(JSON.stringify(r)); }
+    else if (cmd === 'restore') { const r = append(file, buildRestoreRecord({ file, runId: arg('--run-id'), provider: arg('--provider'), plaintextSha256: arg('--plaintext-sha256'), durationS: arg('--duration-s'), mode: arg('--mode'), by: arg('--by'), restoredAt: arg('--restored-at') || null })); console.log(JSON.stringify(r)); }
     else { console.error('usage: backup_record.mjs backup|restore ...'); process.exit(2); }
   } catch (e) { console.error('refused: ' + String(e.message).split('\n')[0]); process.exit(1); }
 }

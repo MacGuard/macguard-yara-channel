@@ -308,7 +308,7 @@ export async function reviewBreakglass(db, liftId, req, actor, now) {
 }
 
 // ---- confirmation by evidence -------------------------------------------------------------------------
-const listsScope = (pub, p) => {
+export const listsScope = (pub, p) => {
   if (p.scope === 'content') return [...pub.files.values()].some((f) => f.sha256 === p.sha256);
   const want = p.scope_key.split(':').slice(2).join(':');   // path:<source>:<path>  ->  <path>; the source is not in the manifest key, so ANY entry at the path counts
   return [...pub.files.keys()].some((k) => asciiLower(normalizePath(k) ?? k) === want);

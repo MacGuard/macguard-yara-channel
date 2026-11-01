@@ -1,12 +1,13 @@
 import test from 'node:test';
+import { HAVE_AGE, ON_MAC } from './tools_available.js';
 import assert from 'node:assert/strict';
 import { execFileSync, spawnSync } from 'node:child_process';
-import { mkdtempSync, readFileSync, rmSync, existsSync } from 'node:fs';
+import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { homedir, tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 const TOOL = new URL('../tools/secrets_backup.mjs', import.meta.url).pathname;
-test('secrets are exported encrypted for an age recipient, round-trip exactly, and the tool refuses temporary folders and bad input', { skip: !existsSync('/usr/local/bin/age') || process.platform !== 'darwin' }, () => {
+test('secrets are exported encrypted for an age recipient, round-trip exactly, and the tool refuses temporary folders and bad input', { skip: !(HAVE_AGE && ON_MAC) && 'needs the macOS Keychain (the tool reads it with `security`) and age' }, () => {
   const svc = 'macguard-test-' + Math.random().toString(36).slice(2), dir = mkdtempSync(join(homedir(), '.mg-test-')), key = join(dir, 'key.txt');
   try {
     execFileSync('age-keygen', ['-o', key], { stdio: 'ignore' }); const pub = execFileSync('age-keygen', ['-y', key], { encoding: 'utf8' }).trim();
