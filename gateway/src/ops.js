@@ -4,6 +4,7 @@ import * as intel from './intel.js';
 import { authorizeDownload, listReleases } from './downloads.js';
 import { monthUsage, run, usageEventId } from './pipeline.js';
 import { effective, productOf } from './policy.js';
+import { accessMode, entitlementsFor, loadGrants, redactIntel, snapshot } from './entitlements.js';
 import { emit } from './events.js';
 import { kpis } from './kpi.js';
 import { HttpError, windows } from './util.js';
@@ -48,9 +49,13 @@ const H = {
   'account.usage': ({ db, ctx, clock }) => monthUsage(db, ctx, clock),
   // Own-tenant analytics only: the tenant id comes from the authenticated key, never from the request.
   'account.analytics': async ({ db, ctx, clock, eff }) => { const k = await kpis(db, clock, { tenantId: ctx.tenant.id, mode: eff.mode }); return { tenant_id: ctx.tenant.id, commercial_mode: eff.mode, kpis: Object.fromEntries(['mau', 'premium_actors_30d', 'requests_by_channel', 'error_rate', 'latency_ms', 'units_consumed', 'billed_micros'].map((id) => [id, k[id]])) }; },
-  'account.entitlements': async ({ ctx, eff, clock }) => ({ tenant: { id: ctx.tenant.id, plan: ctx.tenant.plan }, key_id: ctx.key.id, scopes: [...ctx.scopes].sort(), commercial_mode: eff.mode, mode_source: eff.source, features: [...eff.features].sort(), quotas: eff.quotas,
+  'account.entitlements': async ({ db, ctx, eff, clock }) => ({ ...entitlementsView(ctx, eff, await loadGrants(db, ctx.tenant.id), clock().getTime()), tenant: { id: ctx.tenant.id, plan: ctx.tenant.plan }, key_id: ctx.key.id, scopes: [...ctx.scopes].sort(), commercial_mode: eff.mode, mode_source: eff.source, features: [...eff.features].sort(), quotas: eff.quotas,
     charging: eff.charging, terms_accepted: eff.accepted, policy_version: ctx.policy.version, plans_available: Object.keys(PLANS), month: windows(clock()).month }),
 };
+
+// The capability records of GET /v1/account/entitlements (contract macguard.entitlements/1), next to the existing plan/features/quotas fields.
+const entitlementsView = (ctx, eff, grants, nowMs) => { const s = snapshot(ctx, eff, eff.entitlements, grants, nowMs); return { entitlements: s, capabilities: s.capabilities, access_mode: s.access_mode, preview: s.preview_capabilities.length > 0 }; };
+const INTEL_READS = new Set(['intel.hash', 'intel.cve', 'intel.ioc.search']);
 
 export async function execute(deps, ctx, opName, args, { idemKey = null, requestId }) {
   const { env, db, clock } = deps, spec = OPS[opName];
@@ -66,5 +71,7 @@ export async function execute(deps, ctx, opName, args, { idemKey = null, request
   let out = await run(env, db, clock, ctx, opName, args ?? {}, call, { idemKey: key, requestId, cacheResult: opName !== 'premium.download', extraQuota: (eff) => (opName === 'premium.download' ? [['downloads', eff.quotas.downloads_month, 1]] : []) });
   // An authorisation must be fresh: a repeat of the same logical request (same release, same day) is not counted again, but gets a new short-lived token instead of an old, maybe expired, one.
   if (out.replayed && opName === 'premium.download') out = { ...out, result: await call(args, pre) };
-  return { ...out, eff: pre };
+  // Correlation fields leave the server only with intel.correlation.read, resolved NOW (also for an idempotent replay of an older answer).
+  if (INTEL_READS.has(opName)) out = { ...out, result: redactIntel(out.result, await entitlementsFor(db, ctx, pre, clock().getTime(), 'intel.correlation.read')) };
+  return { ...out, eff: pre, accessMode: accessMode(ctx.policy.doc, pre.mode) };
 }

@@ -17,7 +17,7 @@ const idx = (db) => db.prepare("SELECT name FROM sqlite_master WHERE type IN ('i
 const s = {};
 
 test('migrations are numbered, additive, and every statement is either idempotent or a single ALTER ADD COLUMN', s, () => {
-  assert.deepEqual(migrations, ['0001_telemetry_exclusions.sql', '0002_gh_sync_authenticated.sql', '0003_guardops_outbox.sql']);
+  assert.deepEqual(migrations, ['0001_telemetry_exclusions.sql', '0002_gh_sync_authenticated.sql', '0003_guardops_outbox.sql', '0004_entitlement_grants.sql']);
   for (const f of migrations) { const t = readFileSync(ROOT + 'migrations/' + f, 'utf8').split('\n').filter((l) => !l.trim().startsWith('--')).join('\n'); assert.ok(!/\b(DROP|DELETE|UPDATE|TRUNCATE)\b/i.test(t), `${f} must be additive`); assert.ok(/CREATE TABLE IF NOT EXISTS|ALTER TABLE \w+ ADD COLUMN/i.test(t), f); }
 });
 test('the deployed database upgrades to exactly the current schema with its data intact', s, () => {

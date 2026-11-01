@@ -211,3 +211,6 @@ CREATE TABLE leads (
   source TEXT NOT NULL CHECK (source IN ('manual','form')), contact TEXT, notes TEXT, created_at TEXT NOT NULL, updated_at TEXT NOT NULL, created_by TEXT NOT NULL
 );
 CREATE TABLE lead_events (lead_id TEXT NOT NULL REFERENCES leads(lead_id), at TEXT NOT NULL, from_state TEXT, to_state TEXT NOT NULL, by_admin TEXT NOT NULL);
+-- explicit capability grants (entitlements.js); never deleted, revocation sets revoked_at
+CREATE TABLE entitlement_grants (id INTEGER PRIMARY KEY AUTOINCREMENT, subject_kind TEXT NOT NULL CHECK (subject_kind IN ('organization','user')), subject_id TEXT NOT NULL, capability TEXT NOT NULL CHECK (capability IN ('catalog.public.read','vulnerability.public.read','yara.community.download','rules.premium.read','rules.premium.download','ioc.premium.read','intel.correlation.read','intel.advanced.export','research.poc.metadata.read')), granted_at TEXT NOT NULL, expires_at TEXT, revoked_at TEXT, source TEXT NOT NULL CHECK (source IN ('manual','subscription')), reason TEXT NOT NULL, granted_by TEXT NOT NULL);
+CREATE INDEX entitlement_grants_subject ON entitlement_grants(subject_kind, subject_id);

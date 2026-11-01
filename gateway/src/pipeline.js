@@ -5,6 +5,7 @@ import { OPS } from './plans.js';
 import { audit } from './audit.js';
 import { emit } from './events.js';
 import { effective, productOf } from './policy.js';
+import { PUBLIC, entitlementsFor, requireCapability } from './entitlements.js';
 import { HttpError, iso, sha256Hex, windows } from './util.js';
 
 const END = { minute: (d) => 60 - d.getUTCSeconds(), day: (d) => 86400 - (d.getUTCHours() * 3600 + d.getUTCMinutes() * 60 + d.getUTCSeconds()), month: (d) => Math.ceil((Date.UTC(d.getUTCFullYear(), d.getUTCMonth() + 1, 1) - d.getTime()) / 1000) };
@@ -26,11 +27,16 @@ export const releaseBudget = (db, tenantId, month, micros) => db.prepare('UPDATE
 // ctx: { tenant, key, scopes, policy: {version, doc}, acceptance }. The effective policy is computed ONCE per call from the version the request pinned.
 export const effectiveFor = (ctx, opName, nowMs) => effective(ctx.policy.doc, ctx.tenant, productOf(opName), nowMs, ctx.acceptance);
 
-export function authorize(ctx, opName, eff) {
+// ent: the resolved entitlements (entitlements.js). Order: scope of the key -> capability of the principal -> (when ENFORCED) the commercial feature of the operation.
+export function authorize(ctx, opName, eff, ent) {
   const op = OPS[opName]; if (!op) throw new HttpError(404, 'unknown_operation', 'No such operation.');
   if (op.auth === false) return op;
   if (op.scope && !ctx.scopes.has(op.scope)) throw new HttpError(403, 'insufficient_scope', `This key lacks the scope ${op.scope}.`, { required_scope: op.scope });
-  if (op.feature && !eff.features.has(op.feature)) throw new HttpError(403, 'not_entitled', 'Your current access does not include this operation.', { required_feature: op.feature, commercial_mode: eff.mode });
+  if (!ent) throw new Error('authorize needs resolved entitlements');                       // fail closed: no caller may skip the capability check
+  if (op.capability) requireCapability(ent, op.capability, { required_feature: op.feature, commercial_mode: eff.mode });
+  // An operation mapped to a PUBLIC capability (today: the API CVE lookup, whose data is licensed per product) keeps its commercial feature as the gate until the owner makes that API public.
+  // Premium capabilities are the gate themselves: they already come from the plan's features, the commercial policy or an explicit grant.
+  if (ent.accessMode !== 'OPEN_PREMIUM_PREVIEW' && op.feature && PUBLIC.includes(op.capability) && !eff.features.has(op.feature)) throw new HttpError(403, 'not_entitled', 'Your current access does not include this operation.', { required_feature: op.feature, commercial_mode: eff.mode });
   return op;
 }
 const prices = (ctx, eff, opName, units) => {
@@ -55,7 +61,8 @@ async function takeQuota(db, ctx, now, eff, extra = []) {
 export const usageEventId = async (tenantId, key) => 'ue_' + (await sha256Hex(`${tenantId}|${key}`)).slice(0, 24);
 
 export async function run(env, db, clock, ctx, opName, args, handler, { idemKey = null, requestId = 'req', extraQuota = () => [], cacheResult = true } = {}) {
-  const now = clock(), eff = effectiveFor(ctx, opName, now.getTime()), op = authorize(ctx, opName, eff), w = windows(now);
+  const now = clock(), eff = effectiveFor(ctx, opName, now.getTime()), ent = await entitlementsFor(db, ctx, eff, now.getTime(), OPS[opName]?.capability ?? null);
+  const op = authorize(ctx, opName, eff, ent), w = windows(now); eff.entitlements = ent;
   if (op.class === 'free') {                                     // free operations still count against the per-minute rate limit
     if ((await consume(db, ctx.tenant.id, 'minute', w.minute, eff.quotas.minute, 1)) === null) throw gone('minute', END.minute(now));
     return { result: await handler(args, eff), replayed: false, units: 0, billable: 0, theoretical: 0 };

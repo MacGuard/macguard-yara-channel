@@ -5,6 +5,7 @@ import { buildContext } from './context.js';
 import { execute } from './ops.js';
 import { effective, loadActive, policyHistory, propose, approve, applyProposal, rollback, acceptTerms, productOf } from './policy.js';
 import { authenticateAdmin } from './admin.js';
+import { entitlementsFor, requireCapability } from './entitlements.js';
 import { serveDownload } from './downloads.js';
 import { StripeApi, handleEvent, reportUsage, sweepPastDue, verifyWebhook } from './stripe.js';
 import { handleMcp } from './mcp.js';
@@ -79,7 +80,7 @@ export function createHandler({ clock = () => new Date(), stripe = (env) => new 
     const dl = /^\/v1\/dl\/(dlt_[A-Za-z0-9_-]{43})$/.exec(path);
     if (dl && request.method === 'GET') {
       const ctx = await buildContext(request, env, db, clock), eff = effective(ctx.policy.doc, ctx.tenant, 'premium', clock().getTime(), ctx.acceptance);
-      need(ctx, 'premium.download'); if (!eff.features.has('premium')) throw new HttpError(403, 'not_entitled', 'Your current access does not include this operation.');
+      need(ctx, 'premium.download'); requireCapability(await entitlementsFor(db, ctx, eff, clock().getTime(), 'rules.premium.download'), 'rules.premium.download');     // checked again at transfer time: a token minted before a downgrade or revocation is useless
       ctx.track = (extra) => track(env, db, clock, { tenantId: ctx.tenant.id, keyId: ctx.key.id, actorKind: ctx.key.actorKind, commercialMode: eff.mode, ...extra });
       return serveDownload(env, db, clock, ctx, eff, request, dl[1], defer);
     }
@@ -95,7 +96,7 @@ export function createHandler({ clock = () => new Date(), stripe = (env) => new 
           : ['intel.ioc.search', 'intel.enrich', 'usage.estimate'].includes(r.op) ? await readJson(request) : {};
         const out = await execute({ env, db, clock }, ctx, r.op, args, { idemKey: request.headers.get('idempotency-key'), requestId });
         defer(track(env, db, clock, rec({ httpStatus: 200, commercialMode: out.eff.mode, units: out.units, billable: out.billable, theoretical: out.theoretical, replayed: out.replayed })));
-        return jsonResponse(200, out.result, { 'x-commercial-mode': out.eff.mode, ...(out.usage_event_id ? { 'x-usage-event-id': out.usage_event_id } : {}), ...(out.replayed ? { 'x-idempotent-replayed': 'true' } : {}) });
+        return jsonResponse(200, out.result, { 'x-commercial-mode': out.eff.mode, 'x-access-mode': out.accessMode, ...(out.usage_event_id ? { 'x-usage-event-id': out.usage_event_id } : {}), ...(out.replayed ? { 'x-idempotent-replayed': 'true' } : {}) });
       } catch (e) { if (e instanceof HttpError) defer(track(env, db, clock, rec({ httpStatus: e.status }))); throw e; }
     }
     throw new HttpError(404, 'not_found', 'Not found.');

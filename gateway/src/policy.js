@@ -2,6 +2,7 @@
 import { PLANS } from './plans.js';
 import { audit } from './audit.js';
 import { HttpError, SECRET_KEYS, canonical, iso, sha256Hex } from './util.js';
+import { validateEntitlementsBlock } from './entitlements.js';
 
 export const MODES = ['FREE_LAUNCH', 'FREEMIUM', 'PAID'];
 const RANK = { FREE_LAUNCH: 0, FREEMIUM: 1, PAID: 2 };
@@ -37,12 +38,14 @@ export function validatePolicy(d) {
   if (typeof b.terms_version !== 'string') e.push('billing.terms_version is required');
   if (Object.values(d.theoretical_prices_micros || {}).some((v) => !isInt(v))) e.push('theoretical_prices_micros must hold non-negative integers');
   if (d.scheduled !== null && d.scheduled !== undefined) { const s = d.scheduled; if (!MODES.includes(s.mode) || !isoOrNull(s.effective_from) || !s.effective_from) e.push('scheduled needs mode and effective_from'); }
+  e.push(...validateEntitlementsBlock(d));
   return e;
 }
 
 // How many distinct administrators must approve going from `prev` to `next`.
 export function requiredApprovals(prev, next, kind = 'change') {
   if (kind === 'rollback') return 1;
+  if (next.entitlements?.access_mode === 'ENFORCED' && prev.entitlements?.access_mode !== 'ENFORCED') return 2;      // enforcing access is a commercial activation
   if (next.billing.live && !prev.billing.live) return 2;
   if (next.billing.pricing.approved && !prev.billing.pricing.approved) return 2;
   if (next.billing.pricing.version !== prev.billing.pricing.version) return 2;
@@ -145,6 +148,7 @@ export async function applyProposal(db, clock, admin, id) {
 export async function rollback(db, clock, admin, reason) {
   const base = await loadActive(db), doc = JSON.parse(JSON.stringify(base.doc));
   doc.mode = 'FREE_LAUNCH'; doc.scheduled = null; doc.billing.live = false; doc.billing.allow_checkout = false; doc.products = { premium: { mode: null }, api: { mode: null } }; doc.overrides = doc.overrides.filter((o) => o.mode === 'FREE_LAUNCH');
+  if (doc.entitlements) doc.entitlements = { access_mode: 'OPEN_PREMIUM_PREVIEW' };       // reversible: the rollback also reopens the preview (today's free access)
   const v = await insertVersion(db, clock, base, doc, admin.id, reason, 'rollback');
   await audit(db, clock, null, 'policy.rollback', { by: admin.id, version: v, from_version: base.version, reason });
   return { version: v };

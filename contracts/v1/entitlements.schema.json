@@ -1,0 +1,45 @@
+{
+ "$schema": "https://json-schema.org/draft/2020-12/schema",
+ "title": "Entitlements of a subject",
+ "description": "macguard.entitlements/1. What a subject (user or organization) may do, as capabilities decoupled from prices. Resolved ONLY on the server (gateway/src/entitlements.js); a client never sends it and nothing in it is trusted when received. Versioned contract: additive changes keep the number, any other change takes a new one. research.poc.metadata.read is only ever given by an explicit grant.",
+ "type": "object",
+ "additionalProperties": false,
+ "required": ["schema", "subject", "plan", "access_mode", "capabilities", "preview_capabilities", "source", "version", "granted_at", "expires_at", "revoked_at", "grants"],
+ "properties": {
+  "schema": { "const": "macguard.entitlements/1" },
+  "subject": {
+   "type": "object",
+   "additionalProperties": false,
+   "required": ["kind", "id"],
+   "properties": {
+    "kind": { "type": "string", "enum": ["user", "organization"] },
+    "id": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$" }
+   }
+  },
+  "plan": { "type": "string", "enum": ["community", "intelligence", "business"] },
+  "access_mode": { "type": "string", "enum": ["OPEN_PREMIUM_PREVIEW", "ENFORCED", "INVALID"], "description": "INVALID = the stored configuration is not understood: premium capabilities are refused (fail closed), public ones stay." },
+  "capabilities": { "type": "array", "maxItems": 9, "items": { "type": "string", "enum": ["catalog.public.read", "vulnerability.public.read", "yara.community.download", "rules.premium.read", "rules.premium.download", "ioc.premium.read", "intel.correlation.read", "intel.advanced.export", "research.poc.metadata.read"] } },
+  "preview_capabilities": { "type": "array", "maxItems": 9, "description": "Capabilities held only because of OPEN_PREMIUM_PREVIEW; they disappear when access is ENFORCED.", "items": { "type": "string", "enum": ["catalog.public.read", "vulnerability.public.read", "yara.community.download", "rules.premium.read", "rules.premium.download", "ioc.premium.read", "intel.correlation.read", "intel.advanced.export", "research.poc.metadata.read"] } },
+  "source": { "type": "string", "enum": ["manual", "subscription", "preview"] },
+  "version": { "type": ["integer", "null"], "minimum": 1, "description": "Version of the commercial policy the snapshot was resolved from." },
+  "granted_at": { "type": "string", "pattern": "^\\d{4}-\\d\\d-\\d\\dT\\d\\d:\\d\\d:\\d\\d(\\.\\d{1,3})?Z$", "description": "When the snapshot was resolved." },
+  "expires_at": { "type": ["string", "null"], "pattern": "^\\d{4}-\\d\\d-\\d\\dT\\d\\d:\\d\\d:\\d\\d(\\.\\d{1,3})?Z$", "description": "Earliest expiry of a grant some capability depends on; null when nothing expires." },
+  "revoked_at": { "type": ["string", "null"], "pattern": "^\\d{4}-\\d\\d-\\d\\dT\\d\\d:\\d\\d:\\d\\d(\\.\\d{1,3})?Z$", "description": "Always null in a live snapshot; revoked grants keep their own revoked_at in `grants`." },
+  "grants": {
+   "type": "array",
+   "maxItems": 200,
+   "items": {
+    "type": "object",
+    "additionalProperties": false,
+    "required": ["capability", "source", "granted_at", "expires_at", "revoked_at"],
+    "properties": {
+     "capability": { "type": "string", "enum": ["catalog.public.read", "vulnerability.public.read", "yara.community.download", "rules.premium.read", "rules.premium.download", "ioc.premium.read", "intel.correlation.read", "intel.advanced.export", "research.poc.metadata.read"] },
+     "source": { "type": "string", "enum": ["manual", "subscription"] },
+     "granted_at": { "type": "string", "pattern": "^\\d{4}-\\d\\d-\\d\\dT\\d\\d:\\d\\d:\\d\\d(\\.\\d{1,3})?Z$" },
+     "expires_at": { "type": ["string", "null"], "pattern": "^\\d{4}-\\d\\d-\\d\\dT\\d\\d:\\d\\d:\\d\\d(\\.\\d{1,3})?Z$" },
+     "revoked_at": { "type": ["string", "null"], "pattern": "^\\d{4}-\\d\\d-\\d\\dT\\d\\d:\\d\\d:\\d\\d(\\.\\d{1,3})?Z$" }
+    }
+   }
+  }
+ }
+}
