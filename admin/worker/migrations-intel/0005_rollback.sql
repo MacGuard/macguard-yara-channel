@@ -2,6 +2,7 @@
 DROP TRIGGER IF EXISTS intel_rel_state_guard_update;
 CREATE TRIGGER IF NOT EXISTS intel_rel_state_guard_update BEFORE UPDATE ON intel_relationship_state WHEN NEW.relationship_id IS NOT OLD.relationship_id OR NEW.evidence_count <> (SELECT COUNT(*) FROM intel_relationship_evidence e WHERE e.relationship_id = NEW.relationship_id) OR NOT ((NEW.assessment_id IS NULL AND NEW.confidence = 'UNKNOWN' AND NEW.verification = 'UNVERIFIED') OR EXISTS (SELECT 1 FROM intel_relationship_assessments a WHERE a.id = NEW.assessment_id AND a.relationship_id = NEW.relationship_id AND a.confidence = NEW.confidence AND a.verification = NEW.verification AND a.id = (SELECT MAX(x.id) FROM intel_relationship_assessments x WHERE x.relationship_id = NEW.relationship_id))) BEGIN SELECT RAISE(ABORT, 'relationship state must equal its latest assessment and evidence count'); END;
 DROP INDEX IF EXISTS intel_exploitation_observed;
+DROP INDEX IF EXISTS intel_exploitation_kev;
 -- Rollback of 0005. DROPS the CVSS/EPSS/exploitation/snapshot/range/package tables (export them first: intel backup). Relationships of the 0005 types cannot be deleted
 -- (0004 forbids it), so their type rows and the weakness/package entity types are removed only when nothing uses them; 0001-0004 objects and rows are untouched.
 DROP VIEW IF EXISTS intel_severity_current;

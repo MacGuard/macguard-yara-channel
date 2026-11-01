@@ -57,8 +57,12 @@ export async function recordAlias(db, { from, to, source_id, evidence, observed_
   // re-importing one side of a conflict must never turn it back into an equivalence (Codex r1-canonical F2). Only a manual decision resolves a dispute.
   const toNs = to.split(':')[1], cur = await db.prepare('SELECT confidence FROM intel_relationship_state WHERE relationship_id = ?').bind(id).first();
   if (cur?.confidence !== 'DISPUTED') await assess(db, id, { confidence: 'REPORTED', reason: `asserted by ${source_id}`, actor }, now);
-  const others = (await db.prepare("SELECT r.id, r.to_id, s.confidence FROM intel_relationships r JOIN intel_relationship_state s ON s.relationship_id = r.id WHERE r.from_id = ? AND r.type = 'ALIAS_OF' ORDER BY r.id LIMIT ?").bind(from, MAX_PAGE).all()).results;
-  const clash = others.filter((o) => o.id !== id && o.to_id.split(':')[1] === toNs && o.to_id !== to);
+  // Equivalence is bidirectional: look at the aliases of BOTH endpoints in BOTH directions. `from` may have only one alias in `to`'s namespace and `to` only one in
+  // `from`'s namespace; any other is a conflict (Codex r1-canonical round 2, F1).
+  const fromNs = from.split(':')[1];
+  const aliasesIn = async (x, ns, except) => (await db.prepare("SELECT r.id, CASE WHEN r.from_id = ? THEN r.to_id ELSE r.from_id END AS other, s.confidence FROM intel_relationships r JOIN intel_relationship_state s ON s.relationship_id = r.id WHERE r.type = 'ALIAS_OF' AND (r.from_id = ? OR r.to_id = ?) ORDER BY r.id LIMIT ?").bind(x, x, x, MAX_PAGE).all()).results
+    .filter((o) => o.id !== id && o.other.split(':')[1] === ns && o.other !== except);
+  const clash = [...await aliasesIn(from, toNs, to), ...await aliasesIn(to, fromNs, from)];
   if (clash.length) for (const r of [{ id, confidence: (await db.prepare('SELECT confidence FROM intel_relationship_state WHERE relationship_id = ?').bind(id).first()).confidence }, ...clash])
     if (r.confidence !== 'DISPUTED') await assess(db, r.id, { confidence: 'DISPUTED', reason: `conflicting ${toNs} aliases for ${from}: kept separate, never merged`, actor: 'system' }, now);
   const st = await db.prepare('SELECT confidence FROM intel_relationship_state WHERE relationship_id = ?').bind(id).first();
@@ -92,13 +96,12 @@ export async function addSeverity(db, vulnId, { source_id, cvss_version, vector 
 /** EPSS of one day: updates the latest (only forward in time) and, when `keepHistory`, appends the dated snapshot. */
 export async function addEpss(db, vulnId, { source_id = 'first-epss', score_date, probability, percentile, model_version = null, keepHistory = false }, now) {
   need(okDate(score_date), 'score_date YYYY-MM-DD'); for (const v of [probability, percentile]) need(typeof v === 'number' && v >= 0 && v <= 1, 'probability and percentile are in [0,1]');
-  const cur = await db.prepare('SELECT score_date FROM intel_epss_latest WHERE vuln_id = ? AND source_id = ?').bind(vulnId, source_id).first();
-  const stmts = [];
-  if (!cur) stmts.push(db.prepare('INSERT INTO intel_epss_latest (vuln_id,source_id,score_date,probability,percentile,model_version,recorded_at) VALUES (?,?,?,?,?,?,?)').bind(vulnId, source_id, score_date, probability, percentile, model_version, now));
-  else if (score_date >= cur.score_date) stmts.push(db.prepare('UPDATE intel_epss_latest SET score_date = ?, probability = ?, percentile = ?, model_version = ?, recorded_at = ? WHERE vuln_id = ? AND source_id = ?').bind(score_date, probability, percentile, model_version, now, vulnId, source_id));
+  // ONE atomic upsert (no read-then-write race between concurrent imports): it inserts, or updates only when this score is not older than the stored one.
+  const stmts = [db.prepare('INSERT INTO intel_epss_latest (vuln_id,source_id,score_date,probability,percentile,model_version,recorded_at) VALUES (?,?,?,?,?,?,?) ON CONFLICT(vuln_id, source_id) DO UPDATE SET score_date = excluded.score_date, probability = excluded.probability, percentile = excluded.percentile, model_version = excluded.model_version, recorded_at = excluded.recorded_at WHERE excluded.score_date >= intel_epss_latest.score_date')
+    .bind(vulnId, source_id, score_date, probability, percentile, model_version, now)];
   if (keepHistory) stmts.push(db.prepare('INSERT OR IGNORE INTO intel_epss_history (vuln_id,source_id,score_date,probability,percentile,model_version,recorded_at) VALUES (?,?,?,?,?,?,?)').bind(vulnId, source_id, score_date, probability, percentile, model_version, now));
-  if (stmts.length) await db.batch(stmts);
-  return { latest_updated: !cur || score_date >= cur.score_date };
+  const res = await db.batch(stmts);
+  return { latest_updated: Number(res[0]?.meta?.changes ?? 0) > 0 };
 }
 export async function recordSnapshot(db, { source_id, snapshot_at, item_count, sha256, complete = true }, now) {
   need(okTs(snapshot_at), 'snapshot_at must be a UTC timestamp');
@@ -115,7 +118,8 @@ export async function addExploitation(db, vulnId, { source_id, kind, listed_at =
 export async function exploitationStatus(db, vulnId, { kevSource = 'cisa-kev' } = {}) {
   const snap = await db.prepare('SELECT id, snapshot_at FROM intel_source_snapshots WHERE source_id = ? AND complete = 1 ORDER BY snapshot_at DESC LIMIT 1').bind(kevSource).first();
   const ev = (await db.prepare('SELECT source_id, kind, listed_at, due_date, required_action, ransomware_use, evidence_ref, observed_at FROM intel_exploitation_evidence WHERE vuln_id = ? ORDER BY observed_at DESC, id DESC LIMIT ?').bind(vulnId, MAX_PAGE).all()).results;
-  const kevEv = ev.filter((e) => e.source_id === kevSource && e.kind.startsWith('KEV_')), last = kevEv[0];   // the most recently OBSERVED KEV event wins (not the last imported: a late historical import never overrides a newer observation)
+  // the most recently OBSERVED KEV event of that source, read on its own (never cut off by the page of other sources' evidence; a late historical import never wins)
+  const last = await db.prepare("SELECT kind, listed_at, due_date, required_action, observed_at FROM intel_exploitation_evidence WHERE vuln_id = ? AND source_id = ? AND kind IN ('KEV_LISTED','KEV_DELISTED') ORDER BY observed_at DESC, id DESC LIMIT 1").bind(vulnId, kevSource).first();   // the most recently OBSERVED KEV event wins (not the last imported: a late historical import never overrides a newer observation)
   let kev;
   if (last && last.kind === 'KEV_LISTED') kev = { status: 'LISTED', source: kevSource, date_added: last.listed_at, due_date: last.due_date, required_action: last.required_action, as_of: snap?.snapshot_at ?? last.observed_at };
   else if (snap) kev = { status: 'NOT_LISTED', source: kevSource, as_of: snap.snapshot_at, note: 'not in the KEV catalogue as of this snapshot; this is not evidence that it is not exploited' };

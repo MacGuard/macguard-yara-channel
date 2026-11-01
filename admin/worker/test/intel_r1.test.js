@@ -240,3 +240,29 @@ test('F4: KEV status follows OBSERVATION time: a late import of an older LISTED 
   await addExploitation(db, v, { source_id: 'cisa-kev', kind: 'KEV_LISTED', listed_at: '2026-01-01', evidence_ref: 'kev/2026-01-01', observed_at: '2026-01-01T00:00:00Z' }, NOW);
   const s = await exploitationStatus(db, v); assert.equal(s.kev.status, 'NOT_LISTED', JSON.stringify(s.kev)); assert.match(s.kev.note, /not evidence that it is not exploited/);
 });
+
+// ---- Codex review r1-canonical-20261101 round 2 ----
+test('R2-F1: alias conflicts are detected in BOTH directions (EUVD->CVE-1 then CVE-2->EUVD disputes both)', async () => {
+  const db = fresh(), eu = await putVulnerability(db, { namespace: 'euvd', key: 'EUVD-2025-1' }, NOW);
+  const c1 = await putVulnerability(db, { namespace: 'cve', key: 'CVE-2025-0001' }, NOW), c2 = await putVulnerability(db, { namespace: 'cve', key: 'CVE-2025-0002' }, NOW);
+  await recordAlias(db, { from: eu, to: c1, source_id: 'enisa-euvd', evidence: SRC, observed_at: NOW }, NOW);
+  assert.equal((await recordAlias(db, { from: c2, to: eu, source_id: 'other-feed', evidence: SRC, observed_at: NOW }, NOW)).disputed, true);
+  const a = await aliasesOf(db, eu); assert.equal(a.equivalent.length, 0, JSON.stringify(a)); assert.equal(a.disputed.length, 2);
+  const g = await putVulnerability(db, { namespace: 'ghsa', key: 'GHSA-2345-6789-cfgh' }, NOW);   // another namespace is not a conflict
+  assert.equal((await recordAlias(db, { from: g, to: c1, source_id: 'github', evidence: SRC, observed_at: NOW }, NOW)).disputed, false);
+});
+test('R2-F2: the current KEV listing is found even behind 200+ newer reports from other sources', async () => {
+  const db = fresh(), v = await putVulnerability(db, { namespace: 'cve', key: 'CVE-2024-7777' }, NOW);
+  await recordSnapshot(db, { source_id: 'cisa-kev', snapshot_at: '2026-11-01T00:00:00Z', item_count: 1800, sha256: 'b'.repeat(64) }, NOW);
+  await addExploitation(db, v, { source_id: 'cisa-kev', kind: 'KEV_LISTED', listed_at: '2026-01-01', evidence_ref: 'kev/1', observed_at: '2026-01-01T00:00:00Z' }, NOW);
+  for (let i = 0; i < 205; i++) await addExploitation(db, v, { source_id: `vendor-${i}`, kind: 'VENDOR_CONFIRMED_EXPLOITATION', evidence_ref: `ref-${i}`, observed_at: `2026-10-${String(1 + (i % 28)).padStart(2, '0')}T00:00:00Z` }, NOW);
+  assert.equal((await exploitationStatus(db, v)).kev.status, 'LISTED');
+});
+test('R2-F3: concurrent EPSS imports never fail and the NEWEST score ends up current; an older one never replaces it', async () => {
+  const db = fresh(), v = await putVulnerability(db, { namespace: 'cve', key: 'CVE-2024-8888' }, NOW);
+  const r = await Promise.allSettled([addEpss(db, v, { score_date: '2026-10-30', probability: 0.1, percentile: 0.5, keepHistory: true }, NOW), addEpss(db, v, { score_date: '2026-10-31', probability: 0.2, percentile: 0.6, keepHistory: true }, NOW)]);
+  assert.deepEqual(r.map((x) => x.status), ['fulfilled', 'fulfilled'], JSON.stringify(r.map((x) => x.reason?.message)));
+  assert.equal(db.raw.prepare('SELECT score_date FROM intel_epss_latest WHERE vuln_id = ?').get(v).score_date, '2026-10-31');
+  assert.equal((await addEpss(db, v, { score_date: '2026-10-29', probability: 0.9, percentile: 0.9, keepHistory: true }, NOW)).latest_updated, false);
+  assert.equal(db.raw.prepare('SELECT probability FROM intel_epss_latest WHERE vuln_id = ?').get(v).probability, 0.2); assert.equal(count(db, 'SELECT COUNT(*) AS n FROM intel_epss_history WHERE vuln_id = ?', v), 3);
+});
