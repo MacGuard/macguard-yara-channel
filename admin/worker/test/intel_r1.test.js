@@ -203,3 +203,40 @@ test('sizing: bytes per vulnerability with realistic field lengths stay within t
   const perVuln = (pages() - base) / N;
   assert.ok(perVuln < 1600, `~${Math.round(perVuln)} B per vulnerability (entity + one CVSS + latest EPSS); 300k -> ~${Math.round(perVuln * 300000 / 1e6)} MB`);
 });
+
+// ---- Codex review r1-canonical-20261101 round 1: four HIGH findings ----
+test('F1: a public export never shows a restricted or internal alias (nor its source); internal/restricted views do', async () => {
+  const db = fresh(), cve = await putVulnerability(db, { namespace: 'cve', key: 'CVE-2025-0001' }, NOW), eu = await putVulnerability(db, { namespace: 'euvd', key: 'EUVD-2025-1' }, NOW);
+  const { id } = await relate(db, { type: 'ALIAS_OF', from: eu, to: cve, source_id: 'secret-source', method: 'asserted_by_source', exposure: 'restricted', evidence: [SRC] }, NOW);
+  await assess(db, id, { confidence: 'REPORTED', reason: 'restricted feed', actor: 'ingest' }, NOW);
+  const pub = await vulnerabilityRecord(db, cve); assert.ok(!JSON.stringify(pub).includes('secret-source') && !JSON.stringify(pub).includes('EUVD-2025-1'), 'not in the public record');
+  assert.deepEqual(await aliasesOf(db, cve), { equivalent: [], disputed: [] });
+  assert.equal((await aliasesOf(db, cve, { maxExposure: 'restricted' })).equivalent[0].source, 'secret-source');
+  await assert.rejects(aliasesOf(db, cve, { maxExposure: 'everything' }));
+});
+test('F2: re-importing one side of a conflict keeps BOTH sides DISPUTED (a dispute is never cleared by an import)', async () => {
+  const db = fresh(), eu = await putVulnerability(db, { namespace: 'euvd', key: 'EUVD-2025-1' }, NOW);
+  const c1 = await putVulnerability(db, { namespace: 'cve', key: 'CVE-2025-0001' }, NOW), c2 = await putVulnerability(db, { namespace: 'cve', key: 'CVE-2025-0002' }, NOW);
+  await recordAlias(db, { from: eu, to: c1, source_id: 'enisa-euvd', evidence: SRC, observed_at: NOW }, NOW);
+  assert.equal((await recordAlias(db, { from: eu, to: c2, source_id: 'enisa-euvd', evidence: SRC, observed_at: NOW }, NOW)).disputed, true);
+  const again = await recordAlias(db, { from: eu, to: c1, source_id: 'enisa-euvd', evidence: SRC, observed_at: NOW }, NOW);
+  assert.equal(again.disputed, true); const a = await aliasesOf(db, eu); assert.equal(a.equivalent.length, 0); assert.equal(a.disputed.length, 2);
+  const third = await putVulnerability(db, { namespace: 'cve', key: 'CVE-2025-0003' }, NOW);   // a NEW conflicting mapping joins the dispute too
+  assert.equal((await recordAlias(db, { from: eu, to: third, source_id: 'other', evidence: SRC, observed_at: NOW }, NOW)).disputed, true); assert.equal((await aliasesOf(db, eu)).disputed.length, 3);
+});
+test('F3: the state table cannot be reset to UNKNOWN to hide an existing assessment (raw SQL); a relationship without assessments still starts UNKNOWN; rollback restores 0004', async () => {
+  const db = fresh(), rule = await putEntity(db, { type: 'rule', namespace: 'suricata', key: '2000105' }, NOW), cve = await putVulnerability(db, { namespace: 'cve', key: 'CVE-2024-1234' }, NOW);
+  const { id } = await relate(db, { type: 'RULE_ASSOCIATED_WITH_CVE', from: rule, to: cve, source_id: 'et', method: 'asserted_by_source', evidence: [SRC] }, NOW);
+  await assess(db, id, { confidence: 'REPORTED', reason: 'feed metadata', actor: 'ingest' }, NOW);
+  assert.throws(() => raw(db, "UPDATE intel_relationship_state SET confidence='UNKNOWN', verification='UNVERIFIED', assessment_id=NULL WHERE relationship_id=?", id), /latest assessment/);
+  assert.equal(db.raw.prepare('SELECT confidence FROM intel_relationship_state WHERE relationship_id = ?').get(id).confidence, 'REPORTED');
+  const g4 = readFileSync(new URL('../migrations-intel/0004_canonical_graph.sql', import.meta.url), 'utf8').split('\n').find((l) => l.includes('intel_rel_state_guard_update'));
+  db.raw.exec(R5); assert.equal(db.raw.prepare("SELECT sql FROM sqlite_master WHERE name = 'intel_rel_state_guard_update'").get().sql + ';', g4.replace('CREATE TRIGGER IF NOT EXISTS', 'CREATE TRIGGER'), 'rollback restores the 0004 trigger verbatim');
+});
+test('F4: KEV status follows OBSERVATION time: a late import of an older LISTED never overrides a newer DELISTED', async () => {
+  const db = fresh(), v = await putVulnerability(db, { namespace: 'cve', key: 'CVE-2024-9999' }, NOW);
+  await recordSnapshot(db, { source_id: 'cisa-kev', snapshot_at: '2026-11-01T00:00:00Z', item_count: 1800, sha256: 'a'.repeat(64) }, NOW);
+  await addExploitation(db, v, { source_id: 'cisa-kev', kind: 'KEV_DELISTED', evidence_ref: 'kev/2026-10-31', observed_at: '2026-10-31T00:00:00Z' }, NOW);
+  await addExploitation(db, v, { source_id: 'cisa-kev', kind: 'KEV_LISTED', listed_at: '2026-01-01', evidence_ref: 'kev/2026-01-01', observed_at: '2026-01-01T00:00:00Z' }, NOW);
+  const s = await exploitationStatus(db, v); assert.equal(s.kev.status, 'NOT_LISTED', JSON.stringify(s.kev)); assert.match(s.kev.note, /not evidence that it is not exploited/);
+});

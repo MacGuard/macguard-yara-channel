@@ -53,11 +53,16 @@ export async function recordAlias(db, { from, to, source_id, evidence, observed_
   for (const id of [from, to]) { const e = await db.prepare('SELECT type FROM intel_entities WHERE id = ?').bind(id).first(); need(e && e.type === 'vulnerability', 'ALIAS_OF joins two existing vulnerability identifiers'); }
   need(evidence && ['source_statement', 'document'].includes(evidence.kind) && evidence.ref, 'an alias needs the source statement or document that asserts it');
   const { id } = await relate(db, { type: 'ALIAS_OF', from, to, source_id, method: 'asserted_by_source', version: NORMALISATION, exposure: 'public', observed_at, evidence: [{ ...evidence, source_id }] }, now);
-  await assess(db, id, { confidence: 'REPORTED', reason: `asserted by ${source_id}`, actor }, now);
-  const toNs = to.split(':')[1], others = (await db.prepare("SELECT r.id, r.to_id FROM intel_relationships r JOIN intel_relationship_state s ON s.relationship_id = r.id WHERE r.from_id = ? AND r.type = 'ALIAS_OF' AND s.confidence <> 'DISPUTED' ORDER BY r.id LIMIT ?").bind(from, MAX_PAGE).all()).results;
-  const clash = others.filter((o) => o.to_id.split(':')[1] === toNs && o.to_id !== to);
-  if (clash.length) for (const r of [{ id }, ...clash]) await assess(db, r.id, { confidence: 'DISPUTED', reason: `conflicting ${toNs} aliases for ${from}: kept separate, never merged`, actor: 'system' }, now);
-  return { id, disputed: clash.length > 0 };
+  // A conflict is any OTHER alias of `from` to a different identifier of the same namespace, whatever its current state (a DISPUTED one included):
+  // re-importing one side of a conflict must never turn it back into an equivalence (Codex r1-canonical F2). Only a manual decision resolves a dispute.
+  const toNs = to.split(':')[1], cur = await db.prepare('SELECT confidence FROM intel_relationship_state WHERE relationship_id = ?').bind(id).first();
+  if (cur?.confidence !== 'DISPUTED') await assess(db, id, { confidence: 'REPORTED', reason: `asserted by ${source_id}`, actor }, now);
+  const others = (await db.prepare("SELECT r.id, r.to_id, s.confidence FROM intel_relationships r JOIN intel_relationship_state s ON s.relationship_id = r.id WHERE r.from_id = ? AND r.type = 'ALIAS_OF' ORDER BY r.id LIMIT ?").bind(from, MAX_PAGE).all()).results;
+  const clash = others.filter((o) => o.id !== id && o.to_id.split(':')[1] === toNs && o.to_id !== to);
+  if (clash.length) for (const r of [{ id, confidence: (await db.prepare('SELECT confidence FROM intel_relationship_state WHERE relationship_id = ?').bind(id).first()).confidence }, ...clash])
+    if (r.confidence !== 'DISPUTED') await assess(db, r.id, { confidence: 'DISPUTED', reason: `conflicting ${toNs} aliases for ${from}: kept separate, never merged`, actor: 'system' }, now);
+  const st = await db.prepare('SELECT confidence FROM intel_relationship_state WHERE relationship_id = ?').bind(id).first();
+  return { id, disputed: st.confidence === 'DISPUTED' };
 }
 /** GCVE-0-YYYY-N <-> CVE-YYYY-N by the GCVE definition (source 'gcve-spec'). Returns null for any other GNA: no CVE is invented. */
 export async function linkGcve0(db, gcveKey, now) {
@@ -66,8 +71,9 @@ export async function linkGcve0(db, gcveKey, now) {
   return recordAlias(db, { from: g, to: c, source_id: 'gcve-spec', evidence: { kind: 'document', ref: 'GCVE BCP-03: GCVE-0 is the CVE namespace' } }, now);
 }
 /** Aliases of one identifier (both directions), split into equivalent (REPORTED/CONFIRMED) and disputed/unknown. Bounded. */
-export async function aliasesOf(db, id) {
-  const rows = (await db.prepare("SELECT r.id, CASE WHEN r.from_id = ? THEN r.to_id ELSE r.from_id END AS other, r.source_id, r.observed_at, s.confidence FROM intel_relationships r JOIN intel_relationship_state s ON s.relationship_id = r.id WHERE r.type = 'ALIAS_OF' AND (r.from_id = ? OR r.to_id = ?) ORDER BY r.id LIMIT ?").bind(id, id, id, MAX_PAGE).all()).results;
+export async function aliasesOf(db, id, { maxExposure = 'public' } = {}) {
+  const expo = { public: ['public'], internal: ['public', 'internal'], restricted: ['public', 'internal', 'restricted'] }[maxExposure]; need(expo, 'maxExposure public/internal/restricted');
+  const rows = (await db.prepare(`SELECT r.id, CASE WHEN r.from_id = ? THEN r.to_id ELSE r.from_id END AS other, r.source_id, r.observed_at, s.confidence FROM intel_relationships r JOIN intel_relationship_state s ON s.relationship_id = r.id WHERE r.type = 'ALIAS_OF' AND (r.from_id = ? OR r.to_id = ?) AND r.exposure IN (${expo.map(() => '?').join(',')}) ORDER BY r.id LIMIT ?`).bind(id, id, id, ...expo, MAX_PAGE).all()).results;
   const view = (r) => ({ id: r.other.split(':').slice(2).join(':'), namespace: r.other.split(':')[1], source: r.source_id, observed_at: r.observed_at, confidence: r.confidence });
   return { equivalent: rows.filter((r) => ['REPORTED', 'CONFIRMED'].includes(r.confidence)).map(view), disputed: rows.filter((r) => !['REPORTED', 'CONFIRMED'].includes(r.confidence)).map(view) };
 }
@@ -108,8 +114,8 @@ export async function addExploitation(db, vulnId, { source_id, kind, listed_at =
  *  Exploitation evidence is EVIDENCE_RECORDED or NO_EVIDENCE_RECORDED: there is no "not exploited" answer, by design. */
 export async function exploitationStatus(db, vulnId, { kevSource = 'cisa-kev' } = {}) {
   const snap = await db.prepare('SELECT id, snapshot_at FROM intel_source_snapshots WHERE source_id = ? AND complete = 1 ORDER BY snapshot_at DESC LIMIT 1').bind(kevSource).first();
-  const ev = (await db.prepare('SELECT source_id, kind, listed_at, due_date, required_action, ransomware_use, evidence_ref, observed_at FROM intel_exploitation_evidence WHERE vuln_id = ? ORDER BY id DESC LIMIT ?').bind(vulnId, MAX_PAGE).all()).results;
-  const kevEv = ev.filter((e) => e.source_id === kevSource && e.kind.startsWith('KEV_')), last = kevEv[0];
+  const ev = (await db.prepare('SELECT source_id, kind, listed_at, due_date, required_action, ransomware_use, evidence_ref, observed_at FROM intel_exploitation_evidence WHERE vuln_id = ? ORDER BY observed_at DESC, id DESC LIMIT ?').bind(vulnId, MAX_PAGE).all()).results;
+  const kevEv = ev.filter((e) => e.source_id === kevSource && e.kind.startsWith('KEV_')), last = kevEv[0];   // the most recently OBSERVED KEV event wins (not the last imported: a late historical import never overrides a newer observation)
   let kev;
   if (last && last.kind === 'KEV_LISTED') kev = { status: 'LISTED', source: kevSource, date_added: last.listed_at, due_date: last.due_date, required_action: last.required_action, as_of: snap?.snapshot_at ?? last.observed_at };
   else if (snap) kev = { status: 'NOT_LISTED', source: kevSource, as_of: snap.snapshot_at, note: 'not in the KEV catalogue as of this snapshot; this is not evidence that it is not exploited' };
@@ -159,7 +165,7 @@ export async function vulnerabilityRecord(db, vulnId, { maxExposure = 'public' }
   const ex = `r.exposure IN (${expo.map(() => '?').join(',')})`;
   const edges = async (dir, types) => (await db.prepare(`SELECT r.id, r.type, r.source_id, r.observed_at, ${dir === 'out' ? 'r.to_id' : 'r.from_id'} AS other, s.confidence, s.verification FROM intel_relationships r JOIN intel_relationship_state s ON s.relationship_id = r.id WHERE ${dir === 'out' ? 'r.from_id' : 'r.to_id'} = ? AND r.type IN (${types.map(() => '?').join(',')}) AND ${ex} ORDER BY r.type, r.id LIMIT ?`).bind(vulnId, ...types, ...expo, MAX_PAGE).all()).results;
   const key = (id) => id.split(':').slice(2).join(':'), ns = (id) => id.split(':')[1];
-  const aliases = await aliasesOf(db, vulnId);
+  const aliases = await aliasesOf(db, vulnId, { maxExposure });
   const sev = (await db.prepare('SELECT source_id, cvss_version, availability, vector, base_score, severity, assessed_at FROM intel_severity_current WHERE vuln_id = ? ORDER BY source_id, cvss_version LIMIT ?').bind(vulnId, MAX_PAGE).all()).results;
   const epss = await db.prepare('SELECT source_id, score_date, probability, percentile, model_version FROM intel_epss_latest WHERE vuln_id = ? ORDER BY score_date DESC LIMIT 1').bind(vulnId).first();
   const weak = await edges('out', ['VULN_HAS_WEAKNESS']), adv = await edges('out', ['CVE_HAS_ADVISORY']), poc = await edges('out', ['CVE_HAS_POC_REFERENCE']);
