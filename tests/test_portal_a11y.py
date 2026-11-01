@@ -96,6 +96,19 @@ class LanguageOfParts(unittest.TestCase):
         self.assertIn("'draw_error': 'No se pudo dibujar el diagrama. Su código está debajo.'", src)
         js = (WEB / 'docs.js').read_text(); self.assertIn('ui.draw_error', js); self.assertNotIn("<p class=\"badmsg\">The diagram", js)
 
+    def test_the_docs_entry_pages_mark_the_other_language_and_never_redirect_on_a_timer(self):
+        """3.1.2: docs.html (Spanish) and docs/index.html (English) had the other language unmarked. 2.2.1 (F41): docs/index.html redirected
+        after 3 s with a meta refresh, a time limit the reader cannot extend; the redirect is now immediate (0 s), like docs.html."""
+        h = (WEB / 'docs.html').read_text()
+        self.assertIn('<h1>Documentación · <span lang="en">Documentation</span></h1>', h)
+        self.assertIn('<span lang="en">The documentation moved to <a href="docs/index.html">docs/</a>.</span>', h)
+        src = (ROOT / 'scripts' / 'build_docs.py').read_text()
+        self.assertIn('<h1><span lang="es">Documentación</span> · Documentation</h1>', src)
+        self.assertIn('lang="es" hreflang="es">Leer en español</a>', src)
+        for page, text in (('docs.html', h), ('build_docs.py', src)):
+            for delay in re.findall(r'http-equiv="refresh" content="(\d+);', text):
+                with self.subTest(page=page): self.assertEqual(delay, '0')
+
     def test_the_english_half_of_the_404_page_is_marked(self):
         h = (WEB / '404.html').read_text()
         self.assertIn('<html lang="es">', h); self.assertIn('<p lang="en">This address does not exist', h); self.assertIn('<main><h1>404</h1>', h)
