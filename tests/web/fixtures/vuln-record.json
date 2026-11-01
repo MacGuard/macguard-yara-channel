@@ -1,0 +1,23 @@
+{
+ "schema": "macguard.intel-vulnerability/1",
+ "id": "CVE-2099-0001",
+ "namespace": "cve",
+ "title": "SYNTHETIC test record (not a real vulnerability)",
+ "summary": "Synthetic data for the portal renderer test. <script>alert(1)</script> must stay text.",
+ "published": "2099-01-02T00:00:00Z",
+ "modified": "2099-01-03T00:00:00Z",
+ "aliases": [{"id": "EUVD-2099-1", "namespace": "euvd", "source": "synthetic-euvd", "observed_at": "2099-01-02T00:00:00Z", "confidence": "REPORTED"}],
+ "disputed_aliases": [{"id": "GCVE-1-2099-7", "namespace": "gcve", "source": "synthetic-gna", "observed_at": null, "confidence": "DISPUTED"}],
+ "weaknesses": [{"cwe": "CWE-79", "source": "synthetic-nvd", "confidence": "REPORTED"}],
+ "severity": [
+  {"source": "synthetic-nvd", "cvss_version": "3.1", "availability": "AVAILABLE", "vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H", "base_score": 9.8, "severity": "CRITICAL", "assessed_at": "2099-01-02T00:00:00Z"},
+  {"source": "synthetic-vendor", "cvss_version": "4.0", "availability": "NOT_PROVIDED", "vector": null, "base_score": null, "severity": null, "assessed_at": "2099-01-02T00:00:00Z"}
+ ],
+ "epss": {"source": "synthetic-epss", "score_date": "2099-01-03", "probability": 0.0421, "percentile": 0.913, "model_version": null, "meaning": "probability of exploitation activity in the next 30 days, not a severity"},
+ "exploitation": {"kev": {"status": "NOT_LISTED", "source": "cisa-kev", "as_of": "2099-01-03T00:00:00Z", "note": "not in the KEV catalogue as of this snapshot; this is not evidence that it is not exploited"}, "evidence_status": "NO_EVIDENCE_RECORDED", "evidence": []},
+ "affected": [{"product": {"namespace": "purl", "key": "pkg:pypi/synthetic-package"}, "scheme": "ECOSYSTEM", "ecosystem": "PyPI", "introduced": "1.0.0", "fixed": "1.2.3", "last_affected": null, "source": "synthetic-osv", "confidence": "REPORTED"}],
+ "advisories": [],
+ "detections": [],
+ "indicators": [],
+ "poc_references": [{"ref": "https://example.invalid/poc/CVE-2099-0001", "source": "synthetic-research", "confidence": "REPORTED", "review": "NOT_REVIEWED", "executable_content": false}]
+}

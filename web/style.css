@@ -36,3 +36,20 @@ main{min-width:0}td.sha{font-family:ui-monospace,Menlo,monospace;font-size:11px;
 body.dark .lv-INFO{color:#7bd88f}body.dark .lv-ERROR{color:#ff8f8a}body.dark .lv-WARNING{color:#f0b45c}body.dark .delta{color:#9db9ff;background:#2f6df033}body.dark .delta.neg{color:#ff8f8a;background:#ff8f8a26}
 .act-ctl{flex-wrap:wrap}.act-ctl select{max-width:100%}
 .ytitle{font-size:11px;fill:var(--muted)}
+/* Threat Intelligence Hub (portada, explorador, ficha, biblioteca): same tokens, same panels, light and dark */
+.hero{margin:26px 0;background:linear-gradient(135deg,var(--panel) 60%,#2277ee10)}.hero h2{margin-top:0;font-size:26px}
+.herosearch{display:flex;gap:10px;flex-wrap:wrap;margin:14px 0 6px}.herosearch input{flex:1 1 320px;min-width:0;font-size:17px;border:1px solid var(--line);background:var(--panel);color:var(--text);border-radius:10px;padding:14px}
+.herosearch button{font-size:16px;padding:12px 22px;background:var(--blue);color:#fff;border-color:var(--blue)}body.dark .herosearch button{color:#0b1520}
+.hubgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin:26px 0}.hubgrid .tiles{grid-template-columns:1fr 1fr}
+.tiles article{border:1px solid var(--line);border-radius:10px;padding:12px}.tiles article strong{display:block;font-size:24px}.tiles article span{display:block;font-size:12px;color:var(--muted)}
+.checks{list-style:none;padding:0;margin:8px 0}.checks li{padding:6px 0;border-bottom:1px solid var(--line);font-size:14px}
+.badge{display:inline-block;font-size:11px;font-weight:600;padding:2px 8px;border-radius:999px;border:1px solid var(--line);color:var(--muted);white-space:nowrap}
+.badge.kev{border-color:#b3261e;color:#b3261e}.badge.free{border-color:#1b6e3c;color:#1b6e3c}.badge.prem{border-color:var(--blue);color:var(--blue)}
+body.dark .badge.kev{border-color:#ff8a80;color:#ff8a80}body.dark .badge.free{border-color:#6fd39a;color:#6fd39a}
+.risk{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}.risk article{border:1px solid var(--line);border-radius:10px;padding:14px}.risk h3{margin:0 0 6px;font-size:14px;color:var(--muted)}
+.state{margin:10px 0;padding:12px;border-radius:9px;border:1px dashed var(--line);color:var(--muted)}
+.restricted{border-style:solid;border-color:var(--blue);color:var(--blue)}
+.mono{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;word-break:break-all}
+@media (max-width:900px){.hubgrid,.risk{grid-template-columns:1fr}.herosearch input{flex-basis:100%}}
+pre.mono{white-space:pre-wrap;overflow-wrap:anywhere;max-width:100%;overflow-x:auto}
+.panel p,.panel li{overflow-wrap:anywhere}

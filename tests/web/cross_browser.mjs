@@ -47,7 +47,7 @@ for (const name of engines) {
       await page.close(); srv.close();
     }
     const { srv, base } = await serve('');
-    const pages = ['index.html', 'rules.html', 'releases.html', 'transparency.html', 'docs/en/merkle.html', 'docs/es/architecture.html', '404.html'];
+    const pages = ['index.html', 'catalog.html', 'vulnerabilities.html', 'vuln.html?id=CVE-2021-44228', 'indicators.html', 'guide.html', 'packages.html', 'plans.html', 'rules.html', 'releases.html', 'transparency.html', 'docs/en/merkle.html', 'docs/es/architecture.html', '404.html'];
     for (const [w, h] of [[1280, 900], [390, 800]]) {
       const ctx = await browser.newContext({ viewport: { width: w, height: h } });
       for (const p of pages) {

@@ -1,0 +1,4 @@
+cve_id,vendor,product,name,date_added,due_date,required_action,known_ransomware_use
+CVE-2099-0001,ExampleVendor,ExampleProduct,Synthetic entry one,2026-10-01,2026-10-22,Apply vendor updates.,Unknown
+CVE-2099-0002,ExampleVendor,OtherProduct,Synthetic entry two,2026-10-15,2026-11-05,Apply vendor updates.,Known
+CVE-2099-10003,AnotherVendor,ThirdProduct,Synthetic entry three,2026-10-31,2026-11-21,Discontinue use.,Unknown

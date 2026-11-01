@@ -1,0 +1,3 @@
+SYNTHETIC TEST FIXTURE. The real package carries the CISA Known Exploited Vulnerabilities catalog,
+published by CISA under CC0 1.0 (https://www.cisa.gov/known-exploited-vulnerabilities-catalog).
+MacGuard normalised the fields; no endorsement by CISA is implied.
