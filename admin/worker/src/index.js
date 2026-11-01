@@ -67,10 +67,20 @@ export async function handle(request, env, deps) {
       }
       if (method === 'POST' && expd && expd[2]) {   // publish-expedited.yml only: progress, failure, or the verified result of ITS OWN request
         if (v.workflow !== 'publish-expedited.yml') return err(403, 'only the expedited publication workflow reports on its request');
-        const r = await pubReq.report(db, expd[1], body, new Date(now * 1000).toISOString(), { verifyRelease: async (tag) => (await fetchPublication(env, deps, tag)).ok === true, sync: async () => {} });   // the effective state of a rule is synced by /released; nothing else is written here
+        // the run identity comes from the signed token (F6); the release must be public, verified AND carry this exact change (F3), and the effective state is synced from it before APPLIED
+        const iso2 = new Date(now * 1000).toISOString(), run = { run_id: String(v.claims.run_id ?? ''), run_attempt: Number(v.claims.run_attempt) || null };
+        const r = await pubReq.report(db, expd[1], body, iso2, { run,
+          verifyRelease: async (tag, row) => { const pub = await fetchPublication(env, deps, tag); return pub.ok && (await pubReq.covers(db, row, pub)) ? pub : false; },
+          sync: async (row, tag, pub) => { if (!(await pubReq.syncFromRelease(db, row, pub, { trigger: 'expedited', run_url: body.run_url, token_run_id: run.run_id, run_attempt: run.run_attempt, role: 'PIPELINE' }, actor, iso2))) throw new Error('the effective state did not reach the requested state from this release'); } });
         return json(r.body, r.status);
       }
-      if (path === '/api/pipeline/publication-requests/applied') { if (!['daily.yml', 'publish.yml'].includes(v.workflow)) return err(403, 'only the daily publication run reports what it applied'); if (!Array.isArray(body.ids) || body.ids.length > 500 || !body.ids.every((x) => typeof x === 'string' && /^[0-9a-f-]{8,64}$/.test(x))) return err(400, 'ids required'); return json({ schema: 1, ...(await pubReq.dailyApplied(db, body.ids, { run_id: body.run_id, release_tag: body.release_tag }, new Date(now * 1000).toISOString())) }); }
+      if (path === '/api/pipeline/publication-requests/applied') { if (!['daily.yml', 'publish.yml'].includes(v.workflow)) return err(403, 'only the daily publication run reports what it applied'); if (!Array.isArray(body.ids) || body.ids.length > 500 || !body.ids.every((x) => typeof x === 'string' && /^[0-9a-f-]{8,64}$/.test(x))) return err(400, 'ids required'); 
+        // F2: the run id is the token's; the release is fetched and verified here, and a request is closed only if that release carries its exact change and the effective state was synced from it
+        const iso2 = new Date(now * 1000).toISOString(), runId = String(v.claims.run_id ?? ''), tag = String(body.release_tag || ''); if (!/^\d{1,20}$/.test(runId)) return err(403, 'a report must come from an identified workflow run (run_id in its OIDC token)');
+        if (body.run_id !== undefined && String(body.run_id) !== runId) return err(400, 'run_id must be the run of the token that signs the report');
+        const pub = RELEASE_TAG.test(tag) ? await fetchPublication(env, deps, tag) : { ok: false };
+        const evidence = async (row) => pub.ok && (await pubReq.covers(db, row, pub)) && pubReq.syncFromRelease(db, row, pub, { trigger: 'daily', token_run_id: runId, run_attempt: Number(v.claims.run_attempt) || null, role: 'PIPELINE' }, actor, iso2);
+        return json({ schema: 1, ...(await pubReq.dailyApplied(db, body.ids, { run_id: runId, release_tag: tag }, iso2, { evidence })), ...(pub.ok ? {} : { note: 'no verifiable public release with that tag: nothing was applied' }) }); }
       if (path === '/api/pipeline/released' || path === '/api/pipeline/revalidation-failed') {
         if (!Array.isArray(body.hashes) || body.hashes.some((h) => !/^[0-9a-f]{64}$/.test(h))) return err(400, 'hashes required');
         const ev = path.endsWith('released') ? 'released' : 'revalidation_failed';
@@ -133,7 +143,7 @@ export async function handle(request, env, deps) {
         if (unsafe) await store.appendAudit(db, { actor: session.login, role, action: 'authz.denied', target: path.slice(0, 120), detail: { method, permission: need } }, iso).catch(() => {});   // failed attempts are kept
         return err(403, `the permission ${need} is required`, { code: 'forbidden', permission: need });
       }
-      if (unsafe && (need === 'APPROVAL_BY_OP' || (need !== 'INTEL_BY_FAMILY' && isCritical(need)))) {   // critical operations: GitHub was asked again just now (fresh), and the sign-in itself must be recent
+      if (unsafe && (need === 'APPROVAL_BY_OP' || need === 'PUBLICATION_REQUEST' || (need !== 'INTEL_BY_FAMILY' && isCritical(need)))) {   // PUBLICATION_REQUEST: requests, approvals, emergencies and reviews of publications (F5)   // critical operations: GitHub was asked again just now (fresh), and the sign-in itself must be recent
         const max = Number(env.CRITICAL_REAUTH_S || 1800);
         if (now - session.created_at > max) return json({ error: 'this operation needs a recent sign-in: sign in again', code: 'reauth_required', permission: need }, 401);
       }
@@ -156,7 +166,7 @@ export async function handle(request, env, deps) {
       if (path === '/api/publication-requests' || path.startsWith('/api/publication-requests/')) {   // desired state of a resource: SCHEDULED (the daily run applies it, nothing starts) or EXPEDITED (asks for ONE run of a fixed workflow). Never publishes from here.
         const pm = path.match(/^\/api\/publication-requests\/([0-9a-f-]{8,64})(?:\/(cancel|dispatch|approve|emergency|execute-emergency|review))?$/), pdeps = { uuid: deps.uuid, env, dispatch: pubReq.makeDispatcher(env, deps) };
         if (method === 'GET' && path === '/api/publication-requests') return json(await pubReq.list(db, { state: url.searchParams.get('state') || undefined, mode: url.searchParams.get('mode') || undefined }));
-        if (method === 'GET' && pm && !pm[2]) { const r = await pubReq.get(db, pm[1]); return r ? json({ request: r, events: await pubReq.events(db, pm[1]) }) : err(404, 'not found'); }
+        if (method === 'GET' && pm && !pm[2]) { const r = await pubReq.get(db, pm[1]); return r ? json({ request: r, events: await pubReq.events(db, pm[1]), review: await pubReq.reviewOf(db, pm[1]) }) : err(404, 'not found'); }
         const rd = method === 'POST' ? await readJson(request, 20_000) : null; if (rd && rd.tooLarge) return err(413, 'request too large');
         if (method === 'POST' && path === '/api/publication-requests') {
           const mode = rd.body && rd.body.mode === 'EXPEDITED' ? 'EXPEDITED' : 'SCHEDULED';
