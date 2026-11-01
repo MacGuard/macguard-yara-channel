@@ -213,3 +213,14 @@ test('the Worker deployed BEFORE migration 0004: every route keeps working, no e
   assert.equal((await w.call('/v1/community/releases')).status, 200);
   await assert.rejects(grant(w.db, w.clock, { subjectId: 't1', capability: 'research.poc.metadata.read', reason: 'reviewed research partner', grantedBy: 'admin:test' }), /no such table/);
 });
+test('Codex entitlements-final (HIGH): an IOC grant never exposes CVE records that the CVE route refuses (ioc search and enrich, REST and MCP)', async () => {
+  const d = enforced(); const w = await apiWorld({ policy: d }); const key = await K(w);
+  await grant(w.db, w.clock, { subjectId: 't1', capability: 'ioc.premium.read', reason: 'ioc pilot without cve licence', grantedBy: 'admin:test' });
+  await grant(w.db, w.clock, { subjectId: 't1', capability: 'intel.correlation.read', reason: 'ioc pilot without cve licence', grantedBy: 'admin:test' });
+  const cve = 'CVE-2026-0001';
+  assert.equal((await w.call(`/v1/intelligence/cve/${cve}`, { key })).status, 403, 'the dedicated CVE route refuses');
+  for (const json of [{ values: [cve] }, { value: cve.toLowerCase() }, { values: ['203.0.113.7', cve] }]) { const r = await w.call('/v1/intelligence/ioc/search', { key, method: 'POST', json }); assert.equal(r.status, 403, JSON.stringify(json)); assert.ok(!JSON.stringify(r.json).includes('kev_listed')); }
+  const en = await w.call('/v1/intelligence/enrich', { key, method: 'POST', headers: { 'idempotency-key': 'enrich-cve-1' }, json: { indicators: [cve] } }); assert.equal(en.status, 403);
+  const m = await mcp(w, key, 'tools/call', { name: 'macguard_search_iocs', arguments: { values: [cve] } }); assert.equal(m.json.result.isError, true);
+  const ok = await w.call('/v1/intelligence/ioc/search', { key, method: 'POST', json: { values: ['203.0.113.7'] } }); assert.equal(ok.status, 200, 'non-CVE indicators are still served under the IOC grant');
+});

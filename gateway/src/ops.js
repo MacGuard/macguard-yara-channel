@@ -80,6 +80,10 @@ export async function execute(deps, ctx, opName, args, { idemKey = null, request
   if (errs.length) throw new HttpError(400, 'invalid_input', errs.slice(0, 3).join('; '));
   if (opName === 'intel.ioc.search' && !('value' in args) && !('values' in args)) throw new HttpError(400, 'invalid_input', 'Send "value" or "values".');
   const nowMs = clock().getTime();
+  // CVE data is licensed per product: an indicator search or enrichment that asks for a CVE must pass the SAME gate as the dedicated CVE route (intel.cve),
+  // otherwise an IOC grant would expose CVE records the CVE endpoint refuses (Codex entitlements-final-20261101, HIGH).
+  const cveIn = opName === 'intel.ioc.search' ? [args.value, ...(args.values || [])] : opName === 'intel.enrich' ? args.indicators : [];
+  if (cveIn.some((v) => intel.typeOf(v) === 'cve')) { const e = effectiveFor(ctx, 'intel.cve', nowMs); authorize(ctx, 'intel.cve', e, await entitlementsFor(db, ctx, e, nowMs, OPS['intel.cve'].capability)); }
   const pre = effective(ctx.policy.doc, ctx.tenant, productOf(opName), nowMs, ctx.acceptance);
   let key = idemKey;
   if (opName === 'premium.download') { key = key ?? `dl:${args.release_id}:${clock().toISOString().slice(0, 10)}`; ctx = { ...ctx, usageEventId: await usageEventId(ctx.tenant.id, key) }; }
