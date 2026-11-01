@@ -89,13 +89,14 @@ for (const name of engines) {
       const closed = await page.evaluate((f) => !document.querySelector(f).classList.contains('dg-full'), fig);
       rec(name, 'docs: the full-screen fallback overlay keeps keyboard focus inside and Escape closes it', overlay && inside.every(Boolean) && closed, `overlay=${overlay} inside=${inside.filter(Boolean).length}/25 closed=${closed}`);
       await ctx.close(); }
-    // 6. reflow at 320 CSS px (WCAG 1.4.10, = 1280 px at 400 %) and text spacing (1.4.12) in Spanish, the longer language: no horizontal page scroll
-    for (const p of ['vulnerabilities.html', 'vuln.html?id=CVE-2021-44228', 'vuln.html?id=bad']) {
-      const ctx = await browser.newContext({ viewport: { width: 320, height: 800 } }); await ctx.addInitScript(() => { try { localStorage.setItem('lang', 'es'); } catch {} });
+    // 6. reflow at 320 CSS px (WCAG 1.4.10, = 1280 px at 400 %) and text spacing (1.4.12): no horizontal page scroll. Spanish is the longer
+    //    language; the home also in English, whose activity select ("Changes between releases") overflowed by 41 px in WebKit with text spacing
+    for (const [p, lang] of [['vulnerabilities.html', 'es'], ['vuln.html?id=CVE-2021-44228', 'es'], ['vuln.html?id=bad', 'es'], ['index.html', 'es'], ['index.html', 'en']]) {
+      const ctx = await browser.newContext({ viewport: { width: 320, height: 800 } }); await ctx.addInitScript((l) => { try { localStorage.setItem('lang', l); } catch {} }, lang);
       const page = await ctx.newPage(); await page.goto(`${base}/${p}`, { waitUntil: 'networkidle' }); await page.waitForTimeout(1000);
       const sx = () => page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth); const plain = await sx();
       await page.addStyleTag({ content: '*{line-height:1.5!important;letter-spacing:0.12em!important;word-spacing:0.16em!important}p{margin-bottom:2em!important}' }); const spaced = await sx();
-      rec(name, `reflow 320 px + text spacing (es): ${p}`, plain <= 1 && spaced <= 1, `overflow ${plain}px, with text spacing ${spaced}px`); await ctx.close();
+      rec(name, `reflow 320 px + text spacing (${lang}): ${p}`, plain <= 1 && spaced <= 1, `overflow ${plain}px, with text spacing ${spaced}px`); await ctx.close();
     }
     srv.close();
   } finally { await browser.close(); }

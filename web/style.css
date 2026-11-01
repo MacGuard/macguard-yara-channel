@@ -34,7 +34,7 @@ main{min-width:0}td.sha{font-family:ui-monospace,Menlo,monospace;font-size:11px;
 
 /* final audit: contrast (WCAG 1.4.3) and reflow at 320 px (1.4.10) */
 body.dark .lv-INFO{color:#7bd88f}body.dark .lv-ERROR{color:#ff8f8a}body.dark .lv-WARNING{color:#f0b45c}body.dark .delta{color:#9db9ff;background:#2f6df033}body.dark .delta.neg{color:#ff8f8a;background:#ff8f8a26}
-.act-ctl{flex-wrap:wrap}.act-ctl select{max-width:100%}
+.act-ctl{flex-wrap:wrap;max-width:100%;min-width:0}.act-ctl select{max-width:100%;min-width:0}
 .ytitle{font-size:11px;fill:var(--muted)}
 /* Threat Intelligence Hub (portada, explorador, ficha, biblioteca): same tokens, same panels, light and dark */
 .hero{margin:26px 0;background:linear-gradient(135deg,var(--panel) 60%,#2277ee10)}.hero h2{margin-top:0;font-size:26px}
