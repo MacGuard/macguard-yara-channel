@@ -59,10 +59,12 @@ git -C "$REPO" merge-base --is-ancestor "$BASE" "$HEAD" || die 2 'base is not an
 
 # Evidence must live outside the repository: this worktree, the main checkout and EVERY other worktree of the same repository.
 OUT_ROOT=$(realpath -m "$OUT_ROOT")   # resolved (symlinks included) BEFORE anything is created
-while IFS= read -r inside; do
+INSIDE=("$(cd "$REPO" && pwd -P)" "$(dirname "$COMMON")")
+while IFS= read -r -d '' rec; do [[ $rec == "worktree "* ]] && INSIDE+=("$(realpath -m -- "${rec#worktree }")"); done < <(git -C "$REPO" worktree list --porcelain -z)   # NUL-delimited: paths may contain newlines
+for inside in "${INSIDE[@]}"; do
   [[ -n $inside ]] || continue
   case "$OUT_ROOT/" in "$inside"/*) die 2 "evidence directory $OUT_ROOT is inside the repository ($inside)";; esac
-done < <({ cd "$REPO" && pwd -P; dirname "$COMMON"; git -C "$REPO" worktree list --porcelain | sed -n 's/^worktree //p' | while IFS= read -r w; do realpath -m "$w"; done; })
+done
 mkdir -p "$OUT_ROOT"
 
 BATCH_DIR="$OUT_ROOT/batches/$BATCH"; mkdir -p "$BATCH_DIR/runs" "$OUT_ROOT/locks" "$OUT_ROOT/index"
