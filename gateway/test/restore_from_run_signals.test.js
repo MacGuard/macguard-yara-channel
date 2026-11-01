@@ -20,8 +20,10 @@ const PLAIN = `${MARK} same\n`, OTHER = `${MARK} TAMPERED\n`;
 const alive = (pid) => { try { process.kill(pid, 0); return true; } catch { return false; } };
 
 // opts: slow (shell run inside the fake decryption), tmpName (TMPDIR folder name), differ (provider decrypting to other bytes),
-//       refuse (provider whose decryption/verification is refused), failVerify (provider whose isolated restore check fails)
-function sandbox({ slow = '', tmpName = 'tmp', differ = '', refuse = '', failVerify = '' } = {}) {
+//       refuse (provider whose decryption/verification is refused), failVerify (provider whose isolated restore check fails),
+//       slowDownload / slowRecord (shell run inside the fake `gh run download read-*` / `gh workflow run`), slowVerify (ms inside the fake isolated restore).
+// Every step appends to <root>/phase when it STARTS, so a test can interrupt a precise step and check that no later step ran.
+function sandbox({ slow = '', tmpName = 'tmp', differ = '', refuse = '', failVerify = '', slowDownload = '', slowRecord = '', slowVerify = 0 } = {}) {
   const root = mkdtempSync(join(tmpdir(), 'mg-rfr-test-')), tools = join(root, 'repo', 'gateway', 'tools'), bin = join(root, 'bin'), tmp = join(root, tmpName);
   for (const d of [tools, bin, tmp, join(root, 'repo', 'gateway', 'environments')]) mkdirSync(d, { recursive: true });
   copyFileSync(SCRIPT, join(tools, 'restore_from_run.sh'));
@@ -29,26 +31,38 @@ function sandbox({ slow = '', tmpName = 'tmp', differ = '', refuse = '', failVer
   writeFileSync(join(root, 'repo', 'gateway', 'environments', 'backup-trust.json'), JSON.stringify({ age_recipient: pub, ed25519: { public_key: 'x', max_sequence: 1 }, sigstore: { identity: 'x', repository: 'x' } }));
   writeFileSync(join(root, 'plain'), PLAIN); writeFileSync(join(root, 'other'), OTHER);
   const sh = (f, body) => { writeFileSync(f, '#!/bin/sh\n' + body + '\n'); chmodSync(f, 0o755); };
-  sh(join(bin, 'gh'), `echo "gh $*" >> "${root}/args"; if [ "$1 $2" = "workflow run" ]; then echo "$*" >> "${root}/recorded"; exit 0; fi
+  sh(join(bin, 'gh'), `echo "gh $*" >> "${root}/args"; if [ "$1 $2" = "workflow run" ]; then echo record >> "${root}/phase"; ${slowRecord}
+echo "$*" >> "${root}/recorded"; exit 0; fi
 [ "$1 $2" = "run download" ] || exit 1; while [ $# -gt 0 ]; do case "$1" in -n) n=$2; shift;; -D) d=$2; shift;; esac; shift; done
+case "$n" in read-*) echo "download $n" >> "${root}/phase"; ${slowDownload};; esac
 mkdir -p "$d"; case "$n" in read-*) mkdir -p "$d/20261031T032300Z"; echo '{"resource":"gateway"}' > "$d/20261031T032300Z/manifest.json"; echo cipher > "$d/20261031T032300Z/d1-export.sql.age";; esac`);
   sh(join(bin, 'security'), `cat "${key}"`);
   // fake recover_verify.sh (DIR KEY MINSEQ IDENTITY OUTPUT): logs its args, pid, the number of plaintexts already in the work dir and the modes; then refuses or "decrypts"
-  sh(join(tools, 'recover_verify.sh'), `echo "recover $*" >> "${root}/args"; echo $$ >> "${root}/childpids"; T=$(dirname "$5"); p=$(basename "$5" .sql)
+  sh(join(tools, 'recover_verify.sh'), `echo "recover $*" >> "${root}/args"; echo decrypt >> "${root}/phase"; echo $$ >> "${root}/childpids"; T=$(dirname "$5"); p=$(basename "$5" .sql)
 echo "$(ls "$T" | grep -c '\\.sql$')" >> "${root}/count"; echo "$T" > "${root}/workdir"; echo "$T" >> "${root}/workdirs"
 if [ "$p" = "${refuse}" ]; then echo "REFUSED: the decrypted bytes do not match the manifest"; exit 1; fi
 if [ "$p" = "${differ}" ]; then cp "${root}/other" "$5"; else cp "${root}/plain" "$5"; fi
 ls -ld "$T" "$4" "$5" | cut -c1-10 | tr '\\n' ' ' >> "${root}/modes"; echo >> "${root}/modes"; ${slow}
 echo "ANCHORED OK"; echo "DECRYPTED OK"`);
   // fake restore_verify.mjs: must get the ENCRYPTED copy, the manifest and the identity PATH (never the plaintext the script deletes early)
-  writeFileSync(join(tools, 'restore_verify.mjs'), `import { appendFileSync } from 'node:fs'; const a = process.argv.slice(2); appendFileSync(${JSON.stringify(join(root, 'args'))}, 'verify ' + a.join(' ') + '\\n');
+  // it also records how many decrypted exports (*.sql) the work directory holds while it runs (the identity path gives the work directory)
+  writeFileSync(join(tools, 'restore_verify.mjs'), `import { appendFileSync, readdirSync } from 'node:fs'; import { dirname } from 'node:path'; const a = process.argv.slice(2); appendFileSync(${JSON.stringify(join(root, 'args'))}, 'verify ' + a.join(' ') + '\\n');
+appendFileSync(${JSON.stringify(join(root, 'phase'))}, 'verify\\n'); const id = a[a.indexOf('--identity') + 1]; appendFileSync(${JSON.stringify(join(root, 'vcount'))}, readdirSync(dirname(id)).filter((n) => n.endsWith('.sql')).length + '\\n');
+if (${Number(slowVerify)}) await new Promise((r) => setTimeout(r, ${Number(slowVerify)}));
 if (!a[0].endsWith('/d1-export.sql.age') || !a[1].endsWith('/manifest.json') || !a.includes('--identity')) { console.log('BAD ARGS'); process.exit(1); }
 if (${JSON.stringify(failVerify)} && a[0].includes('read-${failVerify}/')) { console.log('FAIL  integrity_check'); console.log('RESTORE FAILED'); process.exit(1); } console.log('RESTORE VERIFIED (isolated copy)');\n`);
-  const env0 = { ...process.env, PATH: `${bin}:${process.env.PATH}`, TMPDIR: tmp };
-  return { root, tmp, key, read: (f) => (existsSync(join(root, f)) ? readFileSync(join(root, f), 'utf8') : ''),
-    run: (args, env = {}, { group = false } = {}) => { const p = spawn('sh', [join(tools, 'restore_from_run.sh'), ...args], { env: { ...env0, ...env }, stdio: ['ignore', 'pipe', 'pipe'], detached: group });
-      let out = '', err = ''; p.stdout.on('data', (d) => (out += d)); p.stderr.on('data', (d) => (err += d)); return { p, done: new Promise((ok) => p.on('close', (code, signal) => ok({ code, signal, out, err }))) }; },
-    done: () => rmSync(root, { recursive: true, force: true }) };
+  const env0 = { ...process.env, PATH: `${bin}:${process.env.PATH}`, TMPDIR: tmp }, runs = [];
+  // Every run is the leader of its OWN process group (detached), created by this test; its pgid is kept. Cleanup kills only that group, and only while a member
+  // still runs from this test's unique directory (a pgid whose processes all died could in theory be reused by an unrelated group: never signal it blindly).
+  const reap = (c) => { let ps = ''; try { ps = execFileSync('ps', ['-A', '-o', 'pid=,pgid=,args='], { encoding: 'utf8' }); } catch { return; }
+    const members = ps.split('\n').map((l) => l.trim().match(/^(\d+)\s+(\d+)\s+(.*)$/)).filter((m) => m && Number(m[2]) === c.pgid);
+    if (members.some((m) => m[3].includes(root))) try { process.kill(-c.pgid, 'SIGKILL'); } catch { /* already gone */ } };
+  return { root, tmp, key, reap, read: (f) => (existsSync(join(root, f)) ? readFileSync(join(root, f), 'utf8') : ''),
+    run: (args, env = {}) => { const p = spawn('sh', [join(tools, 'restore_from_run.sh'), ...args], { env: { ...env0, ...env }, stdio: ['ignore', 'pipe', 'pipe'], detached: true });
+      let out = '', err = ''; p.stdout.on('data', (d) => (out += d)); p.stderr.on('data', (d) => (err += d));
+      const c = { p, pgid: p.pid, done: new Promise((ok) => p.on('close', (code, signal) => ok({ code, signal, out, err }))) }; runs.push(c); return c; },
+    // always reaps this test's process groups (even after a failed assertion); MG_TEST_KEEP=1 keeps the synthetic sandbox to inspect a failure
+    done: () => { for (const c of runs) reap(c); if (process.env.MG_TEST_KEEP) console.error('kept', root); else rmSync(root, { recursive: true, force: true }); } };
 }
 const waitFor = async (fn, ms = 8000) => { const t = Date.now(); while (Date.now() - t < ms) { const v = fn(); if (v) return v; await new Promise((r) => setTimeout(r, 25)); } return null; };
 const noSecretIn = (s, text) => { const k = readFileSync(s.key, 'utf8').match(/AGE-SECRET-KEY-[0-9A-Z]+/)[0]; assert.ok(!text.includes(k) && !text.includes('AGE-SECRET-KEY'), 'no identity in output or arguments'); };
@@ -93,11 +107,11 @@ test('leftover reporting: a dead run and an unmarked directory are reported; a l
 for (const [sig, code] of [['SIGINT', 130], ['SIGHUP', 129]]) {
   test(`${sig} to the process group (terminal): the child decrypting dies at once, the script exits ${code}, nothing is left`, T, async () => {
     const s = sandbox({ slow: 'sleep 30' }); try {
-      const c = s.run(['123'], {}, { group: true }); await waitFor(() => s.read('workdir')); const t0 = Date.now();
+      const c = s.run(['123']); await waitFor(() => s.read('workdir')); const t0 = Date.now();
       process.kill(-c.p.pid, sig); const r = await c.done;
       assert.ok(Date.now() - t0 < 5000, 'did not wait for the 30 s child'); assert.equal(r.code, code, `code=${r.code} signal=${r.signal}`);
       assert.deepEqual(readdirSync(s.tmp), []); for (const pid of s.read('childpids').trim().split('\n').map(Number)) assert.ok(await waitFor(() => !alive(pid), 3000));
-    } finally { try { execFileSync('pkill', ['-KILL', '-f', s.root]); } catch { /* none */ } s.done(); }
+    } finally { s.done(); }
   });
 }
 
@@ -105,7 +119,9 @@ for (const [sig, code] of [['SIGINT', 130], ['SIGHUP', 129]]) {
 test('abrupt end (SIGKILL, as a power cut): nothing can clean up; the leftover is recognisable and the NEXT run reports it without deleting or printing it', T, async () => {
   const s = sandbox({ slow: '[ -f "$(dirname "$T")/../fast" ] || sleep 30' }); try {
     const c = s.run(['123']); await waitFor(() => s.read('workdir')); const wd = s.read('workdir').trim();
-    c.p.kill('SIGKILL'); try { execFileSync('pkill', ['-KILL', '-f', `${s.root}/repo/gateway/tools/recover_verify.sh`]); } catch { /* already gone */ } await c.done;   // the orphaned child holds the pipes
+    c.p.kill('SIGKILL'); assert.ok(await waitFor(() => !alive(c.p.pid), 3000), 'the script died');
+    const orphans = s.read('childpids').trim().split('\n').map(Number).filter(alive); assert.ok(orphans.length >= 1, 'its child outlives it (SIGKILL does not reach children)');
+    s.reap(c); await c.done;   // the orphaned child (same process group) holds the pipes; only this test's group is killed
     writeFileSync(join(s.root, 'fast'), '');
     assert.ok(existsSync(join(wd, 'id')) && existsSync(join(wd, 'b2.sql')), 'SIGKILL leaves the identity and the plaintext: no trap can run');
     assert.match(readFileSync(join(wd, '.mg-origin'), 'utf8'), /^pid=\d+\nscript=restore_from_run\.sh\nstarted=/);
@@ -174,4 +190,35 @@ test('temporary paths: TMPDIR with a trailing slash and with spaces works and le
       assert.ok(s.read('workdir').startsWith(s.tmp + '/mg-restore-run.'), s.read('workdir')); assert.deepEqual(readdirSync(s.tmp).sort(), ['mg-restore-runX', 'tmp.ABC123']);
     } finally { s.done(); }
   }
+});
+
+// ---- interruption at each step (download, decryption above, isolated restore, evidence dispatch) ----
+const STEPS = [
+  ['download', { slowDownload: 'sleep 1' }, { slowDownload: 'sleep 30' }, 'download read-b2', {}],
+  ['isolated restore', { slowVerify: 1000 }, { slowVerify: 30000 }, 'verify', {}],
+  ['evidence dispatch', { slowRecord: 'sleep 1' }, { slowRecord: 'sleep 30' }, 'record', { MG_RECORD: '1' }],
+];
+for (const [step, slowOne, slowLong, mark, env] of STEPS) {
+  test(`SIGTERM to the script during ${step}: it stops after that step (status 143), nothing later runs, nothing is left`, T, async () => {
+    const s = sandbox(slowOne); try {
+      const c = s.run(['123'], env); assert.ok(await waitFor(() => s.read('phase').split('\n').includes(mark)), `reached ${mark}`);
+      c.p.kill('SIGTERM'); const r = await c.done; const phases = s.read('phase').trim().split('\n');
+      assert.equal(r.code, 143, `code=${r.code} signal=${r.signal} out=${r.out}`); assert.equal(phases.at(-1), mark, `no step after the interrupted one: ${phases}`);
+      assert.doesNotMatch(r.out, mark === 'record' ? /RECORDED: (scaleway|r2)/ : /PASS {2}the three|RECORDED/); assert.ok(s.read('recorded').trim().split('\n').filter(Boolean).length <= 1, 'at most the dispatch in progress');
+      assert.deepEqual(readdirSync(s.tmp), [], 'identity and plaintext removed, directory not re-created');
+    } finally { s.done(); }
+  });
+  test(`SIGINT to the process group (Ctrl-C) during ${step}: the step in progress dies at once, status 130, nothing recorded, nothing left`, T, async () => {
+    const s = sandbox(slowLong); try {
+      const c = s.run(['123'], env); assert.ok(await waitFor(() => s.read('phase').split('\n').includes(mark)), `reached ${mark}`); const t0 = Date.now();
+      process.kill(-c.pgid, 'SIGINT'); const r = await c.done;
+      assert.ok(Date.now() - t0 < 5000, 'did not wait for the 30 s step'); assert.equal(r.code, 130, `code=${r.code} signal=${r.signal}`);
+      assert.equal(s.read('recorded'), '', 'an interrupted dispatch is not reported as recorded'); assert.doesNotMatch(r.out, /RECORDED/); assert.deepEqual(readdirSync(s.tmp), []);
+    } finally { s.done(); }
+  });
+}
+test('each decrypted export is already deleted when the isolated restore runs (it decrypts its own copy from the .age)', T, async () => {
+  const s = sandbox(); try {
+    const r = await s.run(['123']).done; assert.equal(r.code, 0, r.out + r.err); assert.deepEqual(s.read('vcount').trim().split('\n'), ['0', '0', '0']);
+  } finally { s.done(); }
 });

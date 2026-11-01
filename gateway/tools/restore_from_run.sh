@@ -6,7 +6,7 @@
 # For b2, scaleway and r2 it downloads the artifact read-<provider> (what the READ credential of that provider downloaded), the checkpoint from the artifact `package`, verifies the Sigstore identity, hashes, sequence and
 # checkpoint with recover_verify.sh, decrypts to a private temp file, compares the SHA-256 with the manifest and runs the isolated SQLite restore check (restore_verify.mjs). It then compares the three plaintext hashes.
 # The identity is IDENTITY_FILE, or the Keychain item (service macguard-gateway-prod, account BACKUP_AGE_IDENTITY) copied to a private temp file that is removed on exit. Output: verdicts and hashes only.
-# Each provider's decrypted export is deleted as soon as it is hashed: at most one full plaintext exists at a time (plus restore_verify's own private copy).
+# Each provider's decrypted export is deleted as soon as it is hashed, before the isolated restore: at most one full plaintext exists at a time.
 set -u
 umask 077
 RUN=${1:-}; IDENT=${2:-}; [ -n "$RUN" ] || { echo "usage: $0 RUN_ID [IDENTITY_FILE]" >&2; exit 2; }
@@ -38,13 +38,16 @@ for p in b2 scaleway r2; do
   ED_MAX=$(jq -r --arg r "$RES" '.resources[$r].ed25519_max_sequence // .ed25519.max_sequence' "$TRUST")
   MG_CHECKPOINT_DIRS="$T/package/checkpoint" MG_SIGSTORE_IDENTITY="$SIG_ID" MG_SIGSTORE_REPO="$SIG_REPO" MG_ED25519_MAX_SEQUENCE="$ED_MAX" sh "$HERE/recover_verify.sh" "$D" "$ED_PUB" 1 "$IDENT" "$T/$p.sql" > "$T/$p.out" 2>&1 || { echo "FAIL  $p: $(tail -1 "$T/$p.out")"; BAD=1; continue; }
   grep -E "ANCHORED OK|DECRYPTED OK" "$T/$p.out" | sed "s/^/  $p: /" | cut -c1-160
+  H=$(shasum -a 256 "$T/$p.sql" | cut -d' ' -f1); rm -f "$T/$p.sql"   # hashed, then deleted BEFORE the isolated restore (which decrypts its own copy from the .age)
   node "$HERE/restore_verify.mjs" "$D/d1-export.sql.age" "$D/manifest.json" --identity "$IDENT" --resource "$RES" > "$T/$p.rv" 2>&1 && echo "PASS  $p: $(grep -m1 -E 'RESTORE VERIFIED' "$T/$p.rv" | cut -c1-100)" || { echo "FAIL  $p: isolated SQLite restore: $(tail -1 "$T/$p.rv" | cut -c1-120)"; BAD=1; }
-  H=$(shasum -a 256 "$T/$p.sql" | cut -d' ' -f1); rm -f "$T/$p.sql"; HASHES="$HASHES $H"; RECORDS="$RECORDS
+  HASHES="$HASHES $H"; RECORDS="$RECORDS
 gh workflow run record-restore.yml --repo $REPO --ref main -f run_id=$RUN -f provider=$p -f plaintext_sha256=$H -f duration_s=$(( $(date +%s) - T0 )) -f restored_at=$TS0 -f mode=drill"
 done
 [ "$(echo $HASHES | tr ' ' '\n' | sort -u | wc -l | tr -d ' ')" = 1 ] && [ "$(echo $HASHES | wc -w | tr -d ' ')" = 3 ] && echo "PASS  the three restored plaintexts are identical (sha256 $(echo $HASHES | cut -d' ' -f1))" || { echo "FAIL  the three providers did not all restore to the same plaintext"; BAD=1; }
 if [ -n "$RECORDS" ]; then
-  if [ "$BAD" = 0 ] && [ "${MG_RECORD:-}" = 1 ]; then echo "$RECORDS" | sed '/^$/d' | while read -r c; do sh -c "$c" >/dev/null && echo "RECORDED: $(echo "${c#*provider=}" | cut -d' ' -f1)"; done
+  if [ "$BAD" = 0 ] && [ "${MG_RECORD:-}" = 1 ]; then set -f; IFS='
+'   # in THIS shell, not a piped subshell: a signal stops the loop after the current dispatch (a piped loop kept recording the remaining providers)
+    for c in $RECORDS; do sh -c "$c" >/dev/null && echo "RECORDED: $(echo "${c#*provider=}" | cut -d' ' -f1)"; done
   else echo "To record a PASS as evidence (a repo admin; the hash must equal the signed manifest's):$RECORDS"; fi
 fi
 exit $BAD
