@@ -55,3 +55,5 @@ pre.mono{white-space:pre-wrap;overflow-wrap:anywhere;max-width:100%;overflow-x:a
 .panel p,.panel li{overflow-wrap:anywhere}
 /* WCAG 1.4.11: a text field or a select is identified only by its border, so the border needs 3:1 against the panel and the page (it was 1.25:1 light, 1.43:1 dark) */
 :root{--field:#76828f}body.dark{--field:#7488a0}:is(input,select,textarea):not([type=hidden]):not([type=checkbox]):not([type=radio]){border-color:var(--field)}
+/* WCAG 2.5.8: lists of links separated by " · " (table cells, link rows) are not sentences; when they wrap, the rows must be at least 24 px apart (they were 15 px) */
+.linkrow,.tablewrap td:has(a){line-height:max(24px,1.6em)}

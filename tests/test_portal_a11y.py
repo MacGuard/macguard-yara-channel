@@ -177,5 +177,15 @@ console.log(JSON.stringify({ wraps: wraps.map((w) => w.attrs), ids: caps.map((c)
             self.assertNotIn('aria-label', w); self.assertTrue(cid); self.assertEqual(w.get('aria-labelledby'), cid)
         self.assertEqual(out['ids'][1], 'given')
 
+
+class TargetSpacing(unittest.TestCase):
+    """WCAG 2.5.8: the packages and releases tables list files as " · "-separated links (13 px, 15 px tall). Such a list is not a sentence, so
+    the inline exception does not apply; when a cell wrapped, the rows were 15 px apart and the 24 px circles of the links overlapped. Cells with
+    links and the packages link row now have a line height of at least 24 px. Browser check: tests/web/cross_browser.mjs check 7."""
+    def test_link_lists_keep_24_px_between_rows(self):
+        css = (WEB / 'style.css').read_text()
+        self.assertIn('.linkrow,.tablewrap td:has(a){line-height:max(24px,1.6em)}', css)
+        self.assertIn('<li class="linkrow"><a href="guide.html"><span lang="es">Guía del portal</span> · <span lang="en">Portal guide</span></a>', (WEB / 'packages.html').read_text())
+
 if __name__ == '__main__':
     unittest.main()

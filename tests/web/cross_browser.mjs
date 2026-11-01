@@ -98,6 +98,21 @@ for (const name of engines) {
       await page.addStyleTag({ content: '*{line-height:1.5!important;letter-spacing:0.12em!important;word-spacing:0.16em!important}p{margin-bottom:2em!important}' }); const spaced = await sx();
       rec(name, `reflow 320 px + text spacing (${lang}): ${p}`, plain <= 1 && spaced <= 1, `overflow ${plain}px, with text spacing ${spaced}px`); await ctx.close();
     }
+    // 7. target size (WCAG 2.5.8): undersized links (< 24 px) in " · " link lists must keep 24 px between centres of each line fragment, also
+    //    when the list wraps; table cells of packages/releases wrapped at a 15 px pitch
+    for (const [p, w] of [['packages.html', 320], ['packages.html', 1280], ['releases.html', 320], ['releases.html', 1280]]) {
+      const ctx = await browser.newContext({ viewport: { width: w, height: 800 } }); const page = await ctx.newPage();
+      await page.goto(`${base}/${p}`, { waitUntil: 'networkidle' }); await page.waitForTimeout(1000);
+      const bad = await page.evaluate(() => {
+        const T = [...document.querySelectorAll('main a[href]')].filter((e) => e.getClientRects().length && !e.closest('details:not([open])'));
+        const fr = []; T.forEach((e, i) => { for (const r of e.getClientRects()) if (r.width >= 1 && r.height >= 1) fr.push({ i, small: r.width < 24 || r.height < 24, x: r.left + r.width / 2, y: r.top + r.height / 2, r }); });
+        const out = []; for (const f of fr) { if (!f.small) continue; const e = T[f.i], par = e.parentElement;
+          const own = [...par.childNodes].filter((n) => n.nodeType === 3).map((n) => n.textContent).join(''); if (/[A-Za-zÁÉÍÓÚáéíóúñ]{3,}/.test(own)) continue;   // a link inside a sentence is exempt
+          for (const g of fr) { if (g.i === f.i) continue; const q = g.r, dx = Math.max(q.left - f.x, 0, f.x - q.right), dy = Math.max(q.top - f.y, 0, f.y - q.bottom);
+            if (Math.hypot(dx, dy) < 12 || (g.small && Math.hypot(f.x - g.x, f.y - g.y) < 24)) { out.push(`${e.textContent.trim().slice(0, 24)} ~ ${T[g.i].textContent.trim().slice(0, 24)}`); break; } } }
+        return out; });
+      rec(name, `target size 24 px or spacing (2.5.8) at ${w} px: ${p}`, bad.length === 0, bad.length ? `${bad.length} too close: ${bad.slice(0, 3).join(' | ')}` : 'ok'); await ctx.close();
+    }
     srv.close();
   } finally { await browser.close(); }
 }
