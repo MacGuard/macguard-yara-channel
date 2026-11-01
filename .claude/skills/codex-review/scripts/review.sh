@@ -42,7 +42,7 @@ done
 [[ $BASE =~ ^[0-9a-f]{40}$ ]] || die 2 '--base must be a full 40-hex commit SHA'
 [[ $HEAD =~ ^[0-9a-f]{40}$ ]] || die 2 '--head must be a full 40-hex commit SHA'
 [[ $BASE != "$HEAD" ]] || die 2 'base and head are the same commit'
-[[ $BATCH =~ ^[A-Za-z0-9._-]{1,64}$ ]] || die 2 '--batch must match [A-Za-z0-9._-]{1,64}'
+[[ $BATCH =~ ^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$ ]] || die 2 '--batch must match [A-Za-z0-9][A-Za-z0-9._-]{0,63}'
 [[ $KIND == ordinary || $KIND == fix ]] || die 2 '--kind must be ordinary or fix'
 [[ $TIMEOUT =~ ^[0-9]+$ ]] && ((TIMEOUT >= 60 && TIMEOUT <= 3600)) || die 2 '--timeout must be 60..3600 seconds'
 [[ -z $MODEL || $MODEL =~ ^[A-Za-z0-9._:-]{1,64}$ ]] || die 2 'invalid --model'
@@ -57,11 +57,12 @@ COMMON=$(cd "$REPO" && cd "$(git rev-parse --git-common-dir)" && pwd)
 for s in "$BASE" "$HEAD"; do git -C "$REPO" cat-file -e "$s^{commit}" 2>/dev/null || die 2 "commit not found locally: $s"; done
 git -C "$REPO" merge-base --is-ancestor "$BASE" "$HEAD" || die 2 'base is not an ancestor of head: refusing an ambiguous diff'
 
-# Evidence must live outside the repository AND outside the main checkout that owns this worktree.
+# Evidence must live outside the repository: this worktree, the main checkout and EVERY other worktree of the same repository.
 OUT_ROOT=$(realpath -m "$OUT_ROOT")   # resolved (symlinks included) BEFORE anything is created
-for inside in "$(cd "$REPO" && pwd -P)" "$(dirname "$COMMON")"; do
+while IFS= read -r inside; do
+  [[ -n $inside ]] || continue
   case "$OUT_ROOT/" in "$inside"/*) die 2 "evidence directory $OUT_ROOT is inside the repository ($inside)";; esac
-done
+done < <({ cd "$REPO" && pwd -P; dirname "$COMMON"; git -C "$REPO" worktree list --porcelain | sed -n 's/^worktree //p' | while IFS= read -r w; do realpath -m "$w"; done; })
 mkdir -p "$OUT_ROOT"
 
 BATCH_DIR="$OUT_ROOT/batches/$BATCH"; mkdir -p "$BATCH_DIR/runs" "$OUT_ROOT/locks" "$OUT_ROOT/index"
@@ -174,7 +175,7 @@ INPUTS_OK=1; [[ $(inputs_hash) == "$INPUTS_BEFORE" ]] || INPUTS_OK=0
 repo_state | sha256sum | cut -d' ' -f1 >"$EV/repo_state.after"
 chmod -R u+w "$RUN/snapshot"; tree_hash "$RUN/snapshot" >"$EV/snapshot.after"
 set +e
-python3 - "$EV" "$BASE" "$HEAD" "$KIND" "$RC" "$START" "$END" "$TIMEOUT" "$("$CODEX_BIN" --version 2>/dev/null | head -1)" "$n_fix" "$MAX_FIX" "$SCHEMA_SRC" "$INPUTS_OK" <<'PY'
+python3 - "$EV" "$BASE" "$HEAD" "$KIND" "$RC" "$START" "$END" "$TIMEOUT" "$(env -i HOME="$HOME" LANG=C.UTF-8 PATH="$CPATH" timeout 30 "$CODEX_BIN" --version 2>/dev/null | head -1)" "$n_fix" "$MAX_FIX" "$SCHEMA_SRC" "$INPUTS_OK" <<'PY'
 import json, os, re, sys, hashlib
 ev, base, head, kind, rc, start, end, timeout, codex_ver, n_fix, max_fix, schema_src, inputs_ok = sys.argv[1:]
 rc, n_fix, max_fix = int(rc), int(n_fix), int(max_fix)
