@@ -104,11 +104,14 @@ def parse_front(src):
     meta = dict(l.split(': ', 1) for l in m.group(1).split('\n') if ': ' in l)
     return meta, src[m.end():]
 
+TABLE_LABEL = {'es': 'Tabla (desplazable)', 'en': 'Table (scrollable)'}
+def tablewrap(lang): return f'<div class="tablewrap" role="region" tabindex="0" aria-label="{TABLE_LABEL[lang]}">'
+
 def render_events(lang):
     ev = json.loads((ROOT / 'docs-src/events.json').read_text())
     head = {'es': ('Código', 'Nivel', 'Cuándo se registra', 'Origen'), 'en': ('Code', 'Level', 'When it is recorded', 'Source')}[lang]
     rows = ''.join(f"<tr><td><code>{esc(e['code'])}</code></td><td>{esc(e['level'])}</td><td>{esc(e[lang])}</td><td><code>{esc(e['source'])}</code></td></tr>" for e in ev)
-    return f'<div class="tablewrap"><table><thead><tr>{"".join(f"<th scope=col>{h}</th>" for h in head)}</tr></thead><tbody>{rows}</tbody></table></div>'
+    return f'{tablewrap(lang)}<table><thead><tr>{"".join(f"<th scope=col>{h}</th>" for h in head)}</tr></thead><tbody>{rows}</tbody></table></div>'
 
 def diagram_figure(name, lang, ui):
     mmd = ROOT / 'docs-src/diagrams' / f'{name}.mmd'; meta = ROOT / 'docs-src/diagrams' / f'{name}.json'
@@ -153,7 +156,7 @@ def render_md(body, lang, ctx, page_links, used_diagrams):
         if ln.startswith('|') and i + 1 < len(lines) and re.match(r'^\|[\s:|-]+\|\s*$', lines[i + 1]):
             head = [c.strip() for c in ln.strip().strip('|').split('|')]; i += 2; rows = []
             while i < len(lines) and lines[i].startswith('|'): rows.append([c.strip() for c in lines[i].strip().strip('|').split('|')]); i += 1
-            out.append('<div class="tablewrap"><table><thead><tr>' + ''.join(f'<th scope="col">{inline(fill(h), page_links)}</th>' for h in head) + '</tr></thead><tbody>'
+            out.append(tablewrap(lang) + '<table><thead><tr>' + ''.join(f'<th scope="col">{inline(fill(h), page_links)}</th>' for h in head) + '</tr></thead><tbody>'
                        + ''.join('<tr>' + ''.join(f'<td>{inline(fill(c), page_links)}</td>' for c in r) + '</tr>' for r in rows) + '</tbody></table></div>'); continue
         if re.match(r'^[-*]\s+', ln) or re.match(r'^\d+\.\s+', ln):
             ordered = bool(re.match(r'^\d+\.', ln)); buf = []

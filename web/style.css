@@ -13,7 +13,7 @@ details{margin-top:12px}summary{cursor:pointer;color:var(--muted);font-size:13px
 :root{--mod:#d9942b;--rem:#8a94a6}body.dark{--mod:#f0b45c;--rem:#a5b0c2}
 .sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
 .skip{position:absolute;left:-999px;top:0;background:var(--blue);color:#fff;padding:10px 14px;z-index:10}.skip:focus{left:8px;top:8px}
-a:focus-visible,button:focus-visible,select:focus-visible,input:focus-visible,summary:focus-visible{outline:3px solid var(--blue);outline-offset:2px}
+a:focus-visible,button:focus-visible,select:focus-visible,input:focus-visible,input[type=date]:focus-within,summary:focus-visible{outline:3px solid var(--blue);outline-offset:2px}
 .muted,.sub{color:var(--muted);font-size:12px}.okmsg{color:#1b6e3c}.badmsg{color:#b3261e;font-weight:600}body.dark .okmsg{color:#6fd39a}body.dark .badmsg{color:#ff8a80}
 .toolbar{display:flex;flex-wrap:wrap;gap:12px;align-items:end;margin:12px 0}.toolbar label{display:grid;gap:4px;font-size:12px;color:var(--muted)}.toolbar input{min-width:220px;border:1px solid var(--line);background:var(--panel);color:var(--text);border-radius:8px;padding:10px}
 .pager{display:flex;flex-wrap:wrap;gap:14px;align-items:center;margin:14px 0}button:disabled{opacity:.5;cursor:default}
