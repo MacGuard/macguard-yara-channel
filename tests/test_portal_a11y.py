@@ -138,5 +138,31 @@ class FieldBoundaries(unittest.TestCase):
             with self.subTest(page=page.name):
                 self.assertNotRegex(page.read_text(), r'<(input|select|textarea)[^>]*style="[^"]*border', 'inline border overrides the field border')
 
+
+class ScrollRegionName(unittest.TestCase):
+    """WCAG 4.1.2/3.1.2: common.js made every scrollable table a focusable region named with aria-label = caption text, copied once at load.
+    The captions are translated afterwards (data-t), so in English the region kept the Spanish name ("Paquetes publicados"). The region is now
+    named by reference to its caption, which always holds the current language."""
+    STUB = r"""
+const vm = require('vm'), fs = require('fs');
+const mk = (txt, id) => ({ id: id || '', textContent: txt });
+const caps = [mk('Paquetes publicados'), mk('Releases', 'given')], wraps = caps.map((c) => ({ attrs: {}, setAttribute(k, v) { this.attrs[k] = String(v); }, querySelector: (q) => (q === 'caption' ? c : null) }));
+const ctx = { document: { querySelectorAll: (q) => (q === '.tablewrap' ? wraps : []) } }; vm.createContext(ctx);
+const src = fs.readFileSync(process.argv[1], 'utf8').split('\n').filter((l) => l.startsWith("document.querySelectorAll('.tablewrap')"));
+if (src.length !== 1) throw new Error('expected one .tablewrap statement in common.js, found ' + src.length);
+vm.runInContext(src[0], ctx);
+caps[0].textContent = 'Published packages';
+console.log(JSON.stringify({ wraps: wraps.map((w) => w.attrs), ids: caps.map((c) => c.id) }));
+"""
+
+    def test_the_scroll_region_is_named_by_its_caption_not_a_copy(self):
+        r = subprocess.run([node(), '-e', self.STUB, str(WEB / 'common.js')], capture_output=True, text=True, timeout=30)
+        self.assertEqual(r.returncode, 0, r.stderr[-800:]); out = json.loads(r.stdout.strip().splitlines()[-1])
+        self.assertEqual(len(out['wraps']), 2, r.stderr[-400:])
+        for w, cid in zip(out['wraps'], out['ids']):
+            self.assertEqual(w.get('role'), 'region'); self.assertEqual(w.get('tabindex'), '0')
+            self.assertNotIn('aria-label', w); self.assertTrue(cid); self.assertEqual(w.get('aria-labelledby'), cid)
+        self.assertEqual(out['ids'][1], 'given')
+
 if __name__ == '__main__':
     unittest.main()

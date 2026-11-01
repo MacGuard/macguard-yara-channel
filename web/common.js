@@ -67,7 +67,8 @@ MG.enc=enc;
 })();
 
 /* scrollable tables must be reachable and named for keyboard and screen-reader users */
-document.querySelectorAll('.tablewrap').forEach(function(w){var cap=w.querySelector('caption');w.setAttribute('tabindex','0');w.setAttribute('role','region');if(cap&&cap.textContent)w.setAttribute('aria-label',cap.textContent)});
+/* WCAG 4.1.2/3.1.2: the region is named by its caption by reference, so the name follows the caption when the language changes (a copied aria-label stayed in Spanish) */
+document.querySelectorAll('.tablewrap').forEach(function(w,i){var cap=w.querySelector('caption');w.setAttribute('tabindex','0');w.setAttribute('role','region');if(cap&&cap.textContent){if(!cap.id)cap.id='tw-cap-'+i;w.setAttribute('aria-labelledby',cap.id)}});
 
 /* Identifier detection shared by the hub search, the explorer and the vulnerability page. Case-insensitive input, canonical output.
    GCVE keeps its numbering authority (GNA); only GCVE-0 is the CVE namespace, and that equivalence is the API's business, never guessed here.
