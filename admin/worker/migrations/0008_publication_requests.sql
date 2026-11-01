@@ -57,14 +57,3 @@ CREATE TRIGGER IF NOT EXISTS publication_requests_version_step BEFORE UPDATE ON 
 CREATE TRIGGER IF NOT EXISTS publication_requests_final BEFORE UPDATE ON publication_requests WHEN OLD.state IN ('APPLIED','FAILED','CANCELLED') BEGIN SELECT RAISE(ABORT, 'a closed publication request is final'); END;
 CREATE TRIGGER IF NOT EXISTS publication_request_events_no_update BEFORE UPDATE ON publication_request_events BEGIN SELECT RAISE(ABORT, 'publication request events are append-only'); END;
 CREATE TRIGGER IF NOT EXISTS publication_request_events_no_delete BEFORE DELETE ON publication_request_events BEGIN SELECT RAISE(ABORT, 'publication request events are append-only'); END;
--- The post-execution review of an emergency (review F4): its own append-only record, one per request, so it can be written after the request closed (a closed request row is final).
-CREATE TABLE IF NOT EXISTS publication_request_reviews (
-  request_id TEXT PRIMARY KEY,
-  at TEXT NOT NULL,
-  by_login TEXT NOT NULL,
-  by_id INTEGER NOT NULL,
-  outcome TEXT NOT NULL CHECK (outcome IN ('APPROPRIATE','INAPPROPRIATE')),
-  reason TEXT NOT NULL CHECK (length(trim(reason)) >= 5)
-);
-CREATE TRIGGER IF NOT EXISTS publication_request_reviews_no_update BEFORE UPDATE ON publication_request_reviews BEGIN SELECT RAISE(ABORT, 'publication request reviews are append-only'); END;
-CREATE TRIGGER IF NOT EXISTS publication_request_reviews_no_delete BEFORE DELETE ON publication_request_reviews BEGIN SELECT RAISE(ABORT, 'publication request reviews are append-only'); END;
