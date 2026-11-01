@@ -2,12 +2,15 @@
 
 Generated from `logs/log.jsonl`; do not edit by hand. Times are UTC. Newest first.
 
-Entries: 274 (INFO 204, WARNING 47, ERROR 23)
+Entries: 277 (INFO 207, WARNING 47, ERROR 23)
 
 Latest signed checkpoint: 273 entries, Merkle root `f7a321047170091fa2ea8bb38baff3a4028e823ac52ec2a432896202c4c84937`.
 
 | # | Date (UTC) | Level | Event | Message |
 |---|---|---|---|---|
+| 276 | 2026-11-01T04:12:45Z | INFO | `site.cloudflare_deployed` | Site deployed to Cloudflare Pages project macguard-rules and the public mirror was downloaded and verified. See https://github.com/MacGuard/macguard-yara-channel/actions/runs/41272051932 |
+| 275 | 2026-11-01T04:12:45Z | INFO | `site.live_verified` | The public GitHub Pages site was downloaded and verified: signatures, every rule hash, catalog, proof and links. See https://github.com/MacGuard/macguard-yara-channel/actions/runs/41272051932 |
+| 274 | 2026-11-01T04:12:45Z | INFO | `site.github_pages_deployed` | Site deployed to GitHub Pages. See https://github.com/MacGuard/macguard-yara-channel/actions/runs/41272051932 |
 | 273 | 2026-11-01T04:10:37Z | INFO | `release.published` | Signed release rules-20261101-41271797671 published on GitHub. The site deployment was requested. |
 | 272 | 2026-11-01T04:10:13Z | INFO | `release.approved` | Candidate from review run 41271373500 was approved for signing in workflow run 41271797671. |
 | 271 | 2026-11-01T04:05:02Z | INFO | `candidate.changes` | The approved set differs from the latest release. A new release will be requested. |
