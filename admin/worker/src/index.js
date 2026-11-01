@@ -36,7 +36,11 @@ async function readJson(request, max) {
 // no longer counts as active until an authorised operation pins it again (fails closed: 503 / not_active). Codex pr53-highs-fix round 2, HIGH.
 const activeRelease = (env, deps, db) => async () => { const latest = await fetchPublication(env, deps, null); const pinned = await pubReq.activeRelease(db, latest.ok ? latest.tag : null); if (!pinned) throw new Error('active release unknown');
   if (pinned.basis === 'pinned') { const pub = await fetchPublication(env, deps, pinned.tag); if (!pub.ok || !pinned.manifest_sha256 || pub.manifest_sha256 !== pinned.manifest_sha256) throw new Error('the pinned release no longer matches the authorised manifest'); }
-  return pinned; };
+  return pinned.basis === 'pinned' ? pinned : { ...pinned, manifest_sha256: latest.manifest_sha256 }; };
+// One request = one decision: the active release (and its authorised manifest digest) is resolved ONCE, and the content used as evidence must be that exact
+// manifest, so assets replaced between two reads (or two cached versions) can never close a request with content the pin did not authorise (pr78-extra, MEDIUM).
+const activeOnce = (env, deps, db) => { let p = null; const f = () => (p ??= activeRelease(env, deps, db)()); return f; };
+const sameManifest = (pub, act) => !!(pub && pub.ok && act && act.manifest_sha256 && pub.manifest_sha256 === act.manifest_sha256);
 
 export async function handle(request, env, deps) {
   const url = new URL(request.url), now = deps.now(), db = env.DB, method = request.method, path = url.pathname;
@@ -76,8 +80,9 @@ export async function handle(request, env, deps) {
         if (v.workflow !== 'publish-expedited.yml') return err(403, 'only the expedited publication workflow reports on its request');
         // the run identity comes from the signed token (F6); the release must be public, verified AND carry this exact change (F3), and the effective state is synced from it before APPLIED
         const iso2 = new Date(now * 1000).toISOString(), run = { run_id: String(v.claims.run_id ?? ''), run_attempt: Number(v.claims.run_attempt) || null, event_name: v.claims.event_name ?? null, actor_id: v.claims.actor_id ?? null };
-        const r = await pubReq.report(db, expd[1], body, iso2, { run, dispatcherId: env.EXPEDITE_DISPATCHER_ID, lookupRun: pubReq.makeRunLookup(env, deps), activeRelease: activeRelease(env, deps, db),
-          verifyRelease: async (tag, row) => { const pub = await fetchPublication(env, deps, tag); return pub.ok && (await pubReq.covers(db, row, pub)) ? pub : false; },
+        const act = activeOnce(env, deps, db);
+        const r = await pubReq.report(db, expd[1], body, iso2, { run, dispatcherId: env.EXPEDITE_DISPATCHER_ID, lookupRun: pubReq.makeRunLookup(env, deps), activeRelease: act,
+          verifyRelease: async (tag, row) => { const pub = await fetchPublication(env, deps, tag); let a = null; try { a = await act(); } catch { a = null; } return sameManifest(pub, a) && (await pubReq.covers(db, row, pub)) ? pub : false; },
           sync: async (row, tag, pub) => { if (!(await pubReq.syncFromRelease(db, row, pub, { trigger: 'expedited', run_url: body.run_url, token_run_id: run.run_id, run_attempt: run.run_attempt, role: 'PIPELINE' }, actor, iso2))) throw new Error('the effective state did not reach the requested state from this release'); } });
         return json(r.body, r.status);
       }
@@ -86,8 +91,9 @@ export async function handle(request, env, deps) {
         const iso2 = new Date(now * 1000).toISOString(), runId = String(v.claims.run_id ?? ''), tag = String(body.release_tag || ''); if (!/^\d{1,20}$/.test(runId)) return err(403, 'a report must come from an identified workflow run (run_id in its OIDC token)');
         if (body.run_id !== undefined && String(body.run_id) !== runId) return err(400, 'run_id must be the run of the token that signs the report');
         const pub = RELEASE_TAG.test(tag) ? await fetchPublication(env, deps, tag) : { ok: false };
-        const evidence = async (row) => pub.ok && (await pubReq.covers(db, row, pub)) && pubReq.syncFromRelease(db, row, pub, { trigger: 'daily', token_run_id: runId, run_attempt: Number(v.claims.run_attempt) || null, role: 'PIPELINE' }, actor, iso2);
-        return json({ schema: 1, ...(await pubReq.dailyApplied(db, body.ids, { run_id: runId, release_tag: tag }, iso2, { evidence, activeRelease: activeRelease(env, deps, db) })), ...(pub.ok ? {} : { note: 'no verifiable public release with that tag: nothing was applied' }) }); }
+        const act = activeOnce(env, deps, db);
+        const evidence = async (row) => { let a = null; try { a = await act(); } catch { a = null; } return sameManifest(pub, a) && (await pubReq.covers(db, row, pub)) && pubReq.syncFromRelease(db, row, pub, { trigger: 'daily', token_run_id: runId, run_attempt: Number(v.claims.run_attempt) || null, role: 'PIPELINE' }, actor, iso2); };
+        return json({ schema: 1, ...(await pubReq.dailyApplied(db, body.ids, { run_id: runId, release_tag: tag }, iso2, { evidence, activeRelease: act })), ...(pub.ok ? {} : { note: 'no verifiable public release with that tag: nothing was applied' }) }); }
       if (path === '/api/pipeline/released' || path === '/api/pipeline/revalidation-failed') {
         if (!Array.isArray(body.hashes) || body.hashes.some((h) => !/^[0-9a-f]{64}$/.test(h))) return err(400, 'hashes required');
         const ev = path.endsWith('released') ? 'released' : 'revalidation_failed';

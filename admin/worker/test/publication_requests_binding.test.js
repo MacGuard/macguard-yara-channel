@@ -185,3 +185,17 @@ test('F3 (Codex pr53-highs-fix round 2, HIGH): a PIN authorises one exact manife
   assert.equal((await pinReq(w, w.ada, { kind: 'PIN', tag: OLD, reason: 'reviewed the replaced assets and re-authorised them', expect_seq: 1 })).status, 200);
   assert.equal((await send(w, b.id, { state: 'APPLIED', release_tag: OLD, commit_sha: 'c'.repeat(40) }, 3903)).data.request.state, 'APPLIED', 'after an authorised re-pin it works');
 });
+test('F3 (pr78-extra, MEDIUM): the evidence must be the exact manifest the active release authorises; a different read of the same tag (replaced assets, stale cache) closes nothing', async () => {
+  const w = await fx(); const sch = (await w.call('POST', '/api/publication-requests', { user: w.pat, body: await body(w, w.ids[1]) })).data.request;
+  await releases(w, [[OLD, [w.entry(w.ids[0])], { publishedAt: '2026-10-20T03:40:00Z', noDigest: true }],   // GitHub reported no asset digest: only the bytes read decide
+ [NEW, [w.entry(w.ids[0])], { publishedAt: '2026-11-01T03:40:00Z' }]]);
+  assert.equal((await pinReq(w, w.ada, { kind: 'PIN', tag: OLD, reason: 'roll back: the newest release broke a customer deployment', expect_seq: 0 })).status, 200);   // pin authorises manifest A (no ids[1])
+  // from now on the FIRST read of OLD's manifest returns B (lists ids[1]) and every later read returns A again
+  const A = { files: [w.entry(w.ids[0])] }, B = { files: [w.entry(w.ids[0]), w.entry(w.ids[1])] }; let n = 0;
+  const enc = async (m) => { const files = m.files.map((e) => ({ path: e.path, sha256: e.sha256, bytes: e.bytes ?? null })); return new TextEncoder().encode(JSON.stringify({ schema: 1, files, rules_root: await rulesRoot(files) })); };
+  const [bA, bB] = [await enc(A), await enc(B)];
+  w.route(new RegExp(`/releases/download/${OLD}/manifest\\.json$`), () => new Response(n++ === 0 ? bB : bA));
+  const daily = await w.pipelineToken('daily.yml', { run_id: '4002', run_attempt: '1' });
+  const r = await w.call('POST', '/api/pipeline/publication-requests/applied', { bearer: daily, body: { ids: [sch.id], release_tag: OLD } });
+  assert.deepEqual(r.data.applied, [], JSON.stringify(r.data)); assert.equal((await P.get(w.db, sch.id)).state, 'PENDING', 'content the pin never authorised closes nothing');
+});
