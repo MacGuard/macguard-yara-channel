@@ -1,0 +1,1494 @@
+{
+ "schema": "macguard.intel-sources/1",
+ "as_of": "2026-11-01",
+ "note": "Preparation registry, NOT an authorisation. Every source is RETAINED until the owner records an approval (owner_confirmed=true + approval_record). licence_assessment is an engineering reading of public terms (model-summarised web pages), not legal advice. A ready connector never means ingestion or redistribution is allowed. PoC/exploit sources are deliberately absent: they need their own policy and catalogue.",
+ "d1_pricing_basis": "D1 Workers Free: 5M rows read/day, 100k rows written/day, 5 GB; Workers Paid: 25B reads + 50M writes/month included, then $0.001/M reads, $1.00/M writes, $0.75/GB-month (https://developers.cloudflare.com/d1/platform/pricing/, read 2026-11-01)",
+ "enums": {
+  "approval_state": [
+   "RETAINED",
+   "APPROVED_INTERNAL",
+   "APPROVED_PUBLIC",
+   "APPROVED_PREMIUM",
+   "BLOCKED"
+  ],
+  "licence_assessment": [
+   "CLEAR",
+   "CLEAR-WITH-CONDITIONS",
+   "AMBIGUOUS",
+   "FORBIDS"
+  ],
+  "use": [
+   "allowed",
+   "conditional",
+   "forbidden",
+   "unknown"
+  ],
+  "redistribution_status": [
+   "allowed",
+   "allowed-with-conditions",
+   "pending-legal",
+   "blocked",
+   "not-evaluated"
+  ],
+  "adapter_verdict": [
+   "REUSE",
+   "REUSE-WITH-FIXES",
+   "REWRITE"
+  ]
+ },
+ "adapters_assessment": {
+  "branches": {
+   "#36 origin/feat/intelligence-live": "f0b37aa",
+   "#37 origin/feat/intelligence-eu": "2ef2c6d",
+   "#38 origin/feat/alerts": "1523887 (superset of #36 and #37 for intel/)"
+  },
+  "behind_main": "164 commits each; git merge-tree with main f61934f: no textual conflicts",
+  "tests": "on 1523887: 144 tests OK, 2 skipped (no Chrome); on the main+1523887 merge tree: 2 failures, both stale committed web data (web/api/v1/cards/yara-legacy.json), regenerable with scripts/gen_intel_web.py",
+  "modules": {
+   "intel/fetch.py": {
+    "verdict": "REUSE-WITH-FIXES",
+    "good": [
+     "HTTPS only, redirect to http refused",
+     "no credentials ever sent",
+     "64 MiB cap enforced while streaming",
+     "safe file names, never overwrites",
+     "retrieval record with SHA-256"
+    ],
+    "fixes": [
+     "timeout is per socket read only: add a total deadline",
+     "no host allowlist: bind each URL and every redirect target to the hosts declared in this registry (SSRF via redirect)",
+     "no decompression path exists; any zip/gz source (CWE, OSV, ET Open) needs ratio and size limits"
+    ]
+   },
+   "intel/registry.py": {
+    "verdict": "REUSE-WITH-FIXES",
+    "fixes": [
+     "accepts only schema macguard.source-registry/1: read macguard.intel-sources/1 (this file keeps redistribution_status, owner_confirmed, access.credential_required and trust for compatibility)",
+     "feat/alerts carries an older file at this same path: drop it when #38 code is reused"
+    ]
+   },
+   "intel/live.py (KEV, Feodo)": {
+    "verdict": "REUSE-WITH-FIXES",
+    "fixes": [
+     "KEV count/date checks against the published schema",
+     "Feodo: handle the empty-dataset state as NO_DATA, not as a failure"
+    ]
+   },
+   "intel/vulns/ids.py": {
+    "verdict": "REUSE-WITH-FIXES",
+    "fixes": [
+     "add GCVE (GCVE-<gna>-YYYY-N) with GCVE-0 = CVE as the only automatic equivalence"
+    ]
+   },
+   "intel/vulns/merge.py": {
+    "verdict": "REUSE",
+    "note": "joins only on declared ids/aliases, at most one CVE per entry, free-text mentions are not aliases (matches the no-textual-equivalence rule)"
+   },
+   "intel/vulns/euvd.py, live_eu.py": {
+    "verdict": "REUSE-WITH-FIXES",
+    "fixes": [
+     "re-check the endpoint (apidoc unavailable 2026-11-01)",
+     "licence still unknown: connector only"
+    ]
+   },
+   "intel/vulns/certeu.py": {
+    "verdict": "REUSE",
+    "note": "ElementTree on bytes already capped at 64 MiB; expat >= 2.4.1 limits entity amplification; link regex pins the host"
+   },
+   "intel/vulns/kev.py, records.py, versions.py, assess.py": {
+    "verdict": "REUSE",
+    "note": "covered by tests on the branch"
+   },
+   "intel/ioc.py": {
+    "verdict": "REUSE",
+    "note": "strict normalisation: non-global IPs, reserved TLDs, empty/degenerate hashes and long URLs refused"
+   },
+   "intel/canonical.py, merkle.py, channel.py, verify.py, catalog.py": {
+    "verdict": "REUSE-WITH-FIXES",
+    "fixes": [
+     "channel manifests are NOT_SIGNED / NOT_LOGGED: must go through the existing publish.yml signing and tlog, not a parallel signer"
+    ]
+   },
+   "intel/provenance/*": {
+    "verdict": "out of scope (client inventory, not a source adapter)"
+   },
+   "web/intelligence/*": {
+    "verdict": "REUSE-WITH-FIXES",
+    "fixes": [
+     "JS uses textContent (no HTML injection found); committed web data is stale and must be regenerated"
+    ]
+   }
+  },
+  "missing_everywhere": [
+   "NVD",
+   "cvelistV5",
+   "OSV",
+   "GHSA",
+   "EPSS",
+   "CWE",
+   "GCVE",
+   "Sigma",
+   "Suricata",
+   "ClamAV",
+   "ATT&CK"
+  ]
+ },
+ "sources": [
+  {
+   "approval_state": "APPROVED_PUBLIC",
+   "owner_confirmed": true,
+   "approval_record": {
+    "by": "owner (MacGuard)",
+    "on": "2026-11-01",
+    "decision": "KEV prioritised as the first real public dataset of rules.mac-guard.com (portal mandate of 2026-11-01); CC0 1.0 verified",
+    "scope": "public portal and public bundle; MacGuard adds no proprietary enrichment to it",
+    "licence_evidence": "https://github.com/cisagov/kev-data",
+    "conditions_kept": [
+     "absence from KEV is NOT evidence of no exploitation",
+     "do not imply CISA endorsement"
+    ]
+   },
+   "trust": 90,
+   "pocs_or_exploit_code": false,
+   "id": "cisa-kev",
+   "name": "CISA Known Exploited Vulnerabilities",
+   "families": [
+    "vulns"
+   ],
+   "kind": "exploitation-evidence",
+   "endpoints": [
+    {
+     "url": "https://www.cisa.gov/sites/default/files/feeds/known_exploited_vulnerabilities.json",
+     "format": "json",
+     "auth": "none"
+    },
+    {
+     "url": "https://www.cisa.gov/sites/default/files/csv/known_exploited_vulnerabilities.csv",
+     "format": "csv",
+     "auth": "none"
+    },
+    {
+     "url": "https://github.com/cisagov/kev-data",
+     "format": "git mirror (json/csv/schema)",
+     "auth": "none"
+    }
+   ],
+   "licence": {
+    "name": "CC0 1.0 (cisagov/kev-data README; CISA links /sites/default/files/licenses/kev/license.txt)",
+    "spdx": "CC0-1.0",
+    "url": "https://github.com/cisagov/kev-data",
+    "attribution_text": "Source: CISA Known Exploited Vulnerabilities Catalog (https://www.cisa.gov/known-exploited-vulnerabilities-catalog)"
+   },
+   "commercial_use": "allowed",
+   "redistribution": {
+    "public": "allowed",
+    "paid_tier": "allowed"
+   },
+   "licence_assessment": "CLEAR",
+   "conditions": [
+    "absence from KEV is NOT evidence of no exploitation",
+    "do not imply CISA endorsement"
+   ],
+   "limitations": {
+    "api_key_required": false,
+    "rate_limit": "none stated; poll at most daily",
+    "notes": "JSON schema published separately (updated 2026-09-02)"
+   },
+   "update_frequency": "irregular, several times a week (not stated by CISA)",
+   "volume": {
+    "records": 1766,
+    "unit": "KEV entries",
+    "as_of": "2026-11-01",
+    "basis": "catalogue 2026.10.30 (dateReleased 2026-10-30T17:02:45.3665Z) fetched 2026-11-01T13:53:44.659Z, count field = 1766 entries"
+   },
+   "cost_d1": {
+    "rows_estimate": 1766,
+    "bytes_per_row_estimate": 700,
+    "total_bytes_estimate": 1236200,
+    "rows_written_per_update_estimate": 1766,
+    "query_cost_note": "full refresh fits Free (1.8k writes); diff-only after first load: tens of writes per update"
+   },
+   "evidence": [
+    {
+     "url": "https://www.cisa.gov/known-exploited-vulnerabilities-catalog",
+     "what": "feed URLs, 1766 entries, licence link",
+     "checked_at": "2026-11-01",
+     "method": "WebFetch/WebSearch of the official page on 2026-11-01 (model-summarised text; re-read the page before any legal decision)"
+    },
+    {
+     "url": "https://github.com/cisagov/kev-data",
+     "what": "CC0 licence statement",
+     "checked_at": "2026-11-01",
+     "method": "WebFetch/WebSearch of the official page on 2026-11-01 (model-summarised text; re-read the page before any legal decision)"
+    },
+    {
+     "url": "https://www.cisa.gov/sites/default/files/feeds/known_exploited_vulnerabilities.json",
+     "what": "feed fetched and strictly validated by admin/worker/tools/intel_kev.mjs: 1766 entries, sha256 3aa9cf3c01f116362a29d111702979175453c425e3733bde80fc4f6f8e2294e5",
+     "checked_at": "2026-11-01",
+     "method": "direct HTTPS download (application/json, 1826755 bytes)"
+    }
+   ],
+   "reconciliation": {
+    "intel_families": "cisa_kev INTEGRATED_LOCAL, 1756 records",
+    "license_matrix_draft": "ALLOWED-WITH-CONDITIONS (CC0)",
+    "matrix_md": "Premium/first-bundle candidate",
+    "disagreement": "none on licence; count moved 1756 -> 1766"
+   },
+   "redistribution_status": "allowed",
+   "access": {
+    "method": "https GET, public",
+    "credential_required": false
+   },
+   "adapter": {
+    "status": "implemented",
+    "location": "admin/worker/src/intel_ingest.js + admin/worker/tools/intel_kev.mjs (feat/hub-ingest)",
+    "verdict": "REWRITE"
+   }
+  },
+  {
+   "approval_state": "RETAINED",
+   "owner_confirmed": false,
+   "approval_record": null,
+   "trust": 80,
+   "pocs_or_exploit_code": false,
+   "id": "enisa-euvd",
+   "name": "ENISA European Vulnerability Database (EUVD)",
+   "families": [
+    "vulns"
+   ],
+   "kind": "vulnerability",
+   "endpoints": [
+    {
+     "url": "https://euvdservices.enisa.europa.eu/api/",
+     "format": "json paged search API (base used by the existing adapter)",
+     "auth": "none"
+    },
+    {
+     "url": "https://euvd.enisa.europa.eu/apidoc",
+     "format": "API documentation",
+     "auth": "none"
+    }
+   ],
+   "licence": {
+    "name": "not stated for EUVD data; ENISA IPR policy says CC BY 4.0 for ENISA publications (coverage of EUVD data NOT confirmed)",
+    "spdx": null,
+    "url": "https://www.enisa.europa.eu/about-enisa/legal-notice/enisa-ipr-policy-public-version",
+    "attribution_text": "Source: ENISA EUVD (attribution text to be confirmed by ENISA)"
+   },
+   "commercial_use": "unknown",
+   "redistribution": {
+    "public": "unknown",
+    "paid_tier": "unknown"
+   },
+   "licence_assessment": "AMBIGUOUS",
+   "conditions": [
+    "ask ENISA (info@enisa.europa.eu) for written reuse terms covering the database and API",
+    "never invent a CVE for an EUVD record without a declared alias"
+   ],
+   "limitations": {
+    "api_key_required": false,
+    "rate_limit": "not documented; apidoc returned 'Application Unavailable' on 2026-11-01",
+    "notes": "existing adapter: 100 per page, 60-page cap, short pagination marked incomplete"
+   },
+   "update_frequency": "continuous (not stated)",
+   "volume": {
+    "records": null,
+    "unit": "EUVD records",
+    "as_of": "2026-11-01",
+    "basis": "not measured; a local 2026-10-25 run read 4000 records of a window"
+   },
+   "cost_d1": {
+    "rows_estimate": null,
+    "bytes_per_row_estimate": 2000,
+    "total_bytes_estimate": null,
+    "rows_written_per_update_estimate": null,
+    "query_cost_note": "a full mirror is of the order of the CVE corpus: Paid plan, or R2 snapshots with a D1 index of current values"
+   },
+   "evidence": [
+    {
+     "url": "https://euvd.enisa.europa.eu/apidoc",
+     "what": "no terms found; service unavailable at check time",
+     "checked_at": "2026-11-01",
+     "method": "WebFetch/WebSearch of the official page on 2026-11-01 (model-summarised text; re-read the page before any legal decision)"
+    },
+    {
+     "url": "https://www.enisa.europa.eu/about-enisa/legal-notice/enisa-ipr-policy-public-version",
+     "what": "CC BY 4.0 for publications only",
+     "checked_at": "2026-11-01",
+     "method": "WebFetch/WebSearch of the official page on 2026-11-01 (model-summarised text; re-read the page before any legal decision)"
+    }
+   ],
+   "reconciliation": {
+    "intel_families": "euvd INTEGRATED_LOCAL, 4000 records",
+    "license_matrix_draft": "PENDING-LEGAL",
+    "matrix_md": "licence not reviewed",
+    "disagreement": "none"
+   },
+   "redistribution_status": "pending-legal",
+   "access": {
+    "method": "https GET, public",
+    "credential_required": false
+   },
+   "adapter": {
+    "status": "exists-unmerged",
+    "location": "origin/feat/alerts and #37:intel/vulns/euvd.py, live_eu.py",
+    "verdict": "REUSE-WITH-FIXES"
+   }
+  },
+  {
+   "approval_state": "RETAINED",
+   "owner_confirmed": false,
+   "approval_record": null,
+   "trust": 80,
+   "pocs_or_exploit_code": false,
+   "id": "enisa-euvd-exploited",
+   "name": "ENISA EUVD exploited vulnerabilities list",
+   "families": [
+    "vulns"
+   ],
+   "kind": "exploitation-evidence",
+   "endpoints": [
+    {
+     "url": "https://euvdservices.enisa.europa.eu/api/",
+     "format": "json (exploited filter)",
+     "auth": "none"
+    }
+   ],
+   "licence": {
+    "name": "same as enisa-euvd (not stated)",
+    "spdx": null,
+    "url": "https://www.enisa.europa.eu/about-enisa/legal-notice/enisa-ipr-policy-public-version",
+    "attribution_text": "Source: ENISA EUVD (to be confirmed)"
+   },
+   "commercial_use": "unknown",
+   "redistribution": {
+    "public": "unknown",
+    "paid_tier": "unknown"
+   },
+   "licence_assessment": "AMBIGUOUS",
+   "conditions": [
+    "reported to be largely fed by CISA KEV: keep per-entry provenance and never count it as independent evidence"
+   ],
+   "limitations": {
+    "api_key_required": false,
+    "rate_limit": "not documented",
+    "notes": ""
+   },
+   "update_frequency": "continuous (not stated)",
+   "volume": {
+    "records": null,
+    "unit": "entries",
+    "as_of": "2026-11-01",
+    "basis": "not measured"
+   },
+   "cost_d1": {
+    "rows_estimate": 2000,
+    "bytes_per_row_estimate": 700,
+    "total_bytes_estimate": 1400000,
+    "rows_written_per_update_estimate": 2000,
+    "query_cost_note": "small; same order as KEV"
+   },
+   "evidence": [
+    {
+     "url": "https://euvd.enisa.europa.eu/apidoc",
+     "what": "no terms found",
+     "checked_at": "2026-11-01",
+     "method": "WebFetch/WebSearch of the official page on 2026-11-01 (model-summarised text; re-read the page before any legal decision)"
+    }
+   ],
+   "reconciliation": {
+    "intel_families": "part of euvd",
+    "license_matrix_draft": "PENDING-LEGAL",
+    "matrix_md": "-",
+    "disagreement": "none"
+   },
+   "redistribution_status": "pending-legal",
+   "access": {
+    "method": "https GET, public",
+    "credential_required": false
+   },
+   "adapter": {
+    "status": "exists-unmerged",
+    "location": "origin/feat/alerts:intel/vulns/live_eu.py (kind euvd-exploited)",
+    "verdict": "REUSE-WITH-FIXES"
+   }
+  },
+  {
+   "approval_state": "RETAINED",
+   "owner_confirmed": false,
+   "approval_record": null,
+   "trust": 85,
+   "pocs_or_exploit_code": false,
+   "id": "nvd",
+   "name": "NIST National Vulnerability Database (CVE API 2.0)",
+   "families": [
+    "vulns"
+   ],
+   "kind": "vulnerability+severity",
+   "endpoints": [
+    {
+     "url": "https://services.nvd.nist.gov/rest/json/cves/2.0",
+     "format": "json paged; incremental by lastModStartDate/lastModEndDate",
+     "auth": "optional apiKey header"
+    }
+   ],
+   "licence": {
+    "name": "US Government work (public domain per the CIRCL vulnerability-lookup source list) + NVD API Terms of Use",
+    "spdx": null,
+    "url": "https://nvd.nist.gov/developers/terms-of-use",
+    "attribution_text": "This product uses the NVD API but is not endorsed or certified by the NVD."
+   },
+   "commercial_use": "allowed",
+   "redistribution": {
+    "public": "conditional",
+    "paid_tier": "conditional"
+   },
+   "licence_assessment": "CLEAR-WITH-CONDITIONS",
+   "conditions": [
+    "display the NVD notice prominently",
+    "do not imply NVD endorsement",
+    "modified content must not be attributed to NVD",
+    "CVE text inside NVD records is also under the CVE terms (see cve-org)"
+   ],
+   "limitations": {
+    "api_key_required": false,
+    "rate_limit": "5 requests / rolling 30 s without key, 50 with a key",
+    "notes": "the free key is a credential: the existing fetch code refuses credentials"
+   },
+   "update_frequency": "continuous; incremental by lastModified window",
+   "volume": {
+    "records": null,
+    "unit": "CVE records",
+    "as_of": "2026-11-01",
+    "basis": "not measured here (order of 3e5, unverified); a local window run declared 11179"
+   },
+   "cost_d1": {
+    "rows_estimate": 300000,
+    "bytes_per_row_estimate": 2500,
+    "total_bytes_estimate": 750000000,
+    "rows_written_per_update_estimate": 2000,
+    "query_cost_note": "full corpus ~0.75 GB (estimate): Paid plan; daily increments ~1-3k writes"
+   },
+   "evidence": [
+    {
+     "url": "https://nvd.nist.gov/developers/terms-of-use",
+     "what": "notice text and rate limits (search summary; the page body did not render)",
+     "checked_at": "2026-11-01",
+     "method": "WebFetch/WebSearch of the official page on 2026-11-01 (model-summarised text; re-read the page before any legal decision)"
+    }
+   ],
+   "reconciliation": {
+    "intel_families": "nvd INTEGRATED_LOCAL, 4000 of 11179",
+    "license_matrix_draft": "NOT-VERIFIED",
+    "matrix_md": "adapter live_more.py cited, in no git ref",
+    "disagreement": "draft: terms not retrievable; now read (notice + rate limits)"
+   },
+   "redistribution_status": "pending-legal",
+   "access": {
+    "method": "https GET, public",
+    "credential_required": false
+   },
+   "adapter": {
+    "status": "missing (intel.vulns.nvd / live_more.py in no ref)",
+    "location": null,
+    "verdict": "REWRITE"
+   }
+  },
+  {
+   "approval_state": "RETAINED",
+   "owner_confirmed": false,
+   "approval_record": null,
+   "trust": 90,
+   "pocs_or_exploit_code": false,
+   "id": "cve-org",
+   "name": "CVE Program records (cvelistV5)",
+   "families": [
+    "vulns"
+   ],
+   "kind": "vulnerability",
+   "endpoints": [
+    {
+     "url": "https://github.com/CVEProject/cvelistV5",
+     "format": "git / release zip of CVE JSON 5",
+     "auth": "none"
+    }
+   ],
+   "licence": {
+    "name": "CVE Terms of Use (MITRE licence: reproduce copyright designation + licence); CIRCL lists CVE Program data as CC BY 4.0",
+    "spdx": "cve-tou",
+    "url": "https://www.cve.org/Legal/TermsOfUse",
+    "attribution_text": "CVE records (c) The MITRE Corporation, used under the CVE Terms of Use"
+   },
+   "commercial_use": "allowed",
+   "redistribution": {
+    "public": "conditional",
+    "paid_tier": "conditional"
+   },
+   "licence_assessment": "AMBIGUOUS",
+   "conditions": [
+    "the live terms page did not render on 2026-11-01: confirm the current wording (CVE ToU vs CC BY 4.0)",
+    "reproduce the copyright designation and licence",
+    "CVE is a MITRE trademark"
+   ],
+   "limitations": {
+    "api_key_required": false,
+    "rate_limit": "GitHub limits",
+    "notes": "delta files in the repository"
+   },
+   "update_frequency": "every few minutes (delta commits)",
+   "volume": {
+    "records": null,
+    "unit": "CVE records",
+    "as_of": "2026-11-01",
+    "basis": "not measured"
+   },
+   "cost_d1": {
+    "rows_estimate": 300000,
+    "bytes_per_row_estimate": 2500,
+    "total_bytes_estimate": 750000000,
+    "rows_written_per_update_estimate": 2000,
+    "query_cost_note": "same corpus as nvd: store once, alias, never twice"
+   },
+   "evidence": [
+    {
+     "url": "https://spdx.org/licenses/cve-tou.json",
+     "what": "licence grant text (archived)",
+     "checked_at": "2026-11-01",
+     "method": "WebFetch/WebSearch of the official page on 2026-11-01 (model-summarised text; re-read the page before any legal decision)"
+    },
+    {
+     "url": "https://cve.circl.lu/about",
+     "what": "CVE Program listed as CC BY 4.0",
+     "checked_at": "2026-11-01",
+     "method": "WebFetch/WebSearch of the official page on 2026-11-01 (model-summarised text; re-read the page before any legal decision)"
+    }
+   ],
+   "reconciliation": {
+    "intel_families": "not listed",
+    "license_matrix_draft": "NOT-VERIFIED (row 13)",
+    "matrix_md": "-",
+    "disagreement": "two different licence statements in circulation"
+   },
+   "redistribution_status": "pending-legal",
+   "access": {
+    "method": "git clone, public",
+    "credential_required": false
+   },
+   "adapter": {
+    "status": "missing",
+    "location": null,
+    "verdict": "REWRITE"
+   }
+  },
+  {
+   "approval_state": "RETAINED",
+   "owner_confirmed": false,
+   "approval_record": null,
+   "trust": 80,
+   "pocs_or_exploit_code": false,
+   "id": "osv",
+   "name": "OSV.dev aggregate",
+   "families": [
+    "vulns"
+   ],
+   "kind": "vulnerability",
+   "endpoints": [
+    {
+     "url": "https://api.osv.dev/v1/query",
+     "format": "json API",
+     "auth": "none"
+    },
+    {
+     "url": "gs://osv-vulnerabilities",
+     "format": "per-ecosystem zip dumps",
+     "auth": "none"
+    }
+   ],
+   "licence": {
+    "name": "per upstream record source (e.g. GHSA CC BY 4.0, some CC BY-SA); osv.dev code Apache-2.0",
+    "spdx": null,
+    "url": "https://google.github.io/osv.dev/faq/",
+    "attribution_text": "per record origin"
+   },
+   "commercial_use": "conditional",
+   "redistribution": {
+    "public": "conditional",
+    "paid_tier": "conditional"
+   },
+   "licence_assessment": "AMBIGUOUS",
+   "conditions": [
+    "resolve the licence per record origin",
+    "share-alike origins cannot go into a closed paid bundle"
+   ],
+   "limitations": {
+    "api_key_required": false,
+    "rate_limit": "not stated",
+    "notes": "the FAQ states no data licence; zip dumps need decompression limits"
+   },
+   "update_frequency": "continuous",
+   "volume": {
+    "records": null,
+    "unit": "advisories",
+    "as_of": "2026-11-01",
+    "basis": "not measured; a local run kept 114 of 119"
+   },
+   "cost_d1": {
+    "rows_estimate": null,
+    "bytes_per_row_estimate": 2000,
+    "total_bytes_estimate": null,
+    "rows_written_per_update_estimate": null,
+    "query_cost_note": "index only ecosystems MacGuard inventories (brew/pip/npm); raw data in R2"
+   },
+   "evidence": [
+    {
+     "url": "https://google.github.io/osv.dev/faq/",
+     "what": "dump location; no data licence stated",
+     "checked_at": "2026-11-01",
+     "method": "WebFetch/WebSearch of the official page on 2026-11-01 (model-summarised text; re-read the page before any legal decision)"
+    }
+   ],
+   "reconciliation": {
+    "intel_families": "osv INTEGRATED_LOCAL, 114",
+    "license_matrix_draft": "ALLOWED-WITH-CONDITIONS per origin",
+    "matrix_md": "adapter cited, in no ref",
+    "disagreement": "none"
+   },
+   "redistribution_status": "pending-legal",
+   "access": {
+    "method": "https / gcs, public",
+    "credential_required": false
+   },
+   "adapter": {
+    "status": "missing",
+    "location": null,
+    "verdict": "REWRITE"
+   }
+  },
+  {
+   "approval_state": "RETAINED",
+   "owner_confirmed": false,
+   "approval_record": null,
+   "trust": 85,
+   "pocs_or_exploit_code": false,
+   "id": "ghsa",
+   "name": "GitHub Advisory Database",
+   "families": [
+    "vulns"
+   ],
+   "kind": "vulnerability",
+   "endpoints": [
+    {
+     "url": "https://github.com/github/advisory-database",
+     "format": "git, one OSV JSON per advisory",
+     "auth": "none"
+    }
+   ],
+   "licence": {
+    "name": "CC BY 4.0",
+    "spdx": "CC-BY-4.0",
+    "url": "https://github.com/github/advisory-database",
+    "attribution_text": "GitHub Advisory Database, CC BY 4.0 (https://github.com/github/advisory-database)"
+   },
+   "commercial_use": "allowed",
+   "redistribution": {
+    "public": "allowed",
+    "paid_tier": "allowed"
+   },
+   "licence_assessment": "CLEAR-WITH-CONDITIONS",
+   "conditions": [
+    "attribution and indication of changes (CC BY 4.0)",
+    "keep reviewed/unreviewed state"
+   ],
+   "limitations": {
+    "api_key_required": false,
+    "rate_limit": "git clone",
+    "notes": ""
+   },
+   "update_frequency": "continuous",
+   "volume": {
+    "records": null,
+    "unit": "advisories",
+    "as_of": "2026-11-01",
+    "basis": "not measured"
+   },
+   "cost_d1": {
+    "rows_estimate": 30000,
+    "bytes_per_row_estimate": 2000,
+    "total_bytes_estimate": 60000000,
+    "rows_written_per_update_estimate": 500,
+    "query_cost_note": "reviewed advisories only; row count is an unverified estimate"
+   },
+   "evidence": [
+    {
+     "url": "https://github.com/github/advisory-database",
+     "what": "CC-BY 4.0 statement, OSV format",
+     "checked_at": "2026-11-01",
+     "method": "WebFetch/WebSearch of the official page on 2026-11-01 (model-summarised text; re-read the page before any legal decision)"
+    }
+   ],
+   "reconciliation": {
+    "intel_families": "not listed",
+    "license_matrix_draft": "ALLOWED-WITH-CONDITIONS",
+    "matrix_md": "-",
+    "disagreement": "none"
+   },
+   "redistribution_status": "pending-legal",
+   "access": {
+    "method": "git clone, public",
+    "credential_required": false
+   },
+   "adapter": {
+    "status": "missing (ids.py normalises GHSA ids only)",
+    "location": null,
+    "verdict": "REWRITE"
+   }
+  },
+  {
+   "approval_state": "RETAINED",
+   "owner_confirmed": false,
+   "approval_record": null,
+   "trust": 70,
+   "pocs_or_exploit_code": false,
+   "id": "first-epss",
+   "name": "FIRST Exploit Prediction Scoring System",
+   "families": [
+    "vulns"
+   ],
+   "kind": "exploit-prediction",
+   "endpoints": [
+    {
+     "url": "https://api.first.org/epss/",
+     "format": "json API",
+     "auth": "none"
+    }
+   ],
+   "licence": {
+    "name": "FIRST EPSS usage agreement: 'We grant the use of EPSS scores freely to the public'; attribution requested",
+    "spdx": null,
+    "url": "https://www.first.org/epss/",
+    "attribution_text": "See EPSS at https://www.first.org/epss"
+   },
+   "commercial_use": "unknown",
+   "redistribution": {
+    "public": "unknown",
+    "paid_tier": "unknown"
+   },
+   "licence_assessment": "AMBIGUOUS",
+   "conditions": [
+    "the agreement is silent on commercial redistribution: ask FIRST before using scores in a paid tier",
+    "EPSS = estimated probability of exploitation in the next 30 days, never severity"
+   ],
+   "limitations": {
+    "api_key_required": false,
+    "rate_limit": "not stated",
+    "notes": "model output (Empirical Security); the model can change"
+   },
+   "update_frequency": "daily",
+   "volume": {
+    "records": 395249,
+    "unit": "CVE scores per day",
+    "as_of": "2026-10-25",
+    "basis": "config/intel-families.json local run"
+   },
+   "cost_d1": {
+    "rows_estimate": 395249,
+    "bytes_per_row_estimate": 60,
+    "total_bytes_estimate": 23714940,
+    "rows_written_per_update_estimate": 395249,
+    "query_cost_note": "a daily full replace exceeds the Free write limit (100k/day): write only changed scores, or keep daily files in R2 with a D1 index of current values"
+   },
+   "evidence": [
+    {
+     "url": "https://www.first.org/epss/",
+     "what": "API endpoint, daily update",
+     "checked_at": "2026-11-01",
+     "method": "WebFetch/WebSearch of the official page on 2026-11-01 (model-summarised text; re-read the page before any legal decision)"
+    },
+    {
+     "url": "https://scancode-licensedb.aboutcode.org/first-epss-usage.html",
+     "what": "usage agreement wording (mirror)",
+     "checked_at": "2026-11-01",
+     "method": "WebFetch/WebSearch of the official page on 2026-11-01 (model-summarised text; re-read the page before any legal decision)"
+    }
+   ],
+   "reconciliation": {
+    "intel_families": "epss INTEGRATED_LOCAL, 395249",
+    "license_matrix_draft": "-",
+    "matrix_md": "licence NOT REVIEWED",
+    "disagreement": "none"
+   },
+   "redistribution_status": "not-evaluated",
+   "access": {
+    "method": "https GET, public",
+    "credential_required": false
+   },
+   "adapter": {
+    "status": "missing (intel.risk cited, in no ref)",
+    "location": null,
+    "verdict": "REWRITE"
+   }
+  },
+  {
+   "approval_state": "RETAINED",
+   "owner_confirmed": false,
+   "approval_record": null,
+   "trust": 90,
+   "pocs_or_exploit_code": false,
+   "id": "mitre-cwe",
+   "name": "MITRE Common Weakness Enumeration",
+   "families": [
+    "weakness"
+   ],
+   "kind": "weakness-classification",
+   "endpoints": [
+    {
+     "url": "https://cwe.mitre.org/data/xml/cwec_latest.xml.zip",
+     "format": "xml (zip)",
+     "auth": "none"
+    }
+   ],
+   "licence": {
+    "name": "CWE Terms of Use: non-exclusive, royalty-free licence for research, development and commercial purposes",
+    "spdx": null,
+    "url": "https://cwe.mitre.org/about/termsofuse.html",
+    "attribution_text": "CWE (c) The MITRE Corporation; reproduced under the CWE Terms of Use"
+   },
+   "commercial_use": "allowed",
+   "redistribution": {
+    "public": "conditional",
+    "paid_tier": "conditional"
+   },
+   "licence_assessment": "CLEAR-WITH-CONDITIONS",
+   "conditions": [
+    "reproduce the MITRE copyright designation and the licence in any copy",
+    "CWE is a classification, never a vulnerability; never a CVSS per CWE"
+   ],
+   "limitations": {
+    "api_key_required": false,
+    "rate_limit": "-",
+    "notes": "zip: apply decompression limits"
+   },
+   "update_frequency": "a few releases per year",
+   "volume": {
+    "records": null,
+    "unit": "weaknesses, categories, views",
+    "as_of": "2026-11-01",
+    "basis": "not measured (order of 1e3)"
+   },
+   "cost_d1": {
+    "rows_estimate": 1500,
+    "bytes_per_row_estimate": 3000,
+    "total_bytes_estimate": 4500000,
+    "rows_written_per_update_estimate": 1500,
+    "query_cost_note": "negligible"
+   },
+   "evidence": [
+    {
+     "url": "https://cwe.mitre.org/about/termsofuse.html",
+     "what": "licence grant and notice condition",
+     "checked_at": "2026-11-01",
+     "method": "WebFetch/WebSearch of the official page on 2026-11-01 (model-summarised text; re-read the page before any legal decision)"
+    }
+   ],
+   "reconciliation": {
+    "intel_families": "not listed",
+    "license_matrix_draft": "-",
+    "matrix_md": "-",
+    "disagreement": "none"
+   },
+   "redistribution_status": "not-evaluated",
+   "access": {
+    "method": "https GET, public",
+    "credential_required": false
+   },
+   "adapter": {
+    "status": "missing",
+    "location": null,
+    "verdict": "REWRITE"
+   }
+  },
+  {
+   "approval_state": "RETAINED",
+   "owner_confirmed": false,
+   "approval_record": null,
+   "trust": 70,
+   "pocs_or_exploit_code": false,
+   "id": "gcve",
+   "name": "GCVE (Global CVE Allocation System) and CIRCL vulnerability-lookup",
+   "families": [
+    "vulns"
+   ],
+   "kind": "vulnerability-identifiers",
+   "endpoints": [
+    {
+     "url": "https://gcve.eu/dist/gcve.json",
+     "format": "json GNA directory",
+     "auth": "none"
+    },
+    {
+     "url": "https://vulnerability.circl.lu/dumps/",
+     "format": "json dumps of integrated sources",
+     "auth": "none"
+    },
+    {
+     "url": "https://vulnerability.circl.lu/api/",
+     "format": "json API (policy at /.well-known/api-policy.json)",
+     "auth": "none"
+    }
+   ],
+   "licence": {
+    "name": "not stated for the GNA directory; vulnerability-lookup code AGPLv3, data licence per upstream source",
+    "spdx": null,
+    "url": "https://cve.circl.lu/about",
+    "attribution_text": "to be confirmed"
+   },
+   "commercial_use": "unknown",
+   "redistribution": {
+    "public": "unknown",
+    "paid_tier": "unknown"
+   },
+   "licence_assessment": "AMBIGUOUS",
+   "conditions": [
+    "GCVE-0-YYYY-N equals CVE-YYYY-N by specification; ids of other GNAs are independent and never mapped to a CVE without an explicit alias",
+    "do not enumerate the API to mirror it; use since= increments and a contact User-Agent",
+    "ask info@gcve.eu for data terms"
+   ],
+   "limitations": {
+    "api_key_required": false,
+    "rate_limit": "see /.well-known/api-policy.json",
+    "notes": ""
+   },
+   "update_frequency": "continuous",
+   "volume": {
+    "records": null,
+    "unit": "GNA entries + non-CVE GCVE records",
+    "as_of": "2026-11-01",
+    "basis": "not measured"
+   },
+   "cost_d1": {
+    "rows_estimate": null,
+    "bytes_per_row_estimate": 2000,
+    "total_bytes_estimate": null,
+    "rows_written_per_update_estimate": null,
+    "query_cost_note": "only non-CVE GCVE records add rows; GCVE-0 is an alias of an existing CVE row"
+   },
+   "evidence": [
+    {
+     "url": "https://www.gcve.eu/faq",
+     "what": "GNA model, GCVE-0 = CVE",
+     "checked_at": "2026-11-01",
+     "method": "WebFetch/WebSearch of the official page on 2026-11-01 (model-summarised text; re-read the page before any legal decision)"
+    },
+    {
+     "url": "https://cve.circl.lu/about",
+     "what": "per-source data licences, dumps, AGPL code",
+     "checked_at": "2026-11-01",
+     "method": "WebFetch/WebSearch of the official page on 2026-11-01 (model-summarised text; re-read the page before any legal decision)"
+    }
+   ],
+   "reconciliation": {
+    "intel_families": "not listed",
+    "license_matrix_draft": "-",
+    "matrix_md": "-",
+    "disagreement": "absent everywhere before this registry"
+   },
+   "redistribution_status": "not-evaluated",
+   "access": {
+    "method": "https GET, public",
+    "credential_required": false
+   },
+   "adapter": {
+    "status": "missing (no GCVE namespace in ids.py)",
+    "location": null,
+    "verdict": "REWRITE"
+   }
+  },
+  {
+   "approval_state": "RETAINED",
+   "owner_confirmed": false,
+   "approval_record": null,
+   "trust": 80,
+   "pocs_or_exploit_code": false,
+   "id": "cert-eu-advisories",
+   "name": "CERT-EU security advisories (RSS)",
+   "families": [
+    "vulns"
+   ],
+   "kind": "advisory",
+   "endpoints": [
+    {
+     "url": "https://cert.europa.eu/publications/security-advisories-rss",
+     "format": "rss/xml",
+     "auth": "none"
+    }
+   ],
+   "licence": {
+    "name": "CC BY 4.0 'unless otherwise noted' (Commission reuse policy); logos, names and third-party content excluded",
+    "spdx": "CC-BY-4.0",
+    "url": "https://cert.europa.eu/legal-notice",
+    "attribution_text": "Source: CERT-EU (https://cert.europa.eu), CC BY 4.0; changes indicated"
+   },
+   "commercial_use": "allowed",
+   "redistribution": {
+    "public": "conditional",
+    "paid_tier": "conditional"
+   },
+   "licence_assessment": "CLEAR-WITH-CONDITIONS",
+   "conditions": [
+    "give credit and indicate changes",
+    "exclude third-party quoted content and EU logos",
+    "the footer also says 'All rights reserved': confirm with CERT-EU"
+   ],
+   "limitations": {
+    "api_key_required": false,
+    "rate_limit": "-",
+    "notes": "parsed with ElementTree (expat 2.7.4 here: no external entities, amplification limits)"
+   },
+   "update_frequency": "several per week",
+   "volume": {
+    "records": 10,
+    "unit": "items per feed fetch",
+    "as_of": "2026-10-25",
+    "basis": "config/intel-families.json"
+   },
+   "cost_d1": {
+    "rows_estimate": 2000,
+    "bytes_per_row_estimate": 1500,
+    "total_bytes_estimate": 3000000,
+    "rows_written_per_update_estimate": 20,
+    "query_cost_note": "negligible"
+   },
+   "evidence": [
+    {
+     "url": "https://cert.europa.eu/legal-notice",
+     "what": "CC BY 4.0 reuse notice and exclusions",
+     "checked_at": "2026-11-01",
+     "method": "WebFetch/WebSearch of the official page on 2026-11-01 (model-summarised text; re-read the page before any legal decision)"
+    }
+   ],
+   "reconciliation": {
+    "intel_families": "cert_eu INTEGRATED_LOCAL, 10",
+    "license_matrix_draft": "ALLOWED-WITH-CONDITIONS",
+    "matrix_md": "-",
+    "disagreement": "the draft does not note the footer 'All rights reserved'"
+   },
+   "redistribution_status": "pending-legal",
+   "access": {
+    "method": "https GET, public",
+    "credential_required": false
+   },
+   "adapter": {
+    "status": "exists-unmerged",
+    "location": "origin/feat/alerts and #37:intel/vulns/certeu.py",
+    "verdict": "REUSE-WITH-FIXES"
+   }
+  },
+  {
+   "approval_state": "RETAINED",
+   "owner_confirmed": false,
+   "approval_record": null,
+   "trust": 75,
+   "pocs_or_exploit_code": false,
+   "id": "sigmahq",
+   "name": "SigmaHQ rules",
+   "families": [
+    "sigma"
+   ],
+   "kind": "detection-rules",
+   "endpoints": [
+    {
+     "url": "https://github.com/SigmaHQ/sigma",
+     "format": "git / release packages (yaml)",
+     "auth": "none"
+    }
+   ],
+   "licence": {
+    "name": "Detection Rule License 1.1",
+    "spdx": "DRL-1.1",
+    "url": "https://github.com/SigmaHQ/Detection-Rule-License",
+    "attribution_text": "keep each rule's author field, a link to the rule or ruleset and the DRL 1.1 notice"
+   },
+   "commercial_use": "allowed",
+   "redistribution": {
+    "public": "conditional",
+    "paid_tier": "conditional"
+   },
+   "licence_assessment": "CLEAR-WITH-CONDITIONS",
+   "conditions": [
+    "DRL 1.1: retain author, URI and licence notice; matches must carry the author attribution",
+    "check per-rule licence fields"
+   ],
+   "limitations": {
+    "api_key_required": false,
+    "rate_limit": "-",
+    "notes": "validator BLOCKED: needs a YAML parser / pySigma (dependency decision)"
+   },
+   "update_frequency": "regular releases (no fixed schedule)",
+   "volume": {
+    "records": 3302,
+    "unit": "rules",
+    "as_of": "2026-10-25",
+    "basis": "config/intel-families.json (release r2026-07-01)"
+   },
+   "cost_d1": {
+    "rows_estimate": 3302,
+    "bytes_per_row_estimate": 3000,
+    "total_bytes_estimate": 9906000,
+    "rows_written_per_update_estimate": 3302,
+    "query_cost_note": "rule text in R2/bundles; D1 holds metadata and relations only"
+   },
+   "evidence": [
+    {
+     "url": "https://github.com/SigmaHQ/sigma",
+     "what": "DRL 1.1, more than 3000 rules",
+     "checked_at": "2026-11-01",
+     "method": "WebFetch/WebSearch of the official page on 2026-11-01 (model-summarised text; re-read the page before any legal decision)"
+    }
+   ],
+   "reconciliation": {
+    "intel_families": "sigma_sigmahq INTEGRATED_LOCAL, 3302",
+    "license_matrix_draft": "ALLOWED-WITH-CONDITIONS",
+    "matrix_md": "candidate (per-rule audit)",
+    "disagreement": "none"
+   },
+   "redistribution_status": "pending-legal",
+   "access": {
+    "method": "git clone, public",
+    "credential_required": false
+   },
+   "adapter": {
+    "status": "missing (intel.sigma cited, in no ref)",
+    "location": null,
+    "verdict": "REWRITE"
+   }
+  },
+  {
+   "approval_state": "RETAINED",
+   "owner_confirmed": false,
+   "approval_record": null,
+   "trust": 70,
+   "pocs_or_exploit_code": false,
+   "id": "et-open",
+   "name": "Proofpoint Emerging Threats Open (Suricata)",
+   "families": [
+    "suricata"
+   ],
+   "kind": "detection-rules",
+   "endpoints": [
+    {
+     "url": "https://rules.emergingthreats.net/open/suricata-$version/emerging.rules.tar.gz",
+     "format": "tar.gz rules",
+     "auth": "none"
+    }
+   ],
+   "licence": {
+    "name": "mixed by SID range (GPLv2 / BSD per the 2026-10-22 draft); not re-verified on 2026-11-01",
+    "spdx": null,
+    "url": "https://rules.emergingthreats.net/OPEN_download_instructions.html",
+    "attribution_text": "to be confirmed per SID range"
+   },
+   "commercial_use": "unknown",
+   "redistribution": {
+    "public": "unknown",
+    "paid_tier": "unknown"
+   },
+   "licence_assessment": "AMBIGUOUS",
+   "conditions": [
+    "GPL-covered rules carry GPL obligations into any bundle",
+    "download at most once per hour (ET guidance)"
+   ],
+   "limitations": {
+    "api_key_required": false,
+    "rate_limit": "max once per hour; daily recommended",
+    "notes": "engine validation needs suricata -T (not installed)"
+   },
+   "update_frequency": "daily on weekdays",
+   "volume": {
+    "records": 51537,
+    "unit": "rules",
+    "as_of": "2026-10-25",
+    "basis": "config/intel-families.json"
+   },
+   "cost_d1": {
+    "rows_estimate": 51537,
+    "bytes_per_row_estimate": 400,
+    "total_bytes_estimate": 20614800,
+    "rows_written_per_update_estimate": 2000,
+    "query_cost_note": "rule text in R2; D1 metadata about 20 MB"
+   },
+   "evidence": [
+    {
+     "url": "https://rules.emergingthreats.net/OPEN_download_instructions.html",
+     "what": "URL format and cadence; no licence on that page",
+     "checked_at": "2026-11-01",
+     "method": "WebFetch/WebSearch of the official page on 2026-11-01 (model-summarised text; re-read the page before any legal decision)"
+    }
+   ],
+   "reconciliation": {
+    "intel_families": "suricata_et_open INTEGRATED_LOCAL, 51537",
+    "license_matrix_draft": "PENDING-LEGAL (BSD SID range allowed-with-conditions)",
+    "matrix_md": "GPL scope",
+    "disagreement": "none"
+   },
+   "redistribution_status": "pending-legal",
+   "access": {
+    "method": "https GET, public",
+    "credential_required": false
+   },
+   "adapter": {
+    "status": "missing (intel.suricata_engine cited, in no ref)",
+    "location": null,
+    "verdict": "REWRITE"
+   }
+  },
+  {
+   "approval_state": "RETAINED",
+   "owner_confirmed": false,
+   "approval_record": null,
+   "trust": 80,
+   "pocs_or_exploit_code": false,
+   "id": "clamav-cvd",
+   "name": "ClamAV signature databases (main/daily/bytecode.cvd)",
+   "families": [
+    "clamav"
+   ],
+   "kind": "detection-signatures",
+   "endpoints": [
+    {
+     "url": "https://database.clamav.net/",
+     "format": "cvd/cdiff via freshclam",
+     "auth": "none (rate-limited mirror)"
+    }
+   ],
+   "licence": {
+    "name": "no database licence or redistribution grant found (engine is GPL-2.0)",
+    "spdx": null,
+    "url": "https://blog.clamav.net/2021/03/clamav-cvds-cdiffs-and-magic-behind.html",
+    "attribution_text": "-"
+   },
+   "commercial_use": "unknown",
+   "redistribution": {
+    "public": "unknown",
+    "paid_tier": "unknown"
+   },
+   "licence_assessment": "AMBIGUOUS",
+   "conditions": [
+    "no public redistribution of CVDs without a written grant from Cisco Talos",
+    "a private freshclam mirror for internal use is the documented pattern"
+   ],
+   "limitations": {
+    "api_key_required": false,
+    "rate_limit": "aggressive downloaders are blocked; use freshclam",
+    "notes": "main.cvd about 80 MB after the 2025-12 retirement (secondary source)"
+   },
+   "update_frequency": "daily (daily.cvd)",
+   "volume": {
+    "records": null,
+    "unit": "signatures (millions)",
+    "as_of": "2026-11-01",
+    "basis": "not measured"
+   },
+   "cost_d1": {
+    "rows_estimate": null,
+    "bytes_per_row_estimate": null,
+    "total_bytes_estimate": null,
+    "rows_written_per_update_estimate": null,
+    "query_cost_note": "never in D1: binary databases belong in R2 and clients"
+   },
+   "evidence": [
+    {
+     "url": "https://linuxiac.com/clamav-to-cut-signature-database-size-by-50-percentage/",
+     "what": "sizes (secondary source)",
+     "checked_at": "2026-11-01",
+     "method": "WebFetch/WebSearch of the official page on 2026-11-01 (model-summarised text; re-read the page before any legal decision)"
+    }
+   ],
+   "reconciliation": {
+    "intel_families": "not listed",
+    "license_matrix_draft": "PENDING-LEGAL (public redistribution)",
+    "matrix_md": "-",
+    "disagreement": "none"
+   },
+   "redistribution_status": "pending-legal",
+   "access": {
+    "method": "freshclam",
+    "credential_required": false
+   },
+   "adapter": {
+    "status": "missing",
+    "location": null,
+    "verdict": "REWRITE"
+   }
+  },
+  {
+   "approval_state": "RETAINED",
+   "owner_confirmed": false,
+   "approval_record": null,
+   "trust": 80,
+   "pocs_or_exploit_code": false,
+   "id": "abusech-feodo",
+   "name": "abuse.ch Feodo Tracker (botnet C2 IP blocklist)",
+   "families": [
+    "ioc"
+   ],
+   "kind": "indicators",
+   "endpoints": [
+    {
+     "url": "https://feodotracker.abuse.ch/downloads/ipblocklist.json",
+     "format": "json",
+     "auth": "none"
+    },
+    {
+     "url": "https://feodotracker.abuse.ch/downloads/ipblocklist_recommended.json",
+     "format": "json",
+     "auth": "none"
+    }
+   ],
+   "licence": {
+    "name": "abuse.ch Terms of Use s.3.4: Feodo Tracker, SSL Blacklist and YARAify 'free to use without limitations ... (CC0)' for commercial and non-commercial use",
+    "spdx": "CC0-1.0",
+    "url": "https://abuse.ch/terms-of-use/",
+    "attribution_text": "Source: abuse.ch Feodo Tracker"
+   },
+   "commercial_use": "allowed",
+   "redistribution": {
+    "public": "conditional",
+    "paid_tier": "conditional"
+   },
+   "licence_assessment": "AMBIGUOUS",
+   "conditions": [
+    "s.7.3 forbids derivative works of the Platforms and AI training without consent, which conflicts with the s.3.4 CC0 clause: get written clarification",
+    "s.2.1 speaks of authenticated users",
+    "data 'as is'; false positives possible"
+   ],
+   "limitations": {
+    "api_key_required": false,
+    "rate_limit": "update every 5-15 minutes at most",
+    "notes": "datasets currently EMPTY (blocklist page, 2026-11-01)"
+   },
+   "update_frequency": "every 5 minutes",
+   "volume": {
+    "records": 0,
+    "unit": "current C2 IPs",
+    "as_of": "2026-11-01",
+    "basis": "the blocklist page says the datasets are currently empty"
+   },
+   "cost_d1": {
+    "rows_estimate": 0,
+    "bytes_per_row_estimate": 300,
+    "total_bytes_estimate": 0,
+    "rows_written_per_update_estimate": 0,
+    "query_cost_note": "negligible"
+   },
+   "evidence": [
+    {
+     "url": "https://feodotracker.abuse.ch/blocklist/",
+     "what": "download URLs, empty datasets",
+     "checked_at": "2026-11-01",
+     "method": "WebFetch/WebSearch of the official page on 2026-11-01 (model-summarised text; re-read the page before any legal decision)"
+    },
+    {
+     "url": "https://abuse.ch/terms-of-use/",
+     "what": "CC0 clause 3.4 vs restrictions in 7.3",
+     "checked_at": "2026-11-01",
+     "method": "WebFetch/WebSearch of the official page on 2026-11-01 (model-summarised text; re-read the page before any legal decision)"
+    }
+   ],
+   "reconciliation": {
+    "intel_families": "ioc_feodo NO_DATA",
+    "license_matrix_draft": "ALLOWED-WITH-CONDITIONS (CC0)",
+    "matrix_md": "-",
+    "disagreement": "the draft does not record the s.7.3 derivative-works / AI clause conflict"
+   },
+   "redistribution_status": "pending-legal",
+   "access": {
+    "method": "https GET, public",
+    "credential_required": false
+   },
+   "adapter": {
+    "status": "exists-unmerged",
+    "location": "origin/feat/alerts and #36:intel/live.py parse_feodo, intel/ioc.py",
+    "verdict": "REUSE-WITH-FIXES"
+   }
+  },
+  {
+   "approval_state": "RETAINED",
+   "owner_confirmed": false,
+   "approval_record": null,
+   "trust": 85,
+   "pocs_or_exploit_code": false,
+   "id": "mitre-attack",
+   "name": "MITRE ATT&CK (STIX)",
+   "families": [
+    "technique"
+   ],
+   "kind": "techniques",
+   "endpoints": [
+    {
+     "url": "https://github.com/mitre-attack/attack-stix-data",
+     "format": "STIX 2.1 json",
+     "auth": "none"
+    }
+   ],
+   "licence": {
+    "name": "ATT&CK Terms of Use: non-exclusive, royalty-free licence for research, development and commercial purposes",
+    "spdx": null,
+    "url": "https://attack.mitre.org/resources/legal-and-branding/terms-of-use/",
+    "attribution_text": "(c) The MITRE Corporation. This work is reproduced and distributed with the permission of The MITRE Corporation."
+   },
+   "commercial_use": "allowed",
+   "redistribution": {
+    "public": "conditional",
+    "paid_tier": "conditional"
+   },
+   "licence_assessment": "CLEAR-WITH-CONDITIONS",
+   "conditions": [
+    "reproduce the MITRE copyright designation and the licence in any copy",
+    "ATT&CK is a MITRE trademark"
+   ],
+   "limitations": {
+    "api_key_required": false,
+    "rate_limit": "-",
+    "notes": "MATRIX.md raised a derivative-works question"
+   },
+   "update_frequency": "about twice a year",
+   "volume": {
+    "records": 706,
+    "unit": "objects kept",
+    "as_of": "2026-10-25",
+    "basis": "config/intel-families.json"
+   },
+   "cost_d1": {
+    "rows_estimate": 706,
+    "bytes_per_row_estimate": 2000,
+    "total_bytes_estimate": 1412000,
+    "rows_written_per_update_estimate": 706,
+    "query_cost_note": "negligible"
+   },
+   "evidence": [
+    {
+     "url": "https://attack.mitre.org/resources/legal-and-branding/terms-of-use/",
+     "what": "licence grant and notice",
+     "checked_at": "2026-11-01",
+     "method": "WebFetch/WebSearch of the official page on 2026-11-01 (model-summarised text; re-read the page before any legal decision)"
+    }
+   ],
+   "reconciliation": {
+    "intel_families": "mitre_attack INTEGRATED_LOCAL, 706",
+    "license_matrix_draft": "ALLOWED-WITH-CONDITIONS",
+    "matrix_md": "derivative-works terms open",
+    "disagreement": "terms read 2026-11-01 allow commercial use with the notice"
+   },
+   "redistribution_status": "pending-legal",
+   "access": {
+    "method": "git clone, public",
+    "credential_required": false
+   },
+   "adapter": {
+    "status": "missing (intel.context cited, in no ref)",
+    "location": null,
+    "verdict": "REWRITE"
+   }
+  }
+ ]
+}
