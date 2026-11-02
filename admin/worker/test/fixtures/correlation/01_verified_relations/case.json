@@ -1,0 +1,274 @@
+{
+ "description": "Source-asserted relations that must come out asserted: real KEV CWE lists (CC0 excerpt), a real signed-release hash1 meta value, and a synthetic rule with whole-value cve/sha256 keys. The real Citrix rule mentions its CVE only inside description and reference text: candidate, not asserted.",
+ "input": {
+  "kev": [
+   {
+    "document": {
+     "schema": "macguard.intel-kev/1",
+     "source": {
+      "id": "cisa-kev",
+      "url": "https://www.cisa.gov/sites/default/files/feeds/known_exploited_vulnerabilities.json",
+      "license": "CC0-1.0",
+      "attribution": "Contains data from the CISA Known Exploited Vulnerabilities Catalog (CC0 1.0)",
+      "catalog_version": "2026.10.30",
+      "date_released": "2026-10-30T17:02:45.366Z",
+      "retrieved_at": "2026-10-30T17:02:45.366Z",
+      "upstream_sha256": "48070c5f103fb0dacd4cef83cf141cee60f22c75229e31e183f441b9be32fff9"
+     },
+     "count": 3,
+     "items": [
+      {
+       "cve_id": "CVE-2023-27351",
+       "vendor": "PaperCut",
+       "product": "NG/MF",
+       "name": "Synthetic entry for CVE-2023-27351",
+       "date_added": "2026-04-20",
+       "short_description": "Synthetic description.",
+       "required_action": "Apply mitigations per vendor instructions.",
+       "due_date": "2026-01-22",
+       "known_ransomware_use": "Unknown",
+       "notes": "",
+       "cwes": [
+        "CWE-287"
+       ]
+      },
+      {
+       "cve_id": "CVE-2025-10035",
+       "vendor": "Fortra",
+       "product": "GoAnywhere MFT",
+       "name": "Synthetic entry for CVE-2025-10035",
+       "date_added": "2025-09-29",
+       "short_description": "Synthetic description.",
+       "required_action": "Apply mitigations per vendor instructions.",
+       "due_date": "2026-01-22",
+       "known_ransomware_use": "Unknown",
+       "notes": "",
+       "cwes": [
+        "CWE-502",
+        "CWE-77"
+       ]
+      },
+      {
+       "cve_id": "CVE-2018-19943",
+       "vendor": "QNAP",
+       "product": "Network Attached Storage (NAS)",
+       "name": "Synthetic entry for CVE-2018-19943",
+       "date_added": "2022-05-24",
+       "short_description": "Synthetic description.",
+       "required_action": "Apply mitigations per vendor instructions.",
+       "due_date": "2026-01-22",
+       "known_ransomware_use": "Unknown",
+       "notes": "",
+       "cwes": [
+        "CWE-79",
+        "CWE-80"
+       ]
+      }
+     ]
+    }
+   }
+  ],
+  "rule_indexes": [
+   {
+    "document": {
+     "schema": "macguard.search-index/1",
+     "generator": "scripts/rule_index.py",
+     "release": {
+      "tag": "rules-20261101-41271797671",
+      "manifest_sha256": "38fc79db9249e7e7eda8738905422e4ae7b442eea7a12ed5202e768c90ffd72e",
+      "rules_root": null,
+      "files": 3
+     },
+     "note": "synthetic",
+     "counts": {},
+     "entities": [
+      {
+       "id": "yara:rules/nextron/yara/apt_aa19_024a.yar#APT_MAL_DNS_Hijacking_Campaign_AA19_024A",
+       "kind": "rule",
+       "path": "rules/nextron/yara/apt_aa19_024a.yar",
+       "name": "APT_MAL_DNS_Hijacking_Campaign_AA19_024A",
+       "tags": [],
+       "modifiers": [],
+       "line": 2,
+       "file_sha256": "bdf26bde7835be3336f6ac237a4ad051d2f498ff9d3802b2008cbcfec93bf8b2",
+       "source": "nextron",
+       "meta": {
+        "uuid": null,
+        "author": null,
+        "date": null,
+        "references": []
+       }
+      },
+      {
+       "id": "yara:rules/nextron/yara/expl_citrix_netscaler_adc_exploitation_cve_2023_3519.yar#EXPL_Citrix_Netscaler_ADC_ForensicArtifacts_CVE_2023_3519_Jul23",
+       "kind": "rule",
+       "path": "rules/nextron/yara/expl_citrix_netscaler_adc_exploitation_cve_2023_3519.yar",
+       "name": "EXPL_Citrix_Netscaler_ADC_ForensicArtifacts_CVE_2023_3519_Jul23",
+       "tags": [],
+       "modifiers": [],
+       "line": 2,
+       "file_sha256": "857ea344a1d5bb7044dfb2b418b56438f3b77bc8a760bbffbbd4e36190c6ea80",
+       "source": "nextron",
+       "meta": {
+        "uuid": null,
+        "author": null,
+        "date": null,
+        "references": []
+       }
+      },
+      {
+       "id": "yara:rules/community/synthetic/papercut.yar#SYNTH_PaperCut_Artefact",
+       "kind": "rule",
+       "path": "rules/community/synthetic/papercut.yar",
+       "name": "SYNTH_PaperCut_Artefact",
+       "tags": [],
+       "modifiers": [],
+       "line": 1,
+       "file_sha256": "502c888609afb4e55b2deb65ab9bbd1d54401a52c4d3fd6703ffe21a8da014c5",
+       "source": "community",
+       "meta": {
+        "uuid": null,
+        "author": null,
+        "date": null,
+        "references": []
+       }
+      }
+     ],
+     "assertions": [
+      {
+       "id": "assert:205c698651f566fb269223fe88b18ce9dd149861b9fe71ddb7cdb35b8545817c",
+       "type": "rule_meta_mentions_hash",
+       "subject": "yara:rules/nextron/yara/apt_aa19_024a.yar#APT_MAL_DNS_Hijacking_Campaign_AA19_024A",
+       "value": "2010f38ef300be4349e7bc287e720b1ecec678cacbf0ea0556bcf765f6e073ec",
+       "value_kind": "sha256",
+       "meta_key": "hash1",
+       "match": "whole_value",
+       "status": "asserted_by_rule_metadata",
+       "provenance": {
+        "release_tag": "rules-20261101-41271797671",
+        "path": "rules/nextron/yara/apt_aa19_024a.yar",
+        "file_sha256": "bdf26bde7835be3336f6ac237a4ad051d2f498ff9d3802b2008cbcfec93bf8b2",
+        "line": 8
+       }
+      },
+      {
+       "id": "assert:9a1a369d84a9c264dadd41bfb950ffe213970ae5c7e527f8a7ea7c4852cfdf38",
+       "type": "rule_meta_mentions_cve",
+       "subject": "yara:rules/nextron/yara/expl_citrix_netscaler_adc_exploitation_cve_2023_3519.yar#EXPL_Citrix_Netscaler_ADC_ForensicArtifacts_CVE_2023_3519_Jul23",
+       "value": "CVE-2023-3519",
+       "value_kind": "cve",
+       "meta_key": "description",
+       "match": "embedded",
+       "status": "asserted_by_rule_metadata",
+       "provenance": {
+        "release_tag": "rules-20261101-41271797671",
+        "path": "rules/nextron/yara/expl_citrix_netscaler_adc_exploitation_cve_2023_3519.yar",
+        "file_sha256": "857ea344a1d5bb7044dfb2b418b56438f3b77bc8a760bbffbbd4e36190c6ea80",
+        "line": 4
+       }
+      },
+      {
+       "id": "assert:fc2f9ca784f3490b780593e85e3a40e534a18cbc33fb80d429aac2dfecd16a03",
+       "type": "rule_meta_mentions_cve",
+       "subject": "yara:rules/nextron/yara/expl_citrix_netscaler_adc_exploitation_cve_2023_3519.yar#EXPL_Citrix_Netscaler_ADC_ForensicArtifacts_CVE_2023_3519_Jul23",
+       "value": "CVE-2023-3519",
+       "value_kind": "cve",
+       "meta_key": "reference",
+       "match": "embedded",
+       "status": "asserted_by_rule_metadata",
+       "provenance": {
+        "release_tag": "rules-20261101-41271797671",
+        "path": "rules/nextron/yara/expl_citrix_netscaler_adc_exploitation_cve_2023_3519.yar",
+        "file_sha256": "857ea344a1d5bb7044dfb2b418b56438f3b77bc8a760bbffbbd4e36190c6ea80",
+        "line": 6
+       }
+      },
+      {
+       "id": "assert:4005cdc61fb0f2266b0111bbf60e24c6d1e84b1acecee5cc888ad8366fe716ec",
+       "type": "rule_meta_mentions_cve",
+       "subject": "yara:rules/community/synthetic/papercut.yar#SYNTH_PaperCut_Artefact",
+       "value": "CVE-2023-27351",
+       "value_kind": "cve",
+       "meta_key": "cve",
+       "match": "whole_value",
+       "status": "asserted_by_rule_metadata",
+       "provenance": {
+        "release_tag": "rules-20261101-41271797671",
+        "path": "rules/community/synthetic/papercut.yar",
+        "file_sha256": "502c888609afb4e55b2deb65ab9bbd1d54401a52c4d3fd6703ffe21a8da014c5",
+        "line": 2
+       }
+      },
+      {
+       "id": "assert:5757d9d7b7c546a73877ab7894837506d205185675cb2a3efc3c450152698170",
+       "type": "rule_meta_mentions_hash",
+       "subject": "yara:rules/community/synthetic/papercut.yar#SYNTH_PaperCut_Artefact",
+       "value": "3d00d5f4cdabbc4ab3c3da83f3ebe0206f82e405e5ba05b64724ea2198923413",
+       "value_kind": "sha256",
+       "meta_key": "sha256",
+       "match": "whole_value",
+       "status": "asserted_by_rule_metadata",
+       "provenance": {
+        "release_tag": "rules-20261101-41271797671",
+        "path": "rules/community/synthetic/papercut.yar",
+        "file_sha256": "502c888609afb4e55b2deb65ab9bbd1d54401a52c4d3fd6703ffe21a8da014c5",
+        "line": 3
+       }
+      }
+     ]
+    }
+   }
+  ]
+ },
+ "expect": {
+  "asserted": [
+   [
+    "VULN_HAS_WEAKNESS",
+    "vulnerability:cve:CVE-2018-19943",
+    "weakness:cwe:CWE-79"
+   ],
+   [
+    "VULN_HAS_WEAKNESS",
+    "vulnerability:cve:CVE-2018-19943",
+    "weakness:cwe:CWE-80"
+   ],
+   [
+    "VULN_HAS_WEAKNESS",
+    "vulnerability:cve:CVE-2023-27351",
+    "weakness:cwe:CWE-287"
+   ],
+   [
+    "VULN_HAS_WEAKNESS",
+    "vulnerability:cve:CVE-2025-10035",
+    "weakness:cwe:CWE-502"
+   ],
+   [
+    "VULN_HAS_WEAKNESS",
+    "vulnerability:cve:CVE-2025-10035",
+    "weakness:cwe:CWE-77"
+   ],
+   [
+    "RULE_REFERENCES_SAMPLE",
+    "rule:yara:rules/nextron/yara/apt_aa19_024a.yar#APT_MAL_DNS_Hijacking_Campaign_AA19_024A",
+    "sample:sha256:2010f38ef300be4349e7bc287e720b1ecec678cacbf0ea0556bcf765f6e073ec"
+   ],
+   [
+    "RULE_REFERENCES_SAMPLE",
+    "rule:yara:rules/community/synthetic/papercut.yar#SYNTH_PaperCut_Artefact",
+    "sample:sha256:3d00d5f4cdabbc4ab3c3da83f3ebe0206f82e405e5ba05b64724ea2198923413"
+   ],
+   [
+    "RULE_ASSOCIATED_WITH_CVE",
+    "rule:yara:rules/community/synthetic/papercut.yar#SYNTH_PaperCut_Artefact",
+    "vulnerability:cve:CVE-2023-27351"
+   ]
+  ],
+  "candidate": [
+   [
+    "RULE_ASSOCIATED_WITH_CVE",
+    "rule:yara:rules/nextron/yara/expl_citrix_netscaler_adc_exploitation_cve_2023_3519.yar#EXPL_Citrix_Netscaler_ADC_ForensicArtifacts_CVE_2023_3519_Jul23",
+    "vulnerability:cve:CVE-2023-3519"
+   ]
+  ]
+ }
+}

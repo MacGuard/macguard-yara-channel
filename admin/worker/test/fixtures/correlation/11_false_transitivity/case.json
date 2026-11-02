@@ -1,0 +1,184 @@
+{
+ "description": "No transitivity: rule A mentions hash H; rule B mentions H and CVE C; KEV lists C with CWE-79. A is NOT associated with C, no rule gets a weakness, and the hash gets no CVE: every relation comes from one statement.",
+ "input": {
+  "kev": [
+   {
+    "document": {
+     "schema": "macguard.intel-kev/1",
+     "source": {
+      "id": "cisa-kev",
+      "url": "https://www.cisa.gov/sites/default/files/feeds/known_exploited_vulnerabilities.json",
+      "license": "CC0-1.0",
+      "attribution": "Contains data from the CISA Known Exploited Vulnerabilities Catalog (CC0 1.0)",
+      "catalog_version": "2026.10.30",
+      "date_released": "2026-10-30T17:02:45.366Z",
+      "retrieved_at": "2026-10-30T17:02:45.366Z",
+      "upstream_sha256": "661f8e28f69a036dbbc53a346826dcdae4e5b47b281f269bd4074f194ad6c9b9"
+     },
+     "count": 1,
+     "items": [
+      {
+       "cve_id": "CVE-2099-0500",
+       "vendor": "ExampleVendor",
+       "product": "ExampleProduct",
+       "name": "Synthetic entry for CVE-2099-0500",
+       "date_added": "2026-01-01",
+       "short_description": "Synthetic description.",
+       "required_action": "Apply mitigations per vendor instructions.",
+       "due_date": "2026-01-22",
+       "known_ransomware_use": "Unknown",
+       "notes": "",
+       "cwes": [
+        "CWE-79"
+       ]
+      }
+     ]
+    }
+   }
+  ],
+  "rule_indexes": [
+   {
+    "document": {
+     "schema": "macguard.search-index/1",
+     "generator": "scripts/rule_index.py",
+     "release": {
+      "tag": "rules-20261102-1",
+      "manifest_sha256": "8b721e3ea826fa880b042854dfc9ea3fe9ef3a0d3ebd70ec9cd8c0d5144c117a",
+      "rules_root": null,
+      "files": 2
+     },
+     "note": "synthetic",
+     "counts": {},
+     "entities": [
+      {
+       "id": "yara:rules/community/synthetic/trans.yar#SYNTH_A_Hash_Only",
+       "kind": "rule",
+       "path": "rules/community/synthetic/trans.yar",
+       "name": "SYNTH_A_Hash_Only",
+       "tags": [],
+       "modifiers": [],
+       "line": 1,
+       "file_sha256": "9b48eaaa88d40a4745fbd06369fc09e670cbca8afecb06969a0da89b87439088",
+       "source": "community",
+       "meta": {
+        "uuid": null,
+        "author": null,
+        "date": null,
+        "references": []
+       }
+      },
+      {
+       "id": "yara:rules/community/synthetic/trans.yar#SYNTH_B_Hash_And_CVE",
+       "kind": "rule",
+       "path": "rules/community/synthetic/trans.yar",
+       "name": "SYNTH_B_Hash_And_CVE",
+       "tags": [],
+       "modifiers": [],
+       "line": 1,
+       "file_sha256": "9b48eaaa88d40a4745fbd06369fc09e670cbca8afecb06969a0da89b87439088",
+       "source": "community",
+       "meta": {
+        "uuid": null,
+        "author": null,
+        "date": null,
+        "references": []
+       }
+      }
+     ],
+     "assertions": [
+      {
+       "id": "assert:476812f093d425be82042ea5130e63421b337a146be2b18e0b43c4369b4a875c",
+       "type": "rule_meta_mentions_hash",
+       "subject": "yara:rules/community/synthetic/trans.yar#SYNTH_A_Hash_Only",
+       "value": "a08af558a5171032e0c10911cc1df8a76d90de6f35de333293e5482ac856ddbc",
+       "value_kind": "sha256",
+       "meta_key": "hash",
+       "match": "whole_value",
+       "status": "asserted_by_rule_metadata",
+       "provenance": {
+        "release_tag": "rules-20261102-1",
+        "path": "rules/community/synthetic/trans.yar",
+        "file_sha256": "9b48eaaa88d40a4745fbd06369fc09e670cbca8afecb06969a0da89b87439088",
+        "line": 2
+       }
+      },
+      {
+       "id": "assert:cb63855dc85d1dc8490baaa1fd8768276bb314cb6ae9f97ed76b31ec69d99e3c",
+       "type": "rule_meta_mentions_hash",
+       "subject": "yara:rules/community/synthetic/trans.yar#SYNTH_B_Hash_And_CVE",
+       "value": "a08af558a5171032e0c10911cc1df8a76d90de6f35de333293e5482ac856ddbc",
+       "value_kind": "sha256",
+       "meta_key": "hash",
+       "match": "whole_value",
+       "status": "asserted_by_rule_metadata",
+       "provenance": {
+        "release_tag": "rules-20261102-1",
+        "path": "rules/community/synthetic/trans.yar",
+        "file_sha256": "9b48eaaa88d40a4745fbd06369fc09e670cbca8afecb06969a0da89b87439088",
+        "line": 2
+       }
+      },
+      {
+       "id": "assert:86680cc76cea3e904da22096e1358e42289f98f57eccb3c5ed5332ee00f4e511",
+       "type": "rule_meta_mentions_cve",
+       "subject": "yara:rules/community/synthetic/trans.yar#SYNTH_B_Hash_And_CVE",
+       "value": "CVE-2099-0500",
+       "value_kind": "cve",
+       "meta_key": "cve",
+       "match": "whole_value",
+       "status": "asserted_by_rule_metadata",
+       "provenance": {
+        "release_tag": "rules-20261102-1",
+        "path": "rules/community/synthetic/trans.yar",
+        "file_sha256": "9b48eaaa88d40a4745fbd06369fc09e670cbca8afecb06969a0da89b87439088",
+        "line": 3
+       }
+      }
+     ]
+    }
+   }
+  ]
+ },
+ "expect": {
+  "asserted": [
+   [
+    "VULN_HAS_WEAKNESS",
+    "vulnerability:cve:CVE-2099-0500",
+    "weakness:cwe:CWE-79"
+   ],
+   [
+    "RULE_REFERENCES_SAMPLE",
+    "rule:yara:rules/community/synthetic/trans.yar#SYNTH_A_Hash_Only",
+    "sample:sha256:a08af558a5171032e0c10911cc1df8a76d90de6f35de333293e5482ac856ddbc"
+   ],
+   [
+    "RULE_REFERENCES_SAMPLE",
+    "rule:yara:rules/community/synthetic/trans.yar#SYNTH_B_Hash_And_CVE",
+    "sample:sha256:a08af558a5171032e0c10911cc1df8a76d90de6f35de333293e5482ac856ddbc"
+   ],
+   [
+    "RULE_ASSOCIATED_WITH_CVE",
+    "rule:yara:rules/community/synthetic/trans.yar#SYNTH_B_Hash_And_CVE",
+    "vulnerability:cve:CVE-2099-0500"
+   ]
+  ],
+  "candidate": [],
+  "forbidden": [
+   [
+    "RULE_ASSOCIATED_WITH_CVE",
+    "rule:yara:rules/community/synthetic/trans.yar#SYNTH_A_Hash_Only",
+    "vulnerability:cve:CVE-2099-0500"
+   ],
+   [
+    "VULN_HAS_WEAKNESS",
+    "rule:yara:rules/community/synthetic/trans.yar#SYNTH_A_Hash_Only",
+    "weakness:cwe:CWE-79"
+   ],
+   [
+    "VULN_HAS_WEAKNESS",
+    "rule:yara:rules/community/synthetic/trans.yar#SYNTH_B_Hash_And_CVE",
+    "weakness:cwe:CWE-79"
+   ]
+  ]
+ }
+}

@@ -1,0 +1,380 @@
+{
+ "description": "Decision on references: a CVE that is the WHOLE value of an allow-listed key (cve, cves, vuln, vulnerability, reference; key compared case-insensitively) is asserted; a CVE inside a reference URL, a description or any other key is a candidate only. A hash is asserted only as the whole value of hash/hashN/sha256/sample/samples; imphash, a key naming another hash kind, a hash inside a URL or a list stay candidates. Evidence locators keep the original key case.",
+ "input": {
+  "kev": [
+   {
+    "document": {
+     "schema": "macguard.intel-kev/1",
+     "source": {
+      "id": "cisa-kev",
+      "url": "https://www.cisa.gov/sites/default/files/feeds/known_exploited_vulnerabilities.json",
+      "license": "CC0-1.0",
+      "attribution": "Contains data from the CISA Known Exploited Vulnerabilities Catalog (CC0 1.0)",
+      "catalog_version": "2026.10.30",
+      "date_released": "2026-10-30T17:02:45.366Z",
+      "retrieved_at": "2026-10-30T17:02:45.366Z",
+      "upstream_sha256": "661f8e28f69a036dbbc53a346826dcdae4e5b47b281f269bd4074f194ad6c9b9"
+     },
+     "count": 1,
+     "items": [
+      {
+       "cve_id": "CVE-2099-0101",
+       "vendor": "ExampleVendor",
+       "product": "ExampleProduct",
+       "name": "Synthetic entry for CVE-2099-0101",
+       "date_added": "2026-01-01",
+       "short_description": "Synthetic description.",
+       "required_action": "Apply mitigations per vendor instructions.",
+       "due_date": "2026-01-22",
+       "known_ransomware_use": "Unknown",
+       "notes": "https://example.org/CVE-2099-0102",
+       "cwes": [
+        "CWE-79"
+       ]
+      }
+     ]
+    }
+   }
+  ],
+  "rule_indexes": [
+   {
+    "document": {
+     "schema": "macguard.search-index/1",
+     "generator": "scripts/rule_index.py",
+     "release": {
+      "tag": "rules-20261102-1",
+      "manifest_sha256": "8b721e3ea826fa880b042854dfc9ea3fe9ef3a0d3ebd70ec9cd8c0d5144c117a",
+      "rules_root": null,
+      "files": 1
+     },
+     "note": "synthetic",
+     "counts": {},
+     "entities": [
+      {
+       "id": "yara:rules/community/synthetic/refs.yar#SYNTH_References",
+       "kind": "rule",
+       "path": "rules/community/synthetic/refs.yar",
+       "name": "SYNTH_References",
+       "tags": [],
+       "modifiers": [],
+       "line": 1,
+       "file_sha256": "4c9728b4b48424f09ea2f7d033ab37b41373d2d3adf6ba3e33f5d2ef9c598308",
+       "source": "community",
+       "meta": {
+        "uuid": null,
+        "author": null,
+        "date": null,
+        "references": []
+       }
+      }
+     ],
+     "assertions": [
+      {
+       "id": "assert:80a78b95a7d1de9f4baa15f4abbd6287ba691dfb67af89cd5bb366d1207375d5",
+       "type": "rule_meta_mentions_cve",
+       "subject": "yara:rules/community/synthetic/refs.yar#SYNTH_References",
+       "value": "CVE-2099-0101",
+       "value_kind": "cve",
+       "meta_key": "reference",
+       "match": "embedded",
+       "status": "asserted_by_rule_metadata",
+       "provenance": {
+        "release_tag": "rules-20261102-1",
+        "path": "rules/community/synthetic/refs.yar",
+        "file_sha256": "4c9728b4b48424f09ea2f7d033ab37b41373d2d3adf6ba3e33f5d2ef9c598308",
+        "line": 2
+       }
+      },
+      {
+       "id": "assert:f86eb6b3caf9888247735f85c5a93d92d0fac0a32a6e6e9b309825ae03850fa4",
+       "type": "rule_meta_mentions_cve",
+       "subject": "yara:rules/community/synthetic/refs.yar#SYNTH_References",
+       "value": "CVE-2099-0102",
+       "value_kind": "cve",
+       "meta_key": "reference",
+       "match": "whole_value",
+       "status": "asserted_by_rule_metadata",
+       "provenance": {
+        "release_tag": "rules-20261102-1",
+        "path": "rules/community/synthetic/refs.yar",
+        "file_sha256": "4c9728b4b48424f09ea2f7d033ab37b41373d2d3adf6ba3e33f5d2ef9c598308",
+        "line": 3
+       }
+      },
+      {
+       "id": "assert:f13bfec8f992d2028e409d4ea122111d900dd74705ea6d856e6242c417109475",
+       "type": "rule_meta_mentions_cve",
+       "subject": "yara:rules/community/synthetic/refs.yar#SYNTH_References",
+       "value": "CVE-2099-0103",
+       "value_kind": "cve",
+       "meta_key": "description",
+       "match": "embedded",
+       "status": "asserted_by_rule_metadata",
+       "provenance": {
+        "release_tag": "rules-20261102-1",
+        "path": "rules/community/synthetic/refs.yar",
+        "file_sha256": "4c9728b4b48424f09ea2f7d033ab37b41373d2d3adf6ba3e33f5d2ef9c598308",
+        "line": 4
+       }
+      },
+      {
+       "id": "assert:57cbfffacb6eac9130bb4d5f1602d56d0acfdea742a4088aa23483f32e34ecc9",
+       "type": "rule_meta_mentions_cve",
+       "subject": "yara:rules/community/synthetic/refs.yar#SYNTH_References",
+       "value": "CVE-2099-0104",
+       "value_kind": "cve",
+       "meta_key": "cve_id",
+       "match": "whole_value",
+       "status": "asserted_by_rule_metadata",
+       "provenance": {
+        "release_tag": "rules-20261102-1",
+        "path": "rules/community/synthetic/refs.yar",
+        "file_sha256": "4c9728b4b48424f09ea2f7d033ab37b41373d2d3adf6ba3e33f5d2ef9c598308",
+        "line": 5
+       }
+      },
+      {
+       "id": "assert:d73bbbbee5086d740c35428278fd9d1238ed8d6be6c081925ca1554082956a29",
+       "type": "rule_meta_mentions_cve",
+       "subject": "yara:rules/community/synthetic/refs.yar#SYNTH_References",
+       "value": "CVE-2099-0105",
+       "value_kind": "cve",
+       "meta_key": "id",
+       "match": "whole_value",
+       "status": "asserted_by_rule_metadata",
+       "provenance": {
+        "release_tag": "rules-20261102-1",
+        "path": "rules/community/synthetic/refs.yar",
+        "file_sha256": "4c9728b4b48424f09ea2f7d033ab37b41373d2d3adf6ba3e33f5d2ef9c598308",
+        "line": 6
+       }
+      },
+      {
+       "id": "assert:0a7564e4abdfbfe207aed38588c07f1dc025050987095b54c82282bde23ba5bb",
+       "type": "rule_meta_mentions_cve",
+       "subject": "yara:rules/community/synthetic/refs.yar#SYNTH_References",
+       "value": "CVE-2099-0106",
+       "value_kind": "cve",
+       "meta_key": "Vulnerability",
+       "match": "whole_value",
+       "status": "asserted_by_rule_metadata",
+       "provenance": {
+        "release_tag": "rules-20261102-1",
+        "path": "rules/community/synthetic/refs.yar",
+        "file_sha256": "4c9728b4b48424f09ea2f7d033ab37b41373d2d3adf6ba3e33f5d2ef9c598308",
+        "line": 7
+       }
+      },
+      {
+       "id": "assert:4d9b9b37504a9f6e91d87e919a4210c130d65f56753fc730950690a087884f5c",
+       "type": "rule_meta_mentions_cve",
+       "subject": "yara:rules/community/synthetic/refs.yar#SYNTH_References",
+       "value": "CVE-2099-0107",
+       "value_kind": "cve",
+       "meta_key": "cve",
+       "match": "embedded",
+       "status": "asserted_by_rule_metadata",
+       "provenance": {
+        "release_tag": "rules-20261102-1",
+        "path": "rules/community/synthetic/refs.yar",
+        "file_sha256": "4c9728b4b48424f09ea2f7d033ab37b41373d2d3adf6ba3e33f5d2ef9c598308",
+        "line": 8
+       }
+      },
+      {
+       "id": "assert:226af4d348dd95f868e7f054ae8aebf586a76ae92698580c4e52e4884449715e",
+       "type": "rule_meta_mentions_hash",
+       "subject": "yara:rules/community/synthetic/refs.yar#SYNTH_References",
+       "value": "4b56491bf7e7bb272096ee3c2921cc9982334bb8656fbba9143b3e98f7d69600",
+       "value_kind": "sha256",
+       "meta_key": "imphash",
+       "match": "whole_value",
+       "status": "asserted_by_rule_metadata",
+       "provenance": {
+        "release_tag": "rules-20261102-1",
+        "path": "rules/community/synthetic/refs.yar",
+        "file_sha256": "4c9728b4b48424f09ea2f7d033ab37b41373d2d3adf6ba3e33f5d2ef9c598308",
+        "line": 9
+       }
+      },
+      {
+       "id": "assert:8a180cdacce6adbad4448c907335a96e2c8f5ad781db426fd8660f8744b191e6",
+       "type": "rule_meta_mentions_hash",
+       "subject": "yara:rules/community/synthetic/refs.yar#SYNTH_References",
+       "value": "683c7a585e3c949557e4a70190dd3b838129f2b740e5787693b86fa7e4b913fd",
+       "value_kind": "sha256",
+       "meta_key": "md5",
+       "match": "whole_value",
+       "status": "asserted_by_rule_metadata",
+       "provenance": {
+        "release_tag": "rules-20261102-1",
+        "path": "rules/community/synthetic/refs.yar",
+        "file_sha256": "4c9728b4b48424f09ea2f7d033ab37b41373d2d3adf6ba3e33f5d2ef9c598308",
+        "line": 10
+       }
+      },
+      {
+       "id": "assert:2a06814cb0c0fc237759347bbddb11786d1b16a59e40bd6249847bfb1f685943",
+       "type": "rule_meta_mentions_hash",
+       "subject": "yara:rules/community/synthetic/refs.yar#SYNTH_References",
+       "value": "e32393c8f09bae068ec821da9a675489d9faaf5656ff7ecd37730cdd3bc395a6",
+       "value_kind": "sha256",
+       "meta_key": "Hash1",
+       "match": "whole_value",
+       "status": "asserted_by_rule_metadata",
+       "provenance": {
+        "release_tag": "rules-20261102-1",
+        "path": "rules/community/synthetic/refs.yar",
+        "file_sha256": "4c9728b4b48424f09ea2f7d033ab37b41373d2d3adf6ba3e33f5d2ef9c598308",
+        "line": 11
+       }
+      },
+      {
+       "id": "assert:3e523c8c5a2c545d6ee84f507a097f8bc90987cece451586355ae143e4f266da",
+       "type": "rule_meta_mentions_hash",
+       "subject": "yara:rules/community/synthetic/refs.yar#SYNTH_References",
+       "value": "24a53ce7c6e7051fb71a9bfac5176dacf0f4b251e2e0742e4a4b9f42c59d3b98",
+       "value_kind": "sha256",
+       "meta_key": "reference",
+       "match": "embedded",
+       "status": "asserted_by_rule_metadata",
+       "provenance": {
+        "release_tag": "rules-20261102-1",
+        "path": "rules/community/synthetic/refs.yar",
+        "file_sha256": "4c9728b4b48424f09ea2f7d033ab37b41373d2d3adf6ba3e33f5d2ef9c598308",
+        "line": 12
+       }
+      },
+      {
+       "id": "assert:81e2ea8288b38766d161180be2bd17af7a42e9a157b726be69cda0d935af8cd9",
+       "type": "rule_meta_mentions_hash",
+       "subject": "yara:rules/community/synthetic/refs.yar#SYNTH_References",
+       "value": "9593549458e7d352ce5b2357a7923822e31575692434de983a3a1fe04f0508a4",
+       "value_kind": "sha256",
+       "meta_key": "hash2",
+       "match": "embedded",
+       "status": "asserted_by_rule_metadata",
+       "provenance": {
+        "release_tag": "rules-20261102-1",
+        "path": "rules/community/synthetic/refs.yar",
+        "file_sha256": "4c9728b4b48424f09ea2f7d033ab37b41373d2d3adf6ba3e33f5d2ef9c598308",
+        "line": 13
+       }
+      },
+      {
+       "id": "assert:e4c50a633e1ea3fdf49337bcb4bbff041df07eace24bcb5b5aed47f601645245",
+       "type": "rule_meta_mentions_hash",
+       "subject": "yara:rules/community/synthetic/refs.yar#SYNTH_References",
+       "value": "ac572a4f8756b45846003e46f4b146ec129fa61a7a4e2d8840fd7980e3dbfc3b",
+       "value_kind": "sha256",
+       "meta_key": "sha1",
+       "match": "whole_value",
+       "status": "asserted_by_rule_metadata",
+       "provenance": {
+        "release_tag": "rules-20261102-1",
+        "path": "rules/community/synthetic/refs.yar",
+        "file_sha256": "4c9728b4b48424f09ea2f7d033ab37b41373d2d3adf6ba3e33f5d2ef9c598308",
+        "line": 14
+       }
+      },
+      {
+       "id": "assert:0ae782658bd417e02b6895f700f68aff1286825880e82fc1a2b9dfa1f1f3b142",
+       "type": "rule_meta_mentions_hash",
+       "subject": "yara:rules/community/synthetic/refs.yar#SYNTH_References",
+       "value": "dddddddddddddddddddddddddddddddd",
+       "value_kind": "md5",
+       "meta_key": "imphash",
+       "match": "whole_value",
+       "status": "asserted_by_rule_metadata",
+       "provenance": {
+        "release_tag": "rules-20261102-1",
+        "path": "rules/community/synthetic/refs.yar",
+        "file_sha256": "4c9728b4b48424f09ea2f7d033ab37b41373d2d3adf6ba3e33f5d2ef9c598308",
+        "line": 15
+       }
+      }
+     ]
+    }
+   }
+  ]
+ },
+ "expect": {
+  "asserted": [
+   [
+    "VULN_HAS_WEAKNESS",
+    "vulnerability:cve:CVE-2099-0101",
+    "weakness:cwe:CWE-79"
+   ],
+   [
+    "RULE_ASSOCIATED_WITH_CVE",
+    "rule:yara:rules/community/synthetic/refs.yar#SYNTH_References",
+    "vulnerability:cve:CVE-2099-0102"
+   ],
+   [
+    "RULE_ASSOCIATED_WITH_CVE",
+    "rule:yara:rules/community/synthetic/refs.yar#SYNTH_References",
+    "vulnerability:cve:CVE-2099-0106"
+   ],
+   [
+    "RULE_REFERENCES_SAMPLE",
+    "rule:yara:rules/community/synthetic/refs.yar#SYNTH_References",
+    "sample:sha256:e32393c8f09bae068ec821da9a675489d9faaf5656ff7ecd37730cdd3bc395a6"
+   ]
+  ],
+  "candidate": [
+   [
+    "RULE_ASSOCIATED_WITH_CVE",
+    "rule:yara:rules/community/synthetic/refs.yar#SYNTH_References",
+    "vulnerability:cve:CVE-2099-0101"
+   ],
+   [
+    "RULE_ASSOCIATED_WITH_CVE",
+    "rule:yara:rules/community/synthetic/refs.yar#SYNTH_References",
+    "vulnerability:cve:CVE-2099-0103"
+   ],
+   [
+    "RULE_ASSOCIATED_WITH_CVE",
+    "rule:yara:rules/community/synthetic/refs.yar#SYNTH_References",
+    "vulnerability:cve:CVE-2099-0104"
+   ],
+   [
+    "RULE_ASSOCIATED_WITH_CVE",
+    "rule:yara:rules/community/synthetic/refs.yar#SYNTH_References",
+    "vulnerability:cve:CVE-2099-0105"
+   ],
+   [
+    "RULE_ASSOCIATED_WITH_CVE",
+    "rule:yara:rules/community/synthetic/refs.yar#SYNTH_References",
+    "vulnerability:cve:CVE-2099-0107"
+   ],
+   [
+    "RULE_REFERENCES_SAMPLE",
+    "rule:yara:rules/community/synthetic/refs.yar#SYNTH_References",
+    "sample:sha256:4b56491bf7e7bb272096ee3c2921cc9982334bb8656fbba9143b3e98f7d69600"
+   ],
+   [
+    "RULE_REFERENCES_SAMPLE",
+    "rule:yara:rules/community/synthetic/refs.yar#SYNTH_References",
+    "sample:sha256:683c7a585e3c949557e4a70190dd3b838129f2b740e5787693b86fa7e4b913fd"
+   ],
+   [
+    "RULE_REFERENCES_SAMPLE",
+    "rule:yara:rules/community/synthetic/refs.yar#SYNTH_References",
+    "sample:sha256:24a53ce7c6e7051fb71a9bfac5176dacf0f4b251e2e0742e4a4b9f42c59d3b98"
+   ],
+   [
+    "RULE_REFERENCES_SAMPLE",
+    "rule:yara:rules/community/synthetic/refs.yar#SYNTH_References",
+    "sample:sha256:9593549458e7d352ce5b2357a7923822e31575692434de983a3a1fe04f0508a4"
+   ],
+   [
+    "RULE_REFERENCES_SAMPLE",
+    "rule:yara:rules/community/synthetic/refs.yar#SYNTH_References",
+    "sample:sha256:ac572a4f8756b45846003e46f4b146ec129fa61a7a4e2d8840fd7980e3dbfc3b"
+   ]
+  ],
+  "rejections": {
+   "no_canonical_sample_identity_for_md5_sha1": 1
+  }
+ }
+}

@@ -1,0 +1,142 @@
+{
+ "description": "Entities that share nothing produce nothing: a rule without identifiers, a KEV entry without CWEs (real CVE-2023-41061 has an empty list), and a rule and a KEV entry that sit in the same snapshot but never name each other.",
+ "input": {
+  "kev": [
+   {
+    "document": {
+     "schema": "macguard.intel-kev/1",
+     "source": {
+      "id": "cisa-kev",
+      "url": "https://www.cisa.gov/sites/default/files/feeds/known_exploited_vulnerabilities.json",
+      "license": "CC0-1.0",
+      "attribution": "Contains data from the CISA Known Exploited Vulnerabilities Catalog (CC0 1.0)",
+      "catalog_version": "2026.10.30",
+      "date_released": "2026-10-30T17:02:45.366Z",
+      "retrieved_at": "2026-10-30T17:02:45.366Z",
+      "upstream_sha256": "661f8e28f69a036dbbc53a346826dcdae4e5b47b281f269bd4074f194ad6c9b9"
+     },
+     "count": 2,
+     "items": [
+      {
+       "cve_id": "CVE-2023-41061",
+       "vendor": "Apple",
+       "product": "iOS, iPadOS, and watchOS",
+       "name": "Synthetic entry for CVE-2023-41061",
+       "date_added": "2023-09-11",
+       "short_description": "Synthetic description.",
+       "required_action": "Apply mitigations per vendor instructions.",
+       "due_date": "2026-01-22",
+       "known_ransomware_use": "Unknown",
+       "notes": "",
+       "cwes": []
+      },
+      {
+       "cve_id": "CVE-2099-0001",
+       "vendor": "ExampleVendor",
+       "product": "ExampleProduct",
+       "name": "Synthetic entry for CVE-2099-0001",
+       "date_added": "2026-01-01",
+       "short_description": "Synthetic description.",
+       "required_action": "Apply mitigations per vendor instructions.",
+       "due_date": "2026-01-22",
+       "known_ransomware_use": "Unknown",
+       "notes": "",
+       "cwes": [
+        "CWE-79"
+       ]
+      }
+     ]
+    }
+   }
+  ],
+  "rule_indexes": [
+   {
+    "document": {
+     "schema": "macguard.search-index/1",
+     "generator": "scripts/rule_index.py",
+     "release": {
+      "tag": "rules-20261102-1",
+      "manifest_sha256": "8b721e3ea826fa880b042854dfc9ea3fe9ef3a0d3ebd70ec9cd8c0d5144c117a",
+      "rules_root": null,
+      "files": 2
+     },
+     "note": "synthetic",
+     "counts": {},
+     "entities": [
+      {
+       "id": "yara:rules/community/synthetic/quiet.yar#SYNTH_No_Identifiers",
+       "kind": "rule",
+       "path": "rules/community/synthetic/quiet.yar",
+       "name": "SYNTH_No_Identifiers",
+       "tags": [],
+       "modifiers": [],
+       "line": 1,
+       "file_sha256": "de6dd6709451a36b2b399923c52e28b22cda87fc0c116d61a6bc5468f6890ba8",
+       "source": "community",
+       "meta": {
+        "uuid": null,
+        "author": null,
+        "date": null,
+        "references": []
+       }
+      },
+      {
+       "id": "yara:rules/community/synthetic/other.yar#SYNTH_Other_Sample",
+       "kind": "rule",
+       "path": "rules/community/synthetic/other.yar",
+       "name": "SYNTH_Other_Sample",
+       "tags": [],
+       "modifiers": [],
+       "line": 1,
+       "file_sha256": "676b9c6e54808e308dc48183fc33b8a2529909adec9248f1c589906d58550210",
+       "source": "community",
+       "meta": {
+        "uuid": null,
+        "author": null,
+        "date": null,
+        "references": []
+       }
+      }
+     ],
+     "assertions": [
+      {
+       "id": "assert:8995608e59ab708d9f8f723f3ef6e5eb450db59806ce9c6655b2ff39c56bfe5f",
+       "type": "rule_meta_mentions_hash",
+       "subject": "yara:rules/community/synthetic/other.yar#SYNTH_Other_Sample",
+       "value": "992fc9d18b24394518b5435b963c1aa2a66e77518e9c1fd470bec88f607ca8db",
+       "value_kind": "sha256",
+       "meta_key": "hash",
+       "match": "whole_value",
+       "status": "asserted_by_rule_metadata",
+       "provenance": {
+        "release_tag": "rules-20261102-1",
+        "path": "rules/community/synthetic/other.yar",
+        "file_sha256": "676b9c6e54808e308dc48183fc33b8a2529909adec9248f1c589906d58550210",
+        "line": 2
+       }
+      }
+     ]
+    }
+   }
+  ]
+ },
+ "expect": {
+  "asserted": [
+   [
+    "VULN_HAS_WEAKNESS",
+    "vulnerability:cve:CVE-2099-0001",
+    "weakness:cwe:CWE-79"
+   ],
+   [
+    "RULE_REFERENCES_SAMPLE",
+    "rule:yara:rules/community/synthetic/other.yar#SYNTH_Other_Sample",
+    "sample:sha256:992fc9d18b24394518b5435b963c1aa2a66e77518e9c1fd470bec88f607ca8db"
+   ]
+  ],
+  "candidate": [],
+  "rejections": {
+   "no_assertions": 1,
+   "no_cwes": 1
+  }
+ }
+}
