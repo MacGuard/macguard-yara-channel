@@ -6,6 +6,7 @@ import { OPS } from './plans.js';
 import { INPUT, execute } from './ops.js';
 import { track } from './analytics.js';
 import { effective, productOf } from './policy.js';
+import { PUBLIC, loadGrants, principalOf, resolve } from './entitlements.js';
 import { buildContext } from './context.js';
 import { HttpError, jsonResponse, randomHex, readBounded } from './util.js';
 
@@ -52,8 +53,10 @@ export async function handleMcp(request, env, db, clock, defer = () => {}) {
   if (method === 'ping') return send(200, { jsonrpc: '2.0', id, result: {} });
   let ctx; try { ctx = await buildContext(request, env, db, clock); } catch (e) { if (e instanceof HttpError) return send(e.status, rpcErr(id, -32001, e.message), e.headers || {}); throw e; }
   const res = (result) => send(200, { jsonrpc: '2.0', id, result: legacy ? result : { resultType: 'complete', ...result } });
-  const mine = () => { const t = byName(); return Object.values(t).filter((x) => { const op = x._meta[NS + 'operation'], o = OPS[op], eff = effective(ctx.policy.doc, ctx.tenant, productOf(op), clock().getTime(), ctx.acceptance); return (!o.scope || ctx.scopes.has(o.scope)) && (!o.feature || eff.features.has(o.feature)); }); };
-  if (method === 'tools/list') return res({ tools: mine(), ttlMs: 60000, cacheScope: 'private' });
+  // The same decision as pipeline.authorize (scope -> capability -> feature when ENFORCED), so a listed tool is one the caller may run.
+  const mine = async () => { const t = byName(), now = clock().getTime(), grants = await loadGrants(db, ctx.tenant.id); return Object.values(t).filter((x) => { const op = x._meta[NS + 'operation'], o = OPS[op], eff = effective(ctx.policy.doc, ctx.tenant, productOf(op), now, ctx.acceptance), ent = resolve(principalOf(ctx, eff, grants), now);
+    return (!o.scope || ctx.scopes.has(o.scope)) && (!o.capability || ent.caps.has(o.capability)) && (ent.accessMode === 'OPEN_PREMIUM_PREVIEW' || !o.feature || !PUBLIC.includes(o.capability) || eff.features.has(o.feature)); }); };
+  if (method === 'tools/list') return res({ tools: await mine(), ttlMs: 60000, cacheScope: 'private' });
   if (method === 'tools/call') {
     const tool = byName()[params.name]; if (!tool) return send(200, rpcErr(id, -32602, `Unknown tool: ${String(params.name).slice(0, 64)}`));
     const op = tool._meta[NS + 'operation'], t0 = Date.now();

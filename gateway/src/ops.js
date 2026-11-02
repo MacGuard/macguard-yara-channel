@@ -2,8 +2,9 @@
 import { OPS, PLANS } from './plans.js';
 import * as intel from './intel.js';
 import { authorizeDownload, listReleases } from './downloads.js';
-import { monthUsage, run, usageEventId } from './pipeline.js';
+import { authorize, effectiveFor, monthUsage, run, usageEventId } from './pipeline.js';
 import { effective, productOf } from './policy.js';
+import { PUBLIC, accessMode, entitlementsFor, loadGrants, principalOf, redactIntel, resolve, snapshot } from './entitlements.js';
 import { emit } from './events.js';
 import { kpis } from './kpi.js';
 import { HttpError, windows } from './util.js';
@@ -48,9 +49,29 @@ const H = {
   'account.usage': ({ db, ctx, clock }) => monthUsage(db, ctx, clock),
   // Own-tenant analytics only: the tenant id comes from the authenticated key, never from the request.
   'account.analytics': async ({ db, ctx, clock, eff }) => { const k = await kpis(db, clock, { tenantId: ctx.tenant.id, mode: eff.mode }); return { tenant_id: ctx.tenant.id, commercial_mode: eff.mode, kpis: Object.fromEntries(['mau', 'premium_actors_30d', 'requests_by_channel', 'error_rate', 'latency_ms', 'units_consumed', 'billed_micros'].map((id) => [id, k[id]])) }; },
-  'account.entitlements': async ({ ctx, eff, clock }) => ({ tenant: { id: ctx.tenant.id, plan: ctx.tenant.plan }, key_id: ctx.key.id, scopes: [...ctx.scopes].sort(), commercial_mode: eff.mode, mode_source: eff.source, features: [...eff.features].sort(), quotas: eff.quotas,
+  'account.entitlements': async ({ db, ctx, eff, clock }) => ({ ...entitlementsView(ctx, eff, await loadGrants(db, ctx.tenant.id), clock().getTime()), tenant: { id: ctx.tenant.id, plan: ctx.tenant.plan }, key_id: ctx.key.id, scopes: [...ctx.scopes].sort(), commercial_mode: eff.mode, mode_source: eff.source, features: [...eff.features].sort(), quotas: eff.quotas,
     charging: eff.charging, terms_accepted: eff.accepted, policy_version: ctx.policy.version, plans_available: Object.keys(PLANS), month: windows(clock()).month }),
 };
+
+// The capability records of GET /v1/account/entitlements (contract macguard.entitlements/1), next to the existing plan/features/quotas fields.
+// A capability that gates operations is listed only if authorize() would let at least one of those operations through for THIS key, each resolved with its OWN
+// product policy (premium routes use the premium product, intel routes the api product): what the endpoint advertises is what the routes enforce.
+// Public capabilities are always listed (they describe the public portal, not the licensed API lookup, which keeps its own commercial gate).
+const CAP_OPS = Object.entries(OPS).reduce((m, [op, s]) => (s.capability && !PUBLIC.includes(s.capability) ? { ...m, [s.capability]: [...(m[s.capability] || []), op] } : m), {});
+function effectiveEntitlements(ctx, grants, nowMs, base) {
+  const caps = new Set(base.caps), via = { ...base.via }, preview = new Set(base.preview);
+  for (const [c, ops] of Object.entries(CAP_OPS)) {
+    let hit = null;
+    for (const op of ops) {
+      const e = effectiveFor(ctx, op, nowMs), ent = resolve(principalOf(ctx, e, grants), nowMs);
+      try { authorize(ctx, op, e, ent); hit = ent; break; } catch (err) { if (!(err instanceof HttpError)) throw err; }
+    }
+    if (hit) { caps.add(c); via[c] = hit.via[c]; if (hit.preview.has(c)) preview.add(c); else preview.delete(c); } else { caps.delete(c); delete via[c]; preview.delete(c); }
+  }
+  return { ...base, caps, via, preview };
+}
+const entitlementsView = (ctx, eff, grants, nowMs) => { const s = snapshot(ctx, eff, effectiveEntitlements(ctx, grants, nowMs, resolve(principalOf(ctx, eff, grants), nowMs)), grants, nowMs); return { entitlements: s, capabilities: s.capabilities, access_mode: s.access_mode, preview: s.preview_capabilities.length > 0 }; };
+const INTEL_READS = new Set(['intel.hash', 'intel.cve', 'intel.ioc.search']);
 
 export async function execute(deps, ctx, opName, args, { idemKey = null, requestId }) {
   const { env, db, clock } = deps, spec = OPS[opName];
@@ -59,6 +80,11 @@ export async function execute(deps, ctx, opName, args, { idemKey = null, request
   if (errs.length) throw new HttpError(400, 'invalid_input', errs.slice(0, 3).join('; '));
   if (opName === 'intel.ioc.search' && !('value' in args) && !('values' in args)) throw new HttpError(400, 'invalid_input', 'Send "value" or "values".');
   const nowMs = clock().getTime();
+  // CVE data is licensed per product: an indicator search or enrichment that asks for a CVE must pass the SAME gate as the dedicated CVE route (intel.cve),
+  // otherwise an IOC grant would expose CVE records the CVE endpoint refuses (Codex entitlements-final-20261101, HIGH).
+  const cveIn = opName === 'intel.ioc.search' ? [args.value, ...(args.values || [])] : opName === 'intel.enrich' ? args.indicators : [];
+  const cveGate = async () => { const e = effectiveFor(ctx, 'intel.cve', nowMs); authorize(ctx, 'intel.cve', e, await entitlementsFor(db, ctx, e, nowMs, OPS['intel.cve'].capability)); };
+  if (cveIn.some((v) => intel.typeOf(v) === 'cve')) await cveGate();
   const pre = effective(ctx.policy.doc, ctx.tenant, productOf(opName), nowMs, ctx.acceptance);
   let key = idemKey;
   if (opName === 'premium.download') { key = key ?? `dl:${args.release_id}:${clock().toISOString().slice(0, 10)}`; ctx = { ...ctx, usageEventId: await usageEventId(ctx.tenant.id, key) }; }
@@ -66,5 +92,10 @@ export async function execute(deps, ctx, opName, args, { idemKey = null, request
   let out = await run(env, db, clock, ctx, opName, args ?? {}, call, { idemKey: key, requestId, cacheResult: opName !== 'premium.download', extraQuota: (eff) => (opName === 'premium.download' ? [['downloads', eff.quotas.downloads_month, 1]] : []) });
   // An authorisation must be fresh: a repeat of the same logical request (same release, same day) is not counted again, but gets a new short-lived token instead of an old, maybe expired, one.
   if (out.replayed && opName === 'premium.download') out = { ...out, result: await call(args, pre) };
-  return { ...out, eff: pre };
+  // A replay returns the STORED answer of the first request (whatever this request's inputs are): if it holds CVE records, the CVE gate is applied again NOW,
+  // so a downgrade is never bypassed by replaying an Idempotency-Key that was used while the tenant still had CVE access (Codex entitlements-final, fix round, HIGH).
+  if (out.replayed && (opName === 'intel.ioc.search' || opName === 'intel.enrich') && [out.result, ...(Array.isArray(out.result?.results) ? out.result.results : [])].some((x) => x && x.type === 'cve')) await cveGate();
+  // Correlation fields leave the server only with intel.correlation.read, resolved NOW (also for an idempotent replay of an older answer).
+  if (INTEL_READS.has(opName)) out = { ...out, result: redactIntel(out.result, await entitlementsFor(db, ctx, pre, clock().getTime(), 'intel.correlation.read')) };
+  return { ...out, eff: pre, accessMode: accessMode(ctx.policy.doc, pre.mode) };
 }

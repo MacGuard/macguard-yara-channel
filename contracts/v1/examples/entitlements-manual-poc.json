@@ -1,0 +1,16 @@
+{
+ "schema": "macguard.entitlements/1",
+ "subject": { "kind": "organization", "id": "t1" },
+ "plan": "community",
+ "access_mode": "ENFORCED",
+ "capabilities": ["catalog.public.read", "research.poc.metadata.read", "vulnerability.public.read", "yara.community.download"],
+ "preview_capabilities": [],
+ "source": "manual",
+ "version": 2,
+ "granted_at": "2026-11-01T10:00:00.000Z",
+ "expires_at": "2026-12-01T00:00:00Z",
+ "revoked_at": null,
+ "grants": [
+  { "capability": "research.poc.metadata.read", "source": "manual", "granted_at": "2026-11-01T09:00:00.000Z", "expires_at": "2026-12-01T00:00:00Z", "revoked_at": null }
+ ]
+}
