@@ -39,8 +39,8 @@ function kevPage(it,idx){var t=x(),L=MG.L(),na=function(v){return MG.na(v,L)};$(
  var ul=el('ul',{class:'dl'});Object.keys(p.assets||{}).forEach(function(n){var u=p.assets[n];if(/^intel\/[A-Za-z0-9._-]+\/[A-Za-z0-9._-]+$/.test(u))ul.appendChild(el('li',{},[el('a',{href:u,text:n})]))});
  if(ul.childNodes.length){f.appendChild(el('p',{text:t.files}));f.appendChild(ul)}}
 /* API record: sections the server withholds are {restricted:true, capability}: listed as restricted (vulnrecord.js shows the Premium notice), set to [] */
-function apiPage(r){var rec=r&&r.record&&typeof r.record==='object'?r.record:r,held=Array.isArray(r&&r.restricted)?r.restricted.map(function(s){return typeof s==='string'?s:(s&&typeof s.section==='string'?s.section:null)}).filter(function(s){return typeof s==='string'&&/^[a-z_]{1,40}$/.test(s)}):[];/* the API emits {section,capability} (gateway/src/vulns.js); plain strings are accepted too */
- if(!rec||rec.found===false)return show(x().nf);
+function apiPage(r){var rec=Object.assign({},r&&r.record&&typeof r.record==='object'?r.record:r),held=Array.isArray(r&&r.restricted)?r.restricted.map(function(s){return typeof s==='string'?s:(s&&typeof s.section==='string'?s.section:null)}).filter(function(s){return typeof s==='string'&&/^[a-z_]{1,40}$/.test(s)}):[];/* the API emits {section,capability} (gateway/src/vulns.js); plain strings are accepted too */
+ if(!r||typeof r!=='object'||rec.found===false)return show(x().nf);/* rec is a copy: the cached answer is never mutated, so a language change re-renders the same withheld sections */
  ['aliases','disputed_aliases','weaknesses','severity','affected','advisories','detections','indicators','poc_references'].forEach(function(k){var v=rec[k];
   if(v&&typeof v==='object'&&!Array.isArray(v)&&v.restricted===true){held.push(k);rec[k]=[]}});
  $('vbody').textContent='';var box=el('section',{class:'panel'});$('vbody').appendChild(box);
@@ -52,7 +52,7 @@ function load(){var t=x();id=MG.vulnKind(new URLSearchParams(location.search).ge
  if(API)return MG.getT(API+'/v1/vulns/'+encodeURIComponent(id.id),10000).then(function(r){state={api:r};apiPage(r)},function(){show(x().fail,'badmsg')});
  if(id.kind!=='CVE')return show(t.needapi);
  return MG.kev.index().then(function(idx){return MG.kev.get(id.id).then(function(it){state={kev:it,idx:idx};if(!it){$('vbody').textContent='';return show(x().notkev(idx.source&&idx.source.catalog_version))}
-  $('vstate').hidden=true;kevPage(it,idx)})},function(){show(x().off)})}
+  $('vstate').hidden=true;kevPage(it,idx)})}).then(null,function(){$('vbody').textContent='';show(x().off)})}/* a refused index OR a refused record shard leaves the loading state */
 MG.i18n(D,function(){if(!state)return;if(state.api)apiPage(state.api);else if(state.kev)kevPage(state.kev,state.idx);else if(state.idx)show(x().notkev(state.idx.source&&state.idx.source.catalog_version))});
 load();
 })();

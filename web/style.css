@@ -1,4 +1,4 @@
-:root{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;--bg:#f1f5fa;--panel:#fff;--text:#182438;--muted:#566478;--line:#e0e7f0;--blue:#135ad0}*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);display:flex;min-height:100vh}aside{width:220px;flex-shrink:0;padding:30px 18px;background:var(--panel);border-right:1px solid var(--line)}aside h2{margin:0}small{color:var(--muted)}nav{display:grid;gap:10px;margin-top:40px}nav a{padding:12px;border-radius:9px;text-decoration:none;color:var(--muted)}nav a:hover,nav a[aria-current=page]{background:#2277ee18;color:var(--blue)}main{padding:42px;max-width:1250px;width:100%;margin:auto}header{display:flex;justify-content:space-between;gap:20px}h1{font-size:34px}p{color:var(--muted);line-height:1.6}select,button{border:1px solid var(--line);background:var(--panel);color:var(--text);border-radius:8px;padding:10px}.stats,.grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin:26px 0}.grid{grid-template-columns:1fr 1fr}.panel,.stats article{padding:25px;border-radius:15px;background:var(--panel);border:1px solid var(--line);box-shadow:0 4px 24px #1a3b6208}.stats span,.stats small{display:block;color:var(--muted);font-size:12px}.stats strong{display:block;font-size:30px;margin:12px 0}.steps{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}.steps div{border:1px solid var(--line);border-radius:10px;padding:18px;color:var(--blue)}.steps b{display:block;color:var(--text);font-size:13px;margin-top:12px}.status{background:#e9a32b1b;padding:12px;border-radius:9px;color:#bc831d;font-size:12px}a{color:var(--blue)}footer{font-size:12px;color:var(--muted);padding:25px 0}body.dark{--bg:#111922;--panel:#1d2934;--text:#edf4fb;--muted:#a5b4c5;--line:#324251;--blue:#77acff;color-scheme:dark}@media(max-width:850px){body{display:block}aside{width:100%}nav{display:flex;overflow:auto;margin:15px 0}main{padding:20px}header{flex-direction:column}.stats,.grid,.steps{grid-template-columns:1fr}}
+:root{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;--bg:#f1f5fa;--panel:#fff;--text:#182438;--muted:#566478;--line:#e0e7f0;--blue:#135ad0}*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);display:flex;min-height:100vh}aside{width:220px;flex-shrink:0;padding:30px 18px;background:var(--panel);border-right:1px solid var(--line)}aside h2{margin:0}small{color:var(--muted)}nav{display:grid;gap:10px;margin-top:40px}nav a{padding:12px;border-radius:9px;text-decoration:none;color:var(--muted)}nav a:hover,nav a[aria-current=page]{background:#2277ee18;color:var(--blue)}main{padding:42px;max-width:1250px;width:100%;margin:auto}header{display:flex;justify-content:space-between;gap:20px}h1{font-size:clamp(26px,8vw,34px);overflow-wrap:break-word;hyphens:auto}p{color:var(--muted);line-height:1.6}select,button{border:1px solid var(--line);background:var(--panel);color:var(--text);border-radius:8px;padding:10px}.stats,.grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin:26px 0}.grid{grid-template-columns:1fr 1fr}.panel,.stats article{padding:25px;border-radius:15px;background:var(--panel);border:1px solid var(--line);box-shadow:0 4px 24px #1a3b6208}.stats span,.stats small{display:block;color:var(--muted);font-size:12px}.stats strong{display:block;font-size:30px;margin:12px 0}.steps{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}.steps div{border:1px solid var(--line);border-radius:10px;padding:18px;color:var(--blue)}.steps b{display:block;color:var(--text);font-size:13px;margin-top:12px}.status{background:#e9a32b1b;padding:12px;border-radius:9px;color:#bc831d;font-size:12px}a{color:var(--blue)}footer{font-size:12px;color:var(--muted);padding:25px 0}body.dark{--bg:#111922;--panel:#1d2934;--text:#edf4fb;--muted:#a5b4c5;--line:#324251;--blue:#77acff;color-scheme:dark}@media(max-width:850px){body{display:block}aside{width:100%}nav{display:flex;overflow:auto;margin:15px 0}main{padding:20px}header{flex-direction:column}.stats,.grid,.steps{grid-template-columns:1fr}}
 
 .tablewrap{overflow-x:auto;margin-top:12px}table{border-collapse:collapse;width:100%;font-size:13px}th,td{text-align:left;padding:8px 10px;border-bottom:1px solid var(--line);vertical-align:top}td.mono{font-family:ui-monospace,Menlo,monospace;word-break:break-all}.lv{font-weight:600}.lv-ERROR{color:#b3261e}.lv-WARNING{color:#8a5a00}.lv-INFO{color:#1b6e3c}#rules,#log{margin-bottom:26px}
 
@@ -13,10 +13,10 @@ details{margin-top:12px}summary{cursor:pointer;color:var(--muted);font-size:13px
 :root{--mod:#d9942b;--rem:#8a94a6}body.dark{--mod:#f0b45c;--rem:#a5b0c2}
 .sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
 .skip{position:absolute;left:-999px;top:0;background:var(--blue);color:#fff;padding:10px 14px;z-index:10}.skip:focus{left:8px;top:8px}
-a:focus-visible,button:focus-visible,select:focus-visible,input:focus-visible,summary:focus-visible{outline:3px solid var(--blue);outline-offset:2px}
+a:focus-visible,button:focus-visible,select:focus-visible,input:focus-visible,input[type=date]:focus-within,summary:focus-visible{outline:3px solid var(--blue);outline-offset:2px}
 .muted,.sub{color:var(--muted);font-size:12px}.okmsg{color:#1b6e3c}.badmsg{color:#b3261e;font-weight:600}body.dark .okmsg{color:#6fd39a}body.dark .badmsg{color:#ff8a80}
 .toolbar{display:flex;flex-wrap:wrap;gap:12px;align-items:end;margin:12px 0}.toolbar label{display:grid;gap:4px;font-size:12px;color:var(--muted)}.toolbar input{min-width:220px;border:1px solid var(--line);background:var(--panel);color:var(--text);border-radius:8px;padding:10px}
-.pager{display:flex;gap:14px;align-items:center;margin:14px 0}button:disabled{opacity:.5;cursor:default}
+.pager{display:flex;flex-wrap:wrap;gap:14px;align-items:center;margin:14px 0}button:disabled{opacity:.5;cursor:default}
 .dl{padding-left:18px;line-height:1.9}.dl li{color:var(--muted)}.verbox{border:1px solid var(--line);border-left:4px solid var(--blue);border-radius:10px;padding:12px 16px;margin:12px 0;font-size:13px}.verbox p,.verbox li{color:var(--text);margin:4px 0}
 .facts{display:grid;grid-template-columns:max-content 1fr;gap:6px 18px;font-size:13px}.facts dt{color:var(--muted)}.facts dd{margin:0;word-break:break-all}.facts dd.mono,td.mono{font-family:ui-monospace,Menlo,monospace}
 #checks{list-style:none;padding:0}#checks li{padding:6px 0;border-bottom:1px solid var(--line);font-size:13px}
@@ -34,7 +34,7 @@ main{min-width:0}td.sha{font-family:ui-monospace,Menlo,monospace;font-size:11px;
 
 /* final audit: contrast (WCAG 1.4.3) and reflow at 320 px (1.4.10) */
 body.dark .lv-INFO{color:#7bd88f}body.dark .lv-ERROR{color:#ff8f8a}body.dark .lv-WARNING{color:#f0b45c}body.dark .delta{color:#9db9ff;background:#2f6df033}body.dark .delta.neg{color:#ff8f8a;background:#ff8f8a26}
-.act-ctl{flex-wrap:wrap}.act-ctl select{max-width:100%}
+.act-ctl{flex-wrap:wrap;max-width:100%;min-width:0}.act-ctl select{max-width:100%;min-width:0}
 .ytitle{font-size:11px;fill:var(--muted)}
 /* Threat Intelligence Hub (portada, explorador, ficha, biblioteca): same tokens, same panels, light and dark */
 .hero{margin:26px 0;background:linear-gradient(135deg,var(--panel) 60%,#2277ee10)}.hero h2{margin-top:0;font-size:26px}
@@ -53,3 +53,16 @@ body.dark .badge.kev{border-color:#ff8a80;color:#ff8a80}body.dark .badge.free{bo
 @media (max-width:900px){.hubgrid,.risk{grid-template-columns:1fr}.herosearch input{flex-basis:100%}}
 pre.mono{white-space:pre-wrap;overflow-wrap:anywhere;max-width:100%;overflow-x:auto}
 .panel p,.panel li{overflow-wrap:anywhere}
+/* WCAG 1.4.11: a text field or a select is identified only by its border, so the border needs 3:1 against the panel and the page (it was 1.25:1 light, 1.43:1 dark) */
+:root{--field:#76828f}body.dark{--field:#7488a0}:is(input,select,textarea):not([type=hidden]):not([type=checkbox]):not([type=radio]){border-color:var(--field)}
+/* WCAG 2.5.8: lists of links separated by " · " (table cells, link rows) are not sentences; when they wrap, the rows must be at least 24 px apart (they were 15 px) */
+.linkrow,.tablewrap td:has(a){line-height:max(24px,1.6em)}
+/* Apple HIG design goal, not a WCAG requirement (WCAG 2.5.8 asks 24x24 CSS px or spacing and is met without this block):
+   on a touch screen every control has a hit area of at least 44x44 CSS px. Only padding and minimum sizes change; text sizes
+   and the mouse (fine pointer) layout stay as they are. Links inside running text keep the inline exception. */
+@media (any-pointer:coarse){
+:is(button,select,input:not([type=hidden]):not([type=checkbox]):not([type=radio]),textarea){min-height:44px}
+:is(button,select){min-width:44px}
+summary,[tabindex="0"]{min-height:44px}summary{padding-block:12px;line-height:20px}
+nav a,td a,th a,dd a,h2>a,.linkrow a,a.go,li a:not(.docs-main li a),.skip{display:inline-block;min-height:44px;min-width:44px;padding-block:12px}
+}

@@ -2,9 +2,9 @@
 //  1. runs tests/web/e2e.html (normal, tampered log, missing inclusion proof) and requires DONE with no FAIL;
 //  2. loads key pages and requires no page error, console error, failed request or CSP violation;
 //  3. requires every Mermaid diagram of two docs pages to render (window.__docsDiagrams) and fit without horizontal page scroll;
-//  4. runs axe-core (WCAG 2.x A/AA + 2.2 AA) at 1280 and 390 px, light and dark.
+//  4. runs axe-core (WCAG 2.x A/AA + 2.2 AA) at 1280 and 390 px, light and dark; 5-8 are described where they run.
 // The site needs verification.json (written by the site workflow from the release history); copy the live one next to a local build.
-// usage: PW_DIR=<dir with node_modules/playwright and axe-core> node tests/web/cross_browser.mjs <site-dir> [engine,engine]
+// usage: PW_DIR=<dir with node_modules/playwright and axe-core> [PW_EXECUTABLE_WEBKIT=<pw_run.sh>] node tests/web/cross_browser.mjs <site-dir> [engine,engine]
 import { createRequire } from 'node:module';
 import { createServer } from 'node:http';
 import { readFileSync, existsSync, statSync } from 'node:fs';
@@ -36,7 +36,8 @@ function serve(mode) {
 const results = []; const rec = (engine, name, ok, detail = '') => { results.push({ engine, name, ok, detail }); console.log(`${ok ? 'PASS' : 'FAIL'} [${engine}] ${name}${detail ? ' — ' + detail : ''}`); };
 
 for (const name of engines) {
-  const browser = await pw[name].launch();
+  const exe = process.env['PW_EXECUTABLE_' + name.toUpperCase()];   // optional: a browser build patched to find user-space libraries (no sudo)
+  const browser = await pw[name].launch(exe ? { executablePath: exe } : {});
   try {
     for (const mode of ['', 'tamper', 'missing']) {
       const { srv, base } = await serve(mode); const page = await browser.newPage({ viewport: { width: 1100, height: 900 } });
@@ -70,6 +71,73 @@ for (const name of engines) {
           if (ax.length) bad.push(`axe${dark ? ' dark' : ''}: ` + ax.join(','));
         }
         rec(name, `${p} @${w}`, bad.length === 0, bad.join(' | ') || (d.diag ? `${d.diag.rendered} diagrams` : ''));
+        await page.close();
+      }
+      await ctx.close();
+    }
+    // 5. accessibility interactions of the docs (WCAG 4.1.3, 2.4.11/2.1.2), with the element Fullscreen API removed as on iPhone Safari
+    { const ctx = await browser.newContext({ viewport: { width: 390, height: 800 } });
+      await ctx.addInitScript(() => { Object.defineProperty(Element.prototype, 'requestFullscreen', { value: undefined, configurable: true }); });
+      const page = await ctx.newPage(); await page.goto(`${base}/docs/en/merkle.html`, { waitUntil: 'networkidle' });
+      await page.waitForFunction(() => window.__docsDiagrams && window.__docsDiagrams.done, null, { timeout: 60000 }).catch(() => {});
+      await page.click('.codeblock .copy'); await page.waitForTimeout(500);
+      const said = await page.evaluate(() => { const s = document.querySelector('.sr-status[role="status"]'); return s ? s.textContent : null; });
+      rec(name, 'docs: copying code is announced in a status message', said === 'Copied', `status=${JSON.stringify(said)}`);
+      const fig = '#fig-rules-merkle'; await page.locator(`${fig} .dg-bar button[aria-label="Full screen"]`).click(); await page.waitForTimeout(300);
+      const inside = []; for (let i = 0; i < 25; i++) { await page.keyboard.press(i < 20 ? 'Tab' : 'Shift+Tab'); inside.push(await page.evaluate((f) => document.querySelector(f).contains(document.activeElement), fig)); }
+      const overlay = await page.evaluate((f) => document.querySelector(f).classList.contains('dg-full'), fig); await page.keyboard.press('Escape');
+      const closed = await page.evaluate((f) => !document.querySelector(f).classList.contains('dg-full'), fig);
+      rec(name, 'docs: the full-screen fallback overlay keeps keyboard focus inside and Escape closes it', overlay && inside.every(Boolean) && closed, `overlay=${overlay} inside=${inside.filter(Boolean).length}/25 closed=${closed}`);
+      await ctx.close(); }
+    // 6. reflow at 320 CSS px (WCAG 1.4.10, = 1280 px at 400 %) and text spacing (1.4.12): no horizontal page scroll. Spanish is the longer
+    //    language; the home also in English, whose activity select ("Changes between releases") overflowed by 41 px in WebKit with text spacing
+    for (const [p, lang] of [['vulnerabilities.html', 'es'], ['vuln.html?id=CVE-2021-44228', 'es'], ['vuln.html?id=bad', 'es'], ['index.html', 'es'], ['index.html', 'en']]) {
+      const ctx = await browser.newContext({ viewport: { width: 320, height: 800 } }); await ctx.addInitScript((l) => { try { localStorage.setItem('lang', l); } catch {} }, lang);
+      const page = await ctx.newPage(); await page.goto(`${base}/${p}`, { waitUntil: 'networkidle' }); await page.waitForTimeout(1000);
+      const sx = () => page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth); const plain = await sx();
+      await page.addStyleTag({ content: '*{line-height:1.5!important;letter-spacing:0.12em!important;word-spacing:0.16em!important}p{margin-bottom:2em!important}' }); const spaced = await sx();
+      rec(name, `reflow 320 px + text spacing (${lang}): ${p}`, plain <= 1 && spaced <= 1, `overflow ${plain}px, with text spacing ${spaced}px`); await ctx.close();
+    }
+    // 7. target size (WCAG 2.5.8): undersized links (< 24 px) in " · " link lists must keep 24 px between centres of each line fragment, also
+    //    when the list wraps; table cells of packages/releases wrapped at a 15 px pitch
+    for (const [p, w] of [['packages.html', 320], ['packages.html', 1280], ['releases.html', 320], ['releases.html', 1280]]) {
+      const ctx = await browser.newContext({ viewport: { width: w, height: 800 } }); const page = await ctx.newPage();
+      await page.goto(`${base}/${p}`, { waitUntil: 'networkidle' }); await page.waitForTimeout(1000);
+      const bad = await page.evaluate(() => {
+        const T = [...document.querySelectorAll('main a[href]')].filter((e) => e.getClientRects().length && !e.closest('details:not([open])'));
+        const fr = []; T.forEach((e, i) => { for (const r of e.getClientRects()) if (r.width >= 1 && r.height >= 1) fr.push({ i, small: r.width < 24 || r.height < 24, x: r.left + r.width / 2, y: r.top + r.height / 2, r }); });
+        const out = []; for (const f of fr) { if (!f.small) continue; const e = T[f.i], par = e.parentElement;
+          const own = [...par.childNodes].filter((n) => n.nodeType === 3).map((n) => n.textContent).join(''); if (/[A-Za-zÁÉÍÓÚáéíóúñ]{3,}/.test(own)) continue;   // a link inside a sentence is exempt
+          for (const g of fr) { if (g.i === f.i) continue; const q = g.r, dx = Math.max(q.left - f.x, 0, f.x - q.right), dy = Math.max(q.top - f.y, 0, f.y - q.bottom);
+            if (Math.hypot(dx, dy) < 12 || (g.small && Math.hypot(f.x - g.x, f.y - g.y) < 24)) { out.push(`${e.textContent.trim().slice(0, 24)} ~ ${T[g.i].textContent.trim().slice(0, 24)}`); break; } } }
+        return out; });
+      rec(name, `target size 24 px or spacing (2.5.8) at ${w} px: ${p}`, bad.length === 0, bad.length ? `${bad.length} too close: ${bad.slice(0, 3).join(' | ')}` : 'ok'); await ctx.close();
+    }
+    // 8. touch hit areas (Apple HIG 44x44 pt design goal, NOT a WCAG requirement; 2.5.8 is check 7): in an emulated touch screen
+    //    (hasTouch, plus isMobile where the engine supports it) (any-pointer: coarse) matches and every visible control, link in nav/table/
+    //    list/link row and docs button is at least 44x44 CSS px per line fragment, no two hit areas overlap and the page does not scroll
+    //    sideways. Links inside running text keep the inline exception and are not measured. Docs also with the diagram overlay open.
+    for (const w of [320, 390, 768]) {
+      const opt = { viewport: { width: w, height: 800 }, hasTouch: true }; if (name !== 'firefox') Object.assign(opt, { isMobile: true, deviceScaleFactor: 3 });
+      const ctx = await browser.newContext(opt); await ctx.addInitScript(() => { Object.defineProperty(Element.prototype, 'requestFullscreen', { value: undefined, configurable: true }); });
+      for (const p of ['index.html', 'vulnerabilities.html', 'vuln.html?id=CVE-2021-44228', 'catalog.html', 'packages.html', 'releases.html', 'rules.html', 'transparency.html', 'docs.html', 'docs/en/merkle.html']) {
+        const page = await ctx.newPage(); await page.goto(`${base}/${p}`, { waitUntil: 'networkidle' });
+        if (p.startsWith('docs/')) await page.waitForFunction(() => window.__docsDiagrams && window.__docsDiagrams.done, null, { timeout: 60000 }).catch(() => {}); else await page.waitForTimeout(1000);
+        const hit = (root) => { const R = root ? document.querySelector(root) : document; const bad = [];
+          const T = [...R.querySelectorAll('a[href],button,input:not([type=hidden]),select,textarea,summary,[tabindex]:not([tabindex="-1"])')].filter((e) => { const r = e.getBoundingClientRect();
+            return r.width > 0 && r.height > 0 && getComputedStyle(e).visibility !== 'hidden' && !e.closest('[hidden]') && !e.closest('details:not([open]) > :not(summary)') && !(e.classList.contains('skip') && document.activeElement !== e); });
+          const fr = []; let n = 0;
+          T.forEach((e, i) => { const par = e.parentElement; const own = par ? [...par.childNodes].filter((x) => x.nodeType === 3).map((x) => x.textContent).join('') : '';
+            if (e.tagName === 'A' && getComputedStyle(e).display === 'inline' && /[A-Za-zÁÉÍÓÚáéíóúñ]{3,}/.test(own)) return;   // link inside a sentence
+            n++; for (const r of e.getClientRects()) { if (r.width < 1 || r.height < 1) continue; fr.push({ i, r }); if (r.width < 44 || r.height < 44) bad.push(`${e.tagName.toLowerCase()} "${(e.getAttribute('aria-label') || e.textContent || '').trim().slice(0, 20)}" ${Math.round(r.width)}x${Math.round(r.height)}`); } });
+          for (let a = 0; a < fr.length; a++) for (let b = a + 1; b < fr.length; b++) { const A = fr[a], B = fr[b]; if (A.i === B.i || T[A.i].contains(T[B.i]) || T[B.i].contains(T[A.i])) continue;
+            if (Math.min(A.r.right, B.r.right) - Math.max(A.r.left, B.r.left) > 1 && Math.min(A.r.bottom, B.r.bottom) - Math.max(A.r.top, B.r.top) > 1) bad.push(`overlap "${T[A.i].textContent.trim().slice(0, 16)}" / "${T[B.i].textContent.trim().slice(0, 16)}"`); }
+          return { coarse: matchMedia('(any-pointer: coarse)').matches, n, bad, overflow: document.documentElement.scrollWidth - document.documentElement.clientWidth }; };
+        const m = await page.evaluate(hit); const bad = [...m.bad]; if (!m.coarse) bad.unshift('(any-pointer: coarse) does not match'); if (m.overflow > 1) bad.push(`horizontal page scroll ${m.overflow}px`);
+        let extra = '';
+        if (p.startsWith('docs/')) { await page.locator('#fig-rules-merkle .dg-bar button[aria-label="Full screen"]').click(); await page.waitForTimeout(300);
+          const o = await page.evaluate(hit, '.diagram.dg-full'); if (!o.n) bad.push('overlay did not open'); bad.push(...o.bad.map((x) => 'overlay: ' + x)); extra = ` + ${o.n} in the overlay`; }
+        rec(name, `touch hit areas 44x44 (Apple HIG goal) at ${w} px: ${p}`, bad.length === 0, bad.length ? `${bad.length}: ${bad.slice(0, 4).join(' | ')}` : `${m.n} targets${extra}`);
         await page.close();
       }
       await ctx.close();

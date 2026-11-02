@@ -22,11 +22,11 @@ SITE_BASE = 'https://macguard.github.io/macguard-yara-channel/'
 UI = {
     'es': {'docs': 'Documentación', 'home': 'Inicio', 'on_page': 'En esta página', 'other_lang': 'English', 'skip': 'Saltar al contenido', 'prev': 'Anterior', 'next': 'Siguiente', 'lang_label': 'Idioma', 'theme': 'Claro / oscuro',
            'zoom_in': 'Acercar', 'zoom_out': 'Alejar', 'fit': 'Ajustar al ancho', 'reset': 'Tamaño real', 'full': 'Pantalla completa', 'copy': 'Copiar código Mermaid', 'svg': 'Descargar SVG', 'copied': 'Copiado',
-           'desc': 'Descripción del diagrama', 'source': 'Código Mermaid', 'diagram': 'Diagrama', 'copy_code': 'Copiar', 'nojs': 'Sin JavaScript no se dibuja el diagrama: aquí tiene su descripción y su código fuente.', 'rendering': 'Dibujando el diagrama…',
+           'desc': 'Descripción del diagrama', 'source': 'Código Mermaid', 'diagram': 'Diagrama', 'copy_code': 'Copiar', 'pager': 'Paginación', 'draw_error': 'No se pudo dibujar el diagrama. Su código está debajo.', 'nojs': 'Sin JavaScript no se dibuja el diagrama: aquí tiene su descripción y su código fuente.', 'rendering': 'Dibujando el diagrama…',
            'footer': 'Generada desde docs-src/ con scripts/build_docs.py. Proyecto independiente, sin afiliación con las fuentes.', 'sidebar': 'Documentación', 'status_actual': 'ACTUAL', 'status_proposal': 'PROPUESTA'},
     'en': {'docs': 'Documentation', 'home': 'Home', 'on_page': 'On this page', 'other_lang': 'Español', 'skip': 'Skip to content', 'prev': 'Previous', 'next': 'Next', 'lang_label': 'Language', 'theme': 'Light / dark',
            'zoom_in': 'Zoom in', 'zoom_out': 'Zoom out', 'fit': 'Fit to width', 'reset': 'Actual size', 'full': 'Full screen', 'copy': 'Copy Mermaid code', 'svg': 'Download SVG', 'copied': 'Copied',
-           'desc': 'Diagram description', 'source': 'Mermaid code', 'diagram': 'Diagram', 'copy_code': 'Copy', 'nojs': 'Without JavaScript the diagram is not drawn: its description and source code are here.', 'rendering': 'Drawing the diagram…',
+           'desc': 'Diagram description', 'source': 'Mermaid code', 'diagram': 'Diagram', 'copy_code': 'Copy', 'pager': 'Pages', 'draw_error': 'The diagram could not be drawn. Its source is below.', 'nojs': 'Without JavaScript the diagram is not drawn: its description and source code are here.', 'rendering': 'Drawing the diagram…',
            'footer': 'Generated from docs-src/ with scripts/build_docs.py. Independent project, not affiliated with the sources.', 'sidebar': 'Documentation', 'status_actual': 'CURRENT', 'status_proposal': 'PROPOSED'},
 }
 
@@ -104,11 +104,14 @@ def parse_front(src):
     meta = dict(l.split(': ', 1) for l in m.group(1).split('\n') if ': ' in l)
     return meta, src[m.end():]
 
+TABLE_LABEL = {'es': 'Tabla (desplazable)', 'en': 'Table (scrollable)'}
+def tablewrap(lang): return f'<div class="tablewrap" role="region" tabindex="0" aria-label="{TABLE_LABEL[lang]}">'
+
 def render_events(lang):
     ev = json.loads((ROOT / 'docs-src/events.json').read_text())
     head = {'es': ('Código', 'Nivel', 'Cuándo se registra', 'Origen'), 'en': ('Code', 'Level', 'When it is recorded', 'Source')}[lang]
     rows = ''.join(f"<tr><td><code>{esc(e['code'])}</code></td><td>{esc(e['level'])}</td><td>{esc(e[lang])}</td><td><code>{esc(e['source'])}</code></td></tr>" for e in ev)
-    return f'<div class="tablewrap"><table><thead><tr>{"".join(f"<th scope=col>{h}</th>" for h in head)}</tr></thead><tbody>{rows}</tbody></table></div>'
+    return f'{tablewrap(lang)}<table><thead><tr>{"".join(f"<th scope=col>{h}</th>" for h in head)}</tr></thead><tbody>{rows}</tbody></table></div>'
 
 def diagram_figure(name, lang, ui):
     mmd = ROOT / 'docs-src/diagrams' / f'{name}.mmd'; meta = ROOT / 'docs-src/diagrams' / f'{name}.json'
@@ -153,7 +156,7 @@ def render_md(body, lang, ctx, page_links, used_diagrams):
         if ln.startswith('|') and i + 1 < len(lines) and re.match(r'^\|[\s:|-]+\|\s*$', lines[i + 1]):
             head = [c.strip() for c in ln.strip().strip('|').split('|')]; i += 2; rows = []
             while i < len(lines) and lines[i].startswith('|'): rows.append([c.strip() for c in lines[i].strip().strip('|').split('|')]); i += 1
-            out.append('<div class="tablewrap"><table><thead><tr>' + ''.join(f'<th scope="col">{inline(fill(h), page_links)}</th>' for h in head) + '</tr></thead><tbody>'
+            out.append(tablewrap(lang) + '<table><thead><tr>' + ''.join(f'<th scope="col">{inline(fill(h), page_links)}</th>' for h in head) + '</tr></thead><tbody>'
                        + ''.join('<tr>' + ''.join(f'<td>{inline(fill(c), page_links)}</td>' for c in r) + '</tr>' for r in rows) + '</tbody></table></div>'); continue
         if re.match(r'^[-*]\s+', ln) or re.match(r'^\d+\.\s+', ln):
             ordered = bool(re.match(r'^\d+\.', ln)); buf = []
@@ -184,17 +187,17 @@ def page_html(lang, slug, meta, content, toc, pages, ctx, prev_next):
     pn = ''.join(f'<a rel="{rel}" href="{p["slug"]}.html">{esc(lab)}: {esc(p["title"][lang])}</a>' for rel, lab, p in prev_next if p)
     needs_mermaid = 'class="diagram"' in content
     scripts = (f'<script src="../../{MERMAID_FILE}" integrity="sha256-{sri()}" crossorigin="anonymous"></script>' if needs_mermaid else '') + '<script src="../../docs.js"></script>'
-    ui_json = esc(json.dumps({k: ui[k] for k in ('zoom_in', 'zoom_out', 'fit', 'reset', 'full', 'copy', 'svg', 'copied', 'copy_code')}))
+    ui_json = esc(json.dumps({k: ui[k] for k in ('zoom_in', 'zoom_out', 'fit', 'reset', 'full', 'copy', 'svg', 'copied', 'copy_code', 'draw_error')}))
     return f'''<!doctype html><html lang="{lang}"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>{esc(meta["title"])} · {esc(ui["docs"])} · MacGuard YARA Channel</title>
 <meta name="description" content="{esc(meta.get("summary", ""))}"><link rel="stylesheet" href="../../style.css"><link rel="stylesheet" href="../../docs.css">
 <link rel="alternate" hreflang="{other}" href="../{other}/{slug}.html">
 <a class="skip" href="#main">{esc(ui["skip"])}</a>
 <aside class="docs-side"><h2>🛡 MacGuard</h2><small>YARA Rules Channel</small><nav aria-label="{esc(ui["sidebar"])}"><a class="home" href="../../index.html">{esc(ui["home"])}</a><ol class="docs-nav">{nav}</ol></nav></aside>
-<main id="main" class="docs-main" data-ui="{ui_json}"><header class="docs-top"><div><small>MACGUARD · {esc(ui["docs"]).upper()}</small></div><div><label class="sr" for="lang">{esc(ui["lang_label"])}</label><a id="lang-switch" class="btn" hreflang="{other}" href="../{other}/{slug}.html">{esc(ui["other_lang"])}</a>
+<main id="main" class="docs-main" data-ui="{ui_json}"><header class="docs-top"><div><small>MACGUARD · {esc(ui["docs"]).upper()}</small></div><div><label class="sr" for="lang">{esc(ui["lang_label"])}</label><a id="lang-switch" class="btn" lang="{other}" hreflang="{other}" href="../{other}/{slug}.html">{esc(ui["other_lang"])}</a>
 <button id="theme" type="button" aria-label="{esc(ui["theme"])}">◐</button></div></header>
 <article><h1>{esc(meta["title"])}</h1><p class="lead">{esc(meta.get("summary", ""))}</p>
 <nav class="toc" aria-label="{esc(ui["on_page"])}"><strong>{esc(ui["on_page"])}</strong><ul>{toc_html}</ul></nav>
-{content}</article><nav class="pager" aria-label="pager">{pn}</nav><footer>{esc(ui["footer"])}</footer></main>{scripts}</html>'''
+{content}</article><nav class="pager" aria-label="{esc(ui["pager"])}">{pn}</nav><footer>{esc(ui["footer"])}</footer></main>{scripts}</html>'''
 
 def sri():
     return base64.b64encode(hashlib.sha256((ROOT / 'web' / MERMAID_FILE).read_bytes()).digest()).decode()
@@ -219,8 +222,11 @@ def build(out: pathlib.Path, site_for_context: pathlib.Path = None, strict=True)
             for d in used: report['diagrams'].setdefault(lang, []).append(d)
     first = pages[0]['slug']
     if first != 'overview': raise BuildError(f"the first documentation page must be 'overview' (web/docs-redirect.js sends readers there), got {first!r}")
+    # WCAG 2.2.1 (F41): no timed redirect. The 0 s fallback is inside <noscript>: with JavaScript, only docs-redirect.js navigates (it picks the
+    # language), so an immediate refresh can never race it and send a Spanish reader to en/; without JavaScript the fallback redirects at once.
+    # WCAG 3.1.2: the Spanish parts of this English page carry lang="es".
     (out / 'index.html').write_text(f'''<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Documentation · MacGuard YARA Channel</title><link rel="stylesheet" href="../style.css">
-<meta http-equiv="refresh" content="3;url=en/{first}.html"><main style="max-width:640px;margin:60px auto;padding:0 16px"><h1>Documentación · Documentation</h1><p><a href="es/{first}.html">Leer en español</a> · <a href="en/{first}.html">Read in English</a></p>
+<noscript><meta http-equiv="refresh" content="0;url=en/{first}.html"></noscript><main style="max-width:640px;margin:60px auto;padding:0 16px"><h1><span lang="es">Documentación</span> · Documentation</h1><p><a href="es/{first}.html" lang="es" hreflang="es">Leer en español</a> · <a href="en/{first}.html" hreflang="en">Read in English</a></p>
 <script src="../docs-redirect.js"></script></main></html>''', encoding='utf-8')
     report['files'].append('index.html')
     return report

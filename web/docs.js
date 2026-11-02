@@ -19,8 +19,14 @@ function btn(label, text, fn) {
 document.querySelectorAll('.codeblock').forEach(function (cb) {
   var b = btn(ui.copy_code || 'Copy', ui.copy_code || 'Copy', function () { copy(cb.querySelector('code').textContent, b, ui.copy_code); }); b.className = 'copy'; cb.appendChild(b);
 });
+/* WCAG 4.1.3: the buttons keep a fixed aria-label, so "Copied" on the button is never heard; one polite status region announces it */
+var live = null;
+function announce(msg) {
+  if (!live) { live = document.createElement('p'); live.className = 'sr-status'; live.setAttribute('role', 'status'); live.setAttribute('aria-live', 'polite'); document.body.appendChild(live); }
+  live.textContent = ''; setTimeout(function () { live.textContent = msg; }, 50);
+}
 function copy(text, button, original) {
-  function done() { var o = button.textContent; button.textContent = ui.copied || 'Copied'; setTimeout(function () { button.textContent = original || o; }, 1500); }
+  function done() { var o = button.textContent; button.textContent = ui.copied || 'Copied'; announce(ui.copied || 'Copied'); setTimeout(function () { button.textContent = original || o; }, 1500); }
   if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(text).then(done, fallback); else fallback();
   function fallback() { var t = document.createElement('textarea'); t.value = text; t.setAttribute('readonly', ''); t.style.position = 'fixed'; t.style.opacity = '0'; document.body.appendChild(t); t.select(); try { document.execCommand('copy'); done(); } catch (e) {} t.remove(); }
 }
@@ -47,6 +53,16 @@ function build(fig) {
   fig.insertBefore(bar, stage);
   stage.addEventListener('keydown', function (e) { if (e.key === '+' || e.key === '=') { setScale(fig, fig._scale * 1.25); e.preventDefault(); } else if (e.key === '-') { setScale(fig, fig._scale / 1.25); e.preventDefault(); } else if (e.key === '0') { fit(fig); e.preventDefault(); } });
 }
+/* WCAG 2.4.11/2.1.2: without the Fullscreen API (iPhone Safari) the diagram becomes a fixed overlay that covers the page; Tab stays inside it
+   (the page behind is hidden, so a focused link there would be invisible) and Escape or the same button closes it */
+document.addEventListener('keydown', function (e) {
+  var fig = document.querySelector('.diagram.dg-full'); if (!fig || e.key !== 'Tab') return;
+  var f = Array.prototype.filter.call(fig.querySelectorAll('button, a[href], summary, [tabindex]:not([tabindex="-1"])'), function (x) { var d = x.parentElement && x.parentElement.closest('details'); return (x.getClientRects().length > 0 && !(d && !d.open && x.tagName !== 'SUMMARY')) || x === document.activeElement; });   /* content of a closed <details> is not focusable */
+  if (!f.length) return; var first = f[0], last = f[f.length - 1], a = document.activeElement;
+  if (!fig.contains(a)) { first.focus(); e.preventDefault(); }
+  else if (e.shiftKey && a === first) { last.focus(); e.preventDefault(); }
+  else if (!e.shiftKey && a === last) { first.focus(); e.preventDefault(); }
+});
 function toggleFull(fig) {
   var on = document.fullscreenElement === fig || fig.classList.contains('dg-full');
   if (on) { if (document.fullscreenElement) document.exitFullscreen(); fig.classList.remove('dg-full'); }
@@ -64,7 +80,7 @@ function renderFigure(fig) {
     var holder = document.createElement('div'); holder.innerHTML = r.svg; var svg = holder.firstElementChild; stage.appendChild(svg);
     svg.setAttribute('role', 'img'); svg.setAttribute('aria-label', fig.querySelector('figcaption').textContent); svg.removeAttribute('style');
     fig._nat = natural(svg); fig._minFont = minFont(svg); build(fig); fit(fig); state.rendered++;
-  }).catch(function (e) { state.errors.push({ diagram: fig.getAttribute('data-diagram'), error: String(e && e.message || e).slice(0, 200) }); stage.innerHTML = '<p class="badmsg">The diagram could not be drawn. Its source is below.</p>'; fig.querySelector('.dg-code').open = true; });
+  }).catch(function (e) { state.errors.push({ diagram: fig.getAttribute('data-diagram'), error: String(e && e.message || e).slice(0, 200) }); stage.textContent = ''; var bm = document.createElement('p'); bm.className = 'badmsg'; bm.textContent = ui.draw_error || 'The diagram could not be drawn. Its source is below.'; stage.appendChild(bm); fig.querySelector('.dg-code').open = true; });
 }
 function renderAll() {
   var figs = document.querySelectorAll('figure.diagram'); state.total = figs.length; state.rendered = 0; state.errors = []; state.done = false;

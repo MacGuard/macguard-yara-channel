@@ -73,6 +73,12 @@ class Diagrams(Base):
             s = (SRC / 'diagrams' / f'{n}.mmd').read_text()
             for bad in ('<script', 'javascript:', 'click ', 'href', '%%{'): self.assertNotIn(bad, s, (n, bad))
             self.assertRegex(s.split('\n')[0], r'^(flowchart|sequenceDiagram|stateDiagram-v2)')
+    def test_diagram_disclosures_meet_target_size(self):
+        # WCAG 2.2 SC 2.5.8: the "description" and "Mermaid code" <summary> toggles were 15 px tall (axe target-size); they must be >= 24 px (44 px design goal)
+        css = (ROOT / 'web' / 'docs.css').read_text()
+        m = re.search(r'\.dg-desc>summary,\.dg-code>summary\{([^}]*)\}', css); self.assertIsNotNone(m, 'summary target-size rule missing')
+        pad = re.search(r'padding:(\d+)px', m.group(1)); lh = re.search(r'line-height:(\d+)px', m.group(1))
+        self.assertTrue(pad and lh, m.group(1)); self.assertGreaterEqual(2 * int(pad.group(1)) + int(lh.group(1)), 44)
     def test_each_diagram_is_in_the_right_pages_with_accessible_name(self):
         for l in LANGS:
             for (ll, slug), h in self.html.items():

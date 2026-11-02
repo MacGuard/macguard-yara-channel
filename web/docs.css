@@ -9,12 +9,19 @@ article code{font-family:ui-monospace,Menlo,monospace;font-size:.92em;background
 .codeblock{position:relative;margin:12px 0}.codeblock pre{margin:0;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:14px;overflow:auto;font-size:12.5px;line-height:1.55}.codeblock code{background:none;padding:0;white-space:pre;overflow-wrap:normal}
 .codeblock .copy{position:absolute;top:6px;right:6px;font-size:12px;padding:4px 8px}
 .callout{margin:14px 0;padding:10px 14px;border-left:4px solid var(--blue);background:var(--panel);border-radius:6px;color:var(--text)}.callout.actual{border-color:#1b6e3c}.callout.proposal{border-color:#8a5a00;border-left-style:dashed}.callout.limit{border-color:#b3261e}
-.tablewrap{margin:12px 0}.tablewrap table{font-size:13px}.tablewrap th{background:var(--bg);white-space:nowrap}
+.tablewrap{margin:12px 0}.tablewrap:focus-visible{outline:3px solid var(--blue);outline-offset:2px}.tablewrap table{font-size:13px}.tablewrap th{background:var(--bg);white-space:nowrap}
 .diagram{margin:20px 0;border:1px solid var(--line);border-radius:12px;background:var(--panel);padding:12px}.diagram figcaption{font-weight:600;margin-bottom:8px}
 .dg-bar{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px}.dg-bar button{font-size:12px;padding:5px 9px}
 .dg-stage{overflow:auto;scrollbar-gutter:stable;max-height:70vh;border:1px dashed var(--line);border-radius:8px;padding:8px;background:#fff}body.dark .dg-stage{background:#162029}.dg-stage svg{display:block;margin:0 auto;max-width:none}.dg-loading{color:var(--muted);margin:0}
 .diagram.dg-full{position:fixed;inset:0;z-index:50;border-radius:0;overflow:auto}.diagram:fullscreen{overflow:auto;padding:16px}.diagram:fullscreen .dg-stage,.diagram.dg-full .dg-stage{max-height:calc(100vh - 150px)}
-.dg-desc,.dg-code{margin-top:8px}.dg-desc p{color:var(--text)}.dg-code pre{overflow:auto;font-size:12px;background:var(--bg);padding:10px;border-radius:8px}
+.dg-desc,.dg-code{margin-top:8px}.dg-desc>summary,.dg-code>summary{cursor:pointer;padding:12px 0;line-height:20px}.dg-desc p{color:var(--text)}.dg-code pre{overflow:auto;font-size:12px;background:var(--bg);padding:10px;border-radius:8px}
 .docs-main .pager{display:flex;justify-content:space-between;gap:12px;margin:34px 0 10px;flex-wrap:wrap}.docs-main .pager a{border:1px solid var(--line);border-radius:8px;padding:8px 12px;text-decoration:none;background:var(--panel)}
 .status-actual{color:#1b6e3c;font-weight:700}.status-proposal{color:#8a5a00;font-weight:700}
 @media(max-width:850px){.docs-side{width:100%}.docs-nav{display:flex;overflow:auto;gap:4px;padding-bottom:6px}.docs-nav a{white-space:nowrap}.docs-main{padding:16px}article h1{font-size:24px}.dg-stage{max-height:60vh}}
+.sr-status{position:absolute;width:1px;height:1px;margin:-1px;padding:0;border:0;overflow:hidden;clip:rect(0 0 0 0);clip-path:inset(50%);white-space:nowrap}
+/* Apple HIG design goal on touch screens (see style.css): 44x44 CSS px hit areas for the docs controls; the copy button moves
+   below its code block so it never covers the scrollable code region */
+@media (any-pointer:coarse){
+.docs-nav a,.docs-main .pager a,.docs-top .btn,.docs-side .home{min-height:44px;min-width:44px;padding-block:12px}
+.codeblock .copy{position:static;display:block;margin:6px 0 0 auto}
+}
