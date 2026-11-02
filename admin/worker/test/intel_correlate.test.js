@@ -12,7 +12,7 @@ const CASES = readdirSync(DIR).filter((d) => /^\d\d_/.test(d)).sort().map((name)
   name, c: JSON.parse(readFileSync(new URL(`${name}/case.json`, DIR), 'utf8')), expected: readFileSync(new URL(`${name}/expected.json`, DIR), 'utf8') }));
 const REQUIRED = ['verified_relations', 'unrelated_entities', 'ambiguous_aliases', 'malformed_identifiers', 'cve_similar_products', 'generic_rules', 'wrong_references',
   'contradicting_sources', 'retracted_data', 'duplicate_evidence', 'false_transitivity', 'identity_and_provenance', 'snapshot_conflict_order_a', 'snapshot_conflict_order_b',
-  'downgrade_and_ties_order_a', 'downgrade_and_ties_order_b'];
+  'downgrade_and_ties_order_a', 'downgrade_and_ties_order_b', 'malformed_structured_values'];
 const triple = (r) => JSON.stringify([r[0] ?? r.type, r[1] ?? r.from, r[2] ?? r.to]);
 const set = (list) => new Set(list.map(triple));
 function rng(seed) { let s = seed >>> 0; return () => { s = (s + 0x6d2b79f5) >>> 0; let t = s; t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }
@@ -128,6 +128,28 @@ test('regression (Codex c4 r2): a downgraded asserted relation is retracted; non
   const t1 = ix('rules-20260101-1', 'sha256', 'whole_value'), t2 = ix('rules-20260101-01', 'hash', 'whole_value');
   assert.equal(serialize(correlate({ rule_indexes: [t1, t2] })), serialize(correlate({ rule_indexes: [t2, t1] })));
   assert.ok(correlate({ rule_indexes: [t2] }).inputs.every((i) => i.role === 'refused'));
+});
+
+test('property (Codex c4 fix round): 12 seeded permutations of key order and set-array order, and every wrapper supplied twice in two permutations, give the same bytes', () => {
+  const r = rng(20261103);
+  for (const { name, c, expected } of CASES) {
+    for (let i = 0; i < 12; i++) {
+      assert.equal(serialize(correlate(shuffleDeep(c.input, r))), expected, `${name} permutation ${i}`);
+      const a = shuffleDeep(c.input, r), b = shuffleDeep(c.input, r), twice = {};
+      for (const k of ['kev', 'rule_indexes']) if (c.input[k]) twice[k] = [...a[k], ...b[k]].reverse();
+      assert.equal(serialize(correlate(twice)), expected, `${name} duplicated wrappers ${i}`);
+    }
+  }
+});
+
+test('regression (Codex c4 fix round): malformed structured values are printed canonically and capped', () => {
+  const doc = (cwes) => ({ document: { schema: 'macguard.intel-kev/1', items: [{ cve_id: 'CVE-2099-0900', cwes }], source: { id: 'cisa-kev', url: 'u', catalog_version: '2026.01.01', date_released: '2026-01-01T00:00:00.000Z', upstream_sha256: 'a'.repeat(64) } } });
+  const x = doc([{ id: 'CWE-79', name: 'x' }]), y = doc([{ name: 'x', id: 'CWE-79' }]);
+  const outs = [[x], [y], [x, y], [y, x]].map((kev) => serialize(correlate({ kev })));
+  assert.ok(outs.every((o) => o === outs[0]), 'key order of a malformed value never changes the output');
+  assert.match(outs[0], /CVE-2099-0900 \{\\"id\\":\\"CWE-79\\",\\"name\\":\\"x\\"\}/);
+  const long = correlate({ kev: [doc(['C'.repeat(5000)])] }).rejections[0].input;
+  assert.ok([...long].length < 700 && long.endsWith('(5000 code points)'), long.slice(-40));
 });
 
 test('robustness: garbage never throws, produces no relation and is reported', () => {

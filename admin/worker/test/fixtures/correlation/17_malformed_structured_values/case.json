@@ -1,0 +1,278 @@
+{
+ "description": "Structured and non-string malformed values (objects with several keys, nested arrays, numbers, booleans, null) in KEV cve_id/cwes and in rule-index assertions and entities: no relation, and every embedded value is printed canonically (sorted keys, sorted set-arrays) so the output never depends on key or array order.",
+ "input": {
+  "kev": [
+   {
+    "document": {
+     "schema": "macguard.intel-kev/1",
+     "source": {
+      "id": "cisa-kev",
+      "url": "https://www.cisa.gov/sites/default/files/feeds/known_exploited_vulnerabilities.json",
+      "license": "CC0-1.0",
+      "attribution": "Contains data from the CISA Known Exploited Vulnerabilities Catalog (CC0 1.0)",
+      "catalog_version": "2026.10.30",
+      "date_released": "2026-10-30T17:02:45.366Z",
+      "retrieved_at": "2026-10-30T17:02:45.366Z",
+      "upstream_sha256": "661f8e28f69a036dbbc53a346826dcdae4e5b47b281f269bd4074f194ad6c9b9"
+     },
+     "count": 2,
+     "items": [
+      {
+       "cve_id": "CVE-2099-0800",
+       "vendor": "ExampleVendor",
+       "product": "ExampleProduct",
+       "name": "Synthetic entry for CVE-2099-0800",
+       "date_added": "2026-01-01",
+       "short_description": "Synthetic description.",
+       "required_action": "Apply mitigations per vendor instructions.",
+       "due_date": "2026-01-22",
+       "known_ransomware_use": "Unknown",
+       "notes": "",
+       "cwes": [
+        {
+         "id": "CWE-79",
+         "name": "x",
+         "tags": [
+          "b",
+          "a"
+         ]
+        },
+        [
+         "CWE-20",
+         "CWE-22"
+        ],
+        79,
+        null,
+        true,
+        "CWE-89"
+       ]
+      },
+      {
+       "cve_id": {
+        "year": 2099,
+        "id": "CVE-2099-0801"
+       },
+       "vendor": "ExampleVendor",
+       "product": "ExampleProduct",
+       "name": "Synthetic entry for [object Object]",
+       "date_added": "2026-01-01",
+       "short_description": "Synthetic description.",
+       "required_action": "Apply mitigations per vendor instructions.",
+       "due_date": "2026-01-22",
+       "known_ransomware_use": "Unknown",
+       "notes": "",
+       "cwes": [
+        "CWE-20"
+       ]
+      }
+     ]
+    }
+   }
+  ],
+  "rule_indexes": [
+   {
+    "document": {
+     "schema": "macguard.search-index/1",
+     "generator": "scripts/rule_index.py",
+     "release": {
+      "tag": "rules-20261102-1",
+      "manifest_sha256": "8b721e3ea826fa880b042854dfc9ea3fe9ef3a0d3ebd70ec9cd8c0d5144c117a",
+      "rules_root": null,
+      "files": 1
+     },
+     "note": "synthetic",
+     "counts": {},
+     "entities": [
+      {
+       "id": "yara:rules/community/synthetic/structured.yar#SYNTH_Structured",
+       "kind": "rule",
+       "path": "rules/community/synthetic/structured.yar",
+       "name": "SYNTH_Structured",
+       "tags": [],
+       "modifiers": [],
+       "line": 1,
+       "file_sha256": "f8de5efd3f419e7a65310f4b2b920ca4585f8f7ce0ba1c15d0c12353c4302a49",
+       "source": "community",
+       "meta": {
+        "uuid": null,
+        "author": null,
+        "date": null,
+        "references": []
+       }
+      },
+      {
+       "id": {
+        "path": "p.yar",
+        "name": "N",
+        "more": {
+         "y": 1,
+         "x": 2
+        }
+       },
+       "kind": "rule"
+      }
+     ],
+     "assertions": [
+      {
+       "id": "assert:5e88fd4a123bc7db36df1fc208401b4341fb2277ab5bc6050afe3bfe5f65ab10",
+       "type": "rule_meta_mentions_hash",
+       "subject": "yara:rules/community/synthetic/structured.yar#SYNTH_Structured",
+       "value": "64906275f680913777b7639dd8cc4edfe517c9d9230a44aa9a80ccfd54792cfa",
+       "value_kind": "sha256",
+       "meta_key": "hash",
+       "match": "whole_value",
+       "status": "asserted_by_rule_metadata",
+       "provenance": {
+        "release_tag": "rules-20261102-1",
+        "path": "rules/community/synthetic/structured.yar",
+        "file_sha256": "f8de5efd3f419e7a65310f4b2b920ca4585f8f7ce0ba1c15d0c12353c4302a49",
+        "line": 2
+       }
+      },
+      {
+       "id": "assert:5e88fd4a123bc7db36df1fc208401b4341fb2277ab5bc6050afe3bfe5f65ab10",
+       "type": "rule_meta_mentions_hash",
+       "subject": "yara:rules/community/synthetic/structured.yar#SYNTH_Structured",
+       "value": {
+        "kind": "sha256",
+        "hex": "7ed4c43e0d71360abf79e99ac5d9be516aac54e94709d51df68b074483834e1c",
+        "extra": [
+         3,
+         1,
+         2
+        ]
+       },
+       "value_kind": "sha256",
+       "meta_key": "hash",
+       "match": "whole_value",
+       "status": "asserted_by_rule_metadata",
+       "provenance": {
+        "release_tag": "rules-20261102-1",
+        "path": "rules/community/synthetic/structured.yar",
+        "file_sha256": "f8de5efd3f419e7a65310f4b2b920ca4585f8f7ce0ba1c15d0c12353c4302a49",
+        "line": 2
+       }
+      },
+      {
+       "id": "assert:5e88fd4a123bc7db36df1fc208401b4341fb2277ab5bc6050afe3bfe5f65ab10",
+       "type": "rule_meta_mentions_hash",
+       "subject": "yara:rules/community/synthetic/structured.yar#SYNTH_Structured",
+       "value": [
+        "1249cb5c96ba77a313131c3216f302fed43fd54cf551b41a71dff4c40b645ac3",
+        "f0418553a38db13b40ab57cde4dc2f8161f26f220d1e8c4b08108cd66e8be630"
+       ],
+       "value_kind": "sha256",
+       "meta_key": "hash",
+       "match": "whole_value",
+       "status": "asserted_by_rule_metadata",
+       "provenance": {
+        "release_tag": "rules-20261102-1",
+        "path": "rules/community/synthetic/structured.yar",
+        "file_sha256": "f8de5efd3f419e7a65310f4b2b920ca4585f8f7ce0ba1c15d0c12353c4302a49",
+        "line": 2
+       }
+      },
+      {
+       "id": "assert:5e88fd4a123bc7db36df1fc208401b4341fb2277ab5bc6050afe3bfe5f65ab10",
+       "type": "rule_meta_mentions_hash",
+       "subject": "yara:rules/community/synthetic/structured.yar#SYNTH_Structured",
+       "value": 12345,
+       "value_kind": "sha256",
+       "meta_key": "hash",
+       "match": "whole_value",
+       "status": "asserted_by_rule_metadata",
+       "provenance": {
+        "release_tag": "rules-20261102-1",
+        "path": "rules/community/synthetic/structured.yar",
+        "file_sha256": "f8de5efd3f419e7a65310f4b2b920ca4585f8f7ce0ba1c15d0c12353c4302a49",
+        "line": 2
+       }
+      },
+      {
+       "id": "assert:5e88fd4a123bc7db36df1fc208401b4341fb2277ab5bc6050afe3bfe5f65ab10",
+       "type": "rule_meta_mentions_hash",
+       "subject": "yara:rules/community/synthetic/structured.yar#SYNTH_Structured",
+       "value": "64906275f680913777b7639dd8cc4edfe517c9d9230a44aa9a80ccfd54792cfa",
+       "value_kind": "sha256",
+       "meta_key": {
+        "b": 1,
+        "a": 2
+       },
+       "match": "whole_value",
+       "status": "asserted_by_rule_metadata",
+       "provenance": {
+        "release_tag": "rules-20261102-1",
+        "path": "rules/community/synthetic/structured.yar",
+        "file_sha256": "f8de5efd3f419e7a65310f4b2b920ca4585f8f7ce0ba1c15d0c12353c4302a49",
+        "line": 2
+       }
+      },
+      {
+       "id": "assert:5e88fd4a123bc7db36df1fc208401b4341fb2277ab5bc6050afe3bfe5f65ab10",
+       "type": "rule_meta_mentions_hash",
+       "subject": {
+        "z": "yara:x",
+        "a": [
+         true,
+         null
+        ]
+       },
+       "value": "64906275f680913777b7639dd8cc4edfe517c9d9230a44aa9a80ccfd54792cfa",
+       "value_kind": "sha256",
+       "meta_key": "hash",
+       "match": "whole_value",
+       "status": "asserted_by_rule_metadata",
+       "provenance": {
+        "release_tag": "rules-20261102-1",
+        "path": "rules/community/synthetic/structured.yar",
+        "file_sha256": "f8de5efd3f419e7a65310f4b2b920ca4585f8f7ce0ba1c15d0c12353c4302a49",
+        "line": 2
+       }
+      },
+      {
+       "id": "assert:5e88fd4a123bc7db36df1fc208401b4341fb2277ab5bc6050afe3bfe5f65ab10",
+       "type": "rule_meta_mentions_hash",
+       "subject": "yara:rules/community/synthetic/structured.yar#SYNTH_Structured",
+       "value": "64906275f680913777b7639dd8cc4edfe517c9d9230a44aa9a80ccfd54792cfa",
+       "value_kind": [
+        "sha256",
+        "md5"
+       ],
+       "meta_key": "hash",
+       "match": "whole_value",
+       "status": "asserted_by_rule_metadata",
+       "provenance": {
+        "release_tag": "rules-20261102-1",
+        "path": "rules/community/synthetic/structured.yar",
+        "file_sha256": "f8de5efd3f419e7a65310f4b2b920ca4585f8f7ce0ba1c15d0c12353c4302a49",
+        "line": 2
+       }
+      }
+     ]
+    }
+   }
+  ]
+ },
+ "expect": {
+  "asserted": [
+   [
+    "VULN_HAS_WEAKNESS",
+    "vulnerability:cve:CVE-2099-0800",
+    "weakness:cwe:CWE-89"
+   ],
+   [
+    "RULE_REFERENCES_SAMPLE",
+    "rule:yara:rules/community/synthetic/structured.yar#SYNTH_Structured",
+    "sample:sha256:64906275f680913777b7639dd8cc4edfe517c9d9230a44aa9a80ccfd54792cfa"
+   ]
+  ],
+  "candidate": [],
+  "rejections": {
+   "malformed_identifier": 9,
+   "malformed_meta_key": 1,
+   "subject_not_in_index": 1,
+   "value_kind_mismatch": 1,
+   "malformed_entity": 1
+  }
+ }
+}

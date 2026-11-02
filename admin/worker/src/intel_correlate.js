@@ -79,7 +79,14 @@ const IDENT = /^[A-Za-z_][A-Za-z0-9_]*$/;
 const cmp = (a, b) => (a < b ? -1 : a > b ? 1 : 0);
 const cmpBy = (...keys) => (x, y) => { for (const k of keys) { const c = cmp(k(x), k(y)); if (c) return c; } return 0; };
 const isObj = (x) => x !== null && typeof x === 'object' && !Array.isArray(x);
-const str = (x) => (typeof x === 'string' ? x : JSON.stringify(x) ?? String(x));
+// Every input value embedded in a report string goes through the SAME canonical serialisation as contentKey (sorted keys, sorted set-arrays, JSON number
+// formatting), capped at MAX_REPORT code points (Codex c4 fix round MEDIUM: {"id":..,"name":..} and {"name":..,"id":..} are one content but printed
+// differently, so input order chose the output bytes). The cap keeps the longest valid rule identity (534) intact.
+export const MAX_REPORT = 600;
+const str = (x) => {
+  const t = typeof x === 'string' ? x : JSON.stringify(canonSet(x)) ?? String(x), cp = [...t];
+  return cp.length > MAX_REPORT ? `${cp.slice(0, MAX_REPORT).join('')}...(${cp.length} code points)` : t;
+};
 
 /** Numeric, fixed-width sort key of a canonical KEV catalogue version (YYYY.MM.DD[.N]). */
 function kevVersionKey(v) { const m = KEV_VERSION.exec(v); return [m[1], m[2], m[3], (m[4] ?? '0').padStart(4, '0')].join('.'); }

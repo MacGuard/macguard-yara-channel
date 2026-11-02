@@ -268,6 +268,25 @@ const cases = {};
   cases['16_downgrade_and_ties_order_b'] = { description: description('newest first'), input: { kev: [w2, w1, v01, k2, k1], rule_indexes: [tie01, tie1, newer, older] }, expect };
 }
 
+// 17 ---------------------------------------------------------------------------------------------------------------------------------------------------
+// Regression (Codex correlation-engine-c4 fix round): structured and non-string malformed values (objects with several keys, nested arrays, numbers,
+// booleans, null) in KEV and rule-index fields. They produce no relation, and their rejection text is canonical, so the permutation property test in
+// intel_correlate.test.js (key order and set-array order) covers this class.
+{
+  const r = { path: 'rules/community/synthetic/structured.yar', name: 'SYNTH_Structured' };
+  const ix = index({ rules: [{ ...r, meta: [['hash', H('structured-ok'), 'sha256']] }] });
+  const a0 = ix.document.assertions[0], mk = (patch) => Object.assign(structuredClone(a0), patch);
+  ix.document.assertions.push(mk({ value: { kind: 'sha256', hex: H('x'), extra: [3, 1, 2] } }), mk({ value: [H('y'), H('z')] }), mk({ value: 12345 }), mk({ meta_key: { b: 1, a: 2 } }),
+    mk({ subject: { z: 'yara:x', a: [true, null] } }), mk({ value_kind: ['sha256', 'md5'] }));
+  ix.document.entities.push({ id: { path: 'p.yar', name: 'N', more: { y: 1, x: 2 } }, kind: 'rule' });
+  cases['17_malformed_structured_values'] = {
+    description: 'Structured and non-string malformed values (objects with several keys, nested arrays, numbers, booleans, null) in KEV cve_id/cwes and in rule-index assertions and entities: no relation, and every embedded value is printed canonically (sorted keys, sorted set-arrays) so the output never depends on key or array order.',
+    input: { kev: [kev({ items: [item('CVE-2099-0800', [{ id: 'CWE-79', name: 'x', tags: ['b', 'a'] }, ['CWE-20', 'CWE-22'], 79, null, true, 'CWE-89']), item({ year: 2099, id: 'CVE-2099-0801' }, ['CWE-20'])] })], rule_indexes: [ix] },
+    expect: { asserted: [[VHW, V('CVE-2099-0800'), W('CWE-89')], [RRS, rid(r.path, r.name), S(H('structured-ok'))]], candidate: [],
+      rejections: { malformed_identifier: 9, malformed_meta_key: 1, subject_not_in_index: 1, value_kind_mismatch: 1, malformed_entity: 1 } },
+  };
+}
+
 const writeExpected = process.argv.includes('--write-expected');
 for (const [name, c] of Object.entries(cases)) {
   const dir = new URL(`${name}/`, HERE); mkdirSync(dir, { recursive: true });
