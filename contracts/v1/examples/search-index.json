@@ -1,0 +1,244 @@
+{
+ "assertions": [
+  {
+   "id": "assert:a090820a445ff45b3b7993a29bdf1a6fca4346471107a5bd6b29e30b62e4bb3f",
+   "match": "whole_value",
+   "meta_key": "hash",
+   "provenance": {
+    "file_sha256": "beb6f6700f91a20bb807aeaa3a450aa9b77b31b5ce3c7b0a36c52c9c68451b53",
+    "line": 12,
+    "path": "rules/community/apt/apt.yar",
+    "release_tag": "rules-20990101-1"
+   },
+   "status": "asserted_by_rule_metadata",
+   "subject": "yara:rules/community/apt/apt.yar#Dup_Name",
+   "type": "rule_meta_mentions_hash",
+   "value": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+   "value_kind": "sha256"
+  },
+  {
+   "id": "assert:bbcfe77c6f7bb51ba9a7926ad590e5e9b18200e647d5064245e73e58d1b9e59e",
+   "match": "embedded",
+   "meta_key": "description",
+   "provenance": {
+    "file_sha256": "beb6f6700f91a20bb807aeaa3a450aa9b77b31b5ce3c7b0a36c52c9c68451b53",
+    "line": 14,
+    "path": "rules/community/apt/apt.yar",
+    "release_tag": "rules-20990101-1"
+   },
+   "status": "asserted_by_rule_metadata",
+   "subject": "yara:rules/community/apt/apt.yar#Dup_Name",
+   "type": "rule_meta_mentions_cve",
+   "value": "CVE-2021-44228",
+   "value_kind": "cve"
+  },
+  {
+   "id": "assert:a7fd39f155a4da76590874f2218b8dbd3a0e0242efd36bf5286f77240f606511",
+   "match": "embedded",
+   "meta_key": "description",
+   "provenance": {
+    "file_sha256": "beb6f6700f91a20bb807aeaa3a450aa9b77b31b5ce3c7b0a36c52c9c68451b53",
+    "line": 14,
+    "path": "rules/community/apt/apt.yar",
+    "release_tag": "rules-20990101-1"
+   },
+   "status": "asserted_by_rule_metadata",
+   "subject": "yara:rules/community/apt/apt.yar#Dup_Name",
+   "type": "rule_meta_mentions_hash",
+   "value": "d41d8cd98f00b204e9800998ecf8427e",
+   "value_kind": "md5"
+  },
+  {
+   "id": "assert:310da91f356a1544a75c3d2289612934a603f52bb018678580be45dcc576d2af",
+   "match": "embedded",
+   "meta_key": "reference",
+   "provenance": {
+    "file_sha256": "beb6f6700f91a20bb807aeaa3a450aa9b77b31b5ce3c7b0a36c52c9c68451b53",
+    "line": 15,
+    "path": "rules/community/apt/apt.yar",
+    "release_tag": "rules-20990101-1"
+   },
+   "status": "asserted_by_rule_metadata",
+   "subject": "yara:rules/community/apt/apt.yar#Dup_Name",
+   "type": "rule_meta_mentions_cve",
+   "value": "CVE-2024-0001",
+   "value_kind": "cve"
+  },
+  {
+   "id": "assert:250618fe5b20439b94ef97f746cc9c72ba4efd4bdf6fb024195b881badd6d8e5",
+   "match": "whole_value",
+   "meta_key": "md5",
+   "provenance": {
+    "file_sha256": "beb6f6700f91a20bb807aeaa3a450aa9b77b31b5ce3c7b0a36c52c9c68451b53",
+    "line": 28,
+    "path": "rules/community/apt/apt.yar",
+    "release_tag": "rules-20990101-1"
+   },
+   "status": "asserted_by_rule_metadata",
+   "subject": "yara:rules/community/apt/apt.yar#Gate",
+   "type": "rule_meta_mentions_hash",
+   "value": "d41d8cd98f00b204e9800998ecf8427e",
+   "value_kind": "md5"
+  },
+  {
+   "id": "assert:726208a10a5c459b6957886574a318f5ccd01786df0ef5b3510addf34b3eac2f",
+   "match": "whole_value",
+   "meta_key": "hash1",
+   "provenance": {
+    "file_sha256": "f6cfa0905dda68d55eca97411e6d65fe01c3003fd0d3c25b895cf1282e6e0c1c",
+    "line": 3,
+    "path": "rules/nextron/yara/other.yar",
+    "release_tag": "rules-20990101-1"
+   },
+   "status": "asserted_by_rule_metadata",
+   "subject": "yara:rules/nextron/yara/other.yar#Dup_Name",
+   "type": "rule_meta_mentions_hash",
+   "value": "da39a3ee5e6b4b0d3255bfef95601890afd80709",
+   "value_kind": "sha1"
+  },
+  {
+   "id": "assert:eb77b4352af2b65a903579a30db0cb8257b4d61954e7bacf3354b5475a58f076",
+   "match": "whole_value",
+   "meta_key": "Sample",
+   "provenance": {
+    "file_sha256": "f6cfa0905dda68d55eca97411e6d65fe01c3003fd0d3c25b895cf1282e6e0c1c",
+    "line": 5,
+    "path": "rules/nextron/yara/other.yar",
+    "release_tag": "rules-20990101-1"
+   },
+   "status": "asserted_by_rule_metadata",
+   "subject": "yara:rules/nextron/yara/other.yar#Dup_Name",
+   "type": "rule_meta_mentions_hash",
+   "value": "d41d8cd98f00b204e9800998ecf8427e",
+   "value_kind": "md5"
+  }
+ ],
+ "counts": {
+  "assertions": 7,
+  "assertions_by_type": {
+   "rule_meta_mentions_cve": 2,
+   "rule_meta_mentions_hash": 5
+  },
+  "distinct_cves": 2,
+  "distinct_hashes_by_kind": {
+   "md5": 1,
+   "sha1": 1,
+   "sha256": 1
+  },
+  "files": 3,
+  "files_decode_errors": 0,
+  "files_indexed": 2,
+  "files_skipped_not_yara": 1,
+  "hash_like_runs_rejected": 1,
+  "hash_mentions_by_kind": {
+   "md5": 3,
+   "sha1": 1,
+   "sha256": 1
+  },
+  "hash_meta_without_valid_hash": 2,
+  "meta_values_not_copied_too_long": 0,
+  "rules": 4,
+  "rules_by_source": {
+   "community": 3,
+   "nextron": 1
+  },
+  "rules_duplicate_id_dropped": 0,
+  "rules_global": 1,
+  "rules_incomplete": 0,
+  "rules_name_too_long_skipped": 0,
+  "rules_private": 2,
+  "rules_with_uuid": 1,
+  "unique_rule_names": 3
+ },
+ "entities": [
+  {
+   "file_sha256": "beb6f6700f91a20bb807aeaa3a450aa9b77b31b5ce3c7b0a36c52c9c68451b53",
+   "id": "yara:rules/community/apt/apt.yar#Dup_Name",
+   "kind": "rule",
+   "line": 6,
+   "meta": {
+    "author": "Synthetic Author",
+    "date": "2099-01-01",
+    "references": [
+     "https://example.invalid/CVE-2024-0001"
+    ],
+    "uuid": "5b6e2a1c-1f0e-4b7b-9c7b-1a2b3c4d5e6f"
+   },
+   "modifiers": [],
+   "name": "Dup_Name",
+   "path": "rules/community/apt/apt.yar",
+   "source": "community",
+   "tags": [
+    "tag_one",
+    "TagTwo"
+   ]
+  },
+  {
+   "file_sha256": "beb6f6700f91a20bb807aeaa3a450aa9b77b31b5ce3c7b0a36c52c9c68451b53",
+   "id": "yara:rules/community/apt/apt.yar#Gate",
+   "kind": "rule",
+   "line": 28,
+   "meta": {
+    "author": null,
+    "date": null,
+    "references": [],
+    "uuid": null
+   },
+   "modifiers": [
+    "global",
+    "private"
+   ],
+   "name": "Gate",
+   "path": "rules/community/apt/apt.yar",
+   "source": "community",
+   "tags": [
+    "t"
+   ]
+  },
+  {
+   "file_sha256": "beb6f6700f91a20bb807aeaa3a450aa9b77b31b5ce3c7b0a36c52c9c68451b53",
+   "id": "yara:rules/community/apt/apt.yar#Helper",
+   "kind": "rule",
+   "line": 27,
+   "meta": {
+    "author": null,
+    "date": null,
+    "references": [],
+    "uuid": null
+   },
+   "modifiers": [
+    "private"
+   ],
+   "name": "Helper",
+   "path": "rules/community/apt/apt.yar",
+   "source": "community",
+   "tags": []
+  },
+  {
+   "file_sha256": "f6cfa0905dda68d55eca97411e6d65fe01c3003fd0d3c25b895cf1282e6e0c1c",
+   "id": "yara:rules/nextron/yara/other.yar#Dup_Name",
+   "kind": "rule",
+   "line": 1,
+   "meta": {
+    "author": null,
+    "date": null,
+    "references": [],
+    "uuid": null
+   },
+   "modifiers": [],
+   "name": "Dup_Name",
+   "path": "rules/nextron/yara/other.yar",
+   "source": "nextron",
+   "tags": []
+  }
+ ],
+ "generator": "scripts/rule_index.py",
+ "note": "Assertions repeat what each rule's own metadata states. They are not detections, correlations or evidence of exploitation.",
+ "release": {
+  "files": 3,
+  "manifest_sha256": "3dc7d983b7b0a8bad1b129c8f9395d7695e9bcd83e63eea4a302a50e74273ca8",
+  "rules_root": "d969bb5b84f846c246490cc1e8e5901aa307abd6e36ba3cb6c726df192935c52",
+  "tag": "rules-20990101-1"
+ },
+ "schema": "macguard.search-index/1"
+}
