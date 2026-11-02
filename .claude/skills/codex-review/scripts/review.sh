@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # codex-review — read-only review of one exact commit (HEAD_SHA) against one exact base (BASE_SHA) with the official Codex CLI (`codex exec`).
 #
-#   review.sh --base <40-hex> --head <40-hex> --batch <id> [--kind ordinary|fix] [--timeout SECONDS] [--model M] [--node-dir DIR] [--force]
+#   review.sh --base <40-hex> --head <40-hex> --batch <id> [--kind ordinary|fix|extraordinary --authorized-by REF] [--timeout SECONDS] [--model M] [--node-dir DIR] [--force]
 #
 # What it guarantees
 #   * Codex runs with `--sandbox read-only`, `--ephemeral`, approvals off, inside a throw-away `git archive` snapshot of HEAD_SHA (no .git, made
@@ -10,6 +10,8 @@
 #   * Timeout (`timeout --kill-after`), one run at a time per batch and per (base, head) pair (flock), and a completed pair is not re-reviewed
 #     unless --force.
 #   * Anti-loop budget per batch: at most 2 ordinary rounds + 1 fix round, the fix round only after a round that reported a small BLOCKER/HIGH.
+#     Beyond that, ONE extraordinary round per batch, only once the ordinary rounds are used up and only with --authorized-by (a reference to the
+#     owner's explicit authorisation), recorded in rounds.tsv, AUTHORIZATION and decision.json. It never opens a new batch and the per-HEAD cap still applies.
 #   * The JSON is validated against schemas/review.schema.json plus semantic checks. Exit 0 NEVER means "no defects": it means a valid
 #     review reported no BLOCKER/HIGH. The decision file says so explicitly.
 #   * No sudo, no network/git writes: nothing here merges, pushes, commits or deploys. Child environment is reduced to HOME/USER/LANG/PATH.
@@ -26,13 +28,13 @@ SKILL_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
 SCHEMA_SRC="$SKILL_DIR/schemas/review.schema.json"
 CODEX_BIN=${CODEX_REVIEW_CODEX_BIN:-codex}          # override only for the skill's own tests (fake codex)
 OUT_ROOT=${CODEX_REVIEW_HOME:-${XDG_STATE_HOME:-$HOME/.local/state}/macguard/codex-review}
-BASE='' HEAD='' BATCH='' KIND=ordinary TIMEOUT=900 MODEL='' NODE_DIR='' FORCE=0
-MAX_ORDINARY=2 MAX_FIX=1 MAX_DIFF_INLINE=200000
+BASE='' HEAD='' BATCH='' KIND=ordinary TIMEOUT=900 MODEL='' NODE_DIR='' FORCE=0 AUTH_BY=''
+MAX_ORDINARY=2 MAX_FIX=1 MAX_EXTRA=1 MAX_DIFF_INLINE=200000
 
 while (($#)); do
   case $1 in
     --base) BASE=${2:-}; shift 2 ;; --head) HEAD=${2:-}; shift 2 ;; --batch) BATCH=${2:-}; shift 2 ;;
-    --kind) KIND=${2:-}; shift 2 ;; --timeout) TIMEOUT=${2:-}; shift 2 ;; --model) MODEL=${2:-}; shift 2 ;;
+    --kind) KIND=${2:-}; shift 2 ;; --authorized-by) AUTH_BY=${2:-}; shift 2 ;; --timeout) TIMEOUT=${2:-}; shift 2 ;; --model) MODEL=${2:-}; shift 2 ;;
     --node-dir) NODE_DIR=${2:-}; shift 2 ;; --force) FORCE=1; shift ;;
     -h|--help) sed -n '2,21p' "$0"; exit 0 ;;
     *) die 2 "unknown argument: $1" ;;
@@ -42,8 +44,10 @@ done
 [[ $BASE =~ ^[0-9a-f]{40}$ ]] || die 2 '--base must be a full 40-hex commit SHA'
 [[ $HEAD =~ ^[0-9a-f]{40}$ ]] || die 2 '--head must be a full 40-hex commit SHA'
 [[ $BASE != "$HEAD" ]] || die 2 'base and head are the same commit'
-[[ $BATCH =~ ^[A-Za-z0-9._-]{1,64}$ ]] || die 2 '--batch must match [A-Za-z0-9._-]{1,64}'
-[[ $KIND == ordinary || $KIND == fix ]] || die 2 '--kind must be ordinary or fix'
+[[ $BATCH =~ ^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$ ]] || die 2 '--batch must match [A-Za-z0-9][A-Za-z0-9._-]{0,63}'
+[[ $KIND == ordinary || $KIND == fix || $KIND == extraordinary ]] || die 2 '--kind must be ordinary, fix or extraordinary'
+if [[ $KIND == extraordinary ]]; then [[ $AUTH_BY =~ ^[A-Za-z0-9][A-Za-z0-9\ ._:/#@,-]{7,199}$ ]] || die 2 '--kind extraordinary needs --authorized-by REF (8-200 chars: who authorised it, when, where)'
+else [[ -z $AUTH_BY ]] || die 2 '--authorized-by is only valid with --kind extraordinary'; fi
 [[ $TIMEOUT =~ ^[0-9]+$ ]] && ((TIMEOUT >= 60 && TIMEOUT <= 3600)) || die 2 '--timeout must be 60..3600 seconds'
 [[ -z $MODEL || $MODEL =~ ^[A-Za-z0-9._:-]{1,64}$ ]] || die 2 'invalid --model'
 [[ -z $NODE_DIR || -x $NODE_DIR/node ]] || die 2 "--node-dir has no executable node: $NODE_DIR"
@@ -57,9 +61,12 @@ COMMON=$(cd "$REPO" && cd "$(git rev-parse --git-common-dir)" && pwd)
 for s in "$BASE" "$HEAD"; do git -C "$REPO" cat-file -e "$s^{commit}" 2>/dev/null || die 2 "commit not found locally: $s"; done
 git -C "$REPO" merge-base --is-ancestor "$BASE" "$HEAD" || die 2 'base is not an ancestor of head: refusing an ambiguous diff'
 
-# Evidence must live outside the repository AND outside the main checkout that owns this worktree.
+# Evidence must live outside the repository: this worktree, the main checkout and EVERY other worktree of the same repository.
 OUT_ROOT=$(realpath -m "$OUT_ROOT")   # resolved (symlinks included) BEFORE anything is created
-for inside in "$(cd "$REPO" && pwd -P)" "$(dirname "$COMMON")"; do
+INSIDE=("$(cd "$REPO" && pwd -P)" "$(dirname "$COMMON")")
+while IFS= read -r -d '' rec; do [[ $rec == "worktree "* ]] && INSIDE+=("$(realpath -m -- "${rec#worktree }")"); done < <(git -C "$REPO" worktree list --porcelain -z)   # NUL-delimited: paths may contain newlines
+for inside in "${INSIDE[@]}"; do
+  [[ -n $inside ]] || continue
   case "$OUT_ROOT/" in "$inside"/*) die 2 "evidence directory $OUT_ROOT is inside the repository ($inside)";; esac
 done
 mkdir -p "$OUT_ROOT"
@@ -75,8 +82,11 @@ if [[ -e $PAIR_INDEX && $FORCE -eq 0 ]]; then die 3 "already reviewed: $(cat "$P
 # ---- anti-loop budget (counted at START: failed or timed-out attempts also consume it) ----
 ROUNDS="$BATCH_DIR/rounds.tsv"; touch "$ROUNDS"
 if [[ -s "$BATCH_DIR/base" ]]; then [[ $(cat "$BATCH_DIR/base") == "$BASE" ]] || die 2 "batch $BATCH is bound to base $(cat "$BATCH_DIR/base")"; else echo "$BASE" >"$BATCH_DIR/base"; fi
-n_ord=$(awk -F'\t' '$2=="ordinary"' "$ROUNDS" | wc -l); n_fix=$(awk -F'\t' '$2=="fix"' "$ROUNDS" | wc -l)
-if [[ $KIND == ordinary ]]; then
+n_ord=$(awk -F'\t' '$2=="ordinary"' "$ROUNDS" | wc -l); n_fix=$(awk -F'\t' '$2=="fix"' "$ROUNDS" | wc -l); n_ext=$(awk -F'\t' '$2=="extraordinary"' "$ROUNDS" | wc -l)
+if [[ $KIND == extraordinary ]]; then
+  ((n_ord >= MAX_ORDINARY)) || die 4 "batch $BATCH still has ordinary rounds ($n_ord/$MAX_ORDINARY used): use them first"
+  ((n_ext < MAX_EXTRA)) || die 4 "batch $BATCH already used its $MAX_EXTRA extraordinary round: the owner must decide on the remaining findings"
+elif [[ $KIND == ordinary ]]; then
   ((n_ord < MAX_ORDINARY)) || die 4 "batch $BATCH used its $MAX_ORDINARY ordinary reviews: stop the loop; open an issue / exclude / block per SKILL.md"
 else
   ((n_fix < MAX_FIX)) || die 4 "batch $BATCH already used its fix round: open an issue and exclude the feature, or block the release"
@@ -92,6 +102,7 @@ n_head=$(awk -F'\t' -v h="$HEAD" '$1==h' "$LEDGER" | wc -l)
 
 STAMP=$(date -u +%Y%m%dT%H%M%SZ)   # mktemp -d creates the run directory exclusively: an earlier attempt's evidence is never reused or overwritten
 RUN=$(mktemp -d "$BATCH_DIR/runs/$STAMP-${HEAD:0:12}-$KIND-XXXXXX"); mkdir "$RUN/snapshot" "$RUN/codex"
+[[ $KIND == extraordinary ]] && printf 'authorized_by=%s\nrecorded_at=%s\nbatch=%s\nhead=%s\n' "$AUTH_BY" "$STAMP" "$BATCH" "$HEAD" >"$RUN/AUTHORIZATION"
 printf '%s\t%s\t%s\t%s\n' "$STAMP" "$KIND" "$RUN" "$HEAD" >>"$ROUNDS"; printf '%s\t%s\t%s\t%s\n' "$HEAD" "$KIND" "$BATCH" "$RUN" >>"$LEDGER"
 EV="$RUN"   # all evidence files live directly under the run directory
 
@@ -174,7 +185,7 @@ INPUTS_OK=1; [[ $(inputs_hash) == "$INPUTS_BEFORE" ]] || INPUTS_OK=0
 repo_state | sha256sum | cut -d' ' -f1 >"$EV/repo_state.after"
 chmod -R u+w "$RUN/snapshot"; tree_hash "$RUN/snapshot" >"$EV/snapshot.after"
 set +e
-python3 - "$EV" "$BASE" "$HEAD" "$KIND" "$RC" "$START" "$END" "$TIMEOUT" "$("$CODEX_BIN" --version 2>/dev/null | head -1)" "$n_fix" "$MAX_FIX" "$SCHEMA_SRC" "$INPUTS_OK" <<'PY'
+python3 - "$EV" "$BASE" "$HEAD" "$KIND" "$RC" "$START" "$END" "$TIMEOUT" "$(env -i HOME="$HOME" LANG=C.UTF-8 PATH="$CPATH" timeout 30 "$CODEX_BIN" --version 2>/dev/null | head -1)" "$n_fix" "$MAX_FIX" "$SCHEMA_SRC" "$INPUTS_OK" <<'PY'
 import json, os, re, sys, hashlib
 ev, base, head, kind, rc, start, end, timeout, codex_ver, n_fix, max_fix, schema_src, inputs_ok = sys.argv[1:]
 rc, n_fix, max_fix = int(rc), int(n_fix), int(max_fix)
@@ -255,7 +266,8 @@ elif all(f['fix_size'] == 'small' for f in blocking):
     decision, code, why = 'escalate-budget-exhausted', 1, 'small BLOCKER/HIGH but the fix round is used: open an issue and exclude the feature if isolation is demonstrable, otherwise block.'
 else: decision, code, why = 'open-issue-and-exclude', 1, 'BLOCKER/HIGH needing a large change: open an issue; exclude the feature from the release only if isolation is demonstrably safe, otherwise block.'
 
-out = {'schema': 'macguard.codex-review-decision/1', 'base_sha': base, 'head_sha': head, 'kind': kind, 'decision': decision, 'exit_code': code, 'reason': why,
+auth_file = os.path.join(ev, 'AUTHORIZATION'); authorization = open(auth_file).read().splitlines()[0].split('=', 1)[1] if os.path.exists(auth_file) else None
+out = {'schema': 'macguard.codex-review-decision/1', 'base_sha': base, 'head_sha': head, 'kind': kind, 'authorized_by': authorization, 'decision': decision, 'exit_code': code, 'reason': why,
        'codex_success_is_not_absence_of_defects': True, 'findings_are_claims_to_verify': True, 'counts': counts,
        'blocking': [{k: f[k] for k in ('id', 'severity', 'title', 'file', 'line', 'fix_size', 'shared_critical', 'confidence')} for f in blocking],
        'limitations': review.get('limitations', []) if valid else [], 'unverified_paths': unverified, 'errors': errors, 'schema_errors': schema_errors,

@@ -48,6 +48,8 @@ Per batch: **at most 2 ordinary rounds + 1 fix round**. Across all batches: **at
 | small fix but budget used | `escalate-budget-exhausted` | Same as open-issue-and-exclude; never start a new batch to dodge the budget. |
 | exit 4 | — | Stop. Report to the human. |
 
+**Extraordinary round.** Only with the owner's explicit authorisation, and only after the batch's 2 ordinary rounds are used up: `--kind extraordinary --authorized-by "<who, when, where>"` in the **same** batch. It is limited to one per batch and the per-HEAD cap still applies. It is recorded in `rounds.tsv`, in `AUTHORIZATION` and in `decision.json` (`authorized_by`). It may not authorise a further fix round, so a BLOCKER/HIGH found there escalates to the owner.
+
 Codex's `fix_size`/`shared_critical` are its opinion: if you disagree after verifying, apply the stricter row.
 
 ## Environment notes (diagnosed 2026-10-31)
