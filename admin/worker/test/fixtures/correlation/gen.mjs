@@ -246,6 +246,28 @@ const cases = {};
   cases['14_snapshot_conflict_order_b'] = { description: description('clone first'), input: { kev: [clone, original, t1, t2], rule_indexes: [sameAgain, ixB, ixA, okIx].reverse() }, expect };
 }
 
+// 15/16 ------------------------------------------------------------------------------------------------------------------------------------------------
+// Regression (Codex correlation-engine-c4 round 2): F1 an asserted relation downgraded to a candidate by the latest release is RETRACTED at the asserted
+// level (the candidate is emitted separately); the KEV analogue (a CWE dropped by the latest catalogue) is retracted as absent. F2 non-canonical release
+// tags / KEV versions (leading zeros) are refused at input, and a KEV source whose version order contradicts its release-time order is refused.
+{
+  const r = { path: 'rules/community/synthetic/downgrade.yar', name: 'SYNTH_Downgrade' }, h = H('downgrade');
+  const older = index({ tag: 'rules-20260101-1', rules: [{ ...r, meta: [['sha256', h, 'sha256']] }] });
+  const newer = index({ tag: 'rules-20260102-2', rules: [{ ...r, meta: [['description', h, 'sha256', 'embedded']] }] });
+  const t = { path: 'rules/community/synthetic/tie.yar', name: 'SYNTH_Tie' };
+  const tie1 = index({ source_id: 'synthetic-release-tie', tag: 'rules-20260101-1', rules: [{ ...t, meta: [['hash', H('tie-1'), 'sha256']] }] });
+  const tie01 = index({ source_id: 'synthetic-release-tie', tag: 'rules-20260101-01', rules: [{ ...t, meta: [['hash', H('tie-01'), 'sha256']] }] });
+  const k1 = kev({ version: '2026.10.30', items: [item('CVE-2099-0700', ['CWE-79'])] }), k2 = kev({ version: '2026.10.31', date: '2026-10-31T10:00:00.000Z', items: [item('CVE-2099-0700', ['CWE-89'])] });
+  const v01 = kev({ source_id: 'synthetic-list-v', origin: 'synthetic-list-v', version: '2026.10.30.01', items: [item('CVE-2099-0701', ['CWE-20'])] });
+  const w1 = kev({ source_id: 'synthetic-list-w', origin: 'synthetic-list-w', version: '2026.10.31', date: '2026-10-30T10:00:00.000Z', items: [item('CVE-2099-0702', ['CWE-20'])] });
+  const w2 = kev({ source_id: 'synthetic-list-w', origin: 'synthetic-list-w', version: '2026.10.30', date: '2026-10-31T10:00:00.000Z', items: [item('CVE-2099-0702', ['CWE-22'])] });
+  const expect = { asserted: [[VHW, V('CVE-2099-0700'), W('CWE-89')], [RRS, rid(t.path, t.name), S(H('tie-1'))]], candidate: [[RRS, rid(r.path, r.name), S(h)]],
+    retracted: [[RRS, rid(r.path, r.name), S(h)], [VHW, V('CVE-2099-0700'), W('CWE-79')]], refused_inputs: 4 };
+  const description = (order) => `Regression, ${order}: a SHA-256 asserted under meta.sha256 in rules-20260101-1 and present only inside meta.description in rules-20260102-2 is retracted at the asserted level (downgraded_in_latest_snapshot) and emitted as a candidate; a CWE dropped by the latest KEV catalogue is retracted (absent). Non-canonical rules-20260101-01 and 2026.10.30.01 are refused at input; a KEV source whose higher version was released earlier is refused (snapshot_order_inconsistent).`;
+  cases['15_downgrade_and_ties_order_a'] = { description: description('oldest first'), input: { kev: [k1, k2, v01, w1, w2], rule_indexes: [older, newer, tie1, tie01] }, expect };
+  cases['16_downgrade_and_ties_order_b'] = { description: description('newest first'), input: { kev: [w2, w1, v01, k2, k1], rule_indexes: [tie01, tie1, newer, older] }, expect };
+}
+
 const writeExpected = process.argv.includes('--write-expected');
 for (const [name, c] of Object.entries(cases)) {
   const dir = new URL(`${name}/`, HERE); mkdirSync(dir, { recursive: true });

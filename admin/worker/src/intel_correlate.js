@@ -70,7 +70,10 @@ export function projectState({ confidence, verification, evidenceKinds = [], sou
 
 const SOURCE_ID = /^[a-z0-9][a-z0-9._-]{0,63}$/;
 const HEX64 = /^[0-9a-f]{64}$/;
-const TAG = /^rules-([0-9]{8})-([0-9]{1,20})$/;
+// Canonical forms only (Codex c4 r2 F2): a run number or a KEV version suffix with a leading zero (rules-20260101-01, 2026.10.30.01, 2026.10.30.0) would
+// order equal to another spelling and let input order pick the latest snapshot.
+const TAG = /^rules-([0-9]{8})-(0|[1-9][0-9]{0,19})$/;
+const KEV_VERSION = /^([0-9]{4})\.([0-9]{2})\.([0-9]{2})(?:\.([1-9][0-9]{0,3}))?$/;
 const TS = /^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}\.[0-9]{3}Z$/;
 const IDENT = /^[A-Za-z_][A-Za-z0-9_]*$/;
 const cmp = (a, b) => (a < b ? -1 : a > b ? 1 : 0);
@@ -78,17 +81,20 @@ const cmpBy = (...keys) => (x, y) => { for (const k of keys) { const c = cmp(k(x
 const isObj = (x) => x !== null && typeof x === 'object' && !Array.isArray(x);
 const str = (x) => (typeof x === 'string' ? x : JSON.stringify(x) ?? String(x));
 
+/** Numeric, fixed-width sort key of a canonical KEV catalogue version (YYYY.MM.DD[.N]). */
+function kevVersionKey(v) { const m = KEV_VERSION.exec(v); return [m[1], m[2], m[3], (m[4] ?? '0').padStart(4, '0')].join('.'); }
+
 // ---- snapshot documents ---------------------------------------------------------------------------------------------------------------------------
 function kevMeta(w) {
   const d = w?.document;
   if (!isObj(d) || d.schema !== 'macguard.intel-kev/1') return { error: 'not a macguard.intel-kev/1 document' };
   const s = d.source;
-  if (!isObj(s) || !SOURCE_ID.test(s.id ?? '') || typeof s.url !== 'string' || typeof s.catalog_version !== 'string' || !TS.test(s.date_released ?? '') || !HEX64.test(s.upstream_sha256 ?? '')) return { error: 'source block incomplete' };
+  if (!isObj(s) || !SOURCE_ID.test(s.id ?? '') || typeof s.url !== 'string' || !KEV_VERSION.test(s.catalog_version ?? '') || !TS.test(s.date_released ?? '') || !HEX64.test(s.upstream_sha256 ?? '')) return { error: 'source block incomplete' };
   if ('chunk' in d) return { error: 'partial snapshot (loader chunk): absence cannot be inferred from it' };
   if (!Array.isArray(d.items)) return { error: 'items is not an array' };
   const source_id = w.source_id ?? s.id;
   if (!SOURCE_ID.test(source_id)) return { error: 'bad source_id' };
-  return { kind: 'kev', source_id, original_source_id: s.id, version: s.catalog_version, order: [s.date_released, s.catalog_version], content_sha256: s.upstream_sha256, doc: d };
+  return { kind: 'kev', source_id, original_source_id: s.id, version: s.catalog_version, order: [s.date_released, kevVersionKey(s.catalog_version)], content_sha256: s.upstream_sha256, doc: d };
 }
 function indexMeta(w) {
   const d = w?.document;
@@ -98,7 +104,7 @@ function indexMeta(w) {
   if (!Array.isArray(d.entities) || !Array.isArray(d.assertions)) return { error: 'entities/assertions are not arrays' };
   const source_id = w.source_id ?? YARA_SOURCE_ID;
   if (!SOURCE_ID.test(source_id)) return { error: 'bad source_id' };
-  return { kind: 'rule_index', source_id, original_source_id: null, version: r.tag, order: [m[1], m[2].padStart(20, '0')], content_sha256: r.manifest_sha256, doc: d };
+  return { kind: 'rule_index', source_id, original_source_id: null, version: r.tag, order: [`${m[1]}-${m[2].padStart(20, '0')}`, `${m[1]}-${m[2].padStart(20, '0')}`], content_sha256: r.manifest_sha256, doc: d };
 }
 
 // ---- per-document rule evaluation: returns proposals [{rule_id, from, to, state, basis, evidence}] and rejections ------------------------------------
@@ -221,12 +227,28 @@ export function correlate(snapshot = {}) {
       for (const [v, n] of versions) { const m = [...uniq.values()].find((x) => x.version === v); inputs.push({ ...base(m), content_sha256: n > 1 ? null : m.content_sha256, role: 'refused', reason: n > 1 ? 'conflicting_snapshots_same_version' : 'source_has_conflicting_snapshots', variants: n }); }
       continue;
     }
-    const snaps = [...uniq.values()].sort(cmpBy((m) => m.order[0], (m) => m.order[1]));   // distinct versions: (date, version) / (tag date, run) never tie
+    // Latest-snapshot selection must not depend on input order (Codex c4 r2 F2): two different versions with equal ordering keys, or a version order that
+    // contradicts the release-time order (KEV: a higher catalogue version released earlier), refuse the whole source.
+    const snaps = [...uniq.values()].sort(cmpBy((m) => m.order[0], (m) => m.order[1]));
+    const byVersion = [...snaps].sort(cmpBy((m) => m.order[1], (m) => m.order[0]));
+    const tie = snaps.some((m, i) => i > 0 && m.order[0] === snaps[i - 1].order[0] && m.order[1] === snaps[i - 1].order[1]);
+    if (tie || snaps.some((m, i) => m !== byVersion[i])) {
+      for (const m of snaps) inputs.push({ ...base(m), role: 'refused', reason: tie ? 'snapshots_with_equal_order' : 'snapshot_order_inconsistent' });
+      continue;
+    }
     const evals = snaps.map((m) => ({ m, ...(m.kind === 'kev' ? evalKev(m) : evalIndex(m)) })), latest = evals.at(-1);
     for (const e of evals) inputs.push({ ...base(e.m), role: e === latest ? 'latest' : 'superseded' });
     current.push(...latest.props); rejections.push(...latest.rej);
-    const now = new Set(latest.props.map(relKey)), gone = new Map();
-    for (const e of evals.slice(0, -1)) for (const p of e.props) if (!now.has(relKey(p))) gone.set(relKey(p), { type: RULES[p.rule_id].type, from: p.from, to: p.to, rule_id: p.rule_id, source_id: e.m.source_id, last_seen_version: e.m.version, reason: 'absent_from_latest_snapshot' });
+    // Retraction compares the STRONGEST support (Codex c4 r2 F1): asserted support that the latest snapshot no longer gives at the asserted level is
+    // retracted, also when the latest still mentions it as a candidate (that candidate is emitted separately). Candidate-only support that vanished
+    // is retracted as a candidate. One entry per (relation, retracted state), from the newest older snapshot that had it.
+    const nowAny = new Set(latest.props.map(relKey)), nowAsserted = new Set(latest.props.filter((p) => p.state === 'asserted').map(relKey)), gone = new Map();
+    for (const e of evals.slice(0, -1)) for (const p of e.props) {
+      const k = relKey(p);
+      if (p.state === 'asserted' ? nowAsserted.has(k) : nowAny.has(k)) continue;
+      gone.set(`${k}\u0000${p.state}`, { type: RULES[p.rule_id].type, from: p.from, to: p.to, rule_id: p.rule_id, source_id: e.m.source_id, state: p.state, last_seen_version: e.m.version,
+        reason: nowAny.has(k) ? 'downgraded_in_latest_snapshot' : 'absent_from_latest_snapshot' });
+    }
     retracted.push(...gone.values());
   }
   const relations = aggregate(current);
@@ -241,7 +263,7 @@ export function correlate(snapshot = {}) {
     const st = [...m.values()].map((x) => ({ ...x, values: [...x.values].sort() })).sort(cmpBy((x) => x.source_id, (x) => x.original_source_id));
     if (st.length > 1 && new Set(st.map((x) => JSON.stringify(x.values))).size > 1) conflicts.push({ kind: 'weakness_statements_differ', subject: vuln, statements: st });
   }
-  const rel = (a) => [a.type ?? '', a.from ?? '', a.to ?? '', a.rule_id ?? '', a.source_id ?? '', a.version ?? '', a.input ?? '', a.reason ?? '', a.last_seen_version ?? '', a.detail ?? ''];
+  const rel = (a) => [a.type ?? '', a.from ?? '', a.to ?? '', a.rule_id ?? '', a.source_id ?? '', a.version ?? '', a.input ?? '', a.reason ?? '', a.last_seen_version ?? '', a.detail ?? '', a.state ?? ''];
   const byArr = (x, y) => { const a = rel(x), b = rel(y); for (let i = 0; i < a.length; i++) { const c = cmp(a[i], b[i]); if (c) return c; } return 0; };
   // identical rejections (the same malformed value twice) are reported once
   const dedupe = (list) => [...new Map(list.map((x) => [JSON.stringify(canon(x)), x])).values()];

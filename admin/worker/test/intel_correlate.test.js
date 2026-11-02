@@ -11,7 +11,8 @@ const DIR = new URL('./fixtures/correlation/', import.meta.url);
 const CASES = readdirSync(DIR).filter((d) => /^\d\d_/.test(d)).sort().map((name) => ({
   name, c: JSON.parse(readFileSync(new URL(`${name}/case.json`, DIR), 'utf8')), expected: readFileSync(new URL(`${name}/expected.json`, DIR), 'utf8') }));
 const REQUIRED = ['verified_relations', 'unrelated_entities', 'ambiguous_aliases', 'malformed_identifiers', 'cve_similar_products', 'generic_rules', 'wrong_references',
-  'contradicting_sources', 'retracted_data', 'duplicate_evidence', 'false_transitivity', 'identity_and_provenance', 'snapshot_conflict_order_a', 'snapshot_conflict_order_b'];
+  'contradicting_sources', 'retracted_data', 'duplicate_evidence', 'false_transitivity', 'identity_and_provenance', 'snapshot_conflict_order_a', 'snapshot_conflict_order_b',
+  'downgrade_and_ties_order_a', 'downgrade_and_ties_order_b'];
 const triple = (r) => JSON.stringify([r[0] ?? r.type, r[1] ?? r.from, r[2] ?? r.to]);
 const set = (list) => new Set(list.map(triple));
 function rng(seed) { let s = seed >>> 0; return () => { s = (s + 0x6d2b79f5) >>> 0; let t = s; t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }
@@ -104,13 +105,38 @@ test('regression (Codex c4 r1): same version, different content is refused in bo
   assert.equal(correlate({ kev: [orig, structuredClone(orig)] }).relations.length, 5, 'an identical copy is deduplicated');
 });
 
+test('regression (Codex c4 r2): a downgraded asserted relation is retracted; non-canonical tags/versions and inconsistent order are refused; both orders same bytes', () => {
+  const a = CASES.find((x) => x.name.endsWith('ties_order_a')), b = CASES.find((x) => x.name.endsWith('ties_order_b'));
+  assert.equal(a.expected, b.expected);
+  const out = correlate(a.c.input);
+  const down = out.retracted.find((r) => r.type === 'RULE_REFERENCES_SAMPLE');
+  assert.deepEqual([down.state, down.reason, down.last_seen_version], ['asserted', 'downgraded_in_latest_snapshot', 'rules-20260101-1']);
+  assert.equal(out.relations.find((r) => triple(r) === triple(down)).state, 'candidate', 'the candidate is emitted separately');
+  const kevDrop = out.retracted.find((r) => r.type === 'VULN_HAS_WEAKNESS');
+  assert.deepEqual([kevDrop.state, kevDrop.reason, kevDrop.to], ['asserted', 'absent_from_latest_snapshot', 'weakness:cwe:CWE-79']);
+  assert.deepEqual(out.inputs.filter((i) => i.role === 'refused').map((i) => i.reason).sort(),
+    ['release block incomplete', 'snapshot_order_inconsistent', 'snapshot_order_inconsistent', 'source block incomplete']);
+  // the exact F1 repro: sha256 key in the older release, description only in the newer one, both input orders
+  const ix = (tag, key, match) => ({ document: { schema: 'macguard.search-index/1', release: { tag, manifest_sha256: (tag.endsWith('1') ? 'a' : 'b').repeat(64) }, entities: [{ id: 'yara:r/a.yar#R', kind: 'rule', path: 'r/a.yar', name: 'R', file_sha256: 'c'.repeat(64), source: null }],
+    assertions: [{ type: 'rule_meta_mentions_hash', subject: 'yara:r/a.yar#R', value: 'd'.repeat(64), value_kind: 'sha256', meta_key: key, match, status: 'asserted_by_rule_metadata', provenance: { release_tag: tag, path: 'r/a.yar', file_sha256: 'c'.repeat(64), line: 3 } }] } });
+  const o1 = ix('rules-20260101-1', 'sha256', 'whole_value'), o2 = ix('rules-20260102-2', 'description', 'embedded');
+  const x = correlate({ rule_indexes: [o1, o2] }), y = correlate({ rule_indexes: [o2, o1] });
+  assert.equal(serialize(x), serialize(y));
+  assert.deepEqual(x.relations.map((r) => r.state), ['candidate']);
+  assert.deepEqual(x.retracted.map((r) => [r.state, r.reason]), [['asserted', 'downgraded_in_latest_snapshot']]);
+  // F2 repro: rules-20260101-1 and rules-20260101-01 -> the non-canonical tag is refused at input, whatever the order
+  const t1 = ix('rules-20260101-1', 'sha256', 'whole_value'), t2 = ix('rules-20260101-01', 'hash', 'whole_value');
+  assert.equal(serialize(correlate({ rule_indexes: [t1, t2] })), serialize(correlate({ rule_indexes: [t2, t1] })));
+  assert.ok(correlate({ rule_indexes: [t2] }).inputs.every((i) => i.role === 'refused'));
+});
+
 test('robustness: garbage never throws, produces no relation and is reported', () => {
   const junk = [undefined, null, 1, 'x', [], {}, { kev: 'x' }, { kev: [null, 1, {}, { document: null }, { document: { schema: 'macguard.intel-kev/1' } }] },
     { rule_indexes: [{ document: { schema: 'macguard.search-index/1', release: { tag: 'rules-1-1' } } }] },
-    { kev: [{ document: { schema: 'macguard.intel-kev/1', chunk: { index: 0, of: 2 }, items: [], source: { id: 'cisa-kev', url: 'u', catalog_version: '1', date_released: '2026-01-01T00:00:00.000Z', upstream_sha256: 'a'.repeat(64) } } }] },
-    { kev: [{ source_id: 'Bad Id', document: { schema: 'macguard.intel-kev/1', items: [], source: { id: 'cisa-kev', url: 'u', catalog_version: '1', date_released: '2026-01-01T00:00:00.000Z', upstream_sha256: 'a'.repeat(64) } } }] },
+    { kev: [{ document: { schema: 'macguard.intel-kev/1', chunk: { index: 0, of: 2 }, items: [], source: { id: 'cisa-kev', url: 'u', catalog_version: '2026.01.01', date_released: '2026-01-01T00:00:00.000Z', upstream_sha256: 'a'.repeat(64) } } }] },
+    { kev: [{ source_id: 'Bad Id', document: { schema: 'macguard.intel-kev/1', items: [], source: { id: 'cisa-kev', url: 'u', catalog_version: '2026.01.01', date_released: '2026-01-01T00:00:00.000Z', upstream_sha256: 'a'.repeat(64) } } }] },
     { kev: [{ document: { schema: 'macguard.intel-kev/1', items: [null, 7, { cve_id: 5 }, { cve_id: 'CVE-2099-1234', cwes: 'CWE-79' }, { cve_id: 'CVE-2099-1235', cwes: [null, 79] }],
-      source: { id: 'cisa-kev', url: 'u', catalog_version: '1', date_released: '2026-01-01T00:00:00.000Z', upstream_sha256: 'a'.repeat(64) } } }] },
+      source: { id: 'cisa-kev', url: 'u', catalog_version: '2026.01.01', date_released: '2026-01-01T00:00:00.000Z', upstream_sha256: 'a'.repeat(64) } } }] },
     { rule_indexes: [{ document: { schema: 'macguard.search-index/1', release: { tag: 'rules-20260101-1', manifest_sha256: 'b'.repeat(64) }, entities: [null, { kind: 'rule', id: 7 }], assertions: [null, 3, { type: 'rule_meta_mentions_hash' }] } }] }];
   for (const j of junk) {
     const out = correlate(j);
