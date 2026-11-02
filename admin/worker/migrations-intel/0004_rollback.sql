@@ -1,0 +1,2 @@
+-- Rollback of 0004. Only valid while the graph holds no data that must be kept: it DROPS entities, relationships, evidence and assessments. Export them first (intel backup) if any exist.
+DROP TABLE IF EXISTS intel_relationship_state; DROP TABLE IF EXISTS intel_relationship_assessments; DROP TABLE IF EXISTS intel_relationship_evidence; DROP TABLE IF EXISTS intel_relationships; DROP TABLE IF EXISTS intel_relationship_types; DROP TABLE IF EXISTS intel_entities; DROP TABLE IF EXISTS intel_entity_types;
