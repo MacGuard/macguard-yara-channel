@@ -42,6 +42,19 @@ rule Fake_In_Unterminated { condition: true }
 '''
 
 
+class CountTypes(unittest.TestCase):
+    """Independent QA of f4acc8d: a non-integer count fails, and the message shows the type ("'9939' != 9939", not "9939 != 9939")."""
+    def test_non_integer_counts_fail_with_a_typed_message(self):
+        import importlib.util
+        spec = importlib.util.spec_from_file_location('vpr', ROOT / 'scripts' / 'verify_public_release.py'); vpr = importlib.util.module_from_spec(spec); spec.loader.exec_module(vpr)
+        texts = ['rule a { condition: true }\n']
+        for bad, field in ((True, 'yara_rules'), ('1', 'yara_rules'), ('1', 'yara_rules_compiled'), (True, 'yara_rules_compiled'), (1.0, 'yara_rules_compiled')):
+            st = {'yara_rules': 1, 'yara_rules_compiled': 1}; st[field] = bad
+            with self.subTest(field=field, bad=bad):
+                with self.assertRaises(vpr.Fail) as cm: vpr.check_rule_counts(st, texts)
+                self.assertIn(repr(bad), str(cm.exception.args))
+        self.assertEqual(vpr.check_rule_counts({'yara_rules': 1, 'yara_rules_compiled': 1}, texts)[:2], (1, 1))
+
 class CountRules(unittest.TestCase):
     def both(self, text, expected):
         self.assertEqual(catalog.count_compiled_rules(text), expected, 'catalog.count_compiled_rules')

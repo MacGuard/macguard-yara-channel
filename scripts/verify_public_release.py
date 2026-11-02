@@ -155,12 +155,14 @@ def check_rule_counts(st, texts):
     stats.yara_rules_compiled, added later, is checked with count_compiled_rules when the manifest declares it; releases sealed
     before it existed do not declare it, and then it is only reported, not checked."""
     n = sum(len(RULE_RE.findall(x)) for x in texts)
-    if st.get('yara_rules') != n: raise Fail(1, f"stats.yara_rules {st.get('yara_rules')} != {n} rule declarations counted")
+    v = st.get('yara_rules')   # an integer, never a string or a boolean (True == 1 in Python); repr in the message shows the type
+    if type(v) is not int or v != n: raise Fail(1, f"stats.yara_rules {v!r} != {n} rule declarations counted")
     c = sum(count_compiled_rules(x) for x in texts)
     if 'yara_rules_compiled' not in st:
         return n, c, (f'{c} rules outside comments and strings; stats.yara_rules_compiled is not declared (release sealed before it existed), '
                       f'so it was not checked; stats.yara_rules {n} counts line-wise declarations, including commented-out ones')
-    if st['yara_rules_compiled'] != c: raise Fail(1, f"stats.yara_rules_compiled {st['yara_rules_compiled']} != {c} rules counted outside comments and strings")
+    w = st['yara_rules_compiled']
+    if type(w) is not int or w != c: raise Fail(1, f"stats.yara_rules_compiled {w!r} != {c} rules counted outside comments and strings")
     return n, c, f'{c} rules outside comments and strings (stats.yara_rules_compiled), {n} line-wise declarations including commented-out ones (stats.yara_rules)'
 
 
