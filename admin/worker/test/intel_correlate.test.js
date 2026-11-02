@@ -11,7 +11,7 @@ const DIR = new URL('./fixtures/correlation/', import.meta.url);
 const CASES = readdirSync(DIR).filter((d) => /^\d\d_/.test(d)).sort().map((name) => ({
   name, c: JSON.parse(readFileSync(new URL(`${name}/case.json`, DIR), 'utf8')), expected: readFileSync(new URL(`${name}/expected.json`, DIR), 'utf8') }));
 const REQUIRED = ['verified_relations', 'unrelated_entities', 'ambiguous_aliases', 'malformed_identifiers', 'cve_similar_products', 'generic_rules', 'wrong_references',
-  'contradicting_sources', 'retracted_data', 'duplicate_evidence', 'false_transitivity', 'identity_and_provenance'];
+  'contradicting_sources', 'retracted_data', 'duplicate_evidence', 'false_transitivity', 'identity_and_provenance', 'snapshot_conflict_order_a', 'snapshot_conflict_order_b'];
 const triple = (r) => JSON.stringify([r[0] ?? r.type, r[1] ?? r.from, r[2] ?? r.to]);
 const set = (list) => new Set(list.map(triple));
 function rng(seed) { let s = seed >>> 0; return () => { s = (s + 0x6d2b79f5) >>> 0; let t = s; t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }
@@ -88,6 +88,20 @@ test('determinism: shuffled inputs (arrays and key order) give the same bytes; t
     for (let i = 0; i < 5; i++) assert.equal(serialize(correlate(shuffleDeep(c.input, r))), expected, `${name} shuffle ${i}`);
     assert.equal(JSON.stringify(c.input), before, `${name}: input mutated`);
   }
+});
+
+test('regression (Codex c4 r1): same version, different content is refused in both input orders; both orders give the same bytes', () => {
+  const a = CASES.find((x) => x.name.endsWith('order_a')), b = CASES.find((x) => x.name.endsWith('order_b'));
+  assert.equal(a.expected, b.expected);
+  const out = correlate(a.c.input);
+  assert.deepEqual(out.inputs.filter((i) => i.role === 'refused').map((i) => [i.source_id, i.reason, i.variants]).sort(),
+    [['cisa-kev', 'conflicting_snapshots_same_version', 2], ['macguard-yara-release', 'conflicting_snapshots_same_version', 2]]);
+  assert.ok(!out.relations.some((r) => r.evidence.some((e) => e.source_id === 'cisa-kev' || e.source_id === 'macguard-yara-release')));
+  // the exact repro from the review: two wrappers, both orders
+  const orig = CASES.find((x) => x.name.startsWith('01_')).c.input.kev[0], clone = structuredClone(orig); clone.document.items[0].cwes = ['CWE-89'];
+  const x = serialize(correlate({ kev: [orig, clone] })), y = serialize(correlate({ kev: [clone, orig] }));
+  assert.equal(x, y); assert.equal(JSON.parse(x).relations.length, 0); assert.match(x, /conflicting_snapshots_same_version/);
+  assert.equal(correlate({ kev: [orig, structuredClone(orig)] }).relations.length, 5, 'an identical copy is deduplicated');
 });
 
 test('robustness: garbage never throws, produces no relation and is reported', () => {

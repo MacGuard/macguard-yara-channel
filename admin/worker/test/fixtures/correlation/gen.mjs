@@ -167,7 +167,7 @@ const cases = {};
     input: { kev: [kev({ items: [item('CVE-2099-0200', ['CWE-79']), item('CVE-2099-0202', ['CWE-20']), item('CVE-2099-0202', ['CWE-22'])] }), kev({ source_id: 'synthetic-list-b', origin: 'synthetic-list-b', items: [item('CVE-2099-0200', ['CWE-89'])] }),
       kev({ source_id: 'synthetic-list-c', origin: 'synthetic-list-c', upstream: sha('c1'), items: [item('CVE-2099-0201', ['CWE-20'])] }),
       kev({ source_id: 'synthetic-list-c', origin: 'synthetic-list-c', upstream: sha('c2'), items: [item('CVE-2099-0201', ['CWE-22'])] })] },
-    expect: { asserted: [[VHW, V('CVE-2099-0200'), W('CWE-79')], [VHW, V('CVE-2099-0200'), W('CWE-89')]], candidate: [], conflicts: 1, refused_inputs: 2, rejections: { duplicate_item_in_snapshot: 1 } },
+    expect: { asserted: [[VHW, V('CVE-2099-0200'), W('CWE-79')], [VHW, V('CVE-2099-0200'), W('CWE-89')]], candidate: [], conflicts: 1, refused_inputs: 1, rejections: { duplicate_item_in_snapshot: 1 } },
   };
 }
 // 09 ---------------------------------------------------------------------------------------------------------------------------------------------------
@@ -224,6 +224,26 @@ const cases = {};
     expect: { asserted: [[RRS, rid(fit.path, fit.name), S(H('fits'))]], candidate: [],
       rejections: { rule_key_exceeds_db_limit: 1, subject_rejected: 1, subject_not_in_index: 1, provenance_mismatch: 1, bad_status: 1 } },
   };
+}
+
+// 13/14 ------------------------------------------------------------------------------------------------------------------------------------------------
+// Regression (Codex correlation-engine-c4 round 1, MEDIUM): the same source and version with different CONTENT but the same claimed upstream_sha256 must
+// be refused in BOTH input orders (it was deduplicated by the claimed hash, so the first document won). The same class for rule indexes (same tag and
+// manifest_sha256, different assertion), plus latest-snapshot selection between two versions released at the same instant.
+{
+  const original = cases['01_verified_relations'].input.kev[0], clone = structuredClone(original);
+  clone.document.items[0].cwes = ['CWE-89'];
+  const r = { path: 'rules/community/synthetic/conflict.yar', name: 'SYNTH_Conflict' };
+  const ixA = index({ tag: 'rules-20261102-5', rules: [{ ...r, meta: [['hash', H('variant-a'), 'sha256']] }] }), ixB = index({ tag: 'rules-20261102-5', rules: [{ ...r, meta: [['hash', H('variant-b'), 'sha256']] }] });
+  const sameAgain = structuredClone(ixA); sameAgain.document.entities.reverse(); sameAgain.document.assertions.reverse();   // identical content, other order
+  const t1 = kev({ source_id: 'synthetic-list-t', origin: 'synthetic-list-t', version: '2026.10.30', items: [item('CVE-2099-0600', ['CWE-20'])] });
+  const t2 = kev({ source_id: 'synthetic-list-t', origin: 'synthetic-list-t', version: '2026.10.30.1', items: [item('CVE-2099-0600', ['CWE-22'])] });
+  const okIx = index({ source_id: 'synthetic-release-ok', tag: 'rules-20261102-7', rules: [{ ...r, meta: [['hash', H('ok'), 'sha256']] }] });
+  const expect = { asserted: [[VHW, V('CVE-2099-0600'), W('CWE-22')], [RRS, rid(r.path, r.name), S(H('ok'))]], candidate: [],
+    retracted: [[VHW, V('CVE-2099-0600'), W('CWE-20')]], refused_inputs: 2 };
+  const description = (order) => `Regression, ${order}: one KEV catalogue version delivered twice with the same claimed upstream_sha256 but a different CWE list (cisa-kev) is refused whatever the input order; so is one release tag with the same manifest_sha256 but a different assertion; a reordered identical copy is deduplicated, not a conflict; between two versions released at the same instant the later version string wins.`;
+  cases['13_snapshot_conflict_order_a'] = { description: description('original first'), input: { kev: [original, clone, t2, t1], rule_indexes: [ixA, ixB, sameAgain, okIx] }, expect };
+  cases['14_snapshot_conflict_order_b'] = { description: description('clone first'), input: { kev: [clone, original, t1, t2], rule_indexes: [sameAgain, ixB, ixA, okIx].reverse() }, expect };
 }
 
 const writeExpected = process.argv.includes('--write-expected');

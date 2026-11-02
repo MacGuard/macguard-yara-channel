@@ -184,7 +184,7 @@
   ],
   "candidate": [],
   "conflicts": 1,
-  "refused_inputs": 2,
+  "refused_inputs": 1,
   "rejections": {
    "duplicate_item_in_snapshot": 1
   }

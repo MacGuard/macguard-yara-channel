@@ -210,13 +210,18 @@ export function correlate(snapshot = {}) {
   wrap(snapshot.kev, kevMeta, 'kev'); wrap(snapshot.rule_indexes, indexMeta, 'rule_index');
   const current = [], retracted = [];
   for (const list of [...groups.values()]) {
-    // identical documents (same version, same content) count once; the same version with different content refuses the whole source
+    // Snapshots are compared by CONTENT, never by the hash the document claims (Codex c4 r1 MEDIUM: two documents with the same version and the same
+    // upstream_sha256 but different items were deduplicated by input order). Identical content (order-insensitive) counts once; the same version with
+    // different content refuses the whole source, whatever the input order.
     const uniq = new Map();
-    for (const m of list) { const k = `${m.version}\u0000${m.content_sha256}`; if (!uniq.has(k)) uniq.set(k, m); }
-    const snaps = [...uniq.values()].sort(cmpBy((m) => m.order[0], (m) => m.order[1], (m) => m.content_sha256));
-    const versions = new Map(); for (const m of snaps) versions.set(m.version, (versions.get(m.version) ?? 0) + 1);
+    for (const m of list) { const k = `${m.version}\u0000${contentKey(m.doc)}`; if (!uniq.has(k)) uniq.set(k, m); }
+    const versions = new Map(); for (const m of uniq.values()) versions.set(m.version, (versions.get(m.version) ?? 0) + 1);
     const base = (m) => ({ kind: m.kind, source_id: m.source_id, version: m.version, content_sha256: m.content_sha256 });
-    if ([...versions.values()].some((n) => n > 1)) { for (const m of snaps) inputs.push({ ...base(m), role: 'refused', reason: 'conflicting_snapshots_same_version' }); continue; }
+    if ([...versions.values()].some((n) => n > 1)) {
+      for (const [v, n] of versions) { const m = [...uniq.values()].find((x) => x.version === v); inputs.push({ ...base(m), content_sha256: n > 1 ? null : m.content_sha256, role: 'refused', reason: n > 1 ? 'conflicting_snapshots_same_version' : 'source_has_conflicting_snapshots', variants: n }); }
+      continue;
+    }
+    const snaps = [...uniq.values()].sort(cmpBy((m) => m.order[0], (m) => m.order[1]));   // distinct versions: (date, version) / (tag date, run) never tie
     const evals = snaps.map((m) => ({ m, ...(m.kind === 'kev' ? evalKev(m) : evalIndex(m)) })), latest = evals.at(-1);
     for (const e of evals) inputs.push({ ...base(e.m), role: e === latest ? 'latest' : 'superseded' });
     current.push(...latest.props); rejections.push(...latest.rej);
@@ -252,6 +257,15 @@ export function correlate(snapshot = {}) {
       rejections: dedupe(rejections).length, retracted: retracted.length, conflicts: conflicts.length },
   };
 }
+
+/** Order-insensitive content identity of a source document: keys sorted and every array sorted by its elements' canonical text (the engine reads all
+ *  these arrays as sets), so a reordered copy is the same content and any changed value is different content. */
+function canonSet(x) {
+  if (Array.isArray(x)) return x.map(canonSet).map((y) => [JSON.stringify(y), y]).sort((a, b) => cmp(a[0], b[0])).map((p) => p[1]);
+  if (isObj(x)) return Object.fromEntries(Object.keys(x).sort().map((k) => [k, canonSet(x[k])]));
+  return x;
+}
+const contentKey = (doc) => JSON.stringify(canonSet(doc));
 
 /** Canonical value: object keys sorted, recursively. */
 export function canon(x) {
