@@ -145,3 +145,14 @@ export async function verifyAssurance(db, { pageSize = 500, heads = {} } = {}) {
   }
   return { ok: Object.values(logs).every((l) => l.ok), logs };
 }
+
+/** Cross-check the recorded source approvals against the registry file (its exact bytes, e.g. from git): every recorded state must equal the registry's, and
+ *  every registry source must be recorded. Detects an approval forged with raw SQL even when its chain hash was computed correctly. */
+export async function verifySourceApprovals(db, registryText) {
+  const reg = JSON.parse(registryText), want = new Map(reg.sources.map((s) => [s.id, s.approval_state]));
+  const rows = (await db.prepare('SELECT source_id, approval_state FROM intel_source_approvals ORDER BY source_id LIMIT 10000').all()).results;
+  const bad = [];
+  for (const r of rows) if ((want.get(r.source_id) ?? 'ABSENT') !== r.approval_state) bad.push({ source_id: r.source_id, recorded: r.approval_state, registry: want.get(r.source_id) ?? 'ABSENT' });
+  for (const id of want.keys()) if (!rows.some((r) => r.source_id === id)) bad.push({ source_id: id, recorded: null, registry: want.get(id) });
+  return { ok: bad.length === 0, mismatches: bad };
+}
