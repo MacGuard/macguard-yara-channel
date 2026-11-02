@@ -8,8 +8,10 @@ export const M7 = [...M5, '../migrations-intel/0007_correlation_assurance.sql'];
 export const REGISTRY_TEXT = readFileSync(new URL('../../../config/intel/sources.registry.json', import.meta.url), 'utf8');
 export const newDb7 = () => newDb(M7);
 /** The registry with extra sources marked APPROVED_PUBLIC (test-only; the real registry is never edited). */
-export function registryWith(ids) {
-  const reg = JSON.parse(REGISTRY_TEXT);
+let asOf = 0;
+/** Every call gets a LATER as_of (2027-01-01 + n days): 0007 refuses a registry older than, or conflicting at equal as_of with, one already applied. */
+export function registryWith(ids, as_of = new Date(Date.UTC(2027, 0, 1) + 86400000 * asOf++).toISOString().slice(0, 10)) {
+  const reg = JSON.parse(REGISTRY_TEXT); reg.as_of = as_of;
   for (const id of ids) { const s = reg.sources.find((x) => x.id === id); if (s) s.approval_state = 'APPROVED_PUBLIC'; else reg.sources.push({ id, approval_state: 'APPROVED_PUBLIC' }); }
   return JSON.stringify(reg, null, 1);
 }

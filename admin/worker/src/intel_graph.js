@@ -120,7 +120,7 @@ const evidenceStmt = (db, relId, relSource, e, now) => {
   if (!e || !e.kind || !e.ref) throw new GraphError('evidence needs kind and ref');
   const src = e.source_id ?? relSource, orig = e.original_source_id ?? src;
   if (typeof src !== 'string' || typeof orig !== 'string') throw new GraphError('evidence needs source_id and original_source_id');
-  return db.prepare("INSERT INTO intel_relationship_evidence (relationship_id,kind,ref,sha256,source_id,original_source_id,observed_at,recorded_at,note) SELECT ?,?,?,?,?,?,?,?,? WHERE NOT EXISTS (SELECT 1 FROM intel_relationship_evidence x WHERE x.relationship_id = ? AND x.kind = ? AND x.ref = ? AND COALESCE(x.sha256, '') = COALESCE(?, '') AND x.original_source_id IS NOT NULL)")
+  return db.prepare("INSERT INTO intel_relationship_evidence (relationship_id,kind,ref,sha256,source_id,original_source_id,observed_at,recorded_at,note) SELECT ?,?,?,?,?,?,?,?,? WHERE NOT EXISTS (SELECT 1 FROM intel_relationship_evidence x WHERE x.relationship_id = ? AND x.kind = ? AND x.ref = ? AND COALESCE(x.sha256, '') = COALESCE(?, ''))")   // also a pre-0007 row (original_source_id NULL): a re-import never duplicates it
     .bind(relId, e.kind, e.ref, e.sha256 ?? null, src, orig, e.observed_at ?? now, now, e.note ?? null, relId, e.kind, e.ref, e.sha256 ?? null);
 };
 

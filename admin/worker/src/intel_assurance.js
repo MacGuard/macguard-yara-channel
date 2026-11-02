@@ -94,8 +94,11 @@ export async function setLifecycle(db, relId, { marker, actor, reason }, now) {
 
 // ---- (i) source approval -------------------------------------------------------------------------------------------------------------------------------
 /** Deterministic loader: config/intel/sources.registry.json (its exact bytes) -> intel_source_approval_events. Appends one event per source whose state changed
- *  (sorted by id), and 'ABSENT' for a recorded source that left the registry. Idempotent: the same registry twice appends nothing. It never edits the registry. */
-export async function syncSourceApprovals(db, registryText, now) {
+ *  (sorted by id), and 'ABSENT' for a recorded source that left the registry. Idempotent: the same registry twice appends nothing. It never edits the registry.
+ *  ATOMIC and MONOTONIC (Codex intel-0007 final round, F2): planSourceApprovals() reads the chain head FIRST, then the projection; applySourceApprovals()
+ *  writes the whole plan in ONE batch chained from that head, so a sync that another sync overtook fails as a unit (chain trigger = compare-and-swap) and
+ *  is re-planned from the new state; the database refuses any event from a registry older than (or conflicting with, at equal as_of) one already applied. */
+export async function planSourceApprovals(db, registryText, now) {
   need(typeof registryText === 'string', 'registry text');
   let reg; try { reg = JSON.parse(registryText); } catch { throw new AssuranceError('registry is not JSON'); }
   need(reg?.schema === 'macguard.intel-sources/1' && Array.isArray(reg.sources) && /^\d{4}-\d{2}-\d{2}$/.test(reg.as_of ?? ''), 'not a macguard.intel-sources/1 registry');
@@ -105,15 +108,27 @@ export async function syncSourceApprovals(db, registryText, now) {
     need(typeof s.approval_state === 'string' && APPROVAL_STATES.includes(s.approval_state), `${s.id}: unknown approval_state`);
     want.set(s.id, s.approval_state);
   }
+  const head = (await db.prepare('SELECT hash FROM intel_source_approval_events ORDER BY id DESC LIMIT 1').first())?.hash ?? GENESIS;
   const cur = new Map((await db.prepare('SELECT source_id, approval_state FROM intel_source_approvals ORDER BY source_id LIMIT 10000').all()).results.map((r) => [r.source_id, r.approval_state]));
   for (const id of cur.keys()) if (!want.has(id) && cur.get(id) !== 'ABSENT') want.set(id, 'ABSENT');
   const changes = [...want.entries()].filter(([id, st]) => cur.get(id) !== st).sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0));
+  const rows = []; let prev = head;
   for (const [source_id, approval_state] of changes) {
-    const row = { source_id, approval_state, registry_sha256: sha, registry_as_of: reg.as_of, at: now };
-    await chained(db, 'intel_source_approval_events', entryOf('intel_source_approval_events', row), (prev, hash) => db.prepare('INSERT INTO intel_source_approval_events (source_id,approval_state,registry_sha256,registry_as_of,at,prev_hash,hash) VALUES (?,?,?,?,?,?,?)')
-      .bind(source_id, approval_state, sha, reg.as_of, now, prev, hash).run());
+    const row = { source_id, approval_state, registry_sha256: sha, registry_as_of: reg.as_of, at: now }, hash = await chainHash(prev, entryOf('intel_source_approval_events', row));
+    rows.push({ ...row, prev_hash: prev, hash }); prev = hash;
   }
-  return { registry_sha256: sha, changed: changes.map(([id, st]) => ({ source_id: id, approval_state: st })) };
+  return { registry_sha256: sha, registry_as_of: reg.as_of, head, rows };
+}
+export async function applySourceApprovals(db, plan) {
+  if (plan.rows.length) await db.batch(plan.rows.map((r) => db.prepare('INSERT INTO intel_source_approval_events (source_id,approval_state,registry_sha256,registry_as_of,at,prev_hash,hash) VALUES (?,?,?,?,?,?,?)')
+    .bind(r.source_id, r.approval_state, r.registry_sha256, r.registry_as_of, r.at, r.prev_hash, r.hash)));
+  return { registry_sha256: plan.registry_sha256, changed: plan.rows.map((r) => ({ source_id: r.source_id, approval_state: r.approval_state })) };
+}
+export async function syncSourceApprovals(db, registryText, now, { attempts = 8 } = {}) {
+  for (let i = 0; ; i++) {
+    const plan = await planSourceApprovals(db, registryText, now);
+    try { return await applySourceApprovals(db, plan); } catch (e) { if (i + 1 < attempts && isChainConflict(e)) continue; throw e; }
+  }
 }
 
 // ---- verifier (tamper-evidence) -------------------------------------------------------------------------------------------------------------------------
@@ -133,7 +148,7 @@ export async function verifyAssurance(db, { pageSize = 500, heads = {}, crossLim
   for (const table of Object.keys(LOGS)) {
     const timeCol = table === 'intel_relationship_creation' ? 'created_at' : 'at';
     let prev = GENESIS, after = 0, n = 0, res = null, lastTime = '';
-    const warnings = [];
+    const warnings = []; let legacy = 0;
     for (;;) {
       const rows = (await db.prepare(`SELECT * FROM ${table} WHERE id > ? ORDER BY id LIMIT ?`).bind(after, pageSize).all()).results;
       for (const r of rows) {
@@ -146,6 +161,11 @@ export async function verifyAssurance(db, { pageSize = 500, heads = {}, crossLim
           if (await relIdOf(rel) !== rel.id || rel.created_at !== r.created_at || rel.exposure !== r.exposure) { res = { ok: false, at: r.id, error: 'relationship row was altered (identity, created_at or exposure)' }; break; }
         }
         if (r.prev_hash !== prev) { res = { ok: false, at: r.id, error: 'chain link broken (entry removed or reordered)' }; break; }
+        if (table === 'intel_relationship_creation' && r.origin === 'legacy_import') {
+          // 0007 backfill: a surrogate link (SQLite has no SHA-256), valid only as a PREFIX of the log, with content fixed by the relationship (checked above)
+          if (r.id !== legacy + 1 || r.hash !== String(r.id).padStart(64, '0') || r.proposer !== 'migration:0007' || r.rule_id !== null) { res = { ok: false, at: r.id, error: 'legacy_import record outside the 0007 backfill prefix or altered' }; break; }
+          legacy++; prev = r.hash; n++; after = r.id; lastTime = String(r[timeCol]); continue;
+        }
         if (await chainHash(prev, entryOf(table, r, rel)) !== r.hash) { res = { ok: false, at: r.id, error: 'entry content was altered' }; break; }
         prev = r.hash; n++; after = r.id; lastTime = String(r[timeCol]);
       }
@@ -158,11 +178,13 @@ export async function verifyAssurance(db, { pageSize = 500, heads = {}, crossLim
     if (!res && heads[table] && heads[table] !== prev) res = { ok: false, error: 'head differs from the externally kept head (truncated or forked)' };
     logs[table] = res ? { ...res, entries: n, head: prev, warnings } : { ok: true, entries: n, head: prev, warnings };
   }
-  const errors = [], q = async (sql, why) => { for (const r of (await db.prepare(sql).bind(crossLimit).all()).results) errors.push({ error: why, relationship_id: r.relationship_id, assessment_id: r.id ?? null }); };
-  await q(`SELECT a.id, a.relationship_id FROM intel_relationship_assessments a JOIN intel_relationships r ON r.id = a.relationship_id WHERE (a.verification = 'VERIFIED' OR (a.confidence = 'CONFIRMED' AND r.type IN (${CRITICAL_TYPES.map((t) => `'${t}'`).join(',')}))) AND NOT EXISTS (SELECT 1 FROM intel_relationship_reviews v JOIN intel_relationship_creation c ON c.relationship_id = v.relationship_id WHERE v.relationship_id = a.relationship_id AND v.decision = 'approve' AND v.approver = a.actor AND v.approver <> c.proposer) LIMIT ?`, 'VERIFIED/critical CONFIRMED assessment without an approved review by its actor');
+  const errors = [], warnings = [], q = async (sql, why) => { for (const r of (await db.prepare(sql).bind(crossLimit).all()).results) (r.legacy ? warnings : errors).push({ [r.legacy ? 'warning' : 'error']: why, relationship_id: r.relationship_id, assessment_id: r.id ?? null }); };
+  // A pre-0007 (legacy_import) relationship may carry a VERIFIED assessment written before reviews existed: reported as a WARNING. It still projects to
+  // candidate (the lifecycle view re-checks the review), so it is never 'verified' nor public; only a review by another human makes it verified.
+  await q(`SELECT a.id, a.relationship_id, EXISTS (SELECT 1 FROM intel_relationship_creation lc WHERE lc.relationship_id = a.relationship_id AND lc.origin = 'legacy_import') AS legacy FROM intel_relationship_assessments a JOIN intel_relationships r ON r.id = a.relationship_id WHERE (a.verification = 'VERIFIED' OR (a.confidence = 'CONFIRMED' AND r.type IN (${CRITICAL_TYPES.map((t) => `'${t}'`).join(',')}))) AND NOT EXISTS (SELECT 1 FROM intel_relationship_reviews v JOIN intel_relationship_creation c ON c.relationship_id = v.relationship_id WHERE v.relationship_id = a.relationship_id AND v.decision = 'approve' AND v.approver = a.actor AND v.approver <> c.proposer) LIMIT ?`, 'VERIFIED/critical CONFIRMED assessment without an approved review by its actor');
   await q("SELECT a.id, a.relationship_id FROM intel_relationship_assessments a WHERE (a.confidence NOT IN ('UNKNOWN','INFERRED') OR a.verification <> 'UNVERIFIED') AND NOT EXISTS (SELECT 1 FROM intel_relationship_creation c WHERE c.relationship_id = a.relationship_id) LIMIT ?", 'assessment beyond candidate without a creation record');
   await q('SELECT v.id, v.relationship_id FROM intel_relationship_reviews v WHERE NOT EXISTS (SELECT 1 FROM intel_relationship_creation c WHERE c.relationship_id = v.relationship_id AND c.proposer = v.proposer) LIMIT ?', 'review whose proposer is not the creation proposer');
-  const cross = { ok: errors.length === 0, errors };
+  const cross = { ok: errors.length === 0, errors, warnings };
   return { ok: Object.values(logs).every((l) => l.ok) && cross.ok, logs, cross };
 }
 

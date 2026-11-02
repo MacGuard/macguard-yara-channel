@@ -52,7 +52,7 @@ CREATE TABLE IF NOT EXISTS intel_relationship_creation (
   relationship_id TEXT NOT NULL UNIQUE REFERENCES intel_relationships(id),
   exposure TEXT NOT NULL,
   proposer TEXT NOT NULL CHECK (length(proposer) BETWEEN 3 AND 128 AND proposer GLOB '[a-z]*:?*' AND proposer NOT GLOB '*[^ -~]*'),
-  origin TEXT NOT NULL CHECK (origin IN ('source_ingest','engine_rule','analyst','ai_proposed')),
+  origin TEXT NOT NULL CHECK (origin IN ('source_ingest','engine_rule','analyst','ai_proposed','legacy_import')),
   rule_id TEXT CHECK (rule_id IS NULL OR (length(rule_id) BETWEEN 3 AND 64 AND rule_id GLOB '[A-Z]*' AND rule_id NOT GLOB '*[^A-Z0-9-]*')),
   created_at TEXT NOT NULL,
   prev_hash TEXT NOT NULL UNIQUE CHECK (length(prev_hash) = 64 AND prev_hash NOT GLOB '*[^0-9a-f]*'),
@@ -61,8 +61,22 @@ CREATE TABLE IF NOT EXISTS intel_relationship_creation (
   CHECK ((origin = 'engine_rule') = (rule_id IS NOT NULL)),
   CHECK (origin <> 'engine_rule' OR proposer = 'engine:' || rule_id),
   CHECK (origin <> 'analyst' OR proposer GLOB 'user:?*'),
-  CHECK (origin <> 'source_ingest' OR proposer GLOB 'source:?*')
+  CHECK (origin <> 'source_ingest' OR proposer GLOB 'source:?*'),
+  CHECK ((origin = 'legacy_import') = (proposer = 'migration:0007'))
 );
+-- Backfill (Codex intel-0007 final round, F1 HIGH): every relationship that exists BEFORE 0007 gets one creation record, origin 'legacy_import', proposer
+-- 'migration:0007', in relationship-id order, so that its producers (recordAlias, linkGcve0, addAffectedRange, KEV loaders) can re-import it. SQLite cannot
+-- compute SHA-256, so these rows carry a deterministic surrogate link instead of a chain hash: row n has prev_hash printf('%064d', n-1) (GENESIS for n = 1)
+-- and hash printf('%064d', n); the hash-chained log continues from the last of them. Their content is fully determined by the (immutable, content-addressed)
+-- relationship, which verifyAssurance() re-checks; a legacy row is accepted only as a prefix of the log and is refused at runtime (trigger below).
+-- What legacy_import MAY do: keep its current state and be re-asserted (REPORTED/CONFIRMED-UNVERIFIED of a non-critical type) like any source-ingested
+-- relationship, with the same evidence rules. What it may NOT do: become VERIFIED or critical-CONFIRMED without an approved review (no reviewer can be
+-- 'migration:0007', and the approver is never the proposer), reach REPORTED/CONFIRMED if correlated/derived, or be retracted by 'migration:0007'. A legacy
+-- relationship that was CONFIRMED/VERIFIED before 0007 projects to candidate until a review is recorded. Pre-0007 evidence keeps original_source_id NULL.
+INSERT INTO intel_relationship_creation (relationship_id, exposure, proposer, origin, rule_id, created_at, prev_hash, hash)
+  SELECT id, exposure, 'migration:0007', 'legacy_import', NULL, created_at, printf('%064d', rn - 1), printf('%064d', rn)
+  FROM (SELECT r.id AS id, r.exposure AS exposure, r.created_at AS created_at, ROW_NUMBER() OVER (ORDER BY r.id) AS rn FROM intel_relationships r WHERE NOT EXISTS (SELECT 1 FROM intel_relationship_creation c WHERE c.relationship_id = r.id)) ORDER BY rn;
+CREATE TRIGGER IF NOT EXISTS intel_rel_creation_no_legacy BEFORE INSERT ON intel_relationship_creation WHEN NEW.origin = 'legacy_import' BEGIN SELECT RAISE(ABORT, 'legacy_import creation records are written only by migration 0007 (backfill)'); END;
 CREATE TRIGGER IF NOT EXISTS intel_rel_creation_same_batch BEFORE INSERT ON intel_relationship_creation WHEN NOT EXISTS (SELECT 1 FROM intel_relationships r WHERE r.id = NEW.relationship_id AND r.created_at = NEW.created_at AND r.exposure = NEW.exposure) OR EXISTS (SELECT 1 FROM intel_relationship_evidence e WHERE e.relationship_id = NEW.relationship_id) OR EXISTS (SELECT 1 FROM intel_relationship_assessments a WHERE a.relationship_id = NEW.relationship_id) BEGIN SELECT RAISE(ABORT, 'a creation record is written in the same batch as its relationship (same created_at and exposure, before any evidence or assessment)'); END;
 CREATE TRIGGER IF NOT EXISTS intel_rel_creation_method BEFORE INSERT ON intel_relationship_creation WHEN NOT EXISTS (SELECT 1 FROM intel_relationships r WHERE r.id = NEW.relationship_id AND CASE NEW.origin WHEN 'source_ingest' THEN r.method = 'asserted_by_source' AND NEW.proposer = 'source:' || r.source_id WHEN 'engine_rule' THEN r.method IN ('asserted_by_source','derived_from_content') WHEN 'analyst' THEN r.method IN ('manual','test','asserted_by_source') WHEN 'ai_proposed' THEN r.method IN ('correlated','derived_from_content') ELSE 0 END) BEGIN SELECT RAISE(ABORT, 'origin and method disagree (source_ingest: asserted_by_source by source:<source_id>; engine_rule: asserted/derived; analyst: manual/test/asserted; ai_proposed: correlated/derived only)'); END;
 CREATE TRIGGER IF NOT EXISTS intel_rel_creation_chain AFTER INSERT ON intel_relationship_creation WHEN NEW.prev_hash IS NOT COALESCE((SELECT x.hash FROM intel_relationship_creation x WHERE x.id < NEW.id ORDER BY x.id DESC LIMIT 1), '0000000000000000000000000000000000000000000000000000000000000000') OR EXISTS (SELECT 1 FROM intel_relationship_creation y WHERE y.id > NEW.id) BEGIN SELECT RAISE(ABORT, 'hash chain: prev_hash must be the hash of the current head'); END;
@@ -127,7 +141,7 @@ CREATE TABLE IF NOT EXISTS intel_relationship_lifecycle_events (
   hash TEXT NOT NULL UNIQUE CHECK (length(hash) = 64 AND hash NOT GLOB '*[^0-9a-f]*' AND hash <> prev_hash)
 );
 CREATE INDEX IF NOT EXISTS intel_rel_lifecycle_rel ON intel_relationship_lifecycle_events (relationship_id, id DESC);
-CREATE TRIGGER IF NOT EXISTS intel_rel_lifecycle_guard BEFORE INSERT ON intel_relationship_lifecycle_events WHEN NOT EXISTS (SELECT 1 FROM intel_relationships r LEFT JOIN intel_relationship_creation c ON c.relationship_id = r.id WHERE r.id = NEW.relationship_id AND (NEW.actor = 'source:' || r.source_id OR NEW.actor = c.proposer)) OR COALESCE((SELECT l.marker FROM intel_relationship_lifecycle_events l WHERE l.relationship_id = NEW.relationship_id ORDER BY l.id DESC LIMIT 1), 'reinstated') = NEW.marker BEGIN SELECT RAISE(ABORT, 'only the original source or the proposer retracts or reinstates a relationship, and only from the other state'); END;
+CREATE TRIGGER IF NOT EXISTS intel_rel_lifecycle_guard BEFORE INSERT ON intel_relationship_lifecycle_events WHEN NOT EXISTS (SELECT 1 FROM intel_relationships r LEFT JOIN intel_relationship_creation c ON c.relationship_id = r.id WHERE r.id = NEW.relationship_id AND (NEW.actor = 'source:' || r.source_id OR (NEW.actor = c.proposer AND c.origin <> 'legacy_import'))) OR COALESCE((SELECT l.marker FROM intel_relationship_lifecycle_events l WHERE l.relationship_id = NEW.relationship_id ORDER BY l.id DESC LIMIT 1), 'reinstated') = NEW.marker BEGIN SELECT RAISE(ABORT, 'only the original source or the proposer retracts or reinstates a relationship, and only from the other state'); END;
 CREATE TRIGGER IF NOT EXISTS intel_rel_lifecycle_chain AFTER INSERT ON intel_relationship_lifecycle_events WHEN NEW.prev_hash IS NOT COALESCE((SELECT x.hash FROM intel_relationship_lifecycle_events x WHERE x.id < NEW.id ORDER BY x.id DESC LIMIT 1), '0000000000000000000000000000000000000000000000000000000000000000') OR EXISTS (SELECT 1 FROM intel_relationship_lifecycle_events y WHERE y.id > NEW.id) BEGIN SELECT RAISE(ABORT, 'hash chain: prev_hash must be the hash of the current head'); END;
 CREATE TRIGGER IF NOT EXISTS intel_rel_lifecycle_no_update BEFORE UPDATE ON intel_relationship_lifecycle_events BEGIN SELECT RAISE(ABORT, 'lifecycle events are append-only'); END;
 CREATE TRIGGER IF NOT EXISTS intel_rel_lifecycle_no_delete BEFORE DELETE ON intel_relationship_lifecycle_events BEGIN SELECT RAISE(ABORT, 'lifecycle events are append-only'); END;
@@ -144,6 +158,11 @@ CREATE TABLE IF NOT EXISTS intel_source_approval_events (
   hash TEXT NOT NULL UNIQUE CHECK (length(hash) = 64 AND hash NOT GLOB '*[^0-9a-f]*' AND hash <> prev_hash)
 );
 CREATE INDEX IF NOT EXISTS intel_source_approval_latest ON intel_source_approval_events (source_id, id DESC);
+CREATE INDEX IF NOT EXISTS intel_source_approval_asof ON intel_source_approval_events (registry_as_of, registry_sha256);
+-- Monotonic registry (Codex intel-0007 final round, F2 HIGH): an event from a registry OLDER than one already applied is refused (a stale sync can never
+-- restore a revoked approval), and so is an event from ANOTHER registry with the same as_of (conflict: bump as_of). The loader writes a whole sync in ONE
+-- batch chained from the head it read: if another sync moved the head, the chain trigger aborts the batch (compare-and-swap) and the loader recomputes.
+CREATE TRIGGER IF NOT EXISTS intel_source_approval_monotonic BEFORE INSERT ON intel_source_approval_events WHEN EXISTS (SELECT 1 FROM intel_source_approval_events x WHERE x.registry_as_of > NEW.registry_as_of OR (x.registry_as_of = NEW.registry_as_of AND x.registry_sha256 <> NEW.registry_sha256)) BEGIN SELECT RAISE(ABORT, 'stale or conflicting registry: an older registry, or another registry with the same as_of, was already applied'); END;
 CREATE TRIGGER IF NOT EXISTS intel_source_approval_chain AFTER INSERT ON intel_source_approval_events WHEN NEW.prev_hash IS NOT COALESCE((SELECT x.hash FROM intel_source_approval_events x WHERE x.id < NEW.id ORDER BY x.id DESC LIMIT 1), '0000000000000000000000000000000000000000000000000000000000000000') OR EXISTS (SELECT 1 FROM intel_source_approval_events y WHERE y.id > NEW.id) BEGIN SELECT RAISE(ABORT, 'hash chain: prev_hash must be the hash of the current head'); END;
 CREATE TRIGGER IF NOT EXISTS intel_source_approval_no_update BEFORE UPDATE ON intel_source_approval_events BEGIN SELECT RAISE(ABORT, 'source approval events are append-only'); END;
 CREATE TRIGGER IF NOT EXISTS intel_source_approval_no_delete BEFORE DELETE ON intel_source_approval_events BEGIN SELECT RAISE(ABORT, 'source approval events are append-only'); END;

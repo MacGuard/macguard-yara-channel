@@ -8,8 +8,9 @@ import { readFileSync } from 'node:fs';
 import { newDb } from './d1shim.js';
 import { putEntity, relate, assess, addEvidence, relationshipId, relationshipDetail, neighbours } from '../src/intel_graph.js';
 import { isCanonical } from '../src/intel_ids.js';
-import { changeReviewer, review, setLifecycle, syncSourceApprovals, verifyAssurance, verifySourceApprovals, reviewerBootstrapSql, REVIEWER_GUARD_SQL, LOGS } from '../src/intel_assurance.js';
+import { changeReviewer, review, setLifecycle, syncSourceApprovals, planSourceApprovals, applySourceApprovals, verifyAssurance, verifySourceApprovals, reviewerBootstrapSql, REVIEWER_GUARD_SQL, LOGS } from '../src/intel_assurance.js';
 import { chainHash, GENESIS } from '../src/core.js';
+import { putVulnerability, recordAlias, linkGcve0, addAffectedRange } from '../src/intel_vuln.js';
 import { M5, M7, REGISTRY_TEXT, assuranceDb, bootstrapReviewers, registryWith } from './intel_m7.js';
 
 const NOW = '2026-11-02T12:00:00Z';
@@ -278,14 +279,14 @@ test('(i) source approval in the database: deterministic, idempotent loader from
   const db2 = newDb(M7); await syncSourceApprovals(db2, REGISTRY_TEXT, NOW);
   assert.deepEqual(db2.raw.prepare('SELECT source_id, approval_state, hash FROM intel_source_approval_events ORDER BY id').all(), db.raw.prepare('SELECT source_id, approval_state, hash FROM intel_source_approval_events ORDER BY id').all(), 'same registry, same time: same chain');
   const changed = await syncSourceApprovals(db, registryWith(['nvd']), NOW); assert.deepEqual(changed.changed, [{ source_id: 'nvd', approval_state: 'APPROVED_PUBLIC' }]);
-  const dropped = JSON.parse(REGISTRY_TEXT); dropped.sources = dropped.sources.filter((s) => s.id !== 'cisa-kev');
+  const dropped = JSON.parse(REGISTRY_TEXT); dropped.as_of = '2030-01-01'; dropped.sources = dropped.sources.filter((s) => s.id !== 'cisa-kev');
   assert.deepEqual((await syncSourceApprovals(db, JSON.stringify(dropped), NOW)).changed.map((x) => [x.source_id, x.approval_state]), [['cisa-kev', 'ABSENT'], ['nvd', 'RETAINED']]);
   assert.throws(() => raw(db, "UPDATE intel_source_approval_events SET approval_state = 'APPROVED_PUBLIC'"), /append-only/);
   assert.throws(() => raw(db, 'DELETE FROM intel_source_approval_events'), /append-only/);
-  assert.throws(() => raw(db, "INSERT INTO intel_source_approval_events (source_id,approval_state,registry_sha256,registry_as_of,at,prev_hash,hash) VALUES ('evil','APPROVED_PUBLIC',?,?,?,?,?)", 'a'.repeat(64), '2026-11-01', NOW, GENESIS, 'b'.repeat(64)), /hash chain|UNIQUE/);
+  assert.throws(() => raw(db, "INSERT INTO intel_source_approval_events (source_id,approval_state,registry_sha256,registry_as_of,at,prev_hash,hash) VALUES ('evil','APPROVED_PUBLIC',?,?,?,?,?)", 'a'.repeat(64), '2099-12-31', NOW, GENESIS, 'b'.repeat(64)), /hash chain|UNIQUE/);
   await assert.rejects(syncSourceApprovals(db, '{"schema":"macguard.intel-sources/1","as_of":"2026-11-01","sources":[{"id":"x","approval_state":"YES"}]}', NOW), /unknown approval_state/);
   // a raw-SQL writer who computes the chain correctly can forge an approval: the chain verifies, the registry cross-check does not
-  await rawChained(db, 'intel_source_approval_events', { source_id: 'evil-feed', approval_state: 'APPROVED_PUBLIC', registry_sha256: 'a'.repeat(64), registry_as_of: '2026-11-01', at: NOW });
+  await rawChained(db, 'intel_source_approval_events', { source_id: 'evil-feed', approval_state: 'APPROVED_PUBLIC', registry_sha256: 'a'.repeat(64), registry_as_of: '2099-12-31', at: NOW });
   assert.equal((await verifyAssurance(db)).ok, true, 'a correctly chained forgery is not detectable by the chain alone');
   const x = await verifySourceApprovals(db, JSON.stringify(dropped)); assert.equal(x.ok, false); assert.deepEqual(x.mismatches, [{ source_id: 'evil-feed', recorded: 'APPROVED_PUBLIC', registry: 'ABSENT' }]);
   assert.equal((await verifySourceApprovals(db2, REGISTRY_TEXT)).ok, true);
@@ -471,7 +472,7 @@ test('migration 0007 on a 0005 database WITH data, then rollback: pre-0007 rows 
   const dump = (cols = '*') => JSON.stringify(['intel_entities', 'intel_relationships', 'intel_relationship_assessments', 'intel_relationship_state', 'intel_relationship_types', 'intel_entity_types', 'intel_epss_history', 'intel_version_ranges'].map((t) => db.raw.prepare(`SELECT ${cols} FROM ${t} ORDER BY 1`).all())
     .concat([db.raw.prepare('SELECT id, relationship_id, kind, ref, sha256, source_id, observed_at, recorded_at, note FROM intel_relationship_evidence ORDER BY id').all()]));
   insEnt(db, 'vulnerability', 'cve', 'CVE-2024-0001'); insEnt(db, 'weakness', 'cwe', 'CWE-79'); insEnt(db, 'rule', 'yara', 'legacy key without grammar');
-  const old = 'e'.repeat(64);
+  const old = await relationshipId({ type: 'VULN_HAS_WEAKNESS', from: 'vulnerability:cve:CVE-2024-0001', to: 'weakness:cwe:CWE-79', source_id: 'cisa-kev', method: 'asserted_by_source' });   // content-derived, as every pre-0007 producer wrote it
   raw(db, "INSERT INTO intel_relationships VALUES (?, 'VULN_HAS_WEAKNESS', 'vulnerability:cve:CVE-2024-0001', 'weakness:cwe:CWE-79', 'cisa-kev', 'asserted_by_source', NULL, 'public', ?, ?)", old, NOW, NOW);
   raw(db, "INSERT INTO intel_relationship_evidence (relationship_id,kind,ref,source_id,observed_at,recorded_at) VALUES (?, 'source_statement', 'kev', 'cisa-kev', ?, ?)", old, NOW, NOW);
   raw(db, "INSERT INTO intel_relationship_evidence (relationship_id,kind,ref,source_id,observed_at,recorded_at) VALUES (?, 'source_statement', 'kev', 'cisa-kev', ?, ?)", old, NOW, NOW);   // a pre-0007 duplicate
@@ -481,8 +482,8 @@ test('migration 0007 on a 0005 database WITH data, then rollback: pre-0007 rows 
   db.raw.exec(MIG);
   assert.equal(dump(), d5, '0007 alters no 0001-0005 row (legacy duplicates and non-grammar keys stay)');
   await syncSourceApprovals(db, REGISTRY_TEXT, NOW);
-  assert.equal(state(db, old), 'candidate', 'a pre-0007 relationship has no creation record: candidate, never public'); assert.ok(!isPublic(db, old));
-  assert.throws(() => raw(db, "INSERT INTO intel_relationship_assessments (relationship_id,confidence,verification,reason,actor,at) VALUES (?, 'REPORTED', 'UNVERIFIED', 'again', 'ingest', ?)", old, NOW), /creation record/);
+  assert.equal(one(db, 'SELECT origin FROM intel_relationship_creation WHERE relationship_id = ?', old).origin, 'legacy_import', 'backfilled by 0007'); assert.equal(state(db, old), 'asserted', 'a legacy source assertion keeps its REPORTED state (approved source, statement evidence)');
+  raw(db, "INSERT INTO intel_relationship_assessments (relationship_id,confidence,verification,reason,actor,at) VALUES (?, 'REPORTED', 'UNVERIFIED', 'again', 'ingest', ?)", old, NOW);   // re-asserted by its producer: allowed
   // 0007-era data
   await bootstrapReviewers(db);
   const v2 = await putEntity(db, { type: 'vulnerability', namespace: 'cve', key: 'CVE-2024-0002' }, NOW);
@@ -493,7 +494,8 @@ test('migration 0007 on a 0005 database WITH data, then rollback: pre-0007 rows 
   assert.equal(schema(), s5, 'rollback: the 0005 schema, byte for byte');
   assert.equal(dump(), d7, 'rollback: every 0001-0005 row kept (including relationships created under 0007)');
   assert.equal(n(db, "SELECT COUNT(*) n FROM sqlite_master WHERE name LIKE 'intel_relationship_creation%' OR name LIKE 'intel_reviewer%' OR name LIKE 'intel_source_approval%'"), 0);
-  db.raw.exec(MIG); assert.equal(state(db, neu), 'candidate', 'forward again: the creation records went with the rollback, so nothing is public until re-proposed');
+  db.raw.exec(MIG); assert.equal(one(db, 'SELECT origin FROM intel_relationship_creation WHERE relationship_id = ?', neu).origin, 'legacy_import', 'forward again: every relationship is backfilled as legacy_import');
+  await syncSourceApprovals(db, REGISTRY_TEXT, NOW); assert.equal(state(db, neu), 'asserted'); { const vv = await verifyAssurance(db); assert.equal(vv.ok, true, JSON.stringify(vv)); }
 });
 
 test('hash-chain linkage on every 0007 log: a row whose prev_hash is not the head is refused even when it is unique (no fork, no gap)', async () => {
@@ -504,7 +506,7 @@ test('hash-chain linkage on every 0007 log: a row whose prev_hash is not the hea
     intel_reviewer_events: ["INSERT INTO intel_reviewer_events (event,actor_id,github_user_id,role,by_1,by_2,reason,request_id,at,prev_hash,hash) VALUES ('add','user:eve',66,'REVIEWER','user:rev-a','user:rev-b','new reviewer','req-chain-0001',?,?,?)", NOW],
     intel_relationship_reviews: ['INSERT INTO intel_relationship_reviews (relationship_id,proposer,approver,decision,reason,at,prev_hash,hash) VALUES (?,?,?,?,?,?,?,?)', id, 'source:cisa-kev', 'user:rev-a', 'approve', 'checked it', NOW],
     intel_relationship_lifecycle_events: ['INSERT INTO intel_relationship_lifecycle_events (relationship_id,marker,actor,reason,at,prev_hash,hash) VALUES (?,?,?,?,?,?,?)', id, 'retracted', 'source:cisa-kev', 'withdrawn', NOW],
-    intel_source_approval_events: ["INSERT INTO intel_source_approval_events (source_id,approval_state,registry_sha256,registry_as_of,at,prev_hash,hash) VALUES ('evil','APPROVED_PUBLIC',?,'2026-11-01',?,?,?)", 'c'.repeat(64), NOW],
+    intel_source_approval_events: ["INSERT INTO intel_source_approval_events (source_id,approval_state,registry_sha256,registry_as_of,at,prev_hash,hash) VALUES ('evil','APPROVED_PUBLIC',?,'2099-12-31',?,?,?)", 'c'.repeat(64), NOW],
   };
   for (const [table, [sql, ...a]] of Object.entries(rows)) assert.throws(() => raw(db, sql, ...a, P, H), /hash chain/, table);
   assert.equal((await verifyAssurance(db)).ok, true);
@@ -633,7 +635,7 @@ test('no overwrite: log rows that EVERY other trigger would accept again (re-cha
 test('caller time is informational (Codex fix round MEDIUM): out-of-order timestamps verify ok with a warning on every 0007 log; a reordered or replaced row is still detected', async () => {
   const { db, e } = await world();
   const reg2 = registryWith(['nvd']);
-  await syncSourceApprovals(db, reg2, '2026-11-02T00:00:02Z'); await syncSourceApprovals(db, REGISTRY_TEXT, '2026-11-02T00:00:01Z');   // the later request finishes first
+  await syncSourceApprovals(db, reg2, '2026-11-02T00:00:02Z'); await syncSourceApprovals(db, registryWith([]), '2026-11-02T00:00:01Z');   // the later request finishes first
   const { id } = await relate(db, { type: 'RULE_DETECTS_CVE', from: e.rule, to: e.cve, source_id: 'lab', method: 'manual', ...ANALYST }, '2026-11-03T00:00:00Z');
   await relate(db, { type: 'RULE_DETECTS_CVE', from: e.rule2, to: e.cve, source_id: 'lab', method: 'manual', ...ANALYST }, '2026-11-01T00:00:00Z');
   await review(db, id, { approver: 'user:rev-a', decision: 'reject', reason: 'later decision' }, '2026-11-03T00:00:00Z'); await review(db, id, { approver: 'user:rev-b', decision: 'approve', reason: 'earlier clock' }, '2026-11-01T00:00:00Z');
@@ -651,4 +653,110 @@ test('caller time is informational (Codex fix round MEDIUM): out-of-order timest
   assert.equal((await verifyAssurance(db)).logs.intel_relationship_reviews.ok, true, 'order restored');
   raw(db, "UPDATE intel_relationship_reviews SET decision = 'approve', approver = 'user:rev-a' WHERE id = 1");
   assert.match((await verifyAssurance(db)).logs.intel_relationship_reviews.error, /content was altered/, 'replaced row content');
+});
+
+// ---- Codex intel-0007 final round, F1 HIGH: relationships that predate 0007 are backfilled (legacy_import) and every producer can re-import them --------
+/** Pre-0007 data exactly as the 0004/0005 producers wrote it (content-derived ids; evidence without original_source_id), on a 0001-0005 database. */
+async function legacyWorld() {
+  const db = newDb(M5), T = '2026-10-01T00:00:00Z';
+  const ent = (type, ns, key) => { insEnt(db, type, ns, key); return `${type}:${ns}:${key}`; };
+  const cve = ent('vulnerability', 'cve', 'CVE-2025-0101'), cve2 = ent('vulnerability', 'cve', 'CVE-2025-0202'), euvd = ent('vulnerability', 'euvd', 'EUVD-2025-9');
+  const g0 = ent('vulnerability', 'gcve', 'GCVE-0-2024-12345'), cg = ent('vulnerability', 'cve', 'CVE-2024-12345'), cwe = ent('weakness', 'cwe', 'CWE-79');
+  const rule = ent('rule', 'yara', 'rules/a/b.yar#R1'), prod = ent('product', 'purl', 'pkg:npm/left-pad');
+  const rels = {};
+  const rel = async (name, type, from, to, source_id, method, exposure, ev = [], as = []) => {
+    const id = await relationshipId({ type, from, to, source_id, method });
+    raw(db, 'INSERT INTO intel_relationships (id,type,from_id,to_id,source_id,method,version,exposure,observed_at,created_at) VALUES (?,?,?,?,?,?,?,?,?,?)', id, type, from, to, source_id, method, 'macguard.norm/1', exposure, T, T);
+    for (const [kind, ref, src] of ev) raw(db, 'INSERT INTO intel_relationship_evidence (relationship_id,kind,ref,source_id,observed_at,recorded_at) VALUES (?,?,?,?,?,?)', id, kind, ref, src ?? source_id, T, T);
+    for (const [c, v, actor] of as) raw(db, 'INSERT INTO intel_relationship_assessments (relationship_id,confidence,verification,reason,actor,at) VALUES (?,?,?,?,?,?)', id, c, v, 'legacy assessment', actor, T);
+    rels[name] = id; return id;
+  };
+  const SRC = 'https://example.org/feed/item/1';
+  await rel('alias', 'ALIAS_OF', euvd, cve, 'enisa-euvd', 'asserted_by_source', 'public', [['source_statement', SRC]], [['REPORTED', 'UNVERIFIED', 'ingest']]);
+  await rel('aliasDisputed', 'ALIAS_OF', euvd, cve2, 'other-feed', 'asserted_by_source', 'public', [['source_statement', SRC]], [['REPORTED', 'UNVERIFIED', 'ingest'], ['DISPUTED', 'UNVERIFIED', 'system']]);
+  await rel('gcve', 'ALIAS_OF', g0, cg, 'gcve-spec', 'asserted_by_source', 'public', [['document', 'GCVE BCP-03: GCVE-0 is the CVE namespace']], [['REPORTED', 'UNVERIFIED', 'ingest']]);
+  await rel('kevCwe', 'VULN_HAS_WEAKNESS', cve, cwe, 'cisa-kev', 'asserted_by_source', 'public', [['source_statement', 'kev cwes']], [['REPORTED', 'UNVERIFIED', 'engine:R-KEV-CWE-1']]);
+  await rel('ruleLink', 'RULE_ASSOCIATED_WITH_CVE', rule, cve, 'yara-upstream:community', 'asserted_by_source', 'internal', [['source_statement', 'meta cve']], [['REPORTED', 'UNVERIFIED', 'engine:R-YARA-CVE-1']]);
+  await rel('detects', 'RULE_DETECTS_CVE', rule, cve2, 'lab', 'asserted_by_source', 'public', [['source_statement', 'claim'], ['test_run', 'run-1']], [['CONFIRMED', 'VERIFIED', 'qa']]);
+  await rel('correlated', 'RULE_ASSOCIATED_WITH_CVE', rule, cve2, 'ai:llm', 'correlated', 'public', [['content_match', 'names']], [['INFERRED', 'UNVERIFIED', 'ai:llm']]);
+  return { db, rels, e: { cve, cve2, euvd, g0, cg, cwe, rule, prod }, SRC };
+}
+test('F1 (final round): 0007 backfills every pre-0007 relationship as legacy_import; every producer re-imports it; legacy may keep REPORTED but never becomes VERIFIED without a review; rollback stays byte-identical', async () => {
+  const { db, rels, e, SRC } = await legacyWorld();
+  const schema = () => JSON.stringify(db.raw.prepare("SELECT type, name, tbl_name, sql FROM sqlite_master WHERE name <> 'sqlite_sequence' ORDER BY type, name").all());
+  const s5 = schema(), evBefore = db.raw.prepare('SELECT relationship_id, COUNT(*) n FROM intel_relationship_evidence GROUP BY 1 ORDER BY 1').all().map((r) => ({ ...r }));
+  db.raw.exec(MIG);
+  const cr = db.raw.prepare('SELECT * FROM intel_relationship_creation ORDER BY id').all();
+  assert.deepEqual(cr.map((r) => r.relationship_id), Object.values(rels).sort(), 'one record per relationship, in relationship-id order');
+  assert.ok(cr.every((r, i) => r.origin === 'legacy_import' && r.proposer === 'migration:0007' && r.prev_hash === String(i).padStart(64, '0') && r.hash === String(i + 1).padStart(64, '0')));
+  await syncSourceApprovals(db, registryWith(['enisa-euvd', 'other-feed', 'gcve-spec', 'osv']), NOW); await bootstrapReviewers(db);
+  { const v0 = await verifyAssurance(db); assert.equal(v0.ok, true, JSON.stringify(v0.logs.intel_relationship_creation) + JSON.stringify(v0.cross));assert.equal(v0.cross.warnings.length, 1, 'the legacy VERIFIED without a review is a warning'); }
+  assert.deepEqual(Object.fromEntries(Object.entries(rels).map(([k, v]) => [k, state(db, v)])), { alias: 'asserted', aliasDisputed: 'disputed', gcve: 'asserted', kevCwe: 'asserted', ruleLink: 'candidate', detects: 'candidate', correlated: 'candidate' },
+    'legacy keeps its assessed state; a legacy VERIFIED without a review and a correlation stay candidate');
+  // every producer re-imports, nothing duplicates
+  await recordAlias(db, { from: e.euvd, to: e.cve, source_id: 'enisa-euvd', evidence: { kind: 'source_statement', ref: SRC }, observed_at: NOW }, NOW);
+  await recordAlias(db, { from: e.euvd, to: e.cve2, source_id: 'other-feed', evidence: { kind: 'source_statement', ref: SRC }, observed_at: NOW }, NOW);
+  assert.ok((await linkGcve0(db, 'GCVE-0-2024-12345', NOW)) && true);
+  await relate(db, { type: 'VULN_HAS_WEAKNESS', from: e.cve, to: e.cwe, source_id: 'cisa-kev', method: 'asserted_by_source', exposure: 'public', evidence: [{ kind: 'source_statement', ref: 'kev cwes' }], origin: 'engine_rule', rule_id: 'R-KEV-CWE-1' }, NOW);
+  await assess(db, rels.kevCwe, { confidence: 'REPORTED', reason: 'kev cwes field', actor: 'engine:R-KEV-CWE-1' }, NOW);
+  await relate(db, { type: 'RULE_ASSOCIATED_WITH_CVE', from: e.rule, to: e.cve, source_id: 'yara-upstream:community', method: 'asserted_by_source', exposure: 'internal', evidence: [{ kind: 'source_statement', ref: 'meta cve', source_id: 'yara-upstream:community' }], origin: 'engine_rule', rule_id: 'R-YARA-CVE-1' }, NOW);
+  await assess(db, rels.ruleLink, { confidence: 'REPORTED', reason: 'meta cve', actor: 'engine:R-YARA-CVE-1' }, NOW);
+  await addAffectedRange(db, { vuln_id: e.cve, product: { namespace: 'purl', key: 'pkg:npm/left-pad' }, scheme: 'SEMVER', introduced: '1.0.0', fixed: '1.3.1', source_id: 'osv', evidence: { kind: 'source_statement', ref: SRC } }, NOW);
+  assert.deepEqual(db.raw.prepare('SELECT relationship_id, COUNT(*) n FROM intel_relationship_evidence WHERE relationship_id IN (' + Object.values(rels).map(() => '?').join(',') + ') GROUP BY 1 ORDER BY 1').all(...Object.values(rels)).map((r) => ({ ...r })), evBefore, 're-imports never duplicate pre-0007 evidence');
+  assert.equal(n(db, "SELECT COUNT(*) n FROM intel_relationship_creation WHERE origin = 'legacy_import'"), Object.keys(rels).length, 'a re-import keeps the legacy creation record');
+  // what legacy_import may NOT do
+  for (const actor of ['migration:0007', 'qa', 'user:rev-a']) assert.throws(() => rawAs(db, rels.detects, 'CONFIRMED', 'VERIFIED', actor), /approved review/, actor);
+  assert.throws(() => rawAs(db, rels.correlated, 'REPORTED', 'UNVERIFIED', 'user:rev-a'), /never reaches REPORTED/);
+  await assert.rejects(setLifecycle(db, rels.kevCwe, { marker: 'retracted', actor: 'migration:0007', reason: 'not the source' }, NOW), /original source or the proposer/);
+  await assert.rejects(rawChained(db, 'intel_relationship_creation', { relationship_id: rels.kevCwe, exposure: 'public', proposer: 'migration:0007', origin: 'legacy_import', rule_id: null, created_at: '2026-10-01T00:00:00Z' }), /legacy_import|never overwritten/, 'no legacy record at runtime');
+  const fresh = await rawRel(db, { type: 'RULE_DETECTS_CVE', from: e.rule, to: e.cg, source_id: 'lab', method: 'manual' });   // created after 0007 WITHOUT a creation record
+  const freshRow = one(db, 'SELECT * FROM intel_relationships WHERE id = ?', fresh);
+  await assert.rejects(rawChained(db, 'intel_relationship_creation', { relationship_id: fresh, exposure: 'public', proposer: 'migration:0007', origin: 'legacy_import', rule_id: null, created_at: NOW }, freshRow), /legacy_import|origin and method disagree/, 'a post-0007 relationship cannot pose as legacy');
+  // ... and what it MAY do with a review: the reviewed legacy detection becomes verified
+  await review(db, rels.detects, { approver: 'user:rev-a', decision: 'approve', reason: 'replayed run-1' }, NOW);
+  rawAs(db, rels.detects, 'CONFIRMED', 'VERIFIED', 'user:rev-a'); assert.equal(state(db, rels.detects), 'verified');
+  await setLifecycle(db, rels.kevCwe, { marker: 'retracted', actor: 'source:cisa-kev', reason: 'source withdrew it' }, NOW); assert.equal(state(db, rels.kevCwe), 'retracted');
+  const v = await verifyAssurance(db); assert.equal(v.ok, true, JSON.stringify(v.logs.intel_relationship_creation));
+  // the verifier: a legacy record forged after the prefix, or an altered one, is detected
+  const t = await legacyWorld(); t.db.raw.exec(MIG); t.db.raw.exec('DROP TRIGGER intel_rel_creation_no_overwrite'); t.db.raw.exec('DROP TRIGGER intel_rel_creation_no_update');
+  raw(t.db, "UPDATE intel_relationship_creation SET exposure = 'restricted' WHERE id = 1"); assert.equal((await verifyAssurance(t.db)).ok, false, 'altered legacy record');
+  db.raw.exec(RB); assert.equal(schema(), s5, 'rollback after a backfill: the 0005 schema, byte for byte');
+});
+
+// ---- Codex intel-0007 final round, F2 HIGH: a stale registry sync never restores a revoked approval ------------------------------------------------------
+const reg = (as_of, state) => JSON.stringify({ schema: 'macguard.intel-sources/1', as_of, sources: [{ id: 's', approval_state: state }, { id: 'cisa-kev', approval_state: 'APPROVED_PUBLIC' }] });
+const approval = (db) => ({ ...one(db, "SELECT approval_state, registry_as_of FROM intel_source_approvals WHERE source_id = 's'") });
+test('F2 (final round): the exact interleaving: a stale sync paused before its write cannot restore a revoked public approval (DB-enforced), in either completion order', async () => {
+  const A = reg('2026-11-01', 'APPROVED_PUBLIC'), B = reg('2026-11-02', 'BLOCKED');
+  // A plans (reads head + projection), B completes, A resumes
+  const db = newDb(M7), planA = await planSourceApprovals(db, A, NOW);
+  await syncSourceApprovals(db, B, NOW);
+  await assert.rejects(applySourceApprovals(db, planA), /hash chain|stale or conflicting/, 'compare-and-swap on the head');
+  await assert.rejects(syncSourceApprovals(db, A, NOW), /stale or conflicting/, 're-planned on the new head: refused as stale');
+  assert.deepEqual(approval(db), { approval_state: 'BLOCKED', registry_as_of: '2026-11-02' });
+  // B plans, A completes first, B resumes: the newer revocation still wins
+  const db2 = newDb(M7), planB = await planSourceApprovals(db2, B, NOW);
+  await syncSourceApprovals(db2, A, NOW); assert.equal(approval(db2).approval_state, 'APPROVED_PUBLIC');
+  await assert.rejects(applySourceApprovals(db2, planB), /hash chain/, 'the stale plan of the NEWER registry is refused as a unit ...');
+  await syncSourceApprovals(db2, B, NOW); assert.deepEqual(approval(db2), { approval_state: 'BLOCKED', registry_as_of: '2026-11-02' }, '... and re-planned it wins');
+  // a raw-SQL writer who chains correctly is still refused by the database
+  const head = one(db, 'SELECT hash FROM intel_source_approval_events ORDER BY id DESC LIMIT 1').hash, row = { source_id: 's', approval_state: 'APPROVED_PUBLIC', registry_sha256: 'a'.repeat(64), registry_as_of: '2026-11-01', at: NOW };
+  const hash = await chainHash(head, { log: LOGS.intel_source_approval_events.tag, ...row });
+  assert.throws(() => raw(db, 'INSERT INTO intel_source_approval_events (source_id,approval_state,registry_sha256,registry_as_of,at,prev_hash,hash) VALUES (?,?,?,?,?,?,?)', ...Object.values(row), head, hash), /stale or conflicting/);
+  // atomic: a sync is all or nothing (one batch)
+  const db3 = newDb(M7); await syncSourceApprovals(db3, B, NOW);
+  const multi = JSON.stringify({ schema: 'macguard.intel-sources/1', as_of: '2026-11-03', sources: [{ id: 'a-first', approval_state: 'APPROVED_PUBLIC' }, { id: 's', approval_state: 'APPROVED_PUBLIC' }] });
+  const plan = await planSourceApprovals(db3, multi, NOW); plan.rows[1].hash = 'f'.repeat(64);   // the second row breaks: nothing of the sync may land
+  await assert.rejects(applySourceApprovals(db3, plan));
+  assert.equal(n(db3, "SELECT COUNT(*) n FROM intel_source_approval_events WHERE registry_as_of = '2026-11-03'"), 0, 'no partial sync');
+  assert.equal((await verifyAssurance(db3)).ok, true);
+});
+test('F2 (final round): equal as_of with different content is a conflict; equal as_of with the same bytes is idempotent; an older identical registry is a no-op', async () => {
+  const db = newDb(M7), B = reg('2026-11-02', 'BLOCKED');
+  await syncSourceApprovals(db, B, NOW);
+  assert.deepEqual((await syncSourceApprovals(db, B, '2026-11-03T00:00:00Z')).changed, [], 'same bytes again: nothing appended');
+  await assert.rejects(syncSourceApprovals(db, reg('2026-11-02', 'APPROVED_PUBLIC'), NOW), /stale or conflicting/, 'same as_of, other content');
+  assert.deepEqual((await syncSourceApprovals(db, reg('2026-11-01', 'BLOCKED'), NOW)).changed, [], 'an older registry that changes nothing writes nothing');
+  await syncSourceApprovals(db, reg('2026-11-04', 'APPROVED_PUBLIC'), NOW); assert.deepEqual(approval(db), { approval_state: 'APPROVED_PUBLIC', registry_as_of: '2026-11-04' }, 'a newer registry may re-approve');
+  assert.equal((await verifyAssurance(db)).ok, true);
 });
