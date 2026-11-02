@@ -53,7 +53,7 @@ class Canonical(unittest.TestCase):
                     'cpe:2.3:a:vendor:p*q:1:*:*:*:*:*:*:*', 'cpe:2.3:a:vendor:prod:1:*:*:english:*:*:*:*', 'cpe:2.3:a:vendor:prod:1:*:*:*:*:*:*:*\\'):
             with self.subTest(bad=bad): self.assertNotIn('cpe23', kinds(bad)); self.assertRaises(ValueError, intel_ids.normalize, 'cpe23', bad)
         for good in ('cpe:2.3:a:vendor:prod\\(x\\):1:*:*:*:*:*:*:*', 'cpe:2.3:a:red_hat:enterprise-linux:8.4:*:*:en-us:*:*:*:*', 'cpe:2.3:o:vendor:p*:1.?:-:*:*:*:*:*:*'):
-            with self.subTest(good=good): self.assertEqual(kinds(good)['cpe23'], (good.lower(), 'exact'))
+            with self.subTest(good=good): self.assertEqual(kinds(good)['cpe23'][0], good.lower())   # grammar accepted; confidence (exact vs pattern): QaLows
         self.assertEqual(kinds('sid:2000001;'), {'suricata_sid': ('sid:2000001', 'exact')})
         self.assertEqual(kinds('SID 2000001'), {'suricata_sid': ('sid:2000001', 'pattern')})
         self.assertEqual(kinds('1:2000001'), {'suricata_sid': ('sid:2000001', 'pattern')})
@@ -126,6 +126,27 @@ class Extraction(unittest.TestCase):
     def test_cves_in_text(self):
         self.assertEqual(intel_ids.extract_cves('Exploits cve-2021-44228, CVE-2023-01234, CVE-2024-123456789 and xCVE-2020-1111 / CVE-2019-0708.'),
                          ['CVE-2021-44228', 'CVE-2019-0708'])
+
+
+class QaLows(unittest.TestCase):
+    """Independent QA of 938bf26: CPE wildcards are patterns, URLs are ASCII-only, port 0 is refused."""
+    def test_cpe_patterns_are_not_exact(self):
+        for pat in ('cpe:2.3:*:*:*:*:*:*:*:*:*:*:*', 'cpe:2.3:-:-:-:-:-:-:-:-:-:-:-', 'cpe:2.3:a:vendor:baz*:1:*:*:*:*:*:*:*', 'cpe:2.3:a:vendor:??baz??:1:*:*:*:*:*:*:*',
+                    'cpe:2.3:a:*:prod:1:*:*:*:*:*:*:*', 'cpe:2.3:a:vendor:-:1:*:*:*:*:*:*:*', 'cpe:2.3:a:vendor:prod:1.*:*:*:*:*:*:*:*'):
+            with self.subTest(pat=pat): self.assertEqual(kinds(pat)['cpe23'][1], 'pattern')
+        for ident in ('cpe:2.3:a:microsoft:internet_explorer:8.0.6001:beta:*:*:*:*:*:*', 'cpe:2.3:a:vendor:prod\\*x:1:*:*:*:*:*:*:*'):
+            with self.subTest(ident=ident): self.assertEqual(kinds(ident)['cpe23'][1], 'exact')
+
+    def test_urls_are_ascii_and_port_zero_is_refused(self):
+        self.assertEqual(kinds('http://a.com/\u00fc')['url'][0], 'http://a.com/%C3%BC')
+        self.assertEqual(kinds('http://a.com/a b')['url'][0], 'http://a.com/a%20b')
+        self.assertEqual(kinds('http://a.com/?q=\u00fc')['url'][0], 'http://a.com/?q=%C3%BC')
+        self.assertEqual(kinds('http://a.com/%41')['url'][0], 'http://a.com/%41', 'existing escapes are kept as written')
+        u = kinds('http://\u00fc.com/\u00fc')['url']; self.assertEqual(u, ('http://xn--tda.com/%C3%BC', 'pattern'))
+        self.assertNotIn('url', kinds('http://ex.com:0/'))
+        for x in ('http://a.com/\u00fc', 'http://\u00fc.com/x y'):
+            for c in intel_ids.classify(x):
+                with self.subTest(x=x): self.assertTrue(c.normalized.isascii())
 
 
 class Caps(unittest.TestCase):

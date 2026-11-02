@@ -20,7 +20,7 @@ import ipaddress, re, unicodedata
 # Every pattern is compiled with re.ASCII: Python's \d, \s, \w and IGNORECASE are Unicode-aware by default, and fullwidth or Arabic-Indic
 # digits, or the Kelvin sign and long s under IGNORECASE, must never become an identifier. The one Unicode-aware step is IDNA for domains.
 from typing import NamedTuple
-from urllib.parse import urlsplit
+from urllib.parse import quote, urlsplit
 
 MAX_INPUT = 2048          # longer input is never classified (URLs are the longest kind)
 MAX_RULE_NAME = 128       # YARA identifier limit
@@ -180,6 +180,7 @@ def _url(t):
         port = s.port
     except ValueError:
         return None
+    if port == 0: return None   # port 0 is not a destination
     hostname = s.hostname
     if not hostname: return None
     conf = 'pattern' if refanged else 'exact'
@@ -194,8 +195,11 @@ def _url(t):
     if '@' in s.netloc: conf = 'ambiguous'   # userinfo dropped: "http://bank.example@evil.example/" is evil.example
     scheme = s.scheme.lower()
     if port is not None and port != {'http': 80, 'https': 443}[scheme]: host += f':{port}'
-    path = s.path or '/'
-    return f'{scheme}://{host}{path}' + (f'?{s.query}' if s.query else ''), conf
+    # ASCII output only: non-ASCII and spaces are percent-encoded (UTF-8); existing %XX escapes are kept as written (nothing is merged)
+    path = quote(s.path or '/', safe="/%:@!$&'()*+,;=-._~")
+    query = quote(s.query, safe="/%:@!$&'()*+,;=?-._~")
+    if not hostname.isascii(): conf = 'pattern' if conf == 'exact' else conf   # IDNA ran: the punycode host is a display transformation
+    return f'{scheme}://{host}{path}' + (f'?{query}' if query else ''), conf
 
 
 # CPE 2.3 formatted string, the official grammar (NISTIR 7695 §6.2; the regex of the NVD CPE 2.3 dictionary schema): each attribute is
@@ -207,7 +211,12 @@ _CPE23 = re.compile(r'cpe:2\.3:[aho*\-](?::' + _CPE_AV + r'){5}(?::(?:[a-zA-Z]{2
 def _cpe23(t):
     if not t.isascii() or not t.lower().startswith('cpe:2.3:'): return None   # a CPE 2.3 formatted string is printable ASCII
     if not _CPE23.fullmatch(t): return None   # unescaped space or punctuation, wrong arity, empty or misplaced wildcard: not a CPE
-    return t.lower(), 'exact'
+    # an identifier names a concrete part, vendor and product and has no wildcard inside any value; otherwise it is a matching PATTERN
+    attrs = re.split(r'(?<!\\):', t, flags=re.A)[2:]
+    concrete = lambda v: v not in ('*', '-') and not re.search(r'(?<!\\)[*?]', v, re.A)
+    wild_inside = any(v not in ('*', '-') and re.search(r'(?<!\\)[*?]', v, re.A) for v in attrs)
+    exact = attrs[0].lower() in ('a', 'o', 'h') and concrete(attrs[1]) and concrete(attrs[2]) and not wild_inside
+    return t.lower(), 'exact' if exact else 'pattern'
 
 
 def _sid(t):
