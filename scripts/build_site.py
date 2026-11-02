@@ -22,9 +22,12 @@ if (release / 'manifest.json').exists():
     shutil.copy(release / 'rules-release.tar.gz', site / 'rules-release.tar.gz')
     body = (release / 'manifest.json').read_bytes(); manifest = json.loads(body)
     exp = sum(f['bytes'] for f in manifest['files'])
-    yara_rules = sum(catalog.count_rules((site / f['path']).read_text(errors='replace')) for f in manifest['files'])
-    (site / 'latest.json').write_text(json.dumps({'stats': {'files': len(manifest['files']), 'yara_rules': yara_rules, 'expanded_bytes': exp, 'package_bytes': (release / 'rules-release.tar.gz').stat().st_size,
-        'source': 'counted by the site build from the files that passed verification'},
+    rs = catalog.release_stats(site, manifest['files'])
+    # Display counts. yara_rules here is the number of rules YARA compiles (outside comments and strings), the figure the site shows;
+    # yara_rule_declarations is the line-wise count that the signed manifest's stats.yara_rules carries (it includes commented-out rules).
+    (site / 'latest.json').write_text(json.dumps({'stats': {'files': len(manifest['files']), 'yara_rules': rs['yara_rules_compiled'], 'yara_rules_compiled': rs['yara_rules_compiled'],
+        'yara_rule_declarations': rs['yara_rules'], 'expanded_bytes': exp, 'package_bytes': (release / 'rules-release.tar.gz').stat().st_size,
+        'source': 'counted by the site build from the files that passed verification; yara_rules = rules outside comments and strings (compiled by YARA), yara_rule_declarations = line-wise declarations including commented-out ones (the signed manifest value)'},
         'schema': 1, 'manifest': 'manifest.json', 'signature': 'manifest.sigstore.json', 'inclusion_proof': 'inclusion-proof.json', 'checkpoint': 'logs/checkpoint.txt', 'checkpoint_signature': 'logs/checkpoint.sigstore.json', 'manifest_sha256': hashlib.sha256(body).hexdigest(), 'package': 'rules-release.tar.gz', 'package_sha256': hashlib.sha256((release / 'rules-release.tar.gz').read_bytes()).hexdigest(), 'package_bytes': (release / 'rules-release.tar.gz').stat().st_size,
         'rules_root': manifest.get('rules_root'), 'log': manifest.get('log')}, indent=2, sort_keys=True) + '\n')
     print('Site includes the latest signed release')
