@@ -2,6 +2,10 @@
 // The database enforces the invariants (allowed endpoint types, CONFIRMED only with strong evidence, append-only evidence/assessments, state = latest assessment);
 // this module adds what SQL cannot express: key normalisation per namespace, deterministic relationship ids, bounded reads and exposure filtering.
 // Nothing here fetches anything, and no read scans a whole table: every query is keyed by id or by an indexed endpoint, with a hard LIMIT.
+// 0007 (correlation assurance): every relationship is created WITH its creation record (proposer, origin) in one batch; readers return ONLY the public view
+// (intel_relationship_public: asserted/verified, approved source, no PoC) unless the caller asks for scope 'internal' explicitly.
+import { normalize as idsNormalize } from './intel_ids.js';
+import { chained, entryOf, ORIGINS, CRITICAL_TYPES } from './intel_assurance.js';
 
 export const CONFIDENCE = ['CONFIRMED', 'REPORTED', 'INFERRED', 'DISPUTED', 'UNKNOWN'];
 const RANK = { CONFIRMED: 4, REPORTED: 3, INFERRED: 2, DISPUTED: 1, UNKNOWN: 0 };
@@ -14,7 +18,8 @@ class GraphError extends Error { constructor(msg, code = 'invalid') { super(msg)
 export { GraphError };
 
 const CTRL = /[\u0000-\u001f\u007f-\u009f]/;
-const HEX = { md5: 32, sha1: 40, sha256: 64, sha512: 128, 'x509-sha256': 64, 'x509-sha1': 40, ja3: 32 };
+const HEX = { sha512: 128, 'x509-sha256': 64, 'x509-sha1': 40, ja3: 32 };
+const IDS_NS = { cve: 'cve', cwe: 'cwe', sha256: 'sha256', sha1: 'sha1', md5: 'md5', yara: 'yara_rule' };
 
 function ipv4(s) {
   const p = s.split('.'); if (p.length !== 4) throw new GraphError('ipv4: four decimal octets');
@@ -56,6 +61,14 @@ function url(s) {
 /** Normalised key for (type, namespace). Throws GraphError on anything that cannot be an identifier. Idempotent: normalizeKey(t, n, normalizeKey(t, n, k)) === normalizeKey(t, n, k). */
 export function normalizeKey(type, namespace, key) {
   if (typeof key !== 'string') throw new GraphError('key must be a string');
+  // cve, cwe, sha256, sha1, md5 and yara follow scripts/intel_ids.py exactly (via its parity-tested port src/intel_ids.js; contract v3 C3b): one grammar for
+  // search, the engine and the database (the 0007 key triggers check the same canonical form). A key over 512 characters is refused, never truncated.
+  if (Object.hasOwn(IDS_NS, namespace) && (namespace !== 'yara' || type === 'rule')) {   // a package of family yara (package:yara:<name>@<version>) is not a rule id
+    let v; try { v = idsNormalize(IDS_NS[namespace], namespace === 'yara' ? `yara:${key}` : key); } catch { throw new GraphError(`${namespace}: not a canonical identifier (intel_ids)`); }
+    if (namespace === 'yara') v = v.slice(5);
+    if (v.length > 512) throw new GraphError('key: longer than 512 characters (refused, never truncated)');
+    return v;
+  }
   const k = key.normalize('NFC').trim();
   if (!k || k.length > 512 || CTRL.test(k)) throw new GraphError('key: empty, too long or with control characters');
   if (HEX[namespace]) { const h = k.toLowerCase().replace(/:/g, ''); if (h.length !== HEX[namespace] || /[^0-9a-f]/.test(h)) throw new GraphError(`${namespace}: ${HEX[namespace]} hex characters`); return h; }
@@ -64,12 +77,10 @@ export function normalizeKey(type, namespace, key) {
     case 'ipv6': return ipv6(k);
     case 'domain': return domain(k);
     case 'url': return url(k);
-    case 'cve': { const c = k.toUpperCase(); if (!/^CVE-\d{4}-\d{4,}$/.test(c)) throw new GraphError('cve: CVE-YYYY-NNNN'); return c; }
     case 'ghsa': { const g = k.toLowerCase(); if (!/^ghsa(-[23456789cfghjmpqrvwx]{4}){3}$/.test(g)) throw new GraphError('ghsa: GHSA-xxxx-xxxx-xxxx'); return 'GHSA' + g.slice(4); }
     case 'euvd': { const e = k.toUpperCase(); if (!/^EUVD-\d{4}-\d+$/.test(e)) throw new GraphError('euvd: EUVD-YYYY-N'); return e; }
     // R1 (0005): GCVE ids keep their GNA (assigning authority); only GCVE-0 is defined as the CVE space (see gcveToCve). CWE is a weakness classification.
     case 'gcve': { const m = k.toUpperCase().match(/^GCVE-(\d{1,10})-(\d{4})-(\d{1,19})$/); if (!m) throw new GraphError('gcve: GCVE-<GNA>-YYYY-N'); return `GCVE-${+m[1]}-${m[2]}-${m[3]}`; }
-    case 'cwe': { const m = k.toUpperCase().match(/^CWE-(\d{1,6})$/); if (!m) throw new GraphError('cwe: CWE-N'); return `CWE-${+m[1]}`; }
     case 'mitre-attack': { const a = k.toUpperCase(); if (!/^(T\d{4}(\.\d{3})?|TA\d{4}|S\d{4}|G\d{4}|M\d{4})$/.test(a)) throw new GraphError('mitre-attack: T1234, T1234.001, TA0001, S/G/M1234'); return a; }
     case 'suricata': case 'snort': { const m = k.match(/^(?:(\d{1,10}):)?(\d{1,10})$/); if (!m) throw new GraphError(`${namespace}: [gid:]sid`); return `${m[1] ? +m[1] : 1}:${+m[2]}`; }
     case 'sigma': { const s = k.toLowerCase(); if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(s)) throw new GraphError('sigma: rule UUID'); return s; }
@@ -100,32 +111,50 @@ export async function putEntity(db, { type, namespace, key, display = null, reco
   return id;
 }
 
-const evidenceStmt = (db, relId, e, now) => {
+/** One evidence row. source_id defaults to the relationship's source and original_source_id to source_id (a first-hand statement): a REPUBLISHER must pass the
+ *  original's id, or its copy would count as an independent source. Identical evidence (relationship, kind, ref, sha256) is stored once (0007 unique index). */
+const evidenceStmt = (db, relId, relSource, e, now) => {
   if (!e || !e.kind || !e.ref) throw new GraphError('evidence needs kind and ref');
-  return db.prepare('INSERT INTO intel_relationship_evidence (relationship_id,kind,ref,sha256,source_id,observed_at,recorded_at,note) VALUES (?,?,?,?,?,?,?,?)').bind(relId, e.kind, e.ref, e.sha256 ?? null, e.source_id ?? null, e.observed_at ?? now, now, e.note ?? null);
+  const src = e.source_id ?? relSource, orig = e.original_source_id ?? src;
+  if (typeof src !== 'string' || typeof orig !== 'string') throw new GraphError('evidence needs source_id and original_source_id');
+  return db.prepare('INSERT INTO intel_relationship_evidence (relationship_id,kind,ref,sha256,source_id,original_source_id,observed_at,recorded_at,note) VALUES (?,?,?,?,?,?,?,?,?) ON CONFLICT DO NOTHING').bind(relId, e.kind, e.ref, e.sha256 ?? null, src, orig, e.observed_at ?? now, now, e.note ?? null);
 };
 
-/** Create (idempotently) a relationship and append its evidence in ONE transaction. A new relationship is UNKNOWN until assessed. */
-export async function relate(db, { type, from, to, source_id, method, version = null, exposure = 'internal', observed_at, evidence = [] }, now) {
+/** Create (idempotently) a relationship, its creation record and its evidence in ONE transaction. A new relationship is UNKNOWN until assessed.
+ *  origin: source_ingest (proposer 'source:<source_id>', method asserted_by_source), engine_rule (proposer 'engine:<rule_id>'), analyst (proposer
+ *  'user:<login>', the authenticated human) or ai_proposed (proposer 'ai:<model>'; correlated/derived only, never beyond INFERRED). */
+export async function relate(db, { type, from, to, source_id, method, version = null, exposure = 'internal', observed_at, evidence = [], origin, proposer, rule_id = null }, now) {
   if (!EXPOSURE.includes(exposure)) throw new GraphError('exposure must be public, internal or restricted');
+  if (!ORIGINS.includes(origin)) throw new GraphError(`origin must be one of ${ORIGINS}`);
+  const who = origin === 'source_ingest' ? `source:${source_id}` : origin === 'engine_rule' ? `engine:${rule_id}` : proposer;
+  if (typeof who !== 'string' || (proposer !== undefined && proposer !== who)) throw new GraphError('proposer missing or inconsistent with the origin');
   const id = await relationshipId({ type, from, to, source_id, method });
+  const row = { relationship_id: id, exposure, proposer: who, origin, rule_id, created_at: now };
   // INSERT OR IGNORE inside the same batch as the evidence: two concurrent imports of the same relationship both succeed, and neither loses its evidence
   // (a separate existence check raced; Codex r1-canonical fix round, F1). The identity is content-derived, so the ignored row is identical.
-  const stmts = [db.prepare('INSERT OR IGNORE INTO intel_relationships (id,type,from_id,to_id,source_id,method,version,exposure,observed_at,created_at) VALUES (?,?,?,?,?,?,?,?,?,?)').bind(id, type, from, to, source_id, method, version, exposure, observed_at ?? now, now)];
-  for (const e of evidence) stmts.push(evidenceStmt(db, id, e, now));
-  const res = await db.batch(stmts);
+  // The creation record is written only for a relationship created by THIS batch (same created_at/exposure, no evidence or assessment yet): a re-import
+  // keeps the first proposer, and a relationship that predates 0007 never gains one after the fact.
+  const res = await chained(db, 'intel_relationship_creation', entryOf('intel_relationship_creation', row, { type, from_id: from, to_id: to, source_id, method }), (prev, hash) => {
+    const stmts = [db.prepare('INSERT OR IGNORE INTO intel_relationships (id,type,from_id,to_id,source_id,method,version,exposure,observed_at,created_at) VALUES (?,?,?,?,?,?,?,?,?,?)').bind(id, type, from, to, source_id, method, version, exposure, observed_at ?? now, now),
+      db.prepare('INSERT INTO intel_relationship_creation (relationship_id,exposure,proposer,origin,rule_id,created_at,prev_hash,hash) SELECT ?,?,?,?,?,?,?,? WHERE NOT EXISTS (SELECT 1 FROM intel_relationship_creation c WHERE c.relationship_id = ?) AND EXISTS (SELECT 1 FROM intel_relationships r WHERE r.id = ? AND r.created_at = ? AND r.exposure = ?) AND NOT EXISTS (SELECT 1 FROM intel_relationship_evidence e WHERE e.relationship_id = ?) AND NOT EXISTS (SELECT 1 FROM intel_relationship_assessments a WHERE a.relationship_id = ?)')
+        .bind(id, exposure, who, origin, rule_id, now, prev, hash, id, id, now, exposure, id, id)];
+    for (const e of evidence) stmts.push(evidenceStmt(db, id, source_id, e, now));
+    return db.batch(stmts);
+  });
   return { id, created: Number(res[0]?.meta?.changes ?? 0) > 0 };
 }
-export async function addEvidence(db, relId, e, now) { await evidenceStmt(db, relId, e, now).run(); }
+export async function addEvidence(db, relId, e, now) {
+  const rel = await db.prepare('SELECT source_id FROM intel_relationships WHERE id = ?').bind(relId).first(); if (!rel) throw new GraphError('no such relationship', 'not_found');
+  return Number((await evidenceStmt(db, relId, rel.source_id, e, now).run())?.meta?.changes ?? 0) > 0;
+}
 
-/** Append an assessment. Beyond the database rules: an automatic correlation is confirmed only by a test run or a human review (a content match or signature is not enough for a correlation). */
+/** Append an assessment. The database decides (0004/0005/0007 triggers); this pre-check only gives a clear error for the most common refusal: a correlated or
+ *  content-derived relationship never reaches REPORTED or CONFIRMED (0007 rule f; it was "only with a test run or human review" before 0007). */
 export async function assess(db, relId, { confidence, verification = 'UNVERIFIED', reason, actor }, now) {
   if (!CONFIDENCE.includes(confidence)) throw new GraphError('unknown confidence');
   const rel = await db.prepare('SELECT method FROM intel_relationships WHERE id = ?').bind(relId).first(); if (!rel) throw new GraphError('no such relationship', 'not_found');
-  if (confidence === 'CONFIRMED' && rel.method === 'correlated') {
-    const ok = await db.prepare("SELECT 1 AS x FROM intel_relationship_evidence WHERE relationship_id = ? AND kind IN ('test_run','human_review') LIMIT 1").bind(relId).first();
-    if (!ok) throw new GraphError('an automatic correlation is confirmed only by a test run or a human review', 'policy');
-  }
+  if ((confidence === 'CONFIRMED' || confidence === 'REPORTED') && (rel.method === 'correlated' || rel.method === 'derived_from_content'))
+    throw new GraphError('a correlated or content-derived relationship never reaches REPORTED or CONFIRMED: it stays a hypothesis', 'policy');
   await db.prepare('INSERT INTO intel_relationship_assessments (relationship_id,confidence,verification,reason,actor,at) VALUES (?,?,?,?,?,?)').bind(relId, confidence, verification, reason, actor, now).run();
 }
 
@@ -134,28 +163,48 @@ export async function getEntity(db, id) {
   return e ? { ...e, attrs: JSON.parse(e.attrs) } : null;
 }
 
-/** Bounded neighbourhood of one entity: at most `limit` (<= MAX_PAGE) edges per call, keyset-paginated by (type, id), filtered by relationship type,
- *  minimum confidence and the caller's maximum exposure. Unknown confidence is returned as UNKNOWN, never upgraded. */
-export async function neighbours(db, id, { direction = 'out', types = [], minConfidence = 'UNKNOWN', maxExposure = 'public', limit = 50, after = null } = {}) {
+/** Bounded neighbourhood of one entity: at most `limit` (<= MAX_PAGE) edges per call, keyset-paginated by (type, id), filtered by relationship type and
+ *  minimum confidence. scope 'public' (DEFAULT) reads intel_relationship_public only (asserted/verified, approved source, no PoC); scope 'internal' must be
+ *  asked for explicitly and then reads every relationship up to `maxExposure`, with its contract state. Unknown confidence is never upgraded. */
+export async function neighbours(db, id, { scope = 'public', direction = 'out', types = [], minConfidence = 'UNKNOWN', maxExposure = 'public', limit = 50, after = null } = {}) {
+  if (!['public', 'internal'].includes(scope)) throw new GraphError('scope is public or internal');
   if (!['out', 'in'].includes(direction)) throw new GraphError('direction is out or in');
   if (!(minConfidence in RANK) || !(maxExposure in EXPOSURE_RANK)) throw new GraphError('bad filter');
+  if (scope === 'public' && maxExposure !== 'public') throw new GraphError('a non-public exposure is an internal read: pass scope "internal" explicitly');
   const n = Math.max(1, Math.min(MAX_PAGE, Number(limit) | 0 || 50)), [mine, other] = direction === 'out' ? ['from_id', 'to_id'] : ['to_id', 'from_id'];
   if (types.length > 20) throw new GraphError('at most 20 relationship types per query');
   const conf = CONFIDENCE.filter((c) => RANK[c] >= RANK[minConfidence]), expo = EXPOSURE.filter((x) => EXPOSURE_RANK[x] <= EXPOSURE_RANK[maxExposure]);
-  const where = [`r.${mine} = ?`, `s.confidence IN (${conf.map(() => '?').join(',')})`, `r.exposure IN (${expo.map(() => '?').join(',')})`], args = [id, ...conf, ...expo];
-  if (types.length) { where.push(`r.type IN (${types.map(() => '?').join(',')})`); args.push(...types); }
-  if (after) { const [t, i] = String(after).split('|'); where.push('(r.type > ? OR (r.type = ? AND r.id > ?))'); args.push(t, t, i); }
-  const rows = (await db.prepare(`SELECT r.id, r.type, r.${other} AS other_id, r.source_id, r.method, r.exposure, r.observed_at, s.confidence, s.verification, s.evidence_count, e.type AS other_type, e.display AS other_display FROM intel_relationships r JOIN intel_relationship_state s ON s.relationship_id = r.id JOIN intel_entities e ON e.id = r.${other} WHERE ${where.join(' AND ')} ORDER BY r.type, r.id LIMIT ?`).bind(...args, n + 1).all()).results;
+  const pub = scope === 'public', r = pub ? 'p' : 'l';
+  const where = [`${r}.${mine} = ?`, `${r}.confidence IN (${conf.map(() => '?').join(',')})`], args = [id, ...conf];
+  if (!pub) { where.push(`l.exposure IN (${expo.map(() => '?').join(',')})`); args.push(...expo); }
+  if (types.length) { where.push(`${r}.type IN (${types.map(() => '?').join(',')})`); args.push(...types); }
+  if (after) { const [t, i] = String(after).split('|'); where.push(`(${r}.type > ? OR (${r}.type = ? AND ${r}.${pub ? 'id' : 'relationship_id'} > ?))`); args.push(t, t, i); }
+  const sql = pub
+    ? `SELECT p.id, p.type, p.${other} AS other_id, p.source_id, p.method, 'public' AS exposure, p.state, p.confidence, p.verification, p.approved_evidence_count AS evidence_count, e.type AS other_type, e.display AS other_display FROM intel_relationship_public p JOIN intel_entities e ON e.id = p.${other} WHERE ${where.join(' AND ')} ORDER BY p.type, p.id LIMIT ?`
+    : `SELECT l.relationship_id AS id, l.type, l.${other} AS other_id, l.source_id, l.method, l.exposure, l.state, l.confidence, l.verification, l.evidence_count, e.type AS other_type, e.display AS other_display FROM intel_relationship_lifecycle l JOIN intel_entities e ON e.id = l.${other} WHERE ${where.join(' AND ')} ORDER BY l.type, l.relationship_id LIMIT ?`;
+  const rows = (await db.prepare(sql).bind(...args, n + 1).all()).results;
   const more = rows.length > n, page = rows.slice(0, n);
   return { edges: page, next: more ? `${page.at(-1).type}|${page.at(-1).id}` : null };
 }
 
-/** Evidence and assessment history of one relationship (bounded). */
-export async function relationshipDetail(db, relId, { limit = 50 } = {}) {
+/** Evidence and assessment history of one relationship (bounded). scope 'public' (DEFAULT): null unless the relationship is in intel_relationship_public, and
+ *  then only evidence from APPROVED_PUBLIC sources, assessments without actor ids, and reviewed_by for critical types. scope 'internal' (explicit): everything,
+ *  plus the creation record, the reviews and the contract state. */
+export async function relationshipDetail(db, relId, { scope = 'public', limit = 50 } = {}) {
+  if (!['public', 'internal'].includes(scope)) throw new GraphError('scope is public or internal');
   const n = Math.max(1, Math.min(MAX_PAGE, Number(limit) | 0 || 50));
-  const rel = await db.prepare('SELECT r.*, s.confidence, s.verification, s.evidence_count FROM intel_relationships r JOIN intel_relationship_state s ON s.relationship_id = r.id WHERE r.id = ?').bind(relId).first();
+  if (scope === 'public') {
+    const rel = await db.prepare('SELECT * FROM intel_relationship_public WHERE id = ?').bind(relId).first();
+    if (!rel) return null;
+    const evidence = (await db.prepare("SELECT e.id, e.kind, e.ref, e.sha256, e.source_id, e.original_source_id, e.observed_at FROM intel_relationship_evidence e JOIN intel_source_approvals p ON p.source_id = e.source_id AND p.approval_state = 'APPROVED_PUBLIC' WHERE e.relationship_id = ? ORDER BY e.id DESC LIMIT ?").bind(relId, n).all()).results;
+    const assessments = (await db.prepare('SELECT id, confidence, verification, at FROM intel_relationship_assessments WHERE relationship_id = ? ORDER BY id DESC LIMIT ?').bind(relId, n).all()).results;
+    const rv = CRITICAL_TYPES.includes(rel.type) ? await db.prepare("SELECT approver, at FROM intel_relationship_reviews WHERE relationship_id = ? AND decision = 'approve' ORDER BY id DESC LIMIT 1").bind(relId).first() : null;
+    return { ...rel, evidence, assessments, reviewed_by: rv ? rv.approver : null, verified_at: rel.state === 'verified' ? assessments[0]?.at ?? null : null };
+  }
+  const rel = await db.prepare('SELECT r.*, l.state, l.proposer, l.origin, l.rule_id, s.confidence, s.verification, s.evidence_count FROM intel_relationships r JOIN intel_relationship_state s ON s.relationship_id = r.id JOIN intel_relationship_lifecycle l ON l.relationship_id = r.id WHERE r.id = ?').bind(relId).first();
   if (!rel) return null;
-  const evidence = (await db.prepare('SELECT id,kind,ref,sha256,source_id,observed_at,recorded_at,note FROM intel_relationship_evidence WHERE relationship_id = ? ORDER BY id DESC LIMIT ?').bind(relId, n).all()).results;
+  const evidence = (await db.prepare('SELECT id,kind,ref,sha256,source_id,original_source_id,observed_at,recorded_at,note FROM intel_relationship_evidence WHERE relationship_id = ? ORDER BY id DESC LIMIT ?').bind(relId, n).all()).results;
   const assessments = (await db.prepare('SELECT id,confidence,verification,reason,actor,at FROM intel_relationship_assessments WHERE relationship_id = ? ORDER BY id DESC LIMIT ?').bind(relId, n).all()).results;
-  return { ...rel, strong_evidence: evidence.some((e) => STRONG.has(e.kind)), evidence, assessments };
+  const reviews = (await db.prepare('SELECT id,proposer,approver,decision,reason,at FROM intel_relationship_reviews WHERE relationship_id = ? ORDER BY id DESC LIMIT ?').bind(relId, n).all()).results;
+  return { ...rel, strong_evidence: evidence.some((e) => STRONG.has(e.kind)), evidence, assessments, reviews };
 }

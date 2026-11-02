@@ -182,7 +182,7 @@ test('rule definitions: allow-lists are exact on the ASCII-lower-cased key; fan-
 });
 
 test('state mapping: engine states onto the 0004 vocabulary, and the total projection of contract v3 §4', () => {
-  assert.deepEqual(STATE_MAP.asserted, { method: 'asserted_by_source', evidence_kind: 'source_statement', confidence: 'REPORTED', verification: 'UNVERIFIED', exposure: 'internal' });
+  assert.deepEqual(STATE_MAP.asserted, { method: 'asserted_by_source', evidence_kind: 'source_statement', confidence: 'REPORTED', verification: 'UNVERIFIED', exposure: 'public' });
   assert.deepEqual(STATE_MAP.candidate, { method: 'derived_from_content', evidence_kind: 'document', confidence: 'INFERRED', verification: 'UNVERIFIED', exposure: 'restricted' });
   const P = (confidence, verification, evidenceKinds = [], sourceApproved = true) => projectState({ confidence, verification, evidenceKinds, sourceApproved });
   for (const c of ['CONFIRMED', 'REPORTED', 'INFERRED', 'DISPUTED', 'UNKNOWN']) assert.equal(P(c, 'FAILED', ['source_statement']), 'rejected', c);

@@ -52,10 +52,10 @@ export async function putWeakness(db, { key, name = null, description = null, ca
 /** Record an identifier equivalence ASSERTED by a source (evidence: a source statement or document). It is REPORTED, never CONFIRMED automatically.
  *  If the identifier already has a non-disputed alias to a DIFFERENT identifier of the same namespace (e.g. one EUVD -> two CVEs), every conflicting alias
  *  is marked DISPUTED: they are kept, shown as conflicting, and never merged. */
-export async function recordAlias(db, { from, to, source_id, evidence, observed_at, actor = 'ingest' }, now) {
+export async function recordAlias(db, { from, to, source_id, evidence, observed_at, actor = 'ingest', exposure = 'public' }, now) {
   for (const id of [from, to]) { const e = await db.prepare('SELECT type FROM intel_entities WHERE id = ?').bind(id).first(); need(e && e.type === 'vulnerability', 'ALIAS_OF joins two existing vulnerability identifiers'); }
   need(evidence && ['source_statement', 'document'].includes(evidence.kind) && evidence.ref, 'an alias needs the source statement or document that asserts it');
-  const { id } = await relate(db, { type: 'ALIAS_OF', from, to, source_id, method: 'asserted_by_source', version: NORMALISATION, exposure: 'public', observed_at, evidence: [{ ...evidence, source_id }] }, now);
+  const { id } = await relate(db, { type: 'ALIAS_OF', from, to, source_id, method: 'asserted_by_source', version: NORMALISATION, exposure, observed_at, evidence: [{ ...evidence, source_id }], origin: 'source_ingest' }, now);
   // A conflict is any OTHER alias of `from` to a different identifier of the same namespace, whatever its current state (a DISPUTED one included):
   // re-importing one side of a conflict must never turn it back into an equivalence (Codex r1-canonical F2). Only a manual decision resolves a dispute.
   const toNs = to.split(':')[1], cur = await db.prepare('SELECT confidence FROM intel_relationship_state WHERE relationship_id = ?').bind(id).first();
@@ -64,6 +64,7 @@ export async function recordAlias(db, { from, to, source_id, evidence, observed_
   // `from`'s namespace; any other is a conflict (Codex r1-canonical round 2, F1).
   const fromNs = from.split(':')[1];
   // Filtered IN SQL (other endpoint in `ns`, not `except`, not this relationship) and paged to the end: a bounded first page must never leave a conflict out (Codex r1-extra F3).
+  // INTERNAL read on purpose (write path): a conflict with a non-public alias must still dispute it.
   const aliasesIn = async (x, ns, except) => { const out = []; let after = '';
     for (;;) { const page = (await db.prepare("SELECT id, other, confidence FROM (SELECT r.id AS id, CASE WHEN r.from_id = ? THEN r.to_id ELSE r.from_id END AS other, s.confidence AS confidence FROM intel_relationships r JOIN intel_relationship_state s ON s.relationship_id = r.id WHERE r.type = 'ALIAS_OF' AND (r.from_id = ? OR r.to_id = ?)) WHERE other LIKE ? AND other <> ? AND id <> ? AND id > ? ORDER BY id LIMIT ?")
         .bind(x, x, x, `vulnerability:${ns}:%`, except, id, after, MAX_PAGE).all()).results;
@@ -80,10 +81,15 @@ export async function linkGcve0(db, gcveKey, now) {
   const g = await putVulnerability(db, { namespace: 'gcve', key: gcveKey }, now), c = await putVulnerability(db, { namespace: 'cve', key: cve }, now);
   return recordAlias(db, { from: g, to: c, source_id: 'gcve-spec', evidence: { kind: 'document', ref: 'GCVE BCP-03: GCVE-0 is the CVE namespace' } }, now);
 }
-/** Aliases of one identifier (both directions), split into equivalent (REPORTED/CONFIRMED) and disputed/unknown. Bounded. */
-export async function aliasesOf(db, id, { maxExposure = 'public' } = {}) {
+/** Aliases of one identifier (both directions), split into equivalent (REPORTED/CONFIRMED) and disputed/unknown. Bounded.
+ *  scope 'public' (DEFAULT) reads intel_relationship_public only: no disputed or unassessed alias, no unapproved source. scope 'internal' is explicit. */
+export async function aliasesOf(db, id, { scope = 'public', maxExposure = 'public' } = {}) {
+  need(['public', 'internal'].includes(scope), 'scope public/internal');
   const expo = { public: ['public'], internal: ['public', 'internal'], restricted: ['public', 'internal', 'restricted'] }[maxExposure]; need(expo, 'maxExposure public/internal/restricted');
-  const rows = (await db.prepare(`SELECT r.id, CASE WHEN r.from_id = ? THEN r.to_id ELSE r.from_id END AS other, r.source_id, r.observed_at, s.confidence FROM intel_relationships r JOIN intel_relationship_state s ON s.relationship_id = r.id WHERE r.type = 'ALIAS_OF' AND (r.from_id = ? OR r.to_id = ?) AND r.exposure IN (${expo.map(() => '?').join(',')}) ORDER BY r.id LIMIT ?`).bind(id, id, id, ...expo, MAX_PAGE).all()).results;
+  need(scope === 'internal' || maxExposure === 'public', 'a non-public exposure is an internal read: pass scope "internal" explicitly');
+  const rows = scope === 'public'
+    ? (await db.prepare("SELECT p.id, CASE WHEN p.from_id = ? THEN p.to_id ELSE p.from_id END AS other, p.source_id, p.observed_at, p.confidence, p.state FROM intel_relationship_public p WHERE p.type = 'ALIAS_OF' AND (p.from_id = ? OR p.to_id = ?) ORDER BY p.id LIMIT ?").bind(id, id, id, MAX_PAGE).all()).results
+    : (await db.prepare(`SELECT r.id, CASE WHEN r.from_id = ? THEN r.to_id ELSE r.from_id END AS other, r.source_id, r.observed_at, s.confidence, l.state FROM intel_relationships r JOIN intel_relationship_state s ON s.relationship_id = r.id JOIN intel_relationship_lifecycle l ON l.relationship_id = r.id WHERE r.type = 'ALIAS_OF' AND (r.from_id = ? OR r.to_id = ?) AND r.exposure IN (${expo.map(() => '?').join(',')}) ORDER BY r.id LIMIT ?`).bind(id, id, id, ...expo, MAX_PAGE).all()).results;
   const view = (r) => ({ id: r.other.split(':').slice(2).join(':'), namespace: r.other.split(':')[1], source: r.source_id, observed_at: r.observed_at, confidence: r.confidence });
   return { equivalent: rows.filter((r) => ['REPORTED', 'CONFIRMED'].includes(r.confidence)).map(view), disputed: rows.filter((r) => !['REPORTED', 'CONFIRMED'].includes(r.confidence)).map(view) };
 }
@@ -145,8 +151,8 @@ export async function addAffectedRange(db, { vuln_id, product, scheme, ecosystem
   const key = await sha256hex(JSON.stringify(['macguard.range/1', productId, scheme, ecosystem, introduced, fixed, last_affected, version_limit]));
   const rangeId = await putEntity(db, { type: 'version_range', namespace: 'range', key, display: `${introduced ?? '*'}..${fixed ? '<' + fixed : last_affected ? '<=' + last_affected : '*'}` }, now);
   await db.prepare('INSERT OR IGNORE INTO intel_version_ranges (entity_id,product_id,scheme,ecosystem,introduced,fixed,last_affected,version_limit) VALUES (?,?,?,?,?,?,?,?)').bind(rangeId, productId, scheme, ecosystem, introduced, fixed, last_affected, version_limit).run();
-  await relate(db, { type: 'RANGE_OF_PRODUCT', from: rangeId, to: productId, source_id, method: 'asserted_by_source', version: NORMALISATION, exposure: 'public', observed_at }, now);
-  const rel = await relate(db, { type: 'VULN_AFFECTS_RANGE', from: vuln_id, to: rangeId, source_id, method: 'asserted_by_source', version: NORMALISATION, exposure: 'public', observed_at, evidence: evidence ? [{ ...evidence, source_id }] : [] }, now);
+  await relate(db, { type: 'RANGE_OF_PRODUCT', from: rangeId, to: productId, source_id, method: 'asserted_by_source', version: NORMALISATION, exposure: 'public', observed_at, origin: 'source_ingest' }, now);
+  const rel = await relate(db, { type: 'VULN_AFFECTS_RANGE', from: vuln_id, to: rangeId, source_id, method: 'asserted_by_source', version: NORMALISATION, exposure: 'public', observed_at, evidence: evidence ? [{ ...evidence, source_id }] : [], origin: 'source_ingest' }, now);
   if (evidence && ['source_statement', 'document'].includes(evidence.kind)) await assess(db, rel.id, { confidence: 'REPORTED', reason: `affected range from ${source_id}`, actor: 'ingest' }, now);
   return { productId, rangeId, relationship: rel.id };
 }
@@ -167,19 +173,27 @@ const LEVEL = { RULE_ASSOCIATED_WITH_CVE: 'related', RULE_APPLIES_TO_PRODUCT: 'c
 export const detectionLevel = (type, confidence, verification) => (type === 'RULE_DETECTS_CVE' && confidence === 'CONFIRMED' && verification === 'VERIFIED' ? 'validated-detection' : LEVEL[type] ?? null);
 
 // ---- export record (contracts/v1/intel-vulnerability.schema.json) ----
-/** The public/premium view of one vulnerability, assembled from keyed reads only (each LIMIT <= MAX_PAGE). Missing data stays missing (null / []), never zero. */
-export async function vulnerabilityRecord(db, vulnId, { maxExposure = 'public' } = {}) {
+/** The public/premium view of one vulnerability, assembled from keyed reads only (each LIMIT <= MAX_PAGE). Missing data stays missing (null / []), never zero.
+ *  Relationships: scope 'public' (DEFAULT) reads intel_relationship_public only (asserted/verified, approved source) and NEVER returns PoC references
+ *  (contract §5a); scope 'internal' must be explicit and reads every relationship up to `maxExposure`. */
+export async function vulnerabilityRecord(db, vulnId, { scope = 'public', maxExposure = 'public' } = {}) {
   const v = await db.prepare("SELECT id, namespace, key, display, attrs, first_seen, updated_at FROM intel_entities WHERE id = ? AND type = 'vulnerability'").bind(vulnId).first();
   if (!v) return null;
+  need(['public', 'internal'].includes(scope), 'scope public/internal');
   const attrs = JSON.parse(v.attrs), expo = { public: ['public'], internal: ['public', 'internal'], restricted: ['public', 'internal', 'restricted'] }[maxExposure];
   need(expo, 'maxExposure public/internal/restricted');
-  const ex = `r.exposure IN (${expo.map(() => '?').join(',')})`;
-  const edges = async (dir, types) => (await db.prepare(`SELECT r.id, r.type, r.source_id, r.observed_at, ${dir === 'out' ? 'r.to_id' : 'r.from_id'} AS other, s.confidence, s.verification FROM intel_relationships r JOIN intel_relationship_state s ON s.relationship_id = r.id WHERE ${dir === 'out' ? 'r.from_id' : 'r.to_id'} = ? AND r.type IN (${types.map(() => '?').join(',')}) AND ${ex} ORDER BY r.type, r.id LIMIT ?`).bind(vulnId, ...types, ...expo, MAX_PAGE).all()).results;
+  need(scope === 'internal' || maxExposure === 'public', 'a non-public exposure is an internal read: pass scope "internal" explicitly');
+  const pub = scope === 'public';
+  const edges = async (dir, types) => {
+    const [mine, other] = dir === 'out' ? ['from_id', 'to_id'] : ['to_id', 'from_id'];
+    if (pub) return (await db.prepare(`SELECT p.id, p.type, p.source_id, p.observed_at, p.${other} AS other, p.confidence, p.verification FROM intel_relationship_public p WHERE p.${mine} = ? AND p.type IN (${types.map(() => '?').join(',')}) ORDER BY p.type, p.id LIMIT ?`).bind(vulnId, ...types, MAX_PAGE).all()).results;
+    return (await db.prepare(`SELECT r.id, r.type, r.source_id, r.observed_at, r.${other} AS other, s.confidence, s.verification FROM intel_relationships r JOIN intel_relationship_state s ON s.relationship_id = r.id WHERE r.${mine} = ? AND r.type IN (${types.map(() => '?').join(',')}) AND r.exposure IN (${expo.map(() => '?').join(',')}) ORDER BY r.type, r.id LIMIT ?`).bind(vulnId, ...types, ...expo, MAX_PAGE).all()).results;
+  };
   const key = (id) => id.split(':').slice(2).join(':'), ns = (id) => id.split(':')[1];
-  const aliases = await aliasesOf(db, vulnId, { maxExposure });
+  const aliases = await aliasesOf(db, vulnId, { scope, maxExposure });
   const sev = (await db.prepare('SELECT source_id, cvss_version, availability, vector, base_score, severity, assessed_at FROM intel_severity_current WHERE vuln_id = ? ORDER BY source_id, cvss_version LIMIT ?').bind(vulnId, MAX_PAGE).all()).results;
   const epss = await db.prepare('SELECT source_id, score_date, probability, percentile, model_version FROM intel_epss_latest WHERE vuln_id = ? ORDER BY score_date DESC LIMIT 1').bind(vulnId).first();
-  const weak = await edges('out', ['VULN_HAS_WEAKNESS']), adv = await edges('out', ['CVE_HAS_ADVISORY']), poc = await edges('out', ['CVE_HAS_POC_REFERENCE']);
+  const weak = await edges('out', ['VULN_HAS_WEAKNESS']), adv = await edges('out', ['CVE_HAS_ADVISORY']), poc = pub ? [] : await edges('out', ['CVE_HAS_POC_REFERENCE']);
   const ranges = await edges('out', ['VULN_AFFECTS_RANGE']), rules = await edges('in', ['RULE_ASSOCIATED_WITH_CVE', 'RULE_DETECTS_CVE_BEHAVIOUR', 'RULE_DETECTS_CVE']), iocs = await edges('in', ['INDICATOR_ASSOCIATED_WITH_CVE']);
   const affected = [];
   for (const r of ranges) { const row = await db.prepare('SELECT product_id, scheme, ecosystem, introduced, fixed, last_affected, version_limit FROM intel_version_ranges WHERE entity_id = ?').bind(r.other).first(); if (row) affected.push({ product: { namespace: ns(row.product_id), key: key(row.product_id) }, scheme: row.scheme, ecosystem: row.ecosystem, introduced: row.introduced, fixed: row.fixed, last_affected: row.last_affected, version_limit: row.version_limit, source: r.source_id, confidence: r.confidence }); }

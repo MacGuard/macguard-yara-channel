@@ -50,10 +50,11 @@ export const HASH_KIND_KEYS = { sha256: 'sha256', sha1: 'sha1', md5: 'md5' };
 // 'generic_rule_fanout'). Measured on rules-20261101-41271797671: max 140 distinct hashes, max 2 distinct CVEs per rule.
 export const MAX_ASSERTED_PER_RULE = Object.freeze({ 'R-YARA-HASH-1': 256, 'R-YARA-CVE-1': 5 });
 
-// Mapping onto the CURRENT schema (0004 vocabulary). candidate = proposed, never public: INFERRED/UNVERIFIED, method derived_from_content,
-// evidence kind 'document' (0004 has no evidence kind that is neither strong nor REPORTED-enabling: see the gap tests).
+// Mapping onto the schema (0004 vocabulary + 0007). candidate = proposed, never public: INFERRED/UNVERIFIED, method derived_from_content (0007: never REPORTED
+// or CONFIRMED), evidence kind 'document', exposure restricted. asserted: exposure 'public' is only a CEILING since 0007: the relationship is public only
+// through intel_relationship_public, i.e. when its source is APPROVED_PUBLIC in the registry (otherwise it projects to candidate).
 export const STATE_MAP = Object.freeze({
-  asserted: { method: 'asserted_by_source', evidence_kind: 'source_statement', confidence: 'REPORTED', verification: 'UNVERIFIED', exposure: 'internal' },
+  asserted: { method: 'asserted_by_source', evidence_kind: 'source_statement', confidence: 'REPORTED', verification: 'UNVERIFIED', exposure: 'public' },
   candidate: { method: 'derived_from_content', evidence_kind: 'document', confidence: 'INFERRED', verification: 'UNVERIFIED', exposure: 'restricted' },
 });
 
@@ -327,8 +328,8 @@ export function canon(x) {
 /** Byte-deterministic serialisation of an engine result (compact JSON, sorted keys, trailing newline). */
 export const serialize = (result) => JSON.stringify(canon(result)) + '\n';
 
-/** How one proposal maps onto the CURRENT schema (0004/0005 + intel_graph.js), one DB relationship per original source (the DB relationship has a single
- *  source_id and no original_source_id column, so independence is represented by the number of DB relationships). Pure: returns descriptions only. */
+/** How one proposal maps onto the schema (0004/0005/0007 + intel_graph.js relate()), one DB relationship per original source (independence is the number of
+ *  DB relationships; each evidence row also carries original_source_id since 0007). origin engine_rule, proposer engine:<rule_id>. Pure: descriptions only. */
 export function toGraph(rel) {
   const m = STATE_MAP[rel.state];
   const ent = (id) => { const [type, namespace, ...rest] = id.split(':'); return { type, namespace, key: rest.join(':') }; };
@@ -337,8 +338,8 @@ export function toGraph(rel) {
   return {
     entities: [ent(rel.from), ent(rel.to)],
     relationships: [...byOrig.entries()].sort(cmpBy(([k]) => k)).map(([orig, ev]) => ({
-      relate: { type: rel.type, from: rel.from, to: rel.to, source_id: orig, method: m.method, version: `${rel.rule_id}@${rel.rule_version}`, exposure: m.exposure,
-        evidence: ev.map((e) => ({ kind: m.evidence_kind, ref: e.locator, sha256: e.content_sha256, source_id: e.source_id, note: `original_source_id=${e.original_source_id}` })) },
+      relate: { type: rel.type, from: rel.from, to: rel.to, source_id: orig, method: m.method, version: `${rel.rule_id}@${rel.rule_version}`, exposure: m.exposure, origin: 'engine_rule', rule_id: rel.rule_id,
+        evidence: ev.map((e) => ({ kind: m.evidence_kind, ref: e.locator, sha256: e.content_sha256, source_id: e.source_id, original_source_id: e.original_source_id, note: `original_source_id=${e.original_source_id}` })) },
       assessment: { confidence: m.confidence, verification: m.verification, reason: `${rel.rule_id} v${rel.rule_version}: ${rel.basis.join(', ')}`, actor: `engine:${rel.rule_id}` },
     })),
   };

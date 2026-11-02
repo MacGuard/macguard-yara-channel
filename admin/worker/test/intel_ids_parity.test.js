@@ -1,6 +1,6 @@
 // Parity of src/intel_ids.js (the engine's identifier rules) with the reference scripts/intel_ids.py, run under `python3 -I` on the same inputs.
-// Also DOCUMENTS (does not change) where intel_graph.js normalizeKey(), the database key normaliser, disagrees with intel_ids.py: the list is pinned so a
-// new disagreement fails loudly. The engine never uses normalizeKey to decide a relation; it accepts only values that are canonical under intel_ids.
+// Since INTEL 0007 the database key normaliser intel_graph.js normalizeKey() must agree with intel_ids.py as well (contract v3 C3b, last test). The engine never
+// uses normalizeKey to decide a relation; it accepts only values that are canonical under intel_ids.
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
@@ -61,35 +61,31 @@ test('parity: the Python str.strip() whitespace set is exactly PY_WHITESPACE', (
   assert.deepEqual([...PY_WHITESPACE].map((c) => c.codePointAt(0)), py);
 });
 
-// intel_graph.js normalizeKey (database keys) vs intel_ids.py: DOCUMENTED disagreements (input for the contract review; intel_graph.js is not changed here).
-const GRAPH_NS = { cve: ['vulnerability', 'cve'], cwe: ['weakness', 'cwe'], sha256: ['sample', 'sha256'], sha1: ['indicator', 'sha1'], md5: ['indicator', 'md5'] };
-export const KNOWN_GRAPH_DISAGREEMENTS = [
-  // [kind, input, intel_graph normalizeKey, intel_ids.py]
-  ['cve', 'CVE-2024-01234', 'CVE-2024-01234', null],                 // 5+ digit sequence with a leading zero: graph accepts, intel_ids refuses
-  ['cve', 'CVE-2024-12345678', 'CVE-2024-12345678', null],           // 8+ digits: graph has no upper bound, intel_ids caps at 7
-  ['cve', 'CVE_2021_44228', null, 'CVE-2021-44228'],                 // separators: intel_ids accepts _ and space (confidence 'pattern'), graph refuses
-  ['cve', 'CVE 2021 44228', null, 'CVE-2021-44228'],
-  ['cwe', 'CWE-0', 'CWE-0', null],                                   // CWE-0: graph accepts, intel_ids refuses
-  ['cwe', 'CWE-000079', 'CWE-79', null],                             // 6 digits: graph accepts 1-6, intel_ids 1-5
-  ['cwe', 'CWE-100000', 'CWE-100000', null],
-  ['sha256', `sha256:${H64}`, null, H64],                            // labelled hash: intel_ids strips the label, graph refuses
-  ['sha256', 'AB:'.repeat(31) + 'AB', 'ab'.repeat(32), null],        // colon-separated hex: graph strips ':', intel_ids refuses
-  ['sha256', '﻿' + H64, H64, null],                             // JS trim() strips U+FEFF; Python strip() does not
-  ['sha256', '\u001c' + H64, null, H64],                             // Python strip() removes U+001C-U+001F; JS trim() does not
-  ['sha1', `sha1: ${H64.slice(0, 40)}`, null, H64.slice(0, 40)],
-  ['md5', `md5:${H64.slice(0, 32)}`, null, H64.slice(0, 32)],
+// intel_graph.js normalizeKey (database keys) vs intel_ids.py: since 0007 (contract v3 C3b) they AGREE on every input for cve, cwe, sha256, sha1, md5 and yara rule
+// identities (the disagreements pinned before 0007 were resolved in favour of intel_ids), except the database cap: a rule key over 512 characters is refused
+// by the database normaliser (never truncated) although intel_ids accepts up to 529.
+const GRAPH_NS = { cve: ['vulnerability', 'cve'], cwe: ['weakness', 'cwe'], sha256: ['sample', 'sha256'], sha1: ['indicator', 'sha1'], md5: ['indicator', 'md5'], yara_rule: ['rule', 'yara'] };
+export const RESOLVED_GRAPH_DISAGREEMENTS = [
+  // [kind, input, intel_ids.py] - before 0007 normalizeKey gave another answer
+  ['cve', 'CVE-2024-01234', null], ['cve', 'CVE-2024-12345678', null], ['cve', 'CVE_2021_44228', 'CVE-2021-44228'], ['cve', 'CVE 2021 44228', 'CVE-2021-44228'],
+  ['cwe', 'CWE-0', null], ['cwe', 'CWE-000079', null], ['cwe', 'CWE-100000', null],
+  ['sha256', `sha256:${H64}`, H64], ['sha256', 'AB:'.repeat(31) + 'AB', null], ['sha256', '\ufeff' + H64, null], ['sha256', '\u001c' + H64, H64],
+  ['sha1', `sha1: ${H64.slice(0, 40)}`, H64.slice(0, 40)], ['md5', `md5:${H64.slice(0, 32)}`, H64.slice(0, 32)],
+  ['yara_rule', 'yara:rules/a/../b.yar#R', null], ['yara_rule', 'yara:rules/a.yar#rule', null], ['yara_rule', 'yara:rules/a.txt#R', null],
 ];
-test('documented: intel_graph.js normalizeKey vs intel_ids.py disagreements are exactly the pinned list', () => {
-  const probe = [...corpus().filter(([k]) => GRAPH_NS[k]), ...KNOWN_GRAPH_DISAGREEMENTS.map(([k, t]) => [k, t])];
+const graphKey = (k, t) => {
+  const [type, ns] = GRAPH_NS[k];
+  if (k === 'yara_rule') { if (typeof t !== 'string' || !t.startsWith('yara:')) return undefined; t = t.slice(5); }
+  try { const v = normalizeKey(type, ns, t); return k === 'yara_rule' ? `yara:${v}` : v; } catch { return null; }
+};
+test('parity (C3b): intel_graph.js normalizeKey equals intel_ids.py on the adversarial corpus for every database identifier kind; >512-character rule keys refused', () => {
+  const probe = [...corpus(), ...RESOLVED_GRAPH_DISAGREEMENTS.map(([k, t]) => [k, t])].filter(([k, t]) => graphKey(k, t) !== undefined);
   const py = python(PY_NORMALIZE, JSON.stringify(probe));
-  const g = (k, t) => { try { return normalizeKey(GRAPH_NS[k][0], GRAPH_NS[k][1], t); } catch { return null; } };
-  const seen = new Map();
-  probe.forEach(([k, t], i) => { const a = g(k, t); if (a !== py[i]) seen.set(JSON.stringify([k, t]), [k, t, a, py[i]]); });
-  for (const d of KNOWN_GRAPH_DISAGREEMENTS) assert.deepEqual(seen.get(JSON.stringify([d[0], d[1]])), d, `pinned disagreement ${d[1]}`);
-  const unpinned = [...seen.values()].filter(([k, t]) => !KNOWN_GRAPH_DISAGREEMENTS.some((d) => d[0] === k && d[1] === t));
-  // every unpinned disagreement must belong to one of the pinned CLASSES above (labels, separators, leading zero, digit caps, CWE-0, BOM/U+001C-1F, colons)
-  const classOf = ([k, t, a, p]) => (/^(sha-?256|sha-?1|md5)\s*[:=]/i.test(t.trim?.() ?? '') ? 'label' : /[﻿\u001c-\u001f\u0085]/.test(t) ? 'strip-set'
-    : /CVE[_ ]/i.test(t) ? 'separator' : /^CVE-\d{4}-0\d{4,}$/i.test(t.trim()) ? 'leading-zero' : /CVE-\d{4}-\d{8,}/i.test(t) ? 'cve-cap' : /CWE-0+(?![0-9])|CWE-\d{6}/i.test(t) ? 'cwe' : 'other');
-  const other = unpinned.filter((d) => classOf(d) === 'other');
-  assert.deepEqual(other, [], 'a disagreement outside the documented classes');
+  const diff = probe.map(([k, t], i) => [k, t, graphKey(k, t), py[i]]).filter(([k, t, g, p]) => g !== p && !(k === 'yara_rule' && g === null && typeof p === 'string' && p.length - 5 > 512));
+  assert.deepEqual(diff, [], 'the database normaliser and intel_ids.py disagree');
+  for (const [k, t, want] of RESOLVED_GRAPH_DISAGREEMENTS) assert.equal(graphKey(k, t), want, `${k} ${t}`);
+  const long = `yara:${'p'.repeat(396)}.yar#${'N'.repeat(128)}`;
+  assert.equal(tryNormalize('yara_rule', long), long, 'intel_ids accepts a 529-character rule identity');
+  assert.equal(graphKey('yara_rule', long), null, 'the database refuses it (never truncated)');
+  assert.ok(probe.filter(([k]) => k === 'yara_rule').length > 50 && py.filter((x) => x !== null).length > 40);
 });

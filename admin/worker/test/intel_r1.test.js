@@ -7,13 +7,24 @@ import { newDb } from './d1shim.js';
 import { putEntity, relate, assess, addEvidence, normalizeKey, gcveToCve } from '../src/intel_graph.js';
 import { putVulnerability, putWeakness, recordAlias, linkGcve0, aliasesOf, addSeverity, addEpss, recordSnapshot, addExploitation, exploitationStatus, addAffectedRange, putPackage, detectionLevel, vulnerabilityRecord, validCvssVector } from '../src/intel_vuln.js';
 import { validate } from '../../../gateway/src/schema.js';
+import { newDb7, bootstrapReviewers, registryWith } from './intel_m7.js';
+import { review, syncSourceApprovals } from '../src/intel_assurance.js';
 
 const M4 = ['../migrations-intel/0001_intel.sql', '../migrations-intel/0002_decisions.sql', '../migrations-intel/0003_effective_state.sql', '../migrations-intel/0004_canonical_graph.sql'];
 const M5 = readFileSync(new URL('../migrations-intel/0005_vulnerability_model.sql', import.meta.url), 'utf8'), R5 = readFileSync(new URL('../migrations-intel/0005_rollback.sql', import.meta.url), 'utf8');
 const VSCHEMA = JSON.parse(readFileSync(new URL('../../../contracts/v1/intel-vulnerability.schema.json', import.meta.url), 'utf8'));
 const PSCHEMA = JSON.parse(readFileSync(new URL('../../../contracts/v1/package-manifest.schema.json', import.meta.url), 'utf8'));
 const NOW = '2026-11-01T10:00:00Z';
-const fresh = () => { const db = newDb(M4); db.raw.exec(M5); return db; };
+const fresh = () => newDb7();   // since 0007 the module needs the 0007 schema (creation records, public view); the 0005 migration tests below use raw SQL
+const ING = { origin: 'source_ingest' }, I = { scope: 'internal' };
+/** 0004-era data written with raw SQL (the module now requires 0007): one relationship, one evidence, one REPORTED assessment. */
+function raw04(db, rule, cve) {
+  const id = 'f'.repeat(64);
+  raw(db, "INSERT INTO intel_relationships (id,type,from_id,to_id,source_id,method,exposure,observed_at,created_at) VALUES (?, 'RULE_ASSOCIATED_WITH_CVE', ?, ?, 'et', 'asserted_by_source', 'internal', ?, ?)", id, rule, cve, NOW, NOW);
+  raw(db, "INSERT INTO intel_relationship_evidence (relationship_id,kind,ref,source_id,observed_at,recorded_at) VALUES (?, 'source_statement', ?, 'et', ?, ?)", id, SRC.ref, NOW, NOW);
+  raw(db, "INSERT INTO intel_relationship_assessments (relationship_id,confidence,verification,reason,actor,at) VALUES (?, 'REPORTED', 'UNVERIFIED', 'feed metadata', 'ingest', ?)", id, NOW);
+  return id;
+}
 const raw = (db, sql, ...a) => db.raw.prepare(sql).run(...a);
 const count = (db, sql, ...a) => db.raw.prepare(sql).get(...a).n;
 const SRC = { kind: 'source_statement', ref: 'https://example.org/feed/item/1' };
@@ -23,8 +34,7 @@ const V31 = 'CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H', V40 = 'CVSS:4.0/AV:N
 test('0005 on a 0001-0004 database WITH data: nothing is lost or altered, it is idempotent, 0004 invariants still hold, and the rollback leaves 0001-0004 intact', async () => {
   const db = newDb(M4);
   const rule = await putEntity(db, { type: 'rule', namespace: 'suricata', key: '2000105' }, NOW), cve = await putEntity(db, { type: 'vulnerability', namespace: 'cve', key: 'CVE-2024-1234' }, NOW);
-  const { id } = await relate(db, { type: 'RULE_ASSOCIATED_WITH_CVE', from: rule, to: cve, source_id: 'et', method: 'asserted_by_source', evidence: [SRC] }, NOW);
-  await assess(db, id, { confidence: 'REPORTED', reason: 'feed metadata', actor: 'ingest' }, NOW);
+  const id = raw04(db, rule, cve);
   const dump = () => JSON.stringify(['intel_entities', 'intel_relationships', 'intel_relationship_evidence', 'intel_relationship_assessments', 'intel_relationship_state', 'intel_relationship_types', 'intel_entity_types'].map((t) => db.raw.prepare(`SELECT * FROM ${t} ORDER BY 1`).all()));
   const objects = () => db.raw.prepare("SELECT type, name FROM sqlite_master WHERE name NOT LIKE 'sqlite_%' ORDER BY type, name").all().map((r) => `${r.type}:${r.name}`);
   const before = dump(), objs4 = objects(), types4 = JSON.parse(before)[5];
@@ -38,8 +48,8 @@ test('0005 on a 0001-0004 database WITH data: nothing is lost or altered, it is 
   db.raw.exec(M5); assert.equal(count(db, "SELECT COUNT(*) AS n FROM intel_relationship_types WHERE type = 'ALIAS_OF'"), 1, 're-applies after a rollback');
 });
 test('rollback keeps a 0005 relationship type that is in use (relationships are never deleted) and drops the rest', async () => {
-  const db = fresh(); const a = await putVulnerability(db, { namespace: 'euvd', key: 'EUVD-2025-1' }, NOW), b = await putVulnerability(db, { namespace: 'cve', key: 'CVE-2025-0001' }, NOW);
-  await recordAlias(db, { from: a, to: b, source_id: 'enisa-euvd', evidence: SRC }, NOW);
+  const db = newDb(M4); db.raw.exec(M5); const a = await putVulnerability(db, { namespace: 'euvd', key: 'EUVD-2025-1' }, NOW), b = await putVulnerability(db, { namespace: 'cve', key: 'CVE-2025-0001' }, NOW);
+  raw(db, "INSERT INTO intel_relationships (id,type,from_id,to_id,source_id,method,exposure,observed_at,created_at) VALUES (?, 'ALIAS_OF', ?, ?, 'enisa-euvd', 'asserted_by_source', 'public', ?, ?)", 'a'.repeat(64), a, b, NOW, NOW);
   db.raw.exec(R5);
   assert.equal(count(db, "SELECT COUNT(*) AS n FROM intel_relationship_types WHERE type = 'ALIAS_OF'"), 1); assert.equal(count(db, "SELECT COUNT(*) AS n FROM intel_relationship_types WHERE type = 'PACKAGE_IN_RELEASE'"), 0);
   assert.equal(count(db, "SELECT COUNT(*) AS n FROM intel_relationships WHERE type = 'ALIAS_OF'"), 1, 'the alias survives');
@@ -59,24 +69,29 @@ test('aliases: asserted by a source (REPORTED), GCVE-0 by its definition; no CVE
   const euvd = await putVulnerability(db, { namespace: 'euvd', key: 'EUVD-2025-777' }, NOW);
   assert.equal(count(db, "SELECT COUNT(*) AS n FROM intel_entities WHERE namespace = 'cve'"), 1, 'only the GCVE-0 CVE exists: nothing invented for the EUVD or GCVE-1');
   const cve = await putVulnerability(db, { namespace: 'cve', key: 'CVE-2025-1111' }, NOW); await recordAlias(db, { from: euvd, to: cve, source_id: 'enisa-euvd', evidence: SRC }, NOW);
-  const al = await aliasesOf(db, cve); assert.deepEqual(al.equivalent.map((x) => [x.id, x.confidence]), [['EUVD-2025-777', 'REPORTED']]); assert.deepEqual(al.disputed, []);
+  const al = await aliasesOf(db, cve, I); assert.deepEqual(al.equivalent.map((x) => [x.id, x.confidence]), [['EUVD-2025-777', 'REPORTED']]); assert.deepEqual(al.disputed, []);
+  assert.deepEqual(await aliasesOf(db, cve), { equivalent: [], disputed: [] }, 'public scope: enisa-euvd is not an approved source (rule 8)');
+  await syncSourceApprovals(db, registryWith(['enisa-euvd']), NOW);
+  assert.deepEqual((await aliasesOf(db, cve)).equivalent.map((x) => x.id), ['EUVD-2025-777'], 'once the source is APPROVED_PUBLIC the asserted alias is public');
 });
 test('aliases: conflicting mappings are DISPUTED and kept apart (never merged); text similarity, same-namespace links and unsupported aliases are refused', async () => {
   const db = fresh();
   const e = await putVulnerability(db, { namespace: 'euvd', key: 'EUVD-2025-9' }, NOW), c1 = await putVulnerability(db, { namespace: 'cve', key: 'CVE-2025-0101' }, NOW), c2 = await putVulnerability(db, { namespace: 'cve', key: 'CVE-2025-0202' }, NOW);
   assert.equal((await recordAlias(db, { from: e, to: c1, source_id: 'enisa-euvd', evidence: SRC }, NOW)).disputed, false);
   assert.equal((await recordAlias(db, { from: e, to: c2, source_id: 'other-feed', evidence: SRC }, NOW)).disputed, true);
-  const al = await aliasesOf(db, e); assert.deepEqual(al.equivalent, []); assert.deepEqual(al.disputed.map((x) => x.id).sort(), ['CVE-2025-0101', 'CVE-2025-0202']);
+  const al = await aliasesOf(db, e, I); assert.deepEqual(al.equivalent, []); assert.deepEqual(al.disputed.map((x) => x.id).sort(), ['CVE-2025-0101', 'CVE-2025-0202']);
+  await syncSourceApprovals(db, registryWith(['enisa-euvd', 'other-feed']), NOW);
+  assert.deepEqual(await aliasesOf(db, e), { equivalent: [], disputed: [] }, 'disputed aliases are never in the public view');
   assert.equal(count(db, "SELECT COUNT(*) AS n FROM intel_entities WHERE type = 'vulnerability'"), 3, 'nothing merged');
-  await assert.rejects(relate(db, { type: 'ALIAS_OF', from: e, to: c1, source_id: 'similarity', method: 'correlated' }, NOW), /never correlated/, 'text similarity is never an alias (database rule)');
-  await assert.rejects(relate(db, { type: 'ALIAS_OF', from: c1, to: c2, source_id: 'x', method: 'manual' }, NOW), /different namespaces/);
+  await assert.rejects(relate(db, { type: 'ALIAS_OF', from: e, to: c1, source_id: 'similarity', method: 'correlated', origin: 'ai_proposed', proposer: 'ai:similarity' }, NOW), /never correlated/, 'text similarity is never an alias (database rule)');
+  await assert.rejects(relate(db, { type: 'ALIAS_OF', from: c1, to: c2, source_id: 'x', method: 'manual', origin: 'analyst', proposer: 'user:analyst-a' }, NOW), /different namespaces/);
   await assert.rejects(recordAlias(db, { from: e, to: c1, source_id: 'x', evidence: { kind: 'content_match', ref: 'titles look alike' } }, NOW), /source statement or document/);
 });
 
 // ---- CWE, CVSS ----
 test('CVSS: several sources and versions coexist; a newer assessment is appended and becomes current for THAT source only; history is kept; CWE has no CVSS', async () => {
   const db = fresh(), v = await putVulnerability(db, { namespace: 'cve', key: 'CVE-2025-2222' }, NOW), w = await putWeakness(db, { key: 'CWE-79', name: 'XSS', category: 'Base' }, NOW);
-  await relate(db, { type: 'VULN_HAS_WEAKNESS', from: v, to: w, source_id: 'nvd', method: 'asserted_by_source', exposure: 'public' }, NOW);
+  await relate(db, { type: 'VULN_HAS_WEAKNESS', from: v, to: w, source_id: 'nvd', method: 'asserted_by_source', exposure: 'public', ...ING }, NOW);
   assert.equal(await addSeverity(db, v, { source_id: 'nvd', cvss_version: '3.1', vector: V31, base_score: 9.8, assessed_at: '2026-10-01T00:00:00Z' }, NOW), 'CRITICAL');
   await addSeverity(db, v, { source_id: 'vendor', cvss_version: '3.1', vector: V31.replace('A:H', 'A:N'), base_score: 9.1, assessed_at: '2026-10-02T00:00:00Z' }, NOW);
   await addSeverity(db, v, { source_id: 'nvd', cvss_version: '4.0', vector: V40, base_score: 9.3, assessed_at: '2026-10-03T00:00:00Z' }, NOW);
@@ -138,30 +153,36 @@ test('affected products and version ranges: a range is its own identity, fixed a
   await assert.rejects(addAffectedRange(db, { vuln_id: v, product, scheme: 'SEMVER', fixed: '2', last_affected: '1', source_id: 'osv' }, NOW), /exclusive/);
   await assert.rejects(addAffectedRange(db, { vuln_id: v, product, scheme: 'ECOSYSTEM', introduced: '0', source_id: 'osv' }, NOW), /ecosystem/);
   assert.throws(() => raw(db, 'UPDATE intel_version_ranges SET fixed = ? WHERE entity_id = ?', '9', a.rangeId), /immutable/);
-  const rec = await vulnerabilityRecord(db, v); assert.equal(rec.affected.length, 2); assert.deepEqual(rec.affected.find((x) => x.scheme === 'SEMVER'), { product: { namespace: 'purl', key: 'pkg:npm/left-pad' }, scheme: 'SEMVER', ecosystem: null, introduced: '1.0.0', fixed: '1.3.1', last_affected: null, version_limit: null, source: 'osv', confidence: 'REPORTED' });
+  assert.deepEqual((await vulnerabilityRecord(db, v)).affected, [], 'public scope: osv is not an approved source');
+  const rec = await vulnerabilityRecord(db, v, I); assert.equal(rec.affected.length, 2); assert.deepEqual(rec.affected.find((x) => x.scheme === 'SEMVER'), { product: { namespace: 'purl', key: 'pkg:npm/left-pad' }, scheme: 'SEMVER', ecosystem: null, introduced: '1.0.0', fixed: '1.3.1', last_affected: null, version_limit: null, source: 'osv', confidence: 'REPORTED' });
 });
 
 // ---- rules, IOC, packages, PoC ----
-test('rule <-> vulnerability levels: related / compatible / behaviour / claimed; validated-detection ONLY with a test run (a human review or content match is not enough)', async () => {
+test('rule <-> vulnerability levels: related / compatible / behaviour / claimed; validated-detection ONLY with a test run AND an approved review by another human (0007)', async () => {
   const db = fresh(), v = await putVulnerability(db, { namespace: 'cve', key: 'CVE-2025-8888' }, NOW), r = await putEntity(db, { type: 'rule', namespace: 'sigma', key: 'a1b2c3d4-0000-4000-8000-000000000001' }, NOW);
-  const { id } = await relate(db, { type: 'RULE_DETECTS_CVE', from: r, to: v, source_id: 'sigmahq', method: 'asserted_by_source', evidence: [{ kind: 'human_review', ref: 'review-1' }, { kind: 'content_match', ref: 'rule mentions CVE' }] }, NOW);
-  await assert.rejects(assess(db, id, { confidence: 'CONFIRMED', verification: 'VERIFIED', reason: 'reviewed only', actor: 'analyst' }, NOW), /only by a test run/);
+  await bootstrapReviewers(db);
+  const { id } = await relate(db, { type: 'RULE_DETECTS_CVE', from: r, to: v, source_id: 'sigmahq', method: 'asserted_by_source', evidence: [{ kind: 'human_review', ref: 'review-1', source_id: 'user:rev-a' }, { kind: 'content_match', ref: 'rule mentions CVE' }], ...ING }, NOW);
+  await review(db, id, { approver: 'user:rev-a', decision: 'approve', reason: 'read the rule and the advisory' }, NOW);
+  await assert.rejects(assess(db, id, { confidence: 'CONFIRMED', verification: 'VERIFIED', reason: 'reviewed only', actor: 'user:rev-a' }, NOW), /only by a test run/);
   assert.equal(detectionLevel('RULE_DETECTS_CVE', 'REPORTED', 'UNVERIFIED'), 'claimed-detection');
-  await addEvidence(db, id, { kind: 'test_run', ref: 'lab-run-42', sha256: 'b'.repeat(64) }, NOW); await assess(db, id, { confidence: 'CONFIRMED', verification: 'VERIFIED', reason: 'detected the replayed exploit in the lab', actor: 'qa' }, NOW);
-  await relate(db, { type: 'RULE_ASSOCIATED_WITH_CVE', from: r, to: v, source_id: 'sigmahq', method: 'asserted_by_source' }, NOW);
-  const rec = await vulnerabilityRecord(db, v, { maxExposure: 'internal' });
+  await addEvidence(db, id, { kind: 'test_run', ref: 'lab-run-42', sha256: 'b'.repeat(64), source_id: 'macguard-lab' }, NOW);
+  await assert.rejects(assess(db, id, { confidence: 'CONFIRMED', verification: 'VERIFIED', reason: 'detected the replayed exploit in the lab', actor: 'qa' }, NOW), /approved review/, 'a test run alone is not enough since 0007');
+  await assess(db, id, { confidence: 'CONFIRMED', verification: 'VERIFIED', reason: 'detected the replayed exploit in the lab', actor: 'user:rev-a' }, NOW);
+  await relate(db, { type: 'RULE_ASSOCIATED_WITH_CVE', from: r, to: v, source_id: 'sigmahq', method: 'asserted_by_source', ...ING }, NOW);
+  const rec = await vulnerabilityRecord(db, v, { scope: 'internal', maxExposure: 'internal' });
   assert.deepEqual(rec.detections.map((d) => d.level).sort(), ['related', 'validated-detection']);
   assert.equal(detectionLevel('RULE_APPLIES_TO_PRODUCT', 'UNKNOWN', 'UNVERIFIED'), 'compatible'); assert.equal(detectionLevel('RULE_DETECTS_CVE_BEHAVIOUR', 'CONFIRMED', 'VERIFIED'), 'detects-behaviour');
   assert.deepEqual((await vulnerabilityRecord(db, v)).detections, [], 'internal edges are not in the public view');
+  await assert.rejects(vulnerabilityRecord(db, v, { maxExposure: 'internal' }), /scope "internal" explicitly/, 'an internal read is never implicit');
 });
 test('packages: recorded immutable, never empty, with licences; a defensive package can NEVER contain a PoC reference (no type exists, none can be added)', async () => {
-  const db = fresh(); const rule = await putEntity(db, { type: 'rule', namespace: 'yara', key: 'MacGuard_Test_Rule' }, NOW);
+  const db = fresh(); const rule = await putEntity(db, { type: 'rule', namespace: 'yara', key: 'rules/test.yar#MacGuard_Test_Rule' }, NOW);
   const poc = await putEntity(db, { type: 'poc_reference', namespace: 'url', key: 'https://example.org/poc' }, NOW);
   const p = { family: 'yara', tier: 'community', name: 'yara-community', version: '20261101', engine: 'yara', engine_min_version: '4.5.0', format: 'yara-text', items_count: 3, size_bytes: 1024, manifest_sha256: 'c'.repeat(64), artifact_sha256: 'd'.repeat(64), licences: ['DRL-1.1'], validation_state: 'ENGINE_COMPILED' };
   const id = await putPackage(db, p, NOW); assert.equal(id, 'package:yara:yara-community@20261101');
-  await relate(db, { type: 'PACKAGE_CONTAINS_RULE', from: id, to: rule, source_id: 'publish', method: 'derived_from_content', exposure: 'public' }, NOW);
-  await assert.rejects(relate(db, { type: 'PACKAGE_CONTAINS_RULE', from: id, to: poc, source_id: 'publish', method: 'manual' }, NOW), /does not allow these endpoint types/);
-  assert.throws(() => raw(db, "INSERT INTO intel_relationship_types (type, from_type, to_type) VALUES ('PACKAGE_CONTAINS_POC','package','poc_reference')"), /never contain a PoC/);
+  await relate(db, { type: 'PACKAGE_CONTAINS_RULE', from: id, to: rule, source_id: 'publish', method: 'derived_from_content', exposure: 'public', origin: 'engine_rule', rule_id: 'R-PKG-1' }, NOW);
+  await assert.rejects(relate(db, { type: 'PACKAGE_CONTAINS_RULE', from: id, to: poc, source_id: 'publish', method: 'manual', origin: 'analyst', proposer: 'user:analyst-a' }, NOW), /does not allow these endpoint types/);
+  assert.throws(() => raw(db, "INSERT INTO intel_relationship_types (type, from_type, to_type) VALUES ('PACKAGE_CONTAINS_POC','package','poc_reference')"), /never contain a PoC|types are frozen/);
   assert.equal(count(db, "SELECT COUNT(*) AS n FROM intel_relationship_types WHERE from_type = 'package' AND to_type = 'poc_reference'"), 0);
   await assert.rejects(putPackage(db, { ...p, version: 'empty', items_count: 0 }, NOW), /empty package/);
   await assert.rejects(putPackage(db, { ...p, version: 'nolic', licences: [] }, NOW), /licences/);
@@ -174,9 +195,10 @@ test('the export record validates against macguard.intel-vulnerability/1 (missin
   const db = fresh(), v = await putVulnerability(db, { namespace: 'cve', key: 'CVE-2025-9999', display: 'Synthetic', attrs: { summary: 'Synthetic record', published: '2026-10-01T00:00:00Z' } }, NOW);
   const empty = await vulnerabilityRecord(db, v); assert.deepEqual(validate(VSCHEMA, empty, 'record'), []); assert.equal(empty.epss, null); assert.deepEqual(empty.severity, []); assert.equal(empty.exploitation.kev.status, 'UNKNOWN');
   await addSeverity(db, v, { source_id: 'nvd', cvss_version: '3.1', vector: V31, base_score: 9.8, assessed_at: NOW }, NOW); await addEpss(db, v, { score_date: '2026-10-31', probability: 0.5, percentile: 0.99 }, NOW);
-  const w = await putWeakness(db, { key: 'CWE-787' }, NOW); await relate(db, { type: 'VULN_HAS_WEAKNESS', from: v, to: w, source_id: 'nvd', method: 'asserted_by_source', exposure: 'public' }, NOW);
-  const poc = await putEntity(db, { type: 'poc_reference', namespace: 'url', key: 'https://example.org/writeup' }, NOW); await relate(db, { type: 'CVE_HAS_POC_REFERENCE', from: v, to: poc, source_id: 'x', method: 'asserted_by_source', exposure: 'public' }, NOW);
-  const full = await vulnerabilityRecord(db, v); assert.deepEqual(validate(VSCHEMA, full, 'record'), []); assert.equal(full.weaknesses[0].cwe, 'CWE-787'); assert.equal(full.poc_references[0].executable_content, false); assert.equal(full.poc_references[0].review, 'NOT_REVIEWED');
+  const w = await putWeakness(db, { key: 'CWE-787' }, NOW); await relate(db, { type: 'VULN_HAS_WEAKNESS', from: v, to: w, source_id: 'nvd', method: 'asserted_by_source', exposure: 'public', ...ING }, NOW);
+  const poc = await putEntity(db, { type: 'poc_reference', namespace: 'url', key: 'https://example.org/writeup' }, NOW); await relate(db, { type: 'CVE_HAS_POC_REFERENCE', from: v, to: poc, source_id: 'x', method: 'asserted_by_source', exposure: 'public', ...ING }, NOW);
+  const full = await vulnerabilityRecord(db, v, I); assert.deepEqual(validate(VSCHEMA, full, 'record'), []); assert.equal(full.weaknesses[0].cwe, 'CWE-787'); assert.equal(full.poc_references[0].executable_content, false); assert.equal(full.poc_references[0].review, 'NOT_REVIEWED');
+  const pub = await vulnerabilityRecord(db, v); assert.deepEqual(validate(VSCHEMA, pub, 'record'), []); assert.deepEqual(pub.poc_references, [], 'a PoC reference is never public (contract §5a)'); assert.deepEqual(pub.weaknesses, [], 'unassessed, unapproved source: not public');
   assert.ok(validate(VSCHEMA, { ...full, exploitation: { ...full.exploitation, evidence_status: 'NOT_EXPLOITED' } }, 'r').length > 0, 'the contract has no "not exploited" value');
   const ex = JSON.parse(readFileSync(new URL('../../../contracts/v1/examples/package-manifest-sigma.json', import.meta.url), 'utf8')); assert.deepEqual(validate(PSCHEMA, ex, 'pkg'), []);
   for (const bad of [{ ...ex, package: { ...ex.package, family: 'poc' } }, { ...ex, files: [] }, { ...ex, files: [{ ...ex.files[0], path: '../etc/passwd' }] }, { ...ex, validation: { ...ex.validation, state: 'VALIDATED' } }]) assert.ok(validate(PSCHEMA, bad, 'pkg').length > 0, JSON.stringify(bad).slice(0, 80));
@@ -207,11 +229,12 @@ test('sizing: bytes per vulnerability with realistic field lengths stay within t
 // ---- Codex review r1-canonical-20261101 round 1: four HIGH findings ----
 test('F1: a public export never shows a restricted or internal alias (nor its source); internal/restricted views do', async () => {
   const db = fresh(), cve = await putVulnerability(db, { namespace: 'cve', key: 'CVE-2025-0001' }, NOW), eu = await putVulnerability(db, { namespace: 'euvd', key: 'EUVD-2025-1' }, NOW);
-  const { id } = await relate(db, { type: 'ALIAS_OF', from: eu, to: cve, source_id: 'secret-source', method: 'asserted_by_source', exposure: 'restricted', evidence: [SRC] }, NOW);
+  const { id } = await relate(db, { type: 'ALIAS_OF', from: eu, to: cve, source_id: 'secret-source', method: 'asserted_by_source', exposure: 'restricted', evidence: [SRC], ...ING }, NOW);
+  await syncSourceApprovals(db, registryWith(['secret-source']), NOW);   // even an approved source never makes a restricted relationship public
   await assess(db, id, { confidence: 'REPORTED', reason: 'restricted feed', actor: 'ingest' }, NOW);
   const pub = await vulnerabilityRecord(db, cve); assert.ok(!JSON.stringify(pub).includes('secret-source') && !JSON.stringify(pub).includes('EUVD-2025-1'), 'not in the public record');
   assert.deepEqual(await aliasesOf(db, cve), { equivalent: [], disputed: [] });
-  assert.equal((await aliasesOf(db, cve, { maxExposure: 'restricted' })).equivalent[0].source, 'secret-source');
+  assert.equal((await aliasesOf(db, cve, { scope: 'internal', maxExposure: 'restricted' })).equivalent[0].source, 'secret-source');
   await assert.rejects(aliasesOf(db, cve, { maxExposure: 'everything' }));
 });
 test('F2: re-importing one side of a conflict keeps BOTH sides DISPUTED (a dispute is never cleared by an import)', async () => {
@@ -220,18 +243,18 @@ test('F2: re-importing one side of a conflict keeps BOTH sides DISPUTED (a dispu
   await recordAlias(db, { from: eu, to: c1, source_id: 'enisa-euvd', evidence: SRC, observed_at: NOW }, NOW);
   assert.equal((await recordAlias(db, { from: eu, to: c2, source_id: 'enisa-euvd', evidence: SRC, observed_at: NOW }, NOW)).disputed, true);
   const again = await recordAlias(db, { from: eu, to: c1, source_id: 'enisa-euvd', evidence: SRC, observed_at: NOW }, NOW);
-  assert.equal(again.disputed, true); const a = await aliasesOf(db, eu); assert.equal(a.equivalent.length, 0); assert.equal(a.disputed.length, 2);
+  assert.equal(again.disputed, true); const a = await aliasesOf(db, eu, I); assert.equal(a.equivalent.length, 0); assert.equal(a.disputed.length, 2);
   const third = await putVulnerability(db, { namespace: 'cve', key: 'CVE-2025-0003' }, NOW);   // a NEW conflicting mapping joins the dispute too
-  assert.equal((await recordAlias(db, { from: eu, to: third, source_id: 'other', evidence: SRC, observed_at: NOW }, NOW)).disputed, true); assert.equal((await aliasesOf(db, eu)).disputed.length, 3);
+  assert.equal((await recordAlias(db, { from: eu, to: third, source_id: 'other', evidence: SRC, observed_at: NOW }, NOW)).disputed, true); assert.equal((await aliasesOf(db, eu, I)).disputed.length, 3);
 });
 test('F3: the state table cannot be reset to UNKNOWN to hide an existing assessment (raw SQL); a relationship without assessments still starts UNKNOWN; rollback restores 0004', async () => {
   const db = fresh(), rule = await putEntity(db, { type: 'rule', namespace: 'suricata', key: '2000105' }, NOW), cve = await putVulnerability(db, { namespace: 'cve', key: 'CVE-2024-1234' }, NOW);
-  const { id } = await relate(db, { type: 'RULE_ASSOCIATED_WITH_CVE', from: rule, to: cve, source_id: 'et', method: 'asserted_by_source', evidence: [SRC] }, NOW);
+  const { id } = await relate(db, { type: 'RULE_ASSOCIATED_WITH_CVE', from: rule, to: cve, source_id: 'et', method: 'asserted_by_source', evidence: [SRC], ...ING }, NOW);
   await assess(db, id, { confidence: 'REPORTED', reason: 'feed metadata', actor: 'ingest' }, NOW);
   assert.throws(() => raw(db, "UPDATE intel_relationship_state SET confidence='UNKNOWN', verification='UNVERIFIED', assessment_id=NULL WHERE relationship_id=?", id), /latest assessment/);
   assert.equal(db.raw.prepare('SELECT confidence FROM intel_relationship_state WHERE relationship_id = ?').get(id).confidence, 'REPORTED');
   const g4 = readFileSync(new URL('../migrations-intel/0004_canonical_graph.sql', import.meta.url), 'utf8').split('\n').find((l) => l.includes('intel_rel_state_guard_update'));
-  db.raw.exec(R5); assert.equal(db.raw.prepare("SELECT sql FROM sqlite_master WHERE name = 'intel_rel_state_guard_update'").get().sql + ';', g4.replace('CREATE TRIGGER IF NOT EXISTS', 'CREATE TRIGGER'), 'rollback restores the 0004 trigger verbatim');
+  db.raw.exec(readFileSync(new URL('../migrations-intel/0007_rollback.sql', import.meta.url), 'utf8')); db.raw.exec(R5); assert.equal(db.raw.prepare("SELECT sql FROM sqlite_master WHERE name = 'intel_rel_state_guard_update'").get().sql + ';', g4.replace('CREATE TRIGGER IF NOT EXISTS', 'CREATE TRIGGER'), 'rollback restores the 0004 trigger verbatim');
 });
 test('F4: KEV status follows OBSERVATION time: a late import of an older LISTED never overrides a newer DELISTED', async () => {
   const db = fresh(), v = await putVulnerability(db, { namespace: 'cve', key: 'CVE-2024-9999' }, NOW);
@@ -247,7 +270,7 @@ test('R2-F1: alias conflicts are detected in BOTH directions (EUVD->CVE-1 then C
   const c1 = await putVulnerability(db, { namespace: 'cve', key: 'CVE-2025-0001' }, NOW), c2 = await putVulnerability(db, { namespace: 'cve', key: 'CVE-2025-0002' }, NOW);
   await recordAlias(db, { from: eu, to: c1, source_id: 'enisa-euvd', evidence: SRC, observed_at: NOW }, NOW);
   assert.equal((await recordAlias(db, { from: c2, to: eu, source_id: 'other-feed', evidence: SRC, observed_at: NOW }, NOW)).disputed, true);
-  const a = await aliasesOf(db, eu); assert.equal(a.equivalent.length, 0, JSON.stringify(a)); assert.equal(a.disputed.length, 2);
+  const a = await aliasesOf(db, eu, I); assert.equal(a.equivalent.length, 0, JSON.stringify(a)); assert.equal(a.disputed.length, 2);
   const g = await putVulnerability(db, { namespace: 'ghsa', key: 'GHSA-2345-6789-cfgh' }, NOW);   // another namespace is not a conflict
   assert.equal((await recordAlias(db, { from: g, to: c1, source_id: 'github', evidence: SRC, observed_at: NOW }, NOW)).disputed, false);
 });
@@ -274,10 +297,11 @@ test('FR-F1: concurrent imports of the same relationship both succeed and keep t
   let arrived = 0, open; const gate = new Promise((r) => { open = r; }); setTimeout(() => open(), 300);
   const racy = { ...db, prepare: (sql) => { const st = db.prepare(sql); if (!/FROM intel_relationships WHERE id = \?/.test(sql)) return st;
     const first = st.first.bind(st); return Object.assign(st, { bind: (...a) => { st.bind(...a); return Object.assign(st, { first: async () => { if (++arrived === 2) open(); await gate; return first(); } }); } }); } };
-  const mk = (ref) => relate(racy, { type: 'RULE_ASSOCIATED_WITH_CVE', from: rule, to: cve, source_id: 'et', method: 'asserted_by_source', evidence: [{ kind: 'source_statement', ref }] }, NOW);
+  const mk = (ref) => relate(racy, { type: 'RULE_ASSOCIATED_WITH_CVE', from: rule, to: cve, source_id: 'et', method: 'asserted_by_source', evidence: [{ kind: 'source_statement', ref }], ...ING }, NOW);
   const r = await Promise.allSettled([mk('feed/a'), mk('feed/b')]); assert.deepEqual(r.map((x) => x.status), ['fulfilled', 'fulfilled'], JSON.stringify(r.map((x) => x.reason?.message)));
   assert.equal(r.filter((x) => x.value.created).length, 1, 'exactly one created it'); assert.equal(count(db, 'SELECT COUNT(*) AS n FROM intel_relationships'), 1);
   assert.equal(count(db, 'SELECT COUNT(*) AS n FROM intel_relationship_evidence'), 2, 'both evidences kept'); assert.equal(count(db, 'SELECT COUNT(*) AS n FROM intel_relationship_state'), 1);
+  assert.equal(count(db, 'SELECT COUNT(*) AS n FROM intel_relationship_creation'), 1, 'one creation record, from the import that created it');
 });
 test('FR-F3: a KEV listing newer than the latest snapshot is reported as of the listing itself, never as of the older snapshot', async () => {
   const db = fresh(), v = await putVulnerability(db, { namespace: 'cve', key: 'CVE-2024-6666' }, NOW);
@@ -310,7 +334,7 @@ test('X-F3: an alias conflict is detected even behind more than one page of asse
 test('X-F4: the export keeps the version_limit of a range (never a broader range than the source gave)', async () => {
   const db = fresh(), v = await putVulnerability(db, { namespace: 'cve', key: 'CVE-2026-3333' }, NOW);
   await addAffectedRange(db, { vuln_id: v, product: { namespace: 'purl', key: 'pkg:npm/example' }, scheme: 'SEMVER', introduced: '1.0.0', version_limit: '2.0.0', source_id: 'osv', evidence: SRC }, NOW);
-  const rec = await vulnerabilityRecord(db, v); assert.equal(rec.affected[0].version_limit, '2.0.0'); assert.deepEqual(validate(VSCHEMA, rec, 'rec'), []);
+  const rec = await vulnerabilityRecord(db, v, I); assert.equal(rec.affected[0].version_limit, '2.0.0'); assert.deepEqual(validate(VSCHEMA, rec, 'rec'), []);
 });
 test('delta review (MEDIUM): a record with a KEV delisting validates against macguard.intel-vulnerability/1 (basis is a declared field)', async () => {
   const db = fresh(), v = await putVulnerability(db, { namespace: 'cve', key: 'CVE-2026-4444' }, NOW);
