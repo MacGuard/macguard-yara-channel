@@ -1,0 +1,32 @@
+<!doctype html><html lang="es"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Vulnerabilidades · MacGuard</title><link rel="stylesheet" href="style.css"><a class="skip" href="#main" data-t="skip">Saltar al contenido</a><aside><h2>🛡 MacGuard</h2><small>Rules &amp; Threat Intelligence</small><nav aria-label="Principal"><a href="./" data-t="nav_home">Inicio</a><a href="catalog.html" data-t="nav_catalog">Biblioteca</a><a href="indicators.html" data-t="nav_iocs">Indicadores</a><a href="vulnerabilities.html" aria-current="page" data-t="nav_vulns">Vulnerabilidades</a><a href="packages.html" data-t="nav_packages">Descargas</a><a href="plans.html" data-t="nav_plans">Planes</a><a href="transparency.html" data-t="nav_transparency">Transparencia</a><a href="docs/index.html" data-t="nav_docs">Documentación</a></nav></aside><main id="main"><header><div><small>MACGUARD SECURITY</small></div><div><select id="lang" aria-label="Idioma / Language"><option value="es">Español</option><option value="en">English</option></select><button id="theme" type="button" aria-label="Claro / oscuro · Light / dark">◐</button></div></header>
+<h1 data-t="h">Explorador de vulnerabilidades</h1>
+<p data-t="intro">Busca por CVE, EUVD, GCVE, GHSA o CWE, por fabricante, producto o versión, o por hash o SID. Solo se muestran datos de fuentes aprobadas; una fuente no disponible se indica como tal.</p>
+<section class="panel" aria-labelledby="s-h"><h2 id="s-h" data-t="s_h">Buscar</h2>
+<form id="vform" role="search"><div class="toolbar">
+<label><span data-t="q_l">Identificador o texto</span> <input id="vq" name="q" type="search" autocomplete="off" spellcheck="false" maxlength="128" placeholder="CVE-2024-3094 · EUVD-2024-1234 · GCVE-1-2025-1 · GHSA-xxxx-xxxx-xxxx · CWE-79"></label>
+<label><span data-t="f_vendor">Fabricante</span> <input id="f-vendor" name="vendor" type="text" maxlength="80" autocomplete="off"></label>
+<label><span data-t="f_product">Producto</span> <input id="f-product" name="product" type="text" maxlength="80" autocomplete="off"></label>
+<label><span data-t="f_cwe">CWE</span> <input id="f-cwe" name="cwe" type="text" maxlength="12" autocomplete="off" placeholder="CWE-79"></label>
+<label><span data-t="f_kev">CISA KEV</span> <select id="f-kev" name="kev"><option value="" data-t="any">Cualquiera</option><option value="1" data-t="kev_only">Solo en KEV</option></select></label>
+<label><span data-t="f_from">Desde</span> <input id="f-from" name="date_from" type="date"></label>
+<label><span data-t="f_to">Hasta</span> <input id="f-to" name="date_to" type="date"></label>
+</div><div class="toolbar" id="api-filters">
+<label><span data-t="f_cvss_min">CVSS mín.</span> <input id="f-cvss-min" name="cvss_min" type="number" min="0" max="10" step="0.1"></label>
+<label><span data-t="f_cvss_max">CVSS máx.</span> <input id="f-cvss-max" name="cvss_max" type="number" min="0" max="10" step="0.1"></label>
+<label><span data-t="f_epss">EPSS mín. (0–1)</span> <input id="f-epss" name="epss_min" type="number" min="0" max="1" step="0.01"></label>
+<label><span data-t="f_rules">Reglas</span> <select id="f-rules" name="has_rules"><option value="" data-t="any">Cualquiera</option><option value="1" data-t="with_rules">Con reglas verificadas</option></select></label>
+<label><span data-t="f_source">Fuente</span> <select id="f-source" name="source"><option value="" data-t="any">Cualquiera</option></select></label>
+<label><span data-t="f_access">Acceso</span> <select id="f-access" name="access"><option value="" data-t="any">Cualquiera</option><option value="free">FREE</option><option value="premium">PREMIUM</option></select></label>
+</div><p><button type="submit" data-t="go">Buscar</button> <button type="reset" id="vreset" data-t="reset">Limpiar</button></p></form>
+<p id="vkind" class="muted" aria-live="polite"></p><p id="vmode" class="state" role="status"></p></section>
+<section class="panel" aria-labelledby="r-h"><h2 id="r-h" data-t="r_h">Resultados</h2><p id="vcount" aria-live="polite"></p>
+<div class="tablewrap"><table id="vtable"><caption class="sr" data-t="cap">Vulnerabilidades encontradas</caption><thead><tr><th scope="col" data-t="c_id">Identificador</th><th scope="col" data-t="c_title">Nombre</th><th scope="col" data-t="c_vp">Fabricante · producto</th><th scope="col" data-t="c_kev">KEV</th><th scope="col">CVSS</th><th scope="col">EPSS</th><th scope="col">CWE</th><th scope="col" data-t="c_rules">Reglas</th><th scope="col" data-t="c_access">Acceso</th></tr></thead><tbody></tbody></table></div>
+<nav class="pager" aria-label="Paginación"><button id="vprev" type="button" data-t="prev" disabled>Anterior</button><span id="vpage" aria-live="polite"></span><button id="vnext" type="button" data-t="next" disabled>Siguiente</button></nav>
+<ul class="checks" id="vsources" aria-label="Fuentes"></ul></section>
+<section class="panel" aria-labelledby="k-h"><h2 id="k-h" data-t="k_h">Cómo leer los datos</h2><ul>
+<li data-t="k1">CVSS mide la gravedad técnica; puede haber varias puntuaciones de fuentes y versiones distintas.</li>
+<li data-t="k2">EPSS es una probabilidad estimada de explotación en los próximos 30 días, no una gravedad.</li>
+<li data-t="k3">«No figura en KEV» no significa «no está siendo explotada».</li>
+<li data-t="k4">Si no hay una regla verificada para una vulnerabilidad, la ficha lo dirá; nunca se inventa.</li></ul></section>
+<noscript><p><a href="kev/index.json">kev/index.json</a> · <a href="sources.json">sources.json</a></p></noscript>
+<footer data-t="disclaimer">Proyecto independiente. Sin afiliación ni aval de las fuentes.</footer></main><script src="common.js"></script><script src="kevstatic.js"></script><script src="vulns.js"></script></html>

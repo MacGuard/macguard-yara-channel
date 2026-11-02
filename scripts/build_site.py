@@ -55,6 +55,13 @@ if (site / 'manifest.json').exists():
         doc = catalog.consistency_doc(log_lines, rows[-2]['log'], manifest.get('log'))
         if doc: (site / 'consistency.json').write_text(json.dumps(doc, indent=1) + '\n'); print('Consistency proof published')
 stats.build(root / 'logs' / 'log.jsonl', site / 'stats.json', releases=catalog.public_rows(rows))
+# --- multi-family portal data (catalog.html, packages.html): real states only, no invented counts or downloads ---
+import portal
+portal.write(site, root, catalog.public_rows(rows))
+# --- Threat Intelligence Hub: hub.json, sources.json, and intel packages / the static KEV index ONLY from packages verified in this build ---
+import portal_hub
+_hub = portal_hub.write(site, root, catalog.public_rows(rows))
+print('Hub data written:', 'static KEV index from a verified package' if _hub['kev_static'] else 'no verified KEV package (KEV shown as unavailable)')
 # --- the independent verifier, with its hash (same-origin copies are a convenience, not a root of trust: see the Verification page) ---
 shutil.copy(root / 'scripts' / 'verify_public_release.py', site / 'verify_public_release.py')
 (site / 'verify_public_release.py.sha256').write_text(hashlib.sha256((site / 'verify_public_release.py').read_bytes()).hexdigest() + '  verify_public_release.py\n')
@@ -63,5 +70,6 @@ import build_docs
 report = build_docs.build(site / 'docs', site)
 print(f"Documentation built: {report['pages']} pages")   # recomputed on every deploy; keeps the last 30 days
 import csp
+print(f'Vulnerability API: {portal_hub.inject_api(site, csp.api_base()) or "not configured (static KEV search only)"}')
 print(f'Content Security Policy written to {csp.inject(site)} pages')   # GitHub Pages cannot send headers, so the policy travels in each page
 print(f'Site assembled in {site}')

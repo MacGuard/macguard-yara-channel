@@ -1,0 +1,13 @@
+{
+ "schema": "macguard.portal-capabilities/1",
+ "source": "owner Freemium decision of 2026-11-01; capability names of contract macguard.entitlements/1 (gateway, PR #80, not yet merged)",
+ "access_mode": "OPEN_PREMIUM_PREVIEW",
+ "access_mode_note": "While charging is not activated, every published capability is open to everyone as a preview. Nothing here is a price or an offer.",
+ "plans": [
+  {"id": "free", "capabilities": ["catalog.public.read", "vulnerability.public.read", "yara.community.download"]},
+  {"id": "premium", "includes": "free", "capabilities": ["rules.premium.read", "rules.premium.download", "ioc.premium.read", "intel.correlation.read", "intel.advanced.export"]}
+ ],
+ "separate": [
+  {"capability": "research.poc.metadata.read", "policy": "PoC and exploit references only (metadata, never code). Granted individually after review; never part of a plan, of the preview, of any package or of automatic updates."}
+ ]
+}

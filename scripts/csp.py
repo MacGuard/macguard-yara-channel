@@ -8,9 +8,29 @@ All fetches of the pages are same-origin (rules, logs, release package), which `
 
 usage: csp.py inject SITE_DIR            add/refresh the meta tag in every page
        csp.py headers OUT_FILE           write the Cloudflare `_headers` file"""
-import pathlib, re, sys
+import os, pathlib, re, sys
 
-DIRECTIVES = ("default-src 'none'", "script-src 'self'", "style-src 'self' 'unsafe-inline'", "img-src 'self' data:", "font-src 'self'", "connect-src 'self'",
+# The vulnerability lookup API (gateway, macguard.intel-search/1) is OPTIONAL: only when the build sets MG_VULN_API to a plain https base does the
+# policy allow that ONE extra origin for fetch (and build_site writes <meta name="mg-vuln-api"> into the hub pages). Unset: policy unchanged.
+API_BASE_RE = re.compile(r'^https://([a-z0-9.-]+)(:\d{1,5})?(/[A-Za-z0-9._~/-]*)?$')
+
+
+def api_base() -> str:
+    v = (os.environ.get('MG_VULN_API') or '').strip()
+    if not v: return ''
+    if not API_BASE_RE.match(v): raise SystemExit(f'MG_VULN_API must be a plain https base URL, got {v!r}')
+    return v.rstrip('/')
+
+
+def api_origin() -> str:
+    b = api_base()
+    if not b: return ''
+    m = API_BASE_RE.match(b)
+    return 'https://' + m.group(1) + (m.group(2) or '')
+
+
+_API = api_origin()
+DIRECTIVES = ("default-src 'none'", "script-src 'self'", "style-src 'self' 'unsafe-inline'", "img-src 'self' data:", "font-src 'self'", "connect-src 'self'" + (' ' + _API if _API else ''),
               "base-uri 'none'", "form-action 'none'", "object-src 'none'")
 POLICY = '; '.join(DIRECTIVES)
 HEADER_POLICY = POLICY + "; frame-ancestors 'none'"   # frame-ancestors is ignored in a meta tag, so only the real header carries it
