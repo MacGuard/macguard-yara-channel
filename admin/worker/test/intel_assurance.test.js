@@ -629,3 +629,26 @@ test('no overwrite: log rows that EVERY other trigger would accept again (re-cha
     }
   }
 });
+
+test('caller time is informational (Codex fix round MEDIUM): out-of-order timestamps verify ok with a warning on every 0007 log; a reordered or replaced row is still detected', async () => {
+  const { db, e } = await world();
+  const reg2 = registryWith(['nvd']);
+  await syncSourceApprovals(db, reg2, '2026-11-02T00:00:02Z'); await syncSourceApprovals(db, REGISTRY_TEXT, '2026-11-02T00:00:01Z');   // the later request finishes first
+  const { id } = await relate(db, { type: 'RULE_DETECTS_CVE', from: e.rule, to: e.cve, source_id: 'lab', method: 'manual', ...ANALYST }, '2026-11-03T00:00:00Z');
+  await relate(db, { type: 'RULE_DETECTS_CVE', from: e.rule2, to: e.cve, source_id: 'lab', method: 'manual', ...ANALYST }, '2026-11-01T00:00:00Z');
+  await review(db, id, { approver: 'user:rev-a', decision: 'reject', reason: 'later decision' }, '2026-11-03T00:00:00Z'); await review(db, id, { approver: 'user:rev-b', decision: 'approve', reason: 'earlier clock' }, '2026-11-01T00:00:00Z');
+  await changeReviewer(db, { event: 'add', actor_id: 'user:eve', github_user_id: 66, by: ['user:rev-a', 'user:rev-b'], reason: 'clock behind', request_id: 'req-skew-0001' }, '2000-01-01T00:00:00Z');
+  const rel = await asserted(db, { type: 'VULN_HAS_WEAKNESS', from: e.cve, to: e.cwe });
+  await setLifecycle(db, rel, { marker: 'retracted', actor: 'source:cisa-kev', reason: 'withdrawn' }, '2026-11-05T00:00:00Z'); await setLifecycle(db, rel, { marker: 'reinstated', actor: 'source:cisa-kev', reason: 'back again' }, '2026-11-04T00:00:00Z');
+  const v = await verifyAssurance(db);
+  assert.equal(v.ok, true, JSON.stringify(v.logs));
+  for (const t of Object.keys(LOGS)) assert.ok(v.logs[t].warnings.length >= 1, `${t}: skew reported as a warning`);
+  // genuine tampering is still detected, through ids/chain/sequence, not time
+  for (const t of db.raw.prepare("SELECT name FROM sqlite_master WHERE type = 'trigger' AND tbl_name = 'intel_relationship_reviews'").all()) db.raw.exec(`DROP TRIGGER ${t.name}`);
+  raw(db, 'UPDATE intel_relationship_reviews SET id = id + 100'); raw(db, "UPDATE intel_relationship_reviews SET id = 1 WHERE reason = 'earlier clock'"); raw(db, "UPDATE intel_relationship_reviews SET id = 2 WHERE reason = 'later decision'");
+  assert.match((await verifyAssurance(db)).logs.intel_relationship_reviews.error, /chain link broken/, 'reordered rows (dense ids kept)');
+  raw(db, "UPDATE intel_relationship_reviews SET id = 3 WHERE reason = 'later decision'"); raw(db, "UPDATE intel_relationship_reviews SET id = 2 WHERE reason = 'earlier clock'"); raw(db, "UPDATE intel_relationship_reviews SET id = 1 WHERE reason = 'later decision'");
+  assert.equal((await verifyAssurance(db)).logs.intel_relationship_reviews.ok, true, 'order restored');
+  raw(db, "UPDATE intel_relationship_reviews SET decision = 'approve', approver = 'user:rev-a' WHERE id = 1");
+  assert.match((await verifyAssurance(db)).logs.intel_relationship_reviews.error, /content was altered/, 'replaced row content');
+});
