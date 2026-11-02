@@ -2,7 +2,7 @@
 //  1. runs tests/web/e2e.html (normal, tampered log, missing inclusion proof) and requires DONE with no FAIL;
 //  2. loads key pages and requires no page error, console error, failed request or CSP violation;
 //  3. requires every Mermaid diagram of two docs pages to render (window.__docsDiagrams) and fit without horizontal page scroll;
-//  4. runs axe-core (WCAG 2.x A/AA + 2.2 AA) at 1280 and 390 px, light and dark.
+//  4. runs axe-core (WCAG 2.x A/AA + 2.2 AA) at 1280 and 390 px, light and dark; 5-8 are described where they run.
 // The site needs verification.json (written by the site workflow from the release history); copy the live one next to a local build.
 // usage: PW_DIR=<dir with node_modules/playwright and axe-core> [PW_EXECUTABLE_WEBKIT=<pw_run.sh>] node tests/web/cross_browser.mjs <site-dir> [engine,engine]
 import { createRequire } from 'node:module';
@@ -112,6 +112,35 @@ for (const name of engines) {
             if (Math.hypot(dx, dy) < 12 || (g.small && Math.hypot(f.x - g.x, f.y - g.y) < 24)) { out.push(`${e.textContent.trim().slice(0, 24)} ~ ${T[g.i].textContent.trim().slice(0, 24)}`); break; } } }
         return out; });
       rec(name, `target size 24 px or spacing (2.5.8) at ${w} px: ${p}`, bad.length === 0, bad.length ? `${bad.length} too close: ${bad.slice(0, 3).join(' | ')}` : 'ok'); await ctx.close();
+    }
+    // 8. touch hit areas (Apple HIG 44x44 pt design goal, NOT a WCAG requirement; 2.5.8 is check 7): in an emulated touch screen
+    //    (hasTouch, plus isMobile where the engine supports it) (any-pointer: coarse) matches and every visible control, link in nav/table/
+    //    list/link row and docs button is at least 44x44 CSS px per line fragment, no two hit areas overlap and the page does not scroll
+    //    sideways. Links inside running text keep the inline exception and are not measured. Docs also with the diagram overlay open.
+    for (const w of [320, 390, 768]) {
+      const opt = { viewport: { width: w, height: 800 }, hasTouch: true }; if (name !== 'firefox') Object.assign(opt, { isMobile: true, deviceScaleFactor: 3 });
+      const ctx = await browser.newContext(opt); await ctx.addInitScript(() => { Object.defineProperty(Element.prototype, 'requestFullscreen', { value: undefined, configurable: true }); });
+      for (const p of ['index.html', 'vulnerabilities.html', 'vuln.html?id=CVE-2021-44228', 'catalog.html', 'packages.html', 'releases.html', 'rules.html', 'transparency.html', 'docs.html', 'docs/en/merkle.html']) {
+        const page = await ctx.newPage(); await page.goto(`${base}/${p}`, { waitUntil: 'networkidle' });
+        if (p.startsWith('docs/')) await page.waitForFunction(() => window.__docsDiagrams && window.__docsDiagrams.done, null, { timeout: 60000 }).catch(() => {}); else await page.waitForTimeout(1000);
+        const hit = (root) => { const R = root ? document.querySelector(root) : document; const bad = [];
+          const T = [...R.querySelectorAll('a[href],button,input:not([type=hidden]),select,textarea,summary,[tabindex]:not([tabindex="-1"])')].filter((e) => { const r = e.getBoundingClientRect();
+            return r.width > 0 && r.height > 0 && getComputedStyle(e).visibility !== 'hidden' && !e.closest('[hidden]') && !e.closest('details:not([open]) > :not(summary)') && !(e.classList.contains('skip') && document.activeElement !== e); });
+          const fr = []; let n = 0;
+          T.forEach((e, i) => { const par = e.parentElement; const own = par ? [...par.childNodes].filter((x) => x.nodeType === 3).map((x) => x.textContent).join('') : '';
+            if (e.tagName === 'A' && getComputedStyle(e).display === 'inline' && /[A-Za-zÁÉÍÓÚáéíóúñ]{3,}/.test(own)) return;   // link inside a sentence
+            n++; for (const r of e.getClientRects()) { if (r.width < 1 || r.height < 1) continue; fr.push({ i, r }); if (r.width < 44 || r.height < 44) bad.push(`${e.tagName.toLowerCase()} "${(e.getAttribute('aria-label') || e.textContent || '').trim().slice(0, 20)}" ${Math.round(r.width)}x${Math.round(r.height)}`); } });
+          for (let a = 0; a < fr.length; a++) for (let b = a + 1; b < fr.length; b++) { const A = fr[a], B = fr[b]; if (A.i === B.i || T[A.i].contains(T[B.i]) || T[B.i].contains(T[A.i])) continue;
+            if (Math.min(A.r.right, B.r.right) - Math.max(A.r.left, B.r.left) > 1 && Math.min(A.r.bottom, B.r.bottom) - Math.max(A.r.top, B.r.top) > 1) bad.push(`overlap "${T[A.i].textContent.trim().slice(0, 16)}" / "${T[B.i].textContent.trim().slice(0, 16)}"`); }
+          return { coarse: matchMedia('(any-pointer: coarse)').matches, n, bad, overflow: document.documentElement.scrollWidth - document.documentElement.clientWidth }; };
+        const m = await page.evaluate(hit); const bad = [...m.bad]; if (!m.coarse) bad.unshift('(any-pointer: coarse) does not match'); if (m.overflow > 1) bad.push(`horizontal page scroll ${m.overflow}px`);
+        let extra = '';
+        if (p.startsWith('docs/')) { await page.locator('#fig-rules-merkle .dg-bar button[aria-label="Full screen"]').click(); await page.waitForTimeout(300);
+          const o = await page.evaluate(hit, '.diagram.dg-full'); if (!o.n) bad.push('overlay did not open'); bad.push(...o.bad.map((x) => 'overlay: ' + x)); extra = ` + ${o.n} in the overlay`; }
+        rec(name, `touch hit areas 44x44 (Apple HIG goal) at ${w} px: ${p}`, bad.length === 0, bad.length ? `${bad.length}: ${bad.slice(0, 4).join(' | ')}` : `${m.n} targets${extra}`);
+        await page.close();
+      }
+      await ctx.close();
     }
     srv.close();
   } finally { await browser.close(); }

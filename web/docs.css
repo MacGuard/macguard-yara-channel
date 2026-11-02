@@ -19,3 +19,9 @@ article code{font-family:ui-monospace,Menlo,monospace;font-size:.92em;background
 .status-actual{color:#1b6e3c;font-weight:700}.status-proposal{color:#8a5a00;font-weight:700}
 @media(max-width:850px){.docs-side{width:100%}.docs-nav{display:flex;overflow:auto;gap:4px;padding-bottom:6px}.docs-nav a{white-space:nowrap}.docs-main{padding:16px}article h1{font-size:24px}.dg-stage{max-height:60vh}}
 .sr-status{position:absolute;width:1px;height:1px;margin:-1px;padding:0;border:0;overflow:hidden;clip:rect(0 0 0 0);clip-path:inset(50%);white-space:nowrap}
+/* Apple HIG design goal on touch screens (see style.css): 44x44 CSS px hit areas for the docs controls; the copy button moves
+   below its code block so it never covers the scrollable code region */
+@media (any-pointer:coarse){
+.docs-nav a,.docs-main .pager a,.docs-top .btn,.docs-side .home{min-height:44px;min-width:44px;padding-block:12px}
+.codeblock .copy{position:static;display:block;margin:6px 0 0 auto}
+}

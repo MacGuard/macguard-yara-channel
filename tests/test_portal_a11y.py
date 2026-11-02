@@ -190,5 +190,55 @@ class TargetSpacing(unittest.TestCase):
         self.assertIn('.linkrow,.tablewrap td:has(a){line-height:max(24px,1.6em)}', css)
         self.assertIn('<li class="linkrow"><a href="guide.html"><span lang="es">Guía del portal</span> · <span lang="en">Portal guide</span></a>', (WEB / 'packages.html').read_text())
 
+
+def coarse_blocks(css):
+    """Bodies of the @media (any-pointer:coarse) blocks of a stylesheet, and the stylesheet without them."""
+    blocks, rest = [], css
+    while True:
+        k = rest.find('@media (any-pointer:coarse){')
+        if k < 0: return blocks, rest
+        j, depth = k + len('@media (any-pointer:coarse){'), 1
+        while depth:
+            depth += {'{': 1, '}': -1}.get(rest[j], 0); j += 1
+        blocks.append(rest[k + len('@media (any-pointer:coarse){'):j - 1]); rest = rest[:k] + rest[j:]
+
+
+def rules(block):
+    return {sel.strip(): body for sel, body in re.findall(r'([^{}]+)\{([^{}]*)\}', block)}
+
+
+class TouchHitAreas(unittest.TestCase):
+    """Apple HIG design goal (44x44 pt hit areas), not a WCAG requirement: WCAG 2.5.8 (24x24 CSS px or spacing, TargetSpacing above) was
+    already met. On a touch screen ((any-pointer: coarse)) controls were 24-43 px (nav 43, selects 39, buttons 37, theme toggle 33 wide,
+    diagram buttons 30x26, copy button 48x24, table links 15 px tall). A coarse-pointer block gives each control and each link in nav, tables,
+    lists and link rows a 44x44 CSS px minimum with padding and min sizes only; the mouse layout has no such rule. Links inside running
+    text keep the inline exception. Browser check (Chromium/Firefox/WebKit touch emulation at 320/390/768): tests/web/cross_browser.mjs check 8."""
+    def test_portal_controls_and_list_links_get_44_px_on_coarse_pointers(self):
+        blocks, rest = coarse_blocks((WEB / 'style.css').read_text())
+        self.assertEqual(len(blocks), 1); r = rules(blocks[0])
+        self.assertIn('min-height:44px', r[':is(button,select,input:not([type=hidden]):not([type=checkbox]):not([type=radio]),textarea)'])
+        self.assertIn('min-width:44px', r[':is(button,select)'])
+        self.assertIn('min-height:44px', r['summary,[tabindex="0"]'])
+        links = next(v for k, v in r.items() if k.startswith('nav a,'))
+        sels = {x.strip() for x in next(k for k in r if k.startswith('nav a,')).split(',')}
+        self.assertTrue({'nav a', 'td a', 'th a', 'dd a', 'h2>a', '.linkrow a', 'a.go', 'li a:not(.docs-main li a)', '.skip'} <= sels, sels)
+        for d in ('display:inline-block', 'min-height:44px', 'min-width:44px', 'padding-block:12px'): self.assertIn(d, links)
+        # fine pointer (mouse) layout unchanged: no 44 px minimum outside the coarse-pointer block, no font-size inside it
+        self.assertNotIn('44px', rest); self.assertNotIn('font-size', blocks[0])
+
+    def test_docs_controls_get_44_px_and_the_copy_button_never_covers_the_code(self):
+        blocks, rest = coarse_blocks((WEB / 'docs.css').read_text())
+        self.assertEqual(len(blocks), 1); r = rules(blocks[0])
+        self.assertIn('min-height:44px', r['.docs-nav a,.docs-main .pager a,.docs-top .btn,.docs-side .home'])
+        self.assertIn('position:static', r['.codeblock .copy'])
+        self.assertNotIn('44px', rest); self.assertNotIn('font-size', blocks[0])
+
+    def test_link_rows_and_lone_links_are_marked(self):
+        idx = (WEB / 'index.html').read_text()
+        self.assertEqual(idx.count('<p class="linkrow"><a href="https://github.com/'), 3)
+        for a in ('id="hub-int-more" class="go"', 'id="hub-rec-more" class="go"'): self.assertIn(a, idx)
+        self.assertIn('data-t="back" class="go"', (WEB / 'vuln.html').read_text())
+        self.assertEqual((WEB / 'transparency.html').read_text().count('<p class="linkrow">'), 2)
+
 if __name__ == '__main__':
     unittest.main()

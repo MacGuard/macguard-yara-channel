@@ -57,3 +57,12 @@ pre.mono{white-space:pre-wrap;overflow-wrap:anywhere;max-width:100%;overflow-x:a
 :root{--field:#76828f}body.dark{--field:#7488a0}:is(input,select,textarea):not([type=hidden]):not([type=checkbox]):not([type=radio]){border-color:var(--field)}
 /* WCAG 2.5.8: lists of links separated by " · " (table cells, link rows) are not sentences; when they wrap, the rows must be at least 24 px apart (they were 15 px) */
 .linkrow,.tablewrap td:has(a){line-height:max(24px,1.6em)}
+/* Apple HIG design goal, not a WCAG requirement (WCAG 2.5.8 asks 24x24 CSS px or spacing and is met without this block):
+   on a touch screen every control has a hit area of at least 44x44 CSS px. Only padding and minimum sizes change; text sizes
+   and the mouse (fine pointer) layout stay as they are. Links inside running text keep the inline exception. */
+@media (any-pointer:coarse){
+:is(button,select,input:not([type=hidden]):not([type=checkbox]):not([type=radio]),textarea){min-height:44px}
+:is(button,select){min-width:44px}
+summary,[tabindex="0"]{min-height:44px}summary{padding-block:12px;line-height:20px}
+nav a,td a,th a,dd a,h2>a,.linkrow a,a.go,li a:not(.docs-main li a),.skip{display:inline-block;min-height:44px;min-width:44px;padding-block:12px}
+}
