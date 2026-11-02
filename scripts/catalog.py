@@ -16,15 +16,23 @@ import tlog
 NEXTRON_PREFIXES = {'apt', 'mal', 'gen', 'expl', 'vuln', 'susp', 'hktl', 'webshell', 'yara', 'cloud', 'general', 'thor', 'configured'}
 
 import re
-# Rule declarations YARA would compile: `[private|global]* rule NAME [: tags] {` outside comments and string literals.
+RULE_RE = re.compile(r'^\s*(?:(?:global|private)\s+)*rule\s+\w+', re.M)
+
+def count_rules(text: str) -> int:
+    """Rule declarations matched line-wise, including commented-out ones. This is the meaning of the signed stats.yara_rules, kept
+    unchanged for verifier compatibility (verify_public_release.py 1.0.0 recounts it with this exact regex). For the rules YARA
+    actually compiles, use count_compiled_rules."""
+    return len(RULE_RE.findall(text))
+
+# count_compiled_rules: rule declarations YARA would compile, `[private|global]* rule NAME [: tags] {` outside comments and string literals.
 # Syntax-aware port (count only) of the tolerant scanner in scripts/rule_index.py (branch feat/hub-search-index): comments (// and
 # /* */, not nested, as in YARA), text strings, regular expressions and hex strings (which may hold comments) are skipped, and a rule
 # body is consumed to its closing '}', so `rule X {` inside any of them is not counted. Malformed input never raises.
 _RC_IDENT = re.compile(r'[A-Za-z_][A-Za-z0-9_]*', re.A)
 
 
-def count_rules(text: str) -> int:
-    """Individual YARA rule declarations in a file (a file may hold many, or none); commented-out rules and `rule X {` inside strings are not rules."""
+def count_compiled_rules(text: str) -> int:
+    """Rules YARA compiles in a file (a file may hold many, or none): commented-out rules and `rule X {` inside strings are not rules."""
     s, n, i = text, len(text), 0
 
     def ws(i):
@@ -115,6 +123,15 @@ def count_rules(text: str) -> int:
         if i >= n or s[i] != '{': continue
         count += 1
         i = body(i + 1)
+
+def release_stats(folder, files) -> dict:
+    """stats of a manifest, derived from the files themselves and signed with it. yara_rules keeps its historical line-wise meaning
+    (count_rules) so verifiers already in users' hands keep passing; yara_rules_compiled (added later, ignored by old verifiers) is the
+    number of rules YARA compiles (count_compiled_rules). Displays prefer yara_rules_compiled and fall back to yara_rules."""
+    folder = pathlib.Path(folder)
+    texts = [(folder / f['path']).read_text(errors='replace') for f in files]
+    return {'files': len(files), 'yara_rules': sum(count_rules(x) for x in texts), 'yara_rules_compiled': sum(count_compiled_rules(x) for x in texts),
+            'expanded_bytes': sum(f['bytes'] for f in files)}
 
 PLATFORM_MARKERS = {
     'Windows': re.compile(r'\bimport\s+"pe"|0x5A4D|\{\s*4D\s*5A|\.dll\b|\.exe\b|\bHKEY_|\\\\Windows|powershell|cmd\.exe|PE32', re.I),

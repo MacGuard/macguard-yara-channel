@@ -1,12 +1,14 @@
-"""stats.yara_rules counts the rules YARA compiles: declarations inside comments or string literals are not rules.
+"""Rule counts of a release.
 
-catalog.count_rules (used by seal.py and build_site.py) and the copy embedded in the standalone verify_public_release.py must agree,
-and the verifier must still accept the historical signed value of releases sealed with the old line count."""
-import json, pathlib, re, shutil, sys, tarfile, tempfile, unittest
+stats.yara_rules keeps its signed, historical meaning (rule declarations matched line-wise, commented-out ones included) so that
+verify_public_release.py 1.0.0, already in users' hands, keeps passing. stats.yara_rules_compiled (additive) counts the rules YARA
+compiles: declarations inside comments or string literals are not rules. catalog.count_compiled_rules and the copy embedded in the
+standalone verifier must agree."""
+import importlib.util, json, pathlib, re, shutil, subprocess, sys, tarfile, tempfile, unittest
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / 'scripts'))
-import catalog, verify_public_release as V
+import catalog, portal, verify_public_release as V
 
 QA_RELEASE = pathlib.Path('/home/dmuino/.local/state/macguard/qa/a11y-20261101/build-c13/release')
 OLD_RE = re.compile(r'^\s*(?:(?:global|private)\s+)*rule\s+\w+', re.M)
@@ -42,8 +44,8 @@ rule Fake_In_Unterminated { condition: true }
 
 class CountRules(unittest.TestCase):
     def both(self, text, expected):
-        self.assertEqual(catalog.count_rules(text), expected, 'catalog.count_rules')
-        self.assertEqual(V.count_rules(text), expected, 'verify_public_release.count_rules')
+        self.assertEqual(catalog.count_compiled_rules(text), expected, 'catalog.count_compiled_rules')
+        self.assertEqual(V.count_compiled_rules(text), expected, 'verify_public_release.count_compiled_rules')
 
     def test_rule_inside_block_comment_is_not_counted(self):
         self.both('/*\nrule A { condition: true }\n*/\nrule B { condition: true }\n', 1)
@@ -81,26 +83,86 @@ class CountRules(unittest.TestCase):
 
     def test_malformed_input_never_raises(self):
         for t in ('rule', 'rule A', 'rule A {', 'rule A { strings: $a = "unterminated', 'rule A { strings: $h = { 4D', '/*', '"', 'private', 'rule A : {'):
-            catalog.count_rules(t); V.count_rules(t)
+            catalog.count_compiled_rules(t); V.count_compiled_rules(t)
 
     def test_old_line_regex_overcounts_these_cases(self):
         # Documents the bug: the line regex counted declarations inside comments and strings.
-        self.assertGreater(len(OLD_RE.findall(MIXED)), catalog.count_rules(MIXED))
+        self.assertGreater(len(OLD_RE.findall(MIXED)), catalog.count_compiled_rules(MIXED))
 
 
-class VerifierAcceptance(unittest.TestCase):
-    TEXTS = ['/*\nrule Old { condition: true }\n*/\nrule A { condition: true }\n', 'private rule B { condition: true }\n']
+def write_files(folder, texts):
+    files = []
+    for k, x in enumerate(texts):
+        p = pathlib.Path(folder) / 'rules' / f'f{k}.yar'; p.parent.mkdir(parents=True, exist_ok=True); p.write_text(x)
+        files.append({'path': f'rules/f{k}.yar', 'bytes': len(x.encode())})
+    return files
 
-    def test_current_count_passes(self):
-        self.assertEqual(V.check_yara_rules(2, self.TEXTS), (2, 'current'))
 
-    def test_historical_line_count_still_passes(self):
-        self.assertEqual(V.check_yara_rules(3, self.TEXTS), (2, 'legacy'))
+def verifier_1_0_0():
+    """verify_public_release.py 1.0.0 as published (main at 8a38beb), imported from git; None when the object is not available."""
+    r = subprocess.run(['git', '-C', str(ROOT), 'show', '8a38beb:scripts/verify_public_release.py'], capture_output=True)
+    if r.returncode != 0: return None
+    d = pathlib.Path(tempfile.mkdtemp(prefix='verifier-1.0.0-')); f = d / 'verify_public_release_1_0_0.py'; f.write_bytes(r.stdout)
+    spec = importlib.util.spec_from_file_location('verify_public_release_1_0_0', f); mod = importlib.util.module_from_spec(spec); spec.loader.exec_module(mod)
+    shutil.rmtree(d, ignore_errors=True)
+    return mod
 
-    def test_any_other_value_fails(self):
-        for bad in (1, 4, None, '2'):
-            with self.assertRaises(V.Fail) as e: V.check_yara_rules(bad, self.TEXTS)
-            self.assertEqual(e.exception.code, 1)
+
+def old_counts_check(rule_re, st, files, texts):
+    """The counts check of verifier 1.0.0, verbatim in substance: files, expanded bytes, and a RULE_RE recount of yara_rules."""
+    assert st.get('files') == len(files), 'stats.files'
+    assert st.get('expanded_bytes') == sum(f['bytes'] for f in files), 'stats.expanded_bytes'
+    n = sum(len(rule_re.findall(x)) for x in texts)
+    assert st.get('yara_rules') == n, f"stats.yara_rules {st.get('yara_rules')} != {n}"
+
+
+class SignedStats(unittest.TestCase):
+    TEXTS = ['/*\nrule Old { condition: true }\n*/\nrule A { condition: true }\n', 'private rule B { condition: true }\n', MIXED]
+
+    def setUp(self):
+        self.tmp = pathlib.Path(tempfile.mkdtemp(prefix='rule-stats-')); self.files = write_files(self.tmp, self.TEXTS)
+        self.st = catalog.release_stats(self.tmp, self.files)
+    def tearDown(self): shutil.rmtree(self.tmp, ignore_errors=True)
+
+    def test_new_field_is_additive(self):
+        self.assertEqual(self.st['yara_rules'], sum(len(OLD_RE.findall(x)) for x in self.TEXTS))   # unchanged meaning
+        self.assertEqual(self.st['yara_rules_compiled'], 1 + 1 + 4)
+        self.assertEqual((self.st['files'], self.st['expanded_bytes']), (3, sum(f['bytes'] for f in self.files)))
+        self.assertIn('catalog.release_stats(folder', (ROOT / 'scripts/seal.py').read_text(), 'seal.py must sign these stats')
+
+    def test_verifier_1_0_0_accepts_stats_of_the_new_seal(self):
+        old = verifier_1_0_0()
+        rule_re = old.RULE_RE if old else OLD_RE
+        if old: self.assertEqual(old.VERSION, '1.0.0')
+        self.assertEqual(rule_re.pattern, V.RULE_RE.pattern); self.assertEqual(rule_re.flags, V.RULE_RE.flags)
+        old_counts_check(rule_re, self.st, self.files, self.TEXTS)
+        if old is None: self.skipTest('git object 8a38beb not available: checked against the embedded 1.0.0 regex only')
+
+    def test_current_verifier_checks_both_fields(self):
+        n, c, detail = V.check_rule_counts(self.st, self.TEXTS)
+        self.assertEqual((n, c), (self.st['yara_rules'], 6)); self.assertIn('stats.yara_rules_compiled', detail)
+
+    def test_wrong_compiled_count_fails(self):
+        for bad in (self.st['yara_rules'], 5, 7, None):
+            with self.assertRaises(V.Fail) as e: V.check_rule_counts(dict(self.st, yara_rules_compiled=bad), self.TEXTS)
+            self.assertEqual(e.exception.code, 1); self.assertIn('yara_rules_compiled', e.exception.message)
+
+    def test_wrong_line_count_still_fails(self):
+        for bad in (self.st['yara_rules_compiled'], self.st['yara_rules'] + 1):
+            with self.assertRaises(V.Fail) as e: V.check_rule_counts(dict(self.st, yara_rules=bad), self.TEXTS)
+            self.assertIn('stats.yara_rules ', e.exception.message)
+
+    def test_historical_manifest_without_the_field_verifies(self):
+        st = {k: v for k, v in self.st.items() if k != 'yara_rules_compiled'}
+        n, c, detail = V.check_rule_counts(st, self.TEXTS)
+        self.assertEqual((n, c), (self.st['yara_rules'], 6)); self.assertIn('not checked', detail)
+
+    def test_display_prefers_compiled_and_falls_back(self):
+        self.assertEqual(portal.yara_counts({'yara_rules': 10021, 'yara_rules_compiled': 9939})['yara_rules'], 9939)
+        old = portal.yara_counts({'yara_rules': 10021})
+        self.assertEqual(old['yara_rules'], 10021); self.assertTrue(old['yara_rules_basis'].startswith('declarations'))
+        self.assertEqual(V.rule_count_text({'yara_rules': 10021, 'yara_rules_compiled': 9939}), '9939 (10021 declarations incl. commented-out)')
+        self.assertEqual(V.rule_count_text({'yara_rules': 10021}), '10021')
 
 
 class RealRelease(unittest.TestCase):
@@ -118,13 +180,18 @@ class RealRelease(unittest.TestCase):
     @classmethod
     def tearDownClass(cls): shutil.rmtree(cls.tmp, ignore_errors=True)
 
-    def test_count_is_9939_and_historical_value_still_verifies(self):
-        signed = self.manifest['stats']['yara_rules']
-        self.assertEqual(signed, 10021)
-        self.assertEqual(sum(catalog.count_rules(t) for t in self.texts), 9939)
-        self.assertEqual(sum(V.count_rules(t) for t in self.texts), 9939)
-        self.assertEqual(V.check_yara_rules(signed, self.texts), (9939, 'legacy'))
-        self.assertEqual(V.check_yara_rules(9939, self.texts), (9939, 'current'))
+    def test_counts_10021_declarations_9939_compiled_and_historical_manifest_verifies(self):
+        signed = self.manifest['stats']
+        self.assertEqual(signed['yara_rules'], 10021); self.assertNotIn('yara_rules_compiled', signed)
+        self.assertEqual(sum(catalog.count_compiled_rules(t) for t in self.texts), 9939)
+        self.assertEqual(sum(V.count_compiled_rules(t) for t in self.texts), 9939)
+        st = catalog.release_stats(self.tmp, self.manifest['files'])
+        self.assertEqual((st['yara_rules'], st['yara_rules_compiled'], st['files'], st['expanded_bytes']),
+                         (10021, 9939, signed['files'], signed['expanded_bytes']))
+        n, c, detail = V.check_rule_counts(signed, self.texts)        # historical signed manifest, no new field
+        self.assertEqual((n, c), (10021, 9939)); self.assertIn('not checked', detail)
+        self.assertEqual(V.check_rule_counts(st, self.texts)[:2], (10021, 9939))   # what a new seal would sign
+        old_counts_check(OLD_RE, st, self.manifest['files'], self.texts)
 
 
 if __name__ == '__main__':

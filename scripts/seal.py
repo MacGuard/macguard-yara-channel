@@ -16,8 +16,9 @@ if bad: sys.exit(f'The inventory cannot be sealed: {bad}')
 manifest['rules_root']=tlog.rules_root(manifest['files'])
 manifest['log']={'origin':tlog.ORIGIN,'size':log_size,'root':log_root.hex()}
 # Counts derived from the files themselves; they are signed with the manifest. Old clients ignore unknown fields.
-yara_rules=sum(catalog.count_rules((folder/f['path']).read_text(errors='replace')) for f in manifest['files'])
-manifest['stats']={'files':len(manifest['files']),'yara_rules':yara_rules,'expanded_bytes':sum(f['bytes'] for f in manifest['files'])}
+# yara_rules: rule declarations matched line-wise, including commented-out ones (kept for verifier compatibility);
+# yara_rules_compiled: rules outside comments and strings, the ones YARA compiles. See catalog.release_stats.
+manifest['stats']=catalog.release_stats(folder,manifest['files'])
 manifest['status']='PUBLISHED';manifest['validation']={'checked':validation['checked'],'engine':validation['engine']}
 # Evidence that the set published is the set that was tested. It is signed with the manifest, so a client can see which review run, which
 # commit of the workflows and which dynamic measurement the signature covers. It is the publishing workflow's statement, not an independent attestation.

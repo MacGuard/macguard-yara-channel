@@ -33,7 +33,7 @@ Every release is the full current rule set: it installs on its own, without earl
 Both serve the same bytes: `scripts/verify_live.py <base URL> --identity … --repo … --external` passes on both (package, 1,184 rule files, catalog, signatures, proofs, links).
 
 ## Release contents
-`rules-release.tar.gz`, `manifest.json` (signed; includes `rules_root` and `stats`: files, yara_rules, expanded_bytes), `manifest.sigstore.json`, `inclusion-proof.json`, `checkpoint.txt`, `checkpoint.sigstore.json`, `release.json`, `changes.json`, `CHANGELOG.md`, and `consistency.json` when a previous release exists.
+`rules-release.tar.gz`, `manifest.json` (signed; includes `rules_root` and `stats`: files, yara_rules (line-wise rule declarations, including commented-out ones; kept for verifier compatibility), yara_rules_compiled (rules outside comments and strings; releases from this change on), expanded_bytes), `manifest.sigstore.json`, `inclusion-proof.json`, `checkpoint.txt`, `checkpoint.sigstore.json`, `release.json`, `changes.json`, `CHANGELOG.md`, and `consistency.json` when a previous release exists.
 
 ## Configure (one-time, human)
 1. Settings → Pages → GitHub Actions.

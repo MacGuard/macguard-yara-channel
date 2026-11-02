@@ -17,7 +17,7 @@ parsed data):
   files          every file's SHA-256 equals the signed manifest; no missing, extra or duplicated file
   rules_root     recomputed Merkle root over the files equals the signed one
   counts         files / expanded bytes / individual YARA rules equal what the signed manifest declares
-                 (rules outside comments and strings; a release sealed before that count may declare the historical line count instead)
+                 (yara_rules line-wise as in 1.0.0; yara_rules_compiled, outside comments and strings, when the manifest declares it)
   checkpoint     size and root equal the log head inside the signed manifest
   inclusion      the Merkle proof carries the release's log entry to the checkpoint root, and the entry names this rules_root
   consistency    (optional) this checkpoint extends the previous one you trust: --previous-checkpoint FILE or --trust-state FILE
@@ -39,21 +39,21 @@ ORIGIN = 'macguard-rules-log v1'
 REQUIRED = ['rules-release.tar.gz', 'manifest.json', 'manifest.sigstore.json', 'inclusion-proof.json', 'checkpoint.txt', 'checkpoint.sigstore.json']
 OPTIONAL = ['consistency.json', 'release.json', 'changes.json', 'CHANGELOG.md']
 LIMITS = {'members': 20000, 'total_bytes': 512 * 1024 * 1024, 'file_bytes': 25 * 1024 * 1024, 'depth': 24, 'name_bytes': 512, 'manifest_bytes': 10 * 1024 * 1024}
-# Line regex that releases sealed before the syntax-aware count used for stats.yara_rules. It also counts commented-out rules, so it
-# is only kept to accept those historical signed values (signed manifests never change); it is not a count of compiled rules.
-LEGACY_RULE_RE = re.compile(r'^\s*(?:(?:global|private)\s+)*rule\s+\w+', re.M)
+# stats.yara_rules = rule declarations matched line-wise by this regex, including commented-out ones. Unchanged since 1.0.0 so that
+# every verifier version agrees on that signed value; the rules YARA compiles are stats.yara_rules_compiled (count_compiled_rules).
+RULE_RE = re.compile(r'^\s*(?:(?:global|private)\s+)*rule\s+\w+', re.M)
 PRECEDENCE = [5, 4, 6, 2, 1, 3]          # which failure decides the exit code when several happen
 
-# Rule declarations YARA would compile: `[private|global]* rule NAME [: tags] {` outside comments and string literals.
-# Kept identical to catalog.count_rules (this verifier is a standalone single file; tests/test_rule_count.py checks the two agree).
+# count_compiled_rules: rule declarations YARA would compile, `[private|global]* rule NAME [: tags] {` outside comments and string literals.
+# Kept identical to catalog.count_compiled_rules (this verifier is a standalone single file; tests/test_rule_count.py checks the two agree).
 # Syntax-aware port (count only) of the tolerant scanner in scripts/rule_index.py (branch feat/hub-search-index): comments (// and
 # /* */, not nested, as in YARA), text strings, regular expressions and hex strings (which may hold comments) are skipped, and a rule
 # body is consumed to its closing '}', so `rule X {` inside any of them is not counted. Malformed input never raises.
 _RC_IDENT = re.compile(r'[A-Za-z_][A-Za-z0-9_]*', re.A)
 
 
-def count_rules(text: str) -> int:
-    """Individual YARA rule declarations in a file (a file may hold many, or none); commented-out rules and `rule X {` inside strings are not rules."""
+def count_compiled_rules(text: str) -> int:
+    """Rules YARA compiles in a file (a file may hold many, or none): commented-out rules and `rule X {` inside strings are not rules."""
     s, n, i = text, len(text), 0
 
     def ws(i):
@@ -149,16 +149,26 @@ def count_rules(text: str) -> int:
 class Fail(Exception):
     def __init__(self, code, message): super().__init__(message); self.code, self.message = code, message
 
-def check_yara_rules(declared, texts):
-    """(rules counted, 'current' | 'legacy') when the signed stats.yara_rules matches the files; raises Fail(1) otherwise.
-    Releases sealed before the syntax-aware count declare the line-regex count, which includes commented-out rules. A signed manifest
-    never changes, so that value is accepted when it equals the historical method over the same files. Both counts are deterministic
-    functions of the verified files, so accepting either lets no other number through."""
-    n = sum(count_rules(x) for x in texts)
-    if declared == n: return n, 'current'
-    legacy = sum(len(LEGACY_RULE_RE.findall(x)) for x in texts)
-    if declared == legacy: return n, 'legacy'
-    raise Fail(1, f"stats.yara_rules {declared} != {n} rule declarations counted (nor {legacy} by the historical line count)")
+def check_rule_counts(st, texts):
+    """Compare the signed rule counts with the files. Returns (yara_rules, yara_rules_compiled, detail); raises Fail(1) on a mismatch.
+    stats.yara_rules is recounted exactly as verifier 1.0.0 does (RULE_RE, line-wise, commented-out declarations included).
+    stats.yara_rules_compiled, added later, is checked with count_compiled_rules when the manifest declares it; releases sealed
+    before it existed do not declare it, and then it is only reported, not checked."""
+    n = sum(len(RULE_RE.findall(x)) for x in texts)
+    if st.get('yara_rules') != n: raise Fail(1, f"stats.yara_rules {st.get('yara_rules')} != {n} rule declarations counted")
+    c = sum(count_compiled_rules(x) for x in texts)
+    if 'yara_rules_compiled' not in st:
+        return n, c, (f'{c} rules outside comments and strings; stats.yara_rules_compiled is not declared (release sealed before it existed), '
+                      f'so it was not checked; stats.yara_rules {n} counts line-wise declarations, including commented-out ones')
+    if st['yara_rules_compiled'] != c: raise Fail(1, f"stats.yara_rules_compiled {st['yara_rules_compiled']} != {c} rules counted outside comments and strings")
+    return n, c, f'{c} rules outside comments and strings (stats.yara_rules_compiled), {n} line-wise declarations including commented-out ones (stats.yara_rules)'
+
+
+def rule_count_text(s, sep=''):
+    """'9939 (10021 declarations incl. commented-out)' when the compiled count is known, else the line-wise yara_rules alone."""
+    if isinstance(s.get('yara_rules_compiled'), int) and s['yara_rules_compiled'] != s.get('yara_rules'):
+        return f"{s['yara_rules_compiled']:{sep}} ({s['yara_rules']:{sep}} declarations incl. commented-out)"
+    return f"{s.get('yara_rules'):{sep}}" if isinstance(s.get('yara_rules'), int) else str(s.get('yara_rules'))
 
 
 # ---- Merkle (RFC 6962 hashing, RFC 9162 proofs) ------------------------------------------------------------
@@ -591,12 +601,10 @@ def verify(a):
             if st.get('expanded_bytes') != expanded: raise Fail(1, f"stats.expanded_bytes {st.get('expanded_bytes')} != {expanded}")
             if pkg_ok:
                 if any(not (out / f['path']).exists() for f in files): raise Fail(1, 'cannot recount the YARA rules: some files of the manifest are missing from the package')
-                n, method = check_yara_rules(st.get('yara_rules'), [(out / f['path']).read_text(errors='replace') for f in files])
-                ctx['yara_rules'] = n
-                if method == 'legacy':
-                    return (f"{len(files)} files, {expanded} bytes, {n} individual YARA rules (the signed stats.yara_rules {st.get('yara_rules')} was counted by the "
-                            f"historical line method, which also counts declarations inside comments)")
-            return f"{len(files)} files, {expanded} bytes, {ctx.get('yara_rules', st.get('yara_rules'))} individual YARA rules"
+                n, c, detail = check_rule_counts(st, [(out / f['path']).read_text(errors='replace') for f in files])
+                ctx['yara_rules'], ctx['yara_rules_compiled'] = n, c
+                return f"{len(files)} files, {expanded} bytes, {detail}"
+            return f"{len(files)} files, {expanded} bytes, {st.get('yara_rules')} individual YARA rules"
         run_check(rep, 'counts', counts, 1)
         def checkpoint():
             lg = m['log']
@@ -641,7 +649,8 @@ def verify(a):
         if prev: run_check(rep, 'consistency', consistency, 3)
         elif not any(c['id'] == 'consistency' for c in rep.checks):
             rep.add('consistency', 'not_requested', 'no previous checkpoint was given (--previous-checkpoint or --trust-state): this is a first verification, so rollback protection is NOT established by this run', None, mandatory=False)
-        rep.summary = {'files': len(m['files']), 'yara_rules': ctx.get('yara_rules', (m.get('stats') or {}).get('yara_rules')), 'expanded_bytes': sum(f['bytes'] for f in m['files']),
+        rep.summary = {'files': len(m['files']), 'yara_rules': ctx.get('yara_rules', (m.get('stats') or {}).get('yara_rules')),
+                       'yara_rules_compiled': ctx.get('yara_rules_compiled', (m.get('stats') or {}).get('yara_rules_compiled')), 'expanded_bytes': sum(f['bytes'] for f in m['files']),
                        'package_bytes': (d / 'rules-release.tar.gz').stat().st_size, 'package_sha256': sha256_file(d / 'rules-release.tar.gz'), 'manifest_sha256': sha256_file(d / 'manifest.json'),
                        'rules_root': m['rules_root'], 'log_size': ctx['size'], 'log_root': ctx['root'].hex(), 'checkpoint': (d / 'checkpoint.txt').read_text().strip().replace('\n', ' | ')}
         # optional, unsigned cross-checks
@@ -676,7 +685,7 @@ def render(r) -> str:
     lines = [f"MacGuard release verification — {r['result']} (exit {r['exit_code']})", '']
     if rel: lines.append(f"Release        {rel.get('tag')}  ({rel.get('resolved_from')})" + (f"  {rel.get('url')}" if rel.get('url') else '') + (f"\n               note: {rel['note']}" if rel.get('note') else ''))
     if s:
-        lines += [f"Files          {s['files']}   individual YARA rules: {s['yara_rules']}   expanded {s['expanded_bytes']} bytes   package {s['package_bytes']} bytes",
+        lines += [f"Files          {s['files']}   individual YARA rules: {rule_count_text(s)}   expanded {s['expanded_bytes']} bytes   package {s['package_bytes']} bytes",
                   f"Package SHA256 {s['package_sha256']}", f"Manifest SHA256 {s['manifest_sha256']}", f"rules_root     {s['rules_root']}", f"Checkpoint     {s['checkpoint']}"]
     lines.append(f"Identity       {r['expected']['identity']}\nIssuer         {r['expected']['issuer']}\n")
     mark = {'pass': 'PASS', 'fail': 'FAIL', 'not_requested': 'n/a '}
@@ -712,7 +721,7 @@ def render_styled(r, ui: UI) -> str:
         if rel.get('url'): kv('', rel['url'], ui.BLUE)
         if rel.get('note'): kv('Note', rel['note'], ui.YELLOW)
     if s:
-        kv('Rule files', f"{s['files']:,}" + ui.s(f"   ({s['yara_rules']:,} individual YARA rules, {s['expanded_bytes']:,} bytes)", ui.DIM) if isinstance(s.get('yara_rules'), int) else s['files'])
+        kv('Rule files', f"{s['files']:,}" + ui.s(f"   ({rule_count_text(s, ',')} individual YARA rules, {s['expanded_bytes']:,} bytes)", ui.DIM) if isinstance(s.get('yara_rules'), int) else s['files'])
         kv('Package', f"{s['package_bytes']:,} bytes")
         kv('Package SHA-256', s['package_sha256'], ui.CYAN)
         kv('Manifest SHA-256', s['manifest_sha256'], ui.CYAN)

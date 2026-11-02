@@ -27,7 +27,7 @@ def families(config: dict, latest: dict | None) -> dict:
             'state': 'PUBLISHED' if latest else 'NOT_PUBLISHED', 'config_source': None, 'package': None}
     if latest:
         s = latest.get('stats') or {}
-        yara['package'] = {'files': s.get('files'), 'yara_rules': s.get('yara_rules'), 'package_bytes': latest.get('package_bytes'),
+        yara['package'] = {'files': s.get('files'), 'yara_rules': s.get('yara_rules'), 'yara_rule_declarations': s.get('yara_rule_declarations'), 'package_bytes': latest.get('package_bytes'),
                            'manifest': latest.get('manifest'), 'signature': latest.get('signature'), 'inclusion_proof': latest.get('inclusion_proof'),
                            'manifest_sha256': latest.get('manifest_sha256'), 'source': 'latest.json (counted by the site build from the verified release)'}
     out.append(yara)
@@ -48,6 +48,14 @@ def families(config: dict, latest: dict | None) -> dict:
             'note': 'Only YARA Community is published today. Other families are listed with their real state and no counts or downloads.'}
 
 
+def yara_counts(st: dict) -> dict:
+    """Rule counts of a signed manifest's stats for display: the compiled count (rules outside comments and strings) when the release
+    declares it, else the historical line-wise yara_rules, which includes commented-out declarations. yara_rules_basis says which."""
+    if isinstance(st.get('yara_rules_compiled'), int):
+        return {'yara_rules': st['yara_rules_compiled'], 'yara_rule_declarations': st.get('yara_rules'), 'yara_rules_basis': 'compiled'}
+    return {'yara_rules': st.get('yara_rules'), 'yara_rule_declarations': st.get('yara_rules'), 'yara_rules_basis': 'declarations (release sealed before yara_rules_compiled; includes commented-out rules)'}
+
+
 def packages(rows: list, latest: dict | None) -> dict:
     """rows: catalog.public_rows(history) oldest first. Newest first in the output. Only YARA Community exists today."""
     out = []
@@ -56,7 +64,7 @@ def packages(rows: list, latest: dict | None) -> dict:
         out.append({'family': 'yara_community', 'name': 'YARA Community', 'tier': 'FREE', 'engine': 'YARA', 'format': 'tar.gz (rules/ + manifest.json)',
                     'tag': r['tag'], 'published_at': r['published_at'], 'url': r['url'],
                     'size': {'package_bytes': r.get('package_bytes'), 'source': 'release metadata (history/<tag>/meta.json)'},
-                    'items': {'files': r.get('total'), 'yara_rules': st.get('yara_rules'), 'source': 'signed manifest of the release'},
+                    'items': {**{'files': r.get('total')}, **yara_counts(st), 'source': 'signed manifest of the release'},
                     'changes': {'added': r.get('added'), 'modified': r.get('modified'), 'removed': r.get('removed'), 'source': 'signed manifests compared path by path'},
                     'rules_root': r.get('rules_root'), 'verification': r.get('verification') or {'checked': False}, 'assets': r.get('assets') or {}})
     current = None

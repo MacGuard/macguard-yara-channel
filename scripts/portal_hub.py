@@ -250,7 +250,7 @@ def write(site: pathlib.Path, root: pathlib.Path, rows: list) -> dict:
     stats = {}
     if latest and latest.get('stats'):
         s = latest['stats']
-        stats['yara'] = {'files': s.get('files'), 'yara_rules': s.get('yara_rules'), 'source': 'latest.json (counted by the site build from the verified release)'}
+        stats['yara'] = {'files': s.get('files'), 'yara_rules': s.get('yara_rules'), 'yara_rule_declarations': s.get('yara_rule_declarations'), 'source': 'latest.json (counted by the site build from the verified release)'}
     if kev_index:
         stats['kev'] = {'records': kev_index['count']['value'], 'catalog_version': kev_index['source'].get('catalog_version'), 'source': 'verified KEV package (kev/index.json)'}
     last = (rows[-1].get('verification') or {}) if rows else {}
