@@ -33,7 +33,7 @@ Guiding rule: **show "relation not verified" rather than publish a false connect
 | `rule:yara:<path>#<name>` | SDO `indicator` (`pattern_type: yara`) | `intel_ids` returns `yara:<path>#<name>`; the key is everything after `yara:`. A path is ≤ 400 characters and a name ≤ 128, so a key can reach **529 > 512** (0004:24). **Decision:** a rule whose key exceeds 512 characters is **refused at ingestion** and reported. It is never truncated, and the cap is not raised: raising it would mean rebuilding `intel_entities`, because a CHECK cannot be altered. |
 | `sample:sha256:<hex>` | SCO `file.hashes` | MD5/SHA-1 mentions have **no** sample identity. They stay rule assertions with no relation until a source gives a record with the SHA-256 (A12). |
 | `malware_family:…`, `indicator:…` | SDO `malware`, SCO/SDO `indicator` | |
-| `poc_reference:…` | `external_references` | metadata only |
+| `poc_reference:…` | `external_references` | metadata and a link to the public original only; MacGuard never hosts the code (§5a) |
 
 **Confidence.** The schema vocabulary (CONFIRMED / REPORTED / INFERRED / DISPUTED / UNKNOWN) is the **only** one. The 0–100 STIX value is used only on export:
 
@@ -103,6 +103,27 @@ The rules never produce a relation from any of these:
 Each case goes to the rejection report with a reason. Same snapshot means the same bytes.
 
 **Source of the YARA release.** The registry has no entry for it. **Owner decision:** add `macguard-yara-release` to the registry, with licences DRL-1.1 / GPL-2.0 kept per source collection, approved for metadata-only assertions. Until then rule 8 hides every R-YARA relation.
+
+## 5a. PoC and exploit policy (owner decision 2026-11-02: option A)
+
+**MacGuard links, never hosts.** No exploit or PoC code is copied, mirrored, cached, excerpted or packaged in the repository, the site, D1, a bundle or an auto-update.
+
+A `poc_reference` holds only:
+- the URL of the public original (the researcher's repository, Exploit-DB, a vendor or GitHub advisory) and the source that reported it;
+- the related CVE, as a relation backed by evidence like any other;
+- its status: `reference`, `documented PoC` or `known exploitation`. A reference alone never makes it `known exploitation`, which requires KEV or an equivalent source.
+- the date it was seen.
+
+Learning value comes from MacGuard's own **defensive analysis** next to the link:
+- what the technique does;
+- which artefacts it leaves;
+- which MacGuard rules (YARA, Sigma, Suricata) detect those artefacts. These are separate relations, each with its own evidence; a detection of the artefact is not a detection of the exploitation (rule 7).
+
+Guards:
+- **Link safety:** HTTPS only and no redirect chains, shown with the destination domain visible.
+- **No crawling:** the link is never fetched or rendered inline.
+- **Dead links:** a link that stops resolving is marked, never replaced by a copy.
+- **Access:** reading PoC metadata follows the `research.poc.metadata.read` capability (#80). PoC references never enter a public static build or a bundle.
 
 ## 6. AI (restricted)
 
