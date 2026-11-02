@@ -48,6 +48,12 @@ class Canonical(unittest.TestCase):
     def test_detection_ids(self):
         self.assertEqual(kinds('cpe:2.3:a:Apache:Log4j:2.14.1:*:*:*:*:*:*:*'), {'cpe23': ('cpe:2.3:a:apache:log4j:2.14.1:*:*:*:*:*:*:*', 'exact')})
         self.assertEqual(kinds('cpe:2.3:a:vendor:prod\\:x:1:*:*:*:*:*:*:*')['cpe23'][0], 'cpe:2.3:a:vendor:prod\\:x:1:*:*:*:*:*:*:*', 'escaped colon')
+        # official CPE 2.3 grammar (Codex extraordinary review of dad1a56): unescaped space/punctuation, bad wildcards and bad language tags are not CPEs
+        for bad in ('cpe:2.3:a:vendor:bad product:1:*:*:*:*:*:*:*', 'cpe:2.3:a:vendor:prod(x):1:*:*:*:*:*:*:*', 'cpe:2.3:a:vendor:p,q:1:*:*:*:*:*:*:*',
+                    'cpe:2.3:a:vendor:p*q:1:*:*:*:*:*:*:*', 'cpe:2.3:a:vendor:prod:1:*:*:english:*:*:*:*', 'cpe:2.3:a:vendor:prod:1:*:*:*:*:*:*:*\\'):
+            with self.subTest(bad=bad): self.assertNotIn('cpe23', kinds(bad)); self.assertRaises(ValueError, intel_ids.normalize, 'cpe23', bad)
+        for good in ('cpe:2.3:a:vendor:prod\\(x\\):1:*:*:*:*:*:*:*', 'cpe:2.3:a:red_hat:enterprise-linux:8.4:*:*:en-us:*:*:*:*', 'cpe:2.3:o:vendor:p*:1.?:-:*:*:*:*:*:*'):
+            with self.subTest(good=good): self.assertEqual(kinds(good)['cpe23'], (good.lower(), 'exact'))
         self.assertEqual(kinds('sid:2000001;'), {'suricata_sid': ('sid:2000001', 'exact')})
         self.assertEqual(kinds('SID 2000001'), {'suricata_sid': ('sid:2000001', 'pattern')})
         self.assertEqual(kinds('1:2000001'), {'suricata_sid': ('sid:2000001', 'pattern')})

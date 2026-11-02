@@ -198,12 +198,16 @@ def _url(t):
     return f'{scheme}://{host}{path}' + (f'?{s.query}' if s.query else ''), conf
 
 
+# CPE 2.3 formatted string, the official grammar (NISTIR 7695 §6.2; the regex of the NVD CPE 2.3 dictionary schema): each attribute is
+# '*', '-' or a value of [A-Za-z0-9._-] and backslash-escaped punctuation, with '*'/'?' wildcards only at the ends; language is a tag.
+_CPE_AV = r'(?:(?:\?*|\*?)(?:[a-zA-Z0-9\-._]|\\[\\*?!"#$%&'"'"'()+,/:;<=>@\[\]^`{|}~])+(?:\?*|\*?)|[*\-])'
+_CPE23 = re.compile(r'cpe:2\.3:[aho*\-](?::' + _CPE_AV + r'){5}(?::(?:[a-zA-Z]{2,3}(?:-(?:[a-zA-Z]{2}|[0-9]{3}))?|[*\-]))(?::' + _CPE_AV + r'){4}', re.ASCII)
+
+
 def _cpe23(t):
     if not t.isascii() or not t.lower().startswith('cpe:2.3:'): return None   # a CPE 2.3 formatted string is printable ASCII
-    parts = re.split(r'(?<!\\):', t, flags=re.A)
-    if len(parts) != 13 or any(p == '' for p in parts): return None
-    if parts[2].lower() not in ('a', 'o', 'h', '*', '-'): return None
-    return ':'.join(p.lower() for p in parts), 'exact'
+    if not _CPE23.fullmatch(t): return None   # unescaped space or punctuation, wrong arity, empty or misplaced wildcard: not a CPE
+    return t.lower(), 'exact'
 
 
 def _sid(t):
