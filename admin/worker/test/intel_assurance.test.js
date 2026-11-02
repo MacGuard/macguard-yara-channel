@@ -257,7 +257,7 @@ test('(h) evidence: source_id and original_source_id required on new rows; ident
   assert.throws(() => raw(db, "INSERT INTO intel_relationship_evidence (relationship_id,kind,ref,original_source_id,observed_at,recorded_at) VALUES (?, 'document', 'x', 'cisa-kev', ?, ?)", id, NOW, NOW), /source_id/);
   assert.throws(() => raw(db, "INSERT INTO intel_relationship_evidence (relationship_id,kind,ref,source_id,original_source_id,observed_at,recorded_at) VALUES (?, 'document', 'x', X'636973612d6b6576', 'cisa-kev', ?, ?)", id, NOW, NOW), /text/, 'a blob is not a source id');
   rawEv(db, id, 'document', 'kev entry', 'aggregator', 'cisa-kev', 'c'.repeat(64));
-  assert.throws(() => rawEv(db, id, 'document', 'kev entry', 'other-aggregator', 'cisa-kev', 'c'.repeat(64)), /UNIQUE/, 'the same statement through another republisher is the same evidence');
+  assert.throws(() => rawEv(db, id, 'document', 'kev entry', 'other-aggregator', 'cisa-kev', 'c'.repeat(64)), /UNIQUE|never overwritten/, 'the same statement through another republisher is the same evidence');
   rawEv(db, id, 'document', 'kev entry', 'aggregator', 'cisa-kev', 'd'.repeat(64));   // other content: other evidence
   const before = n(db, 'SELECT evidence_count n FROM intel_relationship_state WHERE relationship_id = ?', id);
   assert.equal(await addEvidence(db, id, { kind: 'source_statement', ref: 'stmt' }, NOW), false, 'the module re-import is a no-op');
@@ -409,9 +409,16 @@ test('tamper-evidence: with the triggers dropped (D1 has no roles), rewritten, r
     const v = await verifyAssurance(x.db, { heads });
     assert.equal(v.ok, false, `${name} went undetected: ${JSON.stringify(v.logs)}`);
   }
-  // without an external head, removing the LAST entry of a log is not detectable from inside the database (documented limit)
+  // removing the LAST entry is caught by sqlite_sequence; if the attacker also rewinds sqlite_sequence, only an externally kept head detects it (documented limit)
   const t = await build(); drop(t.db); raw(t.db, 'DELETE FROM intel_relationship_lifecycle_events');
-  assert.equal((await verifyAssurance(t.db)).ok, true, 'truncation at the end needs an externally kept head');
+  assert.match((await verifyAssurance(t.db)).logs.intel_relationship_lifecycle_events.error, /sqlite_sequence/);
+  raw(t.db, "UPDATE sqlite_sequence SET seq = 0 WHERE name = 'intel_relationship_lifecycle_events'");
+  assert.equal((await verifyAssurance(t.db)).ok, true, 'a consistent tail rewrite (sequence included) is invisible from inside the database');
+  assert.equal((await verifyAssurance(t.db, { heads })).ok, false, '... and detected against the external head');
+  // cross-checks against independent projections: a VERIFIED assessment whose review vanished
+  const c = await build(); rawEv(c.db, c.d, 'test_run', 'r2', 'lab'); rawAs(c.db, c.d, 'CONFIRMED', 'VERIFIED', 'user:rev-b');   // legitimately verified ...
+  drop(c.db); raw(c.db, "DELETE FROM intel_relationship_reviews WHERE reason = 'second look'"); raw(c.db, "UPDATE sqlite_sequence SET seq = seq - 1 WHERE name = 'intel_relationship_reviews'");   // ... then its review erased consistently
+  const vc = await verifyAssurance(c.db); assert.equal(vc.logs.intel_relationship_reviews.ok, true, 'the review log alone looks intact'); assert.equal(vc.cross.ok, false, 'the assessment projection exposes it');
 });
 
 test('concurrency: two writers on one chained log both succeed (the loser of the head race retries); the chain stays linear', async () => {
@@ -450,7 +457,7 @@ test('QA probe replay (corr-contract-review/probe.sql): every forbidden write th
     "INSERT INTO intel_relationship_assessments (relationship_id,confidence,verification,reason,actor,at) VALUES ('" + 'b'.repeat(64) + "','CONFIRMED','VERIFIED','ai says so','ai:llm','t')",
     "INSERT INTO intel_relationship_assessments (relationship_id,confidence,verification,reason,actor,at) VALUES ('" + 'a'.repeat(64) + "','CONFIRMED','VERIFIED','names look similar','ai:llm','t')",
     "INSERT INTO intel_epss_history VALUES ('" + rule + "','first','2026-01-01',0.1,0.2,NULL,'t')"]) assert.throws(() => raw(db, sql), undefined, sql);
-  rawEv(db, 'b'.repeat(64), 'source_statement', 'dup', 'kev'); assert.throws(() => rawEv(db, 'b'.repeat(64), 'source_statement', 'dup', 'kev'), /UNIQUE/, 'duplicate evidence');
+  rawEv(db, 'b'.repeat(64), 'source_statement', 'dup', 'kev'); assert.throws(() => rawEv(db, 'b'.repeat(64), 'source_statement', 'dup', 'kev'), /UNIQUE|never overwritten/, 'duplicate evidence');
   raw(db, "INSERT INTO intel_epss_history VALUES (?, 'first', '2026-01-01', 0.1, 0.2, NULL, 't')", cve); assert.throws(() => raw(db, 'DELETE FROM intel_epss_history'), /append-only/);
   insEnt(db, 'vulnerability', 'cve', 'CVE-2024-0002'); insEnt(db, 'indicator', 'md5', 'b'.repeat(32)); insEnt(db, 'sample', 'sha256', 'c'.repeat(64));
   assert.throws(() => raw(db, "INSERT INTO intel_relationships VALUES (?, 'HASH_IDENTIFIES_SAMPLE', ?, ?, 'src', 'correlated', NULL, 'public', 't', 't')", 'd'.repeat(64), `indicator:md5:${'b'.repeat(32)}`, `sample:sha256:${'c'.repeat(64)}`), /never correlated/);
@@ -501,4 +508,124 @@ test('hash-chain linkage on every 0007 log: a row whose prev_hash is not the hea
   };
   for (const [table, [sql, ...a]] of Object.entries(rows)) assert.throws(() => raw(db, sql, ...a, P, H), /hash chain/, table);
   assert.equal((await verifyAssurance(db)).ok, true);
+});
+
+// ---- Codex intel-0007 round 1, F1 BLOCKER: INSERT OR REPLACE / REPLACE / upsert must never overwrite an append-only or immutable row ----------------------
+test('F1 repro: a BLOCKED source re-chained as APPROVED_PUBLIC and written with INSERT OR REPLACE (same id) is refused; with schema rights it is caught by the registry cross-check', async () => {
+  for (const recursive of [false, true]) {
+    const db = newDb(M7); db.raw.exec(`PRAGMA recursive_triggers = ${recursive ? 'ON' : 'OFF'}`);
+    const reg = JSON.stringify({ schema: 'macguard.intel-sources/1', as_of: '2026-11-01', sources: [{ id: 'shady-feed', approval_state: 'BLOCKED' }] });
+    await syncSourceApprovals(db, reg, NOW);
+    const row = one(db, 'SELECT * FROM intel_source_approval_events'), forged = { ...row, approval_state: 'APPROVED_PUBLIC' };
+    forged.hash = await chainHash(row.prev_hash, { log: LOGS.intel_source_approval_events.tag, ...Object.fromEntries(LOGS.intel_source_approval_events.cols.map((c) => [c, forged[c]])) });
+    const cols = Object.keys(forged), ins = (verb) => raw(db, `${verb} intel_source_approval_events (${cols}) VALUES (${cols.map(() => '?')})`, ...cols.map((c) => forged[c]));
+    for (const verb of ['INSERT OR REPLACE INTO', 'REPLACE INTO', 'INSERT OR IGNORE INTO', 'INSERT OR ROLLBACK INTO', 'INSERT OR FAIL INTO']) assert.throws(() => ins(verb), /never overwritten|hash chain/, `${verb} (recursive_triggers ${recursive})`);
+    assert.throws(() => raw(db, `INSERT INTO intel_source_approval_events (${cols}) VALUES (${cols.map(() => '?')}) ON CONFLICT(id) DO UPDATE SET approval_state = excluded.approval_state, hash = excluded.hash`, ...cols.map((c) => forged[c])), /never overwritten|hash chain/);
+    assert.equal(one(db, 'SELECT approval_state FROM intel_source_approval_events').approval_state, 'BLOCKED');
+    // with schema rights (triggers dropped) the replace succeeds, the chain still verifies, and the registry cross-check catches it
+    for (const t of db.raw.prepare("SELECT name FROM sqlite_master WHERE type = 'trigger' AND tbl_name = 'intel_source_approval_events'").all()) db.raw.exec(`DROP TRIGGER ${t.name}`);
+    ins('INSERT OR REPLACE INTO');
+    assert.equal((await verifyAssurance(db)).ok, true, 'a single consistently re-chained row is invisible to the chain');
+    assert.equal((await verifySourceApprovals(db, reg)).ok, false, 'the registry cross-check detects it');
+  }
+});
+
+/** One populated scratch database with a row in EVERY append-only or immutable table of 0004/0005/0007. */
+async function everyTable() {
+  const { db, e } = await world();
+  const id = await asserted(db, { type: 'VULN_HAS_WEAKNESS', from: e.cve, to: e.cwe });
+  rawEv(db, id, 'document', 'second', 'cisa-kev');
+  await review(db, id, { approver: 'user:rev-a', decision: 'reject', reason: 'second look' }, NOW);
+  const gone = await asserted(db, { type: 'VULN_HAS_WEAKNESS', from: e.cve2, to: e.cwe });   // retract ANOTHER relationship: the last assessment must stay re-insertable by every other trigger
+  await setLifecycle(db, gone, { marker: 'retracted', actor: 'source:cisa-kev', reason: 'withdrawn' }, NOW);
+  await assess(db, id, { confidence: 'REPORTED', reason: 'restated by the source', actor: 'source:cisa-kev' }, NOW);
+  raw(db, "INSERT INTO intel_source_snapshots (source_id,snapshot_at,item_count,sha256,complete,recorded_at) VALUES ('cisa-kev','2026-11-01T00:00:00.000Z',5,?,1,?)", 'a'.repeat(64), NOW);
+  raw(db, "INSERT INTO intel_severity_assessments (vuln_id,source_id,cvss_version,availability,vector,base_score,severity,assessed_at,recorded_at) VALUES (?,'nvd','3.1','AVAILABLE','CVSS:3.1/AV:N',9.8,'CRITICAL','2026-01-01T00:00:00.000Z',?)", e.cve, NOW);
+  raw(db, "INSERT INTO intel_epss_latest VALUES (?, 'first', '2026-01-02', 0.1, 0.2, NULL, ?)", e.cve, NOW);
+  raw(db, "INSERT INTO intel_epss_history VALUES (?, 'first', '2026-01-02', 0.1, 0.2, NULL, ?)", e.cve, NOW);
+  raw(db, "INSERT INTO intel_exploitation_evidence (vuln_id,source_id,kind,listed_at,evidence_ref,observed_at,recorded_at) VALUES (?, 'cisa-kev', 'KEV_LISTED', '2026-01-01', 'kev/1', '2026-01-01T00:00:00.000Z', ?)", e.cve, NOW);
+  const pr = await putEntity(db, { type: 'product', namespace: 'purl', key: 'pkg:npm/x' }, NOW), vr = await putEntity(db, { type: 'version_range', namespace: 'range', key: 'r1' }, NOW);
+  raw(db, "INSERT INTO intel_version_ranges (entity_id,product_id,scheme,introduced) VALUES (?, ?, 'SEMVER', '1.0')", vr, pr);
+  const pk = await putEntity(db, { type: 'package', namespace: 'yara', key: 'p@1' }, NOW), pk2 = await putEntity(db, { type: 'package', namespace: 'yara', key: 'p@2' }, NOW);
+  raw(db, "INSERT INTO intel_packages (entity_id,family,tier,name,version,engine,format,items_count,size_bytes,manifest_sha256,artifact_sha256,licences,validation_state,created_at) VALUES (?, 'yara', 'community', 'p', '1', 'yara', 'yara-text', 1, 1, ?, ?, '[\"DRL-1.1\"]', 'ENGINE_COMPILED', ?)", pk, 'c'.repeat(64), 'd'.repeat(64), NOW);
+  return { db, e, id, pk2 };
+}
+// [table, primary key columns, content change that passes the column CHECKs, secondary UNIQUE keys (a row with ANOTHER primary key but the same unique key)]
+const GUARDED = [
+  ['intel_entity_types', ['type'], { grp: 'forged' }, []],
+  ['intel_relationship_types', ['type'], { note: 'forged' }, []],
+  ['intel_entities', ['id'], { first_seen: '1999-01-01T00:00:00Z' }, []],
+  ['intel_relationships', ['id'], { exposure: 'restricted' }, [{ id: '9'.repeat(64) }]],
+  ['intel_relationship_evidence', ['id'], { ref: 'forged' }, [{ id: 999 }]],
+  ['intel_relationship_assessments', ['id'], { reason: 'forged reason' }, []],
+  ['intel_relationship_state', ['relationship_id'], { confidence: 'UNKNOWN', verification: 'UNVERIFIED', assessment_id: null, evidence_count: 0 }, []],
+  ['intel_source_snapshots', ['id'], { item_count: 999 }, [{ id: 999 }]],
+  ['intel_severity_assessments', ['id'], { recorded_at: 'forged' }, [{ id: 999 }]],
+  ['intel_epss_latest', ['vuln_id', 'source_id'], { score_date: '2000-01-01' }, []],
+  ['intel_epss_history', ['vuln_id', 'source_id', 'score_date'], { probability: 0.99 }, []],
+  ['intel_exploitation_evidence', ['id'], { evidence_ref: 'forged' }, [{ id: 999 }]],
+  ['intel_version_ranges', ['entity_id'], { introduced: '0.0.1' }, []],
+  ['intel_packages', ['entity_id'], { tier: 'premium' }, [{ entity_id: 'PK2' }]],
+  ['intel_relationship_creation', ['id'], { proposer: 'source:other' }, [{ id: 999 }]],
+  ['intel_reviewer_events', ['id'], { role: 'ADMIN' }, [{ id: 999, prev_hash: '1'.repeat(64), hash: '2'.repeat(64) }]],
+  ['intel_relationship_reviews', ['id'], { decision: 'approve' }, [{ id: 999, hash: '3'.repeat(64) }]],
+  ['intel_relationship_lifecycle_events', ['id'], { reason: 'forged reason' }, [{ id: 999, hash: '4'.repeat(64) }]],
+  ['intel_source_approval_events', ['id'], { approval_state: 'APPROVED_PUBLIC' }, [{ id: 999, hash: '5'.repeat(64) }]],
+];
+test('no overwrite (F1 class): every append-only or immutable table refuses INSERT OR REPLACE, REPLACE INTO, ON CONFLICT DO UPDATE/NOTHING and OR IGNORE on an existing key, and on any secondary UNIQUE key, with recursive_triggers OFF and ON', async () => {
+  let attempts = 0;
+  for (const recursive of ['OFF', 'ON']) {
+    const { db, pk2 } = await everyTable(); db.raw.exec(`PRAGMA recursive_triggers = ${recursive}`);
+    for (const [table, pk, change, uniques] of GUARDED) {
+      const dump = () => JSON.stringify(db.raw.prepare(`SELECT * FROM ${table} ORDER BY ${pk.join(',')}`).all());
+      const last = one(db, `SELECT * FROM ${table} ORDER BY ${pk.map((c) => `${c} DESC`).join(',')} LIMIT 1`); assert.ok(last, `${table} has a row`);
+      const before = dump(), rows = [{ ...last, ...change }, last, ...uniques.map((u) => ({ ...last, ...Object.fromEntries(Object.entries(u).map(([k, v]) => [k, v === 'PK2' ? pk2 : v])) }))];
+      for (const row of rows) {
+        const cols = Object.keys(row), vals = cols.map((c) => row[c]), list = `(${cols.join(',')}) VALUES (${cols.map(() => '?').join(',')})`;
+        const set = cols.filter((c) => !pk.includes(c)).map((c) => `${c} = excluded.${c}`).join(', ');
+        for (const sql of [`INSERT OR REPLACE INTO ${table} ${list}`, `REPLACE INTO ${table} ${list}`, `INSERT INTO ${table} ${list} ON CONFLICT(${pk.join(',')}) DO UPDATE SET ${set}`,
+          `INSERT INTO ${table} ${list} ON CONFLICT DO NOTHING`, `INSERT OR IGNORE INTO ${table} ${list}`]) {
+          attempts++;
+          let threw = false; try { raw(db, sql, ...vals); } catch { threw = true; }
+          const identicalTypeRow = ['intel_entity_types', 'intel_relationship_types'].includes(table) && row === last;
+          if (!identicalTypeRow) assert.ok(threw, `${table}: ${sql.split(' (')[0]} (recursive_triggers ${recursive}) was accepted`);
+          assert.equal(dump(), before, `${table}: content changed by ${sql.split(' (')[0]} (recursive_triggers ${recursive})`);
+        }
+      }
+    }
+    assert.equal((await verifyAssurance(db)).ok, true);
+  }
+  assert.ok(attempts > 400, String(attempts));
+});
+test('no overwrite: the module writers still re-import idempotently (insert-if-absent, then UPDATE of the mutable columns)', async () => {
+  const { db, e } = await world();
+  const before = one(db, 'SELECT first_seen FROM intel_entities WHERE id = ?', e.cve).first_seen;
+  await putEntity(db, { type: 'vulnerability', namespace: 'cve', key: 'CVE-2024-0001', display: 'new title' }, '2027-01-01T00:00:00Z');
+  assert.deepEqual({ ...one(db, 'SELECT display, first_seen FROM intel_entities WHERE id = ?', e.cve) }, { display: 'new title', first_seen: before });
+  const id = await asserted(db, { type: 'VULN_HAS_WEAKNESS', from: e.cve, to: e.cwe });
+  assert.equal((await relate(db, { type: 'VULN_HAS_WEAKNESS', from: e.cve, to: e.cwe, source_id: 'cisa-kev', method: 'asserted_by_source', exposure: 'public', evidence: [{ kind: 'source_statement', ref: 'stmt' }], ...ING }, NOW)).created, false);
+  assert.equal(n(db, 'SELECT evidence_count n FROM intel_relationship_state WHERE relationship_id = ?', id), 1);
+});
+test('no overwrite: log rows that EVERY other trigger would accept again (re-chained, guard conditions met) are still refused, recursive_triggers OFF and ON', async () => {
+  for (const recursive of ['OFF', 'ON']) {
+    const { db, e } = await world(); db.raw.exec(`PRAGMA recursive_triggers = ${recursive}`);
+    const { id: fresh } = await relate(db, { type: 'RULE_ASSOCIATED_WITH_CVE', from: e.rule, to: e.cve, source_id: 'r', method: 'manual', ...ANALYST }, NOW);   // no evidence, no assessment yet
+    await changeReviewer(db, { event: 'add', actor_id: 'user:eve', github_user_id: 66, by: ['user:rev-a', 'user:rev-b'], reason: 'new reviewer', request_id: 'req-eve-0001' }, NOW);
+    await changeReviewer(db, { event: 'revoke', actor_id: 'user:eve', github_user_id: 66, by: ['user:rev-a', 'user:rev-b'], reason: 'left the team', request_id: 'req-eve-0002' }, NOW);
+    const rel = await asserted(db, { type: 'VULN_HAS_WEAKNESS', from: e.cve, to: e.cwe });
+    await setLifecycle(db, rel, { marker: 'retracted', actor: 'source:cisa-kev', reason: 'withdrawn' }, NOW); await setLifecycle(db, rel, { marker: 'reinstated', actor: 'source:cisa-kev', reason: 'back again' }, NOW);
+    const targets = [
+      ['intel_relationship_creation', one(db, 'SELECT * FROM intel_relationship_creation WHERE relationship_id = ?', fresh), { proposer: 'user:analyst-b' }, one(db, 'SELECT * FROM intel_relationships WHERE id = ?', fresh)],
+      ['intel_reviewer_events', one(db, "SELECT * FROM intel_reviewer_events WHERE request_id = 'req-eve-0001'"), { role: 'ADMIN' }, null],
+      ['intel_relationship_lifecycle_events', one(db, "SELECT * FROM intel_relationship_lifecycle_events WHERE marker = 'retracted'"), { reason: 'rewritten history' }, null],
+    ];
+    for (const [table, row, change, relRow] of targets) {
+      const forged = { ...row, ...change }, en = { log: LOGS[table].tag }; for (const c of LOGS[table].cols) en[c] = forged[c] ?? null;
+      if (relRow) Object.assign(en, { type: relRow.type, from_id: relRow.from_id, to_id: relRow.to_id, source_id: relRow.source_id, method: relRow.method });
+      forged.hash = await chainHash(row.prev_hash, en);
+      const cols = Object.keys(forged), before = JSON.stringify(db.raw.prepare(`SELECT * FROM ${table} ORDER BY id`).all());
+      for (const verb of ['INSERT OR REPLACE INTO', 'REPLACE INTO']) assert.throws(() => raw(db, `${verb} ${table} (${cols}) VALUES (${cols.map(() => '?')})`, ...cols.map((c) => forged[c])), /never overwritten|hash chain/, `${table} ${verb} (${recursive})`);
+      assert.equal(JSON.stringify(db.raw.prepare(`SELECT * FROM ${table} ORDER BY id`).all()), before, table);
+    }
+  }
 });

@@ -118,17 +118,25 @@ export async function syncSourceApprovals(db, registryText, now) {
 
 // ---- verifier (tamper-evidence) -------------------------------------------------------------------------------------------------------------------------
 const relIdOf = async (r) => sha256hex(JSON.stringify(['macguard.rel/1', r.type, r.from_id, r.to_id, r.source_id, r.method]));
-/** Recompute every chained log from GENESIS (paged, keyed by id). For creation records, also check the relationship: it exists, its id is the content hash of
- *  its identity, and its created_at/exposure equal the record's. Returns { ok, logs: { table: { ok, entries, head, error?, at? } } }. `heads` (optional,
- *  kept outside the database) detects truncation at the end of a log. */
-export async function verifyAssurance(db, { pageSize = 500, heads = {} } = {}) {
+/** Recompute every chained log from GENESIS (paged, keyed by id). Per log it also checks: ids dense from 1 (AUTOINCREMENT ids are never reused and a failed
+ *  write rolls its id back, so a gap is a deleted or replaced row), the time column never decreases, and sqlite_sequence equals the last id (a deleted
+ *  LAST row leaves the sequence ahead). For creation records it checks the relationship (exists, id = content hash of its identity, same created_at and
+ *  exposure). Cross-checks against independent projections: every VERIFIED or critical CONFIRMED assessment has an approved review by its actor (not the
+ *  proposer); every assessment beyond candidate has a creation record; every review names the creation proposer.
+ *  `heads` (kept OUTSIDE the database, e.g. in the panel audit chain or a signed anchor) is what detects a log rewritten from some row to its end with
+ *  recomputed hashes AND a matching sqlite_sequence: without it, an attacker with schema rights who rewrites the tail consistently is not detected.
+ *  Returns { ok, logs: { table: { ok, entries, head, error?, at? } }, cross: { ok, errors } }. */
+export async function verifyAssurance(db, { pageSize = 500, heads = {}, crossLimit = 10000 } = {}) {
   const logs = {};
   for (const table of Object.keys(LOGS)) {
-    let prev = GENESIS, after = 0, n = 0, res = null;
+    const timeCol = table === 'intel_relationship_creation' ? 'created_at' : 'at';
+    let prev = GENESIS, after = 0, n = 0, res = null, lastTime = '';
     for (;;) {
       const rows = (await db.prepare(`SELECT * FROM ${table} WHERE id > ? ORDER BY id LIMIT ?`).bind(after, pageSize).all()).results;
       for (const r of rows) {
         let rel = null;
+        if (r.id !== n + 1) { res = { ok: false, at: r.id, error: 'id sequence has a gap (a row was deleted or replaced)' }; break; }
+        if (String(r[timeCol]) < lastTime) { res = { ok: false, at: r.id, error: `${timeCol} goes backwards (reordered or replaced entry)` }; break; }
         if (table === 'intel_relationship_creation') {
           rel = await db.prepare('SELECT id, type, from_id, to_id, source_id, method, exposure, created_at FROM intel_relationships WHERE id = ?').bind(r.relationship_id).first();
           if (!rel) { res = { ok: false, at: r.id, error: 'relationship of a creation record is missing' }; break; }
@@ -136,14 +144,23 @@ export async function verifyAssurance(db, { pageSize = 500, heads = {} } = {}) {
         }
         if (r.prev_hash !== prev) { res = { ok: false, at: r.id, error: 'chain link broken (entry removed or reordered)' }; break; }
         if (await chainHash(prev, entryOf(table, r, rel)) !== r.hash) { res = { ok: false, at: r.id, error: 'entry content was altered' }; break; }
-        prev = r.hash; n++; after = r.id;
+        prev = r.hash; n++; after = r.id; lastTime = String(r[timeCol]);
       }
       if (res || rows.length < pageSize) break;
+    }
+    if (!res) {
+      let seq = null; try { seq = (await db.prepare('SELECT seq FROM sqlite_sequence WHERE name = ?').bind(table).first())?.seq ?? 0; } catch { seq = null; }
+      if (seq !== null && seq !== n) res = { ok: false, error: `sqlite_sequence is ${seq} but the log ends at ${n} (rows removed at the end)` };
     }
     if (!res && heads[table] && heads[table] !== prev) res = { ok: false, error: 'head differs from the externally kept head (truncated or forked)' };
     logs[table] = res ? { ...res, entries: n, head: prev } : { ok: true, entries: n, head: prev };
   }
-  return { ok: Object.values(logs).every((l) => l.ok), logs };
+  const errors = [], q = async (sql, why) => { for (const r of (await db.prepare(sql).bind(crossLimit).all()).results) errors.push({ error: why, relationship_id: r.relationship_id, assessment_id: r.id ?? null }); };
+  await q(`SELECT a.id, a.relationship_id FROM intel_relationship_assessments a JOIN intel_relationships r ON r.id = a.relationship_id WHERE (a.verification = 'VERIFIED' OR (a.confidence = 'CONFIRMED' AND r.type IN (${CRITICAL_TYPES.map((t) => `'${t}'`).join(',')}))) AND NOT EXISTS (SELECT 1 FROM intel_relationship_reviews v JOIN intel_relationship_creation c ON c.relationship_id = v.relationship_id WHERE v.relationship_id = a.relationship_id AND v.decision = 'approve' AND v.approver = a.actor AND v.approver <> c.proposer) LIMIT ?`, 'VERIFIED/critical CONFIRMED assessment without an approved review by its actor');
+  await q("SELECT a.id, a.relationship_id FROM intel_relationship_assessments a WHERE (a.confidence NOT IN ('UNKNOWN','INFERRED') OR a.verification <> 'UNVERIFIED') AND NOT EXISTS (SELECT 1 FROM intel_relationship_creation c WHERE c.relationship_id = a.relationship_id) LIMIT ?", 'assessment beyond candidate without a creation record');
+  await q('SELECT v.id, v.relationship_id FROM intel_relationship_reviews v WHERE NOT EXISTS (SELECT 1 FROM intel_relationship_creation c WHERE c.relationship_id = v.relationship_id AND c.proposer = v.proposer) LIMIT ?', 'review whose proposer is not the creation proposer');
+  const cross = { ok: errors.length === 0, errors };
+  return { ok: Object.values(logs).every((l) => l.ok) && cross.ok, logs, cross };
 }
 
 /** Cross-check the recorded source approvals against the registry file (its exact bytes, e.g. from git): every recorded state must equal the registry's, and

@@ -187,7 +187,8 @@ test('packages: recorded immutable, never empty, with licences; a defensive pack
   await assert.rejects(putPackage(db, { ...p, version: 'empty', items_count: 0 }, NOW), /empty package/);
   await assert.rejects(putPackage(db, { ...p, version: 'nolic', licences: [] }, NOW), /licences/);
   assert.throws(() => raw(db, "UPDATE intel_packages SET tier = 'premium' WHERE entity_id = ?", id), /immutable/); assert.throws(() => raw(db, 'DELETE FROM intel_packages'), /never deleted/);
-  assert.throws(() => raw(db, "INSERT INTO intel_packages (entity_id,family,tier,name,version,engine,format,items_count,size_bytes,manifest_sha256,artifact_sha256,licences,validation_state,created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)", id, 'poc', 'community', 'x', '1', 'e', 'f', 1, 1, 'c'.repeat(64), 'd'.repeat(64), '["x"]', 'ENGINE_TESTED', NOW), /CHECK/, 'there is no PoC family');
+  const other = await putEntity(db, { type: 'package', namespace: 'yara', key: 'other@1' }, NOW);
+  assert.throws(() => raw(db, "INSERT INTO intel_packages (entity_id,family,tier,name,version,engine,format,items_count,size_bytes,manifest_sha256,artifact_sha256,licences,validation_state,created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)", other, 'poc', 'community', 'x', '1', 'e', 'f', 1, 1, 'c'.repeat(64), 'd'.repeat(64), '["x"]', 'ENGINE_TESTED', NOW), /CHECK/, 'there is no PoC family');
 });
 
 // ---- export contract ----

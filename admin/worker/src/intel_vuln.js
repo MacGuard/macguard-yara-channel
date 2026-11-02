@@ -102,28 +102,31 @@ export async function addSeverity(db, vulnId, { source_id, cvss_version, vector 
   let severity = null;
   if (availability === 'AVAILABLE') { need(validCvssVector(cvss_version, vector), `invalid CVSS ${cvss_version} vector`); need(typeof base_score === 'number' && base_score >= 0 && base_score <= 10 && Math.abs(Math.round(base_score * 10) - base_score * 10) < 1e-9, 'base_score 0.0-10.0'); severity = SEV(cvss_version, base_score); }
   else { need(vector === null && base_score === null, 'no vector or score when the source does not provide one'); }
-  await db.prepare('INSERT OR IGNORE INTO intel_severity_assessments (vuln_id,source_id,cvss_version,availability,vector,base_score,severity,assessed_at,recorded_at) VALUES (?,?,?,?,?,?,?,?,?)').bind(vulnId, source_id, cvss_version, availability, vector, base_score, severity, canonTs(assessed_at), now).run();
+  await db.prepare('INSERT INTO intel_severity_assessments (vuln_id,source_id,cvss_version,availability,vector,base_score,severity,assessed_at,recorded_at) SELECT ?,?,?,?,?,?,?,?,? WHERE NOT EXISTS (SELECT 1 FROM intel_severity_assessments x WHERE x.vuln_id = ? AND x.source_id = ? AND x.cvss_version = ? AND x.assessed_at = ?)')
+    .bind(vulnId, source_id, cvss_version, availability, vector, base_score, severity, canonTs(assessed_at), now, vulnId, source_id, cvss_version, canonTs(assessed_at)).run();
   return severity;
 }
 /** EPSS of one day: updates the latest (only forward in time) and, when `keepHistory`, appends the dated snapshot. */
 export async function addEpss(db, vulnId, { source_id = 'first-epss', score_date, probability, percentile, model_version = null, keepHistory = false }, now) {
   need(okDate(score_date), 'score_date YYYY-MM-DD'); for (const v of [probability, percentile]) need(typeof v === 'number' && v >= 0 && v <= 1, 'probability and percentile are in [0,1]');
-  // ONE atomic upsert (no read-then-write race between concurrent imports): it inserts, or updates only when this score is not older than the stored one.
-  const stmts = [db.prepare('INSERT INTO intel_epss_latest (vuln_id,source_id,score_date,probability,percentile,model_version,recorded_at) VALUES (?,?,?,?,?,?,?) ON CONFLICT(vuln_id, source_id) DO UPDATE SET score_date = excluded.score_date, probability = excluded.probability, percentile = excluded.percentile, model_version = excluded.model_version, recorded_at = excluded.recorded_at WHERE excluded.score_date >= intel_epss_latest.score_date')
-    .bind(vulnId, source_id, score_date, probability, percentile, model_version, now)];
-  if (keepHistory) stmts.push(db.prepare('INSERT OR IGNORE INTO intel_epss_history (vuln_id,source_id,score_date,probability,percentile,model_version,recorded_at) VALUES (?,?,?,?,?,?,?)').bind(vulnId, source_id, score_date, probability, percentile, model_version, now));
+  // ONE atomic batch (no read-then-write race between concurrent imports): insert if absent, then update only when this score is not older than the stored one.
+  // (An upsert before 0007; the database now refuses any INSERT on an existing key, because a REPLACE could move the latest score backwards.)
+  const stmts = [db.prepare('INSERT INTO intel_epss_latest (vuln_id,source_id,score_date,probability,percentile,model_version,recorded_at) SELECT ?,?,?,?,?,?,? WHERE NOT EXISTS (SELECT 1 FROM intel_epss_latest x WHERE x.vuln_id = ? AND x.source_id = ?)')
+    .bind(vulnId, source_id, score_date, probability, percentile, model_version, now, vulnId, source_id),
+  db.prepare('UPDATE intel_epss_latest SET score_date = ?, probability = ?, percentile = ?, model_version = ?, recorded_at = ? WHERE vuln_id = ? AND source_id = ? AND score_date <= ?').bind(score_date, probability, percentile, model_version, now, vulnId, source_id, score_date)];
+  if (keepHistory) stmts.push(db.prepare('INSERT INTO intel_epss_history (vuln_id,source_id,score_date,probability,percentile,model_version,recorded_at) SELECT ?,?,?,?,?,?,? WHERE NOT EXISTS (SELECT 1 FROM intel_epss_history x WHERE x.vuln_id = ? AND x.source_id = ? AND x.score_date = ?)').bind(vulnId, source_id, score_date, probability, percentile, model_version, now, vulnId, source_id, score_date));
   const res = await db.batch(stmts);
-  return { latest_updated: Number(res[0]?.meta?.changes ?? 0) > 0 };
+  return { latest_updated: Number(res[0]?.meta?.changes ?? 0) + Number(res[1]?.meta?.changes ?? 0) > 0 };
 }
 export async function recordSnapshot(db, { source_id, snapshot_at, item_count, sha256, complete = true }, now) {
   need(okTs(snapshot_at), 'snapshot_at must be a UTC timestamp');
-  await db.prepare('INSERT OR IGNORE INTO intel_source_snapshots (source_id,snapshot_at,item_count,sha256,complete,recorded_at) VALUES (?,?,?,?,?,?)').bind(source_id, canonTs(snapshot_at), item_count, sha256, complete ? 1 : 0, now).run();
+  await db.prepare('INSERT INTO intel_source_snapshots (source_id,snapshot_at,item_count,sha256,complete,recorded_at) SELECT ?,?,?,?,?,? WHERE NOT EXISTS (SELECT 1 FROM intel_source_snapshots x WHERE x.source_id = ? AND x.snapshot_at = ?)').bind(source_id, canonTs(snapshot_at), item_count, sha256, complete ? 1 : 0, now, source_id, canonTs(snapshot_at)).run();
   return (await db.prepare('SELECT id FROM intel_source_snapshots WHERE source_id = ? AND snapshot_at = ?').bind(source_id, canonTs(snapshot_at)).first()).id;
 }
 export async function addExploitation(db, vulnId, { source_id, kind, listed_at = null, due_date = null, required_action = null, ransomware_use = null, evidence_ref, snapshot_id = null, observed_at }, now) {
   for (const d of [listed_at, due_date]) need(d === null || okDate(d), 'dates are YYYY-MM-DD'); need(okTs(observed_at), 'observed_at must be a UTC timestamp');
-  await db.prepare('INSERT OR IGNORE INTO intel_exploitation_evidence (vuln_id,source_id,kind,listed_at,due_date,required_action,ransomware_use,evidence_ref,snapshot_id,observed_at,recorded_at) VALUES (?,?,?,?,?,?,?,?,?,?,?)')
-    .bind(vulnId, source_id, kind, listed_at, due_date, required_action, ransomware_use, evidence_ref, snapshot_id, canonTs(observed_at), now).run();
+  await db.prepare('INSERT INTO intel_exploitation_evidence (vuln_id,source_id,kind,listed_at,due_date,required_action,ransomware_use,evidence_ref,snapshot_id,observed_at,recorded_at) SELECT ?,?,?,?,?,?,?,?,?,?,? WHERE NOT EXISTS (SELECT 1 FROM intel_exploitation_evidence x WHERE x.vuln_id = ? AND x.source_id = ? AND x.kind = ? AND x.observed_at = ?)')
+    .bind(vulnId, source_id, kind, listed_at, due_date, required_action, ransomware_use, evidence_ref, snapshot_id, canonTs(observed_at), now, vulnId, source_id, kind, canonTs(observed_at)).run();
 }
 /** KEV status as of the latest COMPLETE snapshot of `kevSource`: LISTED / NOT_LISTED (as_of that snapshot) / UNKNOWN (no snapshot: the source is unavailable).
  *  Exploitation evidence is EVIDENCE_RECORDED or NO_EVIDENCE_RECORDED: there is no "not exploited" answer, by design. */
@@ -150,7 +153,7 @@ export async function addAffectedRange(db, { vuln_id, product, scheme, ecosystem
   const productId = await putEntity(db, { type: 'product', namespace: product.namespace, key: product.key, display: product.display ?? null }, now);
   const key = await sha256hex(JSON.stringify(['macguard.range/1', productId, scheme, ecosystem, introduced, fixed, last_affected, version_limit]));
   const rangeId = await putEntity(db, { type: 'version_range', namespace: 'range', key, display: `${introduced ?? '*'}..${fixed ? '<' + fixed : last_affected ? '<=' + last_affected : '*'}` }, now);
-  await db.prepare('INSERT OR IGNORE INTO intel_version_ranges (entity_id,product_id,scheme,ecosystem,introduced,fixed,last_affected,version_limit) VALUES (?,?,?,?,?,?,?,?)').bind(rangeId, productId, scheme, ecosystem, introduced, fixed, last_affected, version_limit).run();
+  await db.prepare('INSERT INTO intel_version_ranges (entity_id,product_id,scheme,ecosystem,introduced,fixed,last_affected,version_limit) SELECT ?,?,?,?,?,?,?,? WHERE NOT EXISTS (SELECT 1 FROM intel_version_ranges x WHERE x.entity_id = ?)').bind(rangeId, productId, scheme, ecosystem, introduced, fixed, last_affected, version_limit, rangeId).run();
   await relate(db, { type: 'RANGE_OF_PRODUCT', from: rangeId, to: productId, source_id, method: 'asserted_by_source', version: NORMALISATION, exposure: 'public', observed_at, origin: 'source_ingest' }, now);
   const rel = await relate(db, { type: 'VULN_AFFECTS_RANGE', from: vuln_id, to: rangeId, source_id, method: 'asserted_by_source', version: NORMALISATION, exposure: 'public', observed_at, evidence: evidence ? [{ ...evidence, source_id }] : [], origin: 'source_ingest' }, now);
   if (evidence && ['source_statement', 'document'].includes(evidence.kind)) await assess(db, rel.id, { confidence: 'REPORTED', reason: `affected range from ${source_id}`, actor: 'ingest' }, now);

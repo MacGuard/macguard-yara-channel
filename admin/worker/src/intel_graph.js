@@ -106,8 +106,11 @@ export async function relationshipId({ type, from, to, source_id, method }) {
 /** Insert or refresh an entity. Identity columns never change (the database refuses it); display/attrs/record link may be refreshed. */
 export async function putEntity(db, { type, namespace, key, display = null, record_id = null, attrs = {}, source_id = null }, now) {
   const k = normalizeKey(type, namespace, key), id = `${type}:${namespace}:${k}`;
-  await db.prepare('INSERT INTO intel_entities (id,type,namespace,key,display,record_id,attrs,source_id,first_seen,updated_at) VALUES (?,?,?,?,?,?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET display = excluded.display, record_id = COALESCE(excluded.record_id, intel_entities.record_id), attrs = excluded.attrs, source_id = COALESCE(excluded.source_id, intel_entities.source_id), updated_at = excluded.updated_at')
-    .bind(id, type, namespace, k, display, record_id, JSON.stringify(attrs), source_id, now, now).run();
+  // Insert-if-absent + UPDATE of the mutable columns, in one batch: since 0007 the database refuses any INSERT on an existing key (an upsert or REPLACE would
+  // bypass the immutability triggers), so the old ON CONFLICT DO UPDATE is split. Same result: identity and first_seen never change.
+  await db.batch([db.prepare('INSERT INTO intel_entities (id,type,namespace,key,display,record_id,attrs,source_id,first_seen,updated_at) SELECT ?,?,?,?,?,?,?,?,?,? WHERE NOT EXISTS (SELECT 1 FROM intel_entities x WHERE x.id = ?)')
+    .bind(id, type, namespace, k, display, record_id, JSON.stringify(attrs), source_id, now, now, id),
+  db.prepare('UPDATE intel_entities SET display = ?, record_id = COALESCE(?, record_id), attrs = ?, source_id = COALESCE(?, source_id), updated_at = ? WHERE id = ?').bind(display, record_id, JSON.stringify(attrs), source_id, now, id)]);
   return id;
 }
 
@@ -117,7 +120,8 @@ const evidenceStmt = (db, relId, relSource, e, now) => {
   if (!e || !e.kind || !e.ref) throw new GraphError('evidence needs kind and ref');
   const src = e.source_id ?? relSource, orig = e.original_source_id ?? src;
   if (typeof src !== 'string' || typeof orig !== 'string') throw new GraphError('evidence needs source_id and original_source_id');
-  return db.prepare('INSERT INTO intel_relationship_evidence (relationship_id,kind,ref,sha256,source_id,original_source_id,observed_at,recorded_at,note) VALUES (?,?,?,?,?,?,?,?,?) ON CONFLICT DO NOTHING').bind(relId, e.kind, e.ref, e.sha256 ?? null, src, orig, e.observed_at ?? now, now, e.note ?? null);
+  return db.prepare("INSERT INTO intel_relationship_evidence (relationship_id,kind,ref,sha256,source_id,original_source_id,observed_at,recorded_at,note) SELECT ?,?,?,?,?,?,?,?,? WHERE NOT EXISTS (SELECT 1 FROM intel_relationship_evidence x WHERE x.relationship_id = ? AND x.kind = ? AND x.ref = ? AND COALESCE(x.sha256, '') = COALESCE(?, '') AND x.original_source_id IS NOT NULL)")
+    .bind(relId, e.kind, e.ref, e.sha256 ?? null, src, orig, e.observed_at ?? now, now, e.note ?? null, relId, e.kind, e.ref, e.sha256 ?? null);
 };
 
 /** Create (idempotently) a relationship, its creation record and its evidence in ONE transaction. A new relationship is UNKNOWN until assessed.
@@ -130,12 +134,12 @@ export async function relate(db, { type, from, to, source_id, method, version = 
   if (typeof who !== 'string' || (proposer !== undefined && proposer !== who)) throw new GraphError('proposer missing or inconsistent with the origin');
   const id = await relationshipId({ type, from, to, source_id, method });
   const row = { relationship_id: id, exposure, proposer: who, origin, rule_id, created_at: now };
-  // INSERT OR IGNORE inside the same batch as the evidence: two concurrent imports of the same relationship both succeed, and neither loses its evidence
+  // Insert-if-absent inside the same batch as the evidence (an INSERT OR IGNORE before 0007, which now refuses any insert on an existing key): two concurrent imports of the same relationship both succeed, and neither loses its evidence
   // (a separate existence check raced; Codex r1-canonical fix round, F1). The identity is content-derived, so the ignored row is identical.
   // The creation record is written only for a relationship created by THIS batch (same created_at/exposure, no evidence or assessment yet): a re-import
   // keeps the first proposer, and a relationship that predates 0007 never gains one after the fact.
   const res = await chained(db, 'intel_relationship_creation', entryOf('intel_relationship_creation', row, { type, from_id: from, to_id: to, source_id, method }), (prev, hash) => {
-    const stmts = [db.prepare('INSERT OR IGNORE INTO intel_relationships (id,type,from_id,to_id,source_id,method,version,exposure,observed_at,created_at) VALUES (?,?,?,?,?,?,?,?,?,?)').bind(id, type, from, to, source_id, method, version, exposure, observed_at ?? now, now),
+    const stmts = [db.prepare('INSERT INTO intel_relationships (id,type,from_id,to_id,source_id,method,version,exposure,observed_at,created_at) SELECT ?,?,?,?,?,?,?,?,?,? WHERE NOT EXISTS (SELECT 1 FROM intel_relationships x WHERE x.id = ?)').bind(id, type, from, to, source_id, method, version, exposure, observed_at ?? now, now, id),
       db.prepare('INSERT INTO intel_relationship_creation (relationship_id,exposure,proposer,origin,rule_id,created_at,prev_hash,hash) SELECT ?,?,?,?,?,?,?,? WHERE NOT EXISTS (SELECT 1 FROM intel_relationship_creation c WHERE c.relationship_id = ?) AND EXISTS (SELECT 1 FROM intel_relationships r WHERE r.id = ? AND r.created_at = ? AND r.exposure = ?) AND NOT EXISTS (SELECT 1 FROM intel_relationship_evidence e WHERE e.relationship_id = ?) AND NOT EXISTS (SELECT 1 FROM intel_relationship_assessments a WHERE a.relationship_id = ?)')
         .bind(id, exposure, who, origin, rule_id, now, prev, hash, id, id, now, exposure, id, id)];
     for (const e of evidence) stmts.push(evidenceStmt(db, id, source_id, e, now));
