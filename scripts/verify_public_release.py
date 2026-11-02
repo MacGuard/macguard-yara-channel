@@ -17,6 +17,7 @@ parsed data):
   files          every file's SHA-256 equals the signed manifest; no missing, extra or duplicated file
   rules_root     recomputed Merkle root over the files equals the signed one
   counts         files / expanded bytes / individual YARA rules equal what the signed manifest declares
+                 (rules outside comments and strings; a release sealed before that count may declare the historical line count instead)
   checkpoint     size and root equal the log head inside the signed manifest
   inclusion      the Merkle proof carries the release's log entry to the checkpoint root, and the entry names this rules_root
   consistency    (optional) this checkpoint extends the previous one you trust: --previous-checkpoint FILE or --trust-state FILE
@@ -29,7 +30,7 @@ Trust: this script is code you run. Read it (about 500 lines) or compare it with
 (docs: Verification page). Downloading it from the same site that hosts the rules is not an independent root of trust."""
 import argparse, base64, hashlib, json, os, pathlib, re, shutil, subprocess, sys, tarfile, tempfile, textwrap, time, urllib.error, urllib.parse, urllib.request
 
-VERSION = '1.0.0'
+VERSION = '1.1.0'
 SCHEMA = 1
 DEFAULT_REPO = 'MacGuard/macguard-yara-channel'
 DEFAULT_IDENTITY = 'https://github.com/MacGuard/macguard-yara-channel/.github/workflows/publish.yml@refs/heads/main'
@@ -38,11 +39,127 @@ ORIGIN = 'macguard-rules-log v1'
 REQUIRED = ['rules-release.tar.gz', 'manifest.json', 'manifest.sigstore.json', 'inclusion-proof.json', 'checkpoint.txt', 'checkpoint.sigstore.json']
 OPTIONAL = ['consistency.json', 'release.json', 'changes.json', 'CHANGELOG.md']
 LIMITS = {'members': 20000, 'total_bytes': 512 * 1024 * 1024, 'file_bytes': 25 * 1024 * 1024, 'depth': 24, 'name_bytes': 512, 'manifest_bytes': 10 * 1024 * 1024}
-RULE_RE = re.compile(r'^\s*(?:(?:global|private)\s+)*rule\s+\w+', re.M)
+# Line regex that releases sealed before the syntax-aware count used for stats.yara_rules. It also counts commented-out rules, so it
+# is only kept to accept those historical signed values (signed manifests never change); it is not a count of compiled rules.
+LEGACY_RULE_RE = re.compile(r'^\s*(?:(?:global|private)\s+)*rule\s+\w+', re.M)
 PRECEDENCE = [5, 4, 6, 2, 1, 3]          # which failure decides the exit code when several happen
+
+# Rule declarations YARA would compile: `[private|global]* rule NAME [: tags] {` outside comments and string literals.
+# Kept identical to catalog.count_rules (this verifier is a standalone single file; tests/test_rule_count.py checks the two agree).
+# Syntax-aware port (count only) of the tolerant scanner in scripts/rule_index.py (branch feat/hub-search-index): comments (// and
+# /* */, not nested, as in YARA), text strings, regular expressions and hex strings (which may hold comments) are skipped, and a rule
+# body is consumed to its closing '}', so `rule X {` inside any of them is not counted. Malformed input never raises.
+_RC_IDENT = re.compile(r'[A-Za-z_][A-Za-z0-9_]*', re.A)
+
+
+def count_rules(text: str) -> int:
+    """Individual YARA rule declarations in a file (a file may hold many, or none); commented-out rules and `rule X {` inside strings are not rules."""
+    s, n, i = text, len(text), 0
+
+    def ws(i):
+        while i < n:
+            c = s[i]
+            if c in ' \t\r\n\f\v': i += 1
+            elif s.startswith('//', i): j = s.find('\n', i); i = j if j >= 0 else n
+            elif s.startswith('/*', i): j = s.find('*/', i + 2); i = j + 2 if j >= 0 else n
+            else: return i
+        return i
+
+    def ident(i):
+        m = _RC_IDENT.match(s, i)
+        return (m.group(0), m.end()) if m else (None, i)
+
+    def string(i):                       # at '"'; an unterminated string stops at the end of its line
+        i += 1
+        while i < n:
+            c = s[i]
+            if c == '"': return i + 1
+            if c == '\n': return i
+            i += 2 if c == '\\' else 1
+        return n
+
+    def regex(i):                        # at '/': /.../flags
+        i += 1; in_class = False
+        while i < n:
+            c = s[i]
+            if c == '\\': i += 2; continue
+            if c == '\n': return i
+            if c == '[': in_class = True
+            elif c == ']': in_class = False
+            elif c == '/' and not in_class:
+                i += 1
+                while i < n and s[i] in 'isg': i += 1
+                return i
+            i += 1
+        return n
+
+    def hexstr(i):                       # at '{': hex strings hold no nested braces but may hold comments
+        i += 1
+        while i < n:
+            if s.startswith('/*', i): j = s.find('*/', i + 2); i = j + 2 if j >= 0 else n; continue
+            if s.startswith('//', i): j = s.find('\n', i); i = j if j >= 0 else n; continue
+            i += 1
+            if s[i - 1] == '}': return i
+        return n
+
+    def body(i):                         # just after a rule's '{': index after its closing '}'
+        section, prev = None, ''
+        while True:
+            i = ws(i)
+            if i >= n: return n
+            c = s[i]
+            if c == '}': return i + 1
+            if c == '"': i = string(i); prev = 'str'; continue
+            if c == '/' and prev in ('=', 'matches'): i = regex(i); prev = 're'; continue
+            if c == '{' and section == 'strings' and prev == '=': i = hexstr(i); prev = 'hex'; continue
+            if c in '$#@!': _, i = ident(i + 1); prev = 'var'; continue
+            w, j = ident(i)
+            if w is not None:
+                i = ws(j)
+                if w in ('meta', 'strings', 'condition') and i < n and s[i] == ':': i += 1; section = w; prev = ':'; continue
+                prev = w; continue
+            prev = c; i += 1
+
+    count = 0
+    while True:
+        i = ws(i)
+        if i >= n: return count
+        if s[i] == '"': i = string(i); continue
+        w, j = ident(i)
+        if w is None: i += 1; continue
+        i = j
+        while w in ('private', 'global'):
+            i = ws(i); w, i = ident(i)
+        if w != 'rule': continue
+        name, i = ident(ws(i))
+        if name is None: continue
+        i = ws(i)
+        if i < n and s[i] == ':':
+            i += 1
+            while True:
+                t, k = ident(ws(i))
+                if t is None: break
+                i = k
+        i = ws(i)
+        if i >= n or s[i] != '{': continue
+        count += 1
+        i = body(i + 1)
+
 
 class Fail(Exception):
     def __init__(self, code, message): super().__init__(message); self.code, self.message = code, message
+
+def check_yara_rules(declared, texts):
+    """(rules counted, 'current' | 'legacy') when the signed stats.yara_rules matches the files; raises Fail(1) otherwise.
+    Releases sealed before the syntax-aware count declare the line-regex count, which includes commented-out rules. A signed manifest
+    never changes, so that value is accepted when it equals the historical method over the same files. Both counts are deterministic
+    functions of the verified files, so accepting either lets no other number through."""
+    n = sum(count_rules(x) for x in texts)
+    if declared == n: return n, 'current'
+    legacy = sum(len(LEGACY_RULE_RE.findall(x)) for x in texts)
+    if declared == legacy: return n, 'legacy'
+    raise Fail(1, f"stats.yara_rules {declared} != {n} rule declarations counted (nor {legacy} by the historical line count)")
+
 
 # ---- Merkle (RFC 6962 hashing, RFC 9162 proofs) ------------------------------------------------------------
 def leaf_hash(data: bytes) -> bytes: return hashlib.sha256(b'\x00' + data).digest()
@@ -473,11 +590,13 @@ def verify(a):
             if st.get('files') != len(files): raise Fail(1, f"stats.files {st.get('files')} != {len(files)} files listed")
             if st.get('expanded_bytes') != expanded: raise Fail(1, f"stats.expanded_bytes {st.get('expanded_bytes')} != {expanded}")
             if pkg_ok:
-                n = sum(len(RULE_RE.findall((out / f['path']).read_text(errors='replace'))) for f in files if (out / f['path']).exists())
                 if any(not (out / f['path']).exists() for f in files): raise Fail(1, 'cannot recount the YARA rules: some files of the manifest are missing from the package')
-                if st.get('yara_rules') != n: raise Fail(1, f"stats.yara_rules {st.get('yara_rules')} != {n} rule declarations counted")
+                n, method = check_yara_rules(st.get('yara_rules'), [(out / f['path']).read_text(errors='replace') for f in files])
                 ctx['yara_rules'] = n
-            return f"{len(files)} files, {expanded} bytes, {st.get('yara_rules')} individual YARA rules"
+                if method == 'legacy':
+                    return (f"{len(files)} files, {expanded} bytes, {n} individual YARA rules (the signed stats.yara_rules {st.get('yara_rules')} was counted by the "
+                            f"historical line method, which also counts declarations inside comments)")
+            return f"{len(files)} files, {expanded} bytes, {ctx.get('yara_rules', st.get('yara_rules'))} individual YARA rules"
         run_check(rep, 'counts', counts, 1)
         def checkpoint():
             lg = m['log']

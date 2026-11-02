@@ -16,11 +16,105 @@ import tlog
 NEXTRON_PREFIXES = {'apt', 'mal', 'gen', 'expl', 'vuln', 'susp', 'hktl', 'webshell', 'yara', 'cloud', 'general', 'thor', 'configured'}
 
 import re
-RULE_RE = re.compile(r'^\s*(?:(?:global|private)\s+)*rule\s+\w+', re.M)
+# Rule declarations YARA would compile: `[private|global]* rule NAME [: tags] {` outside comments and string literals.
+# Syntax-aware port (count only) of the tolerant scanner in scripts/rule_index.py (branch feat/hub-search-index): comments (// and
+# /* */, not nested, as in YARA), text strings, regular expressions and hex strings (which may hold comments) are skipped, and a rule
+# body is consumed to its closing '}', so `rule X {` inside any of them is not counted. Malformed input never raises.
+_RC_IDENT = re.compile(r'[A-Za-z_][A-Za-z0-9_]*', re.A)
+
 
 def count_rules(text: str) -> int:
-    """Individual YARA rule declarations in a file (a file may hold many, or none)."""
-    return len(RULE_RE.findall(text))
+    """Individual YARA rule declarations in a file (a file may hold many, or none); commented-out rules and `rule X {` inside strings are not rules."""
+    s, n, i = text, len(text), 0
+
+    def ws(i):
+        while i < n:
+            c = s[i]
+            if c in ' \t\r\n\f\v': i += 1
+            elif s.startswith('//', i): j = s.find('\n', i); i = j if j >= 0 else n
+            elif s.startswith('/*', i): j = s.find('*/', i + 2); i = j + 2 if j >= 0 else n
+            else: return i
+        return i
+
+    def ident(i):
+        m = _RC_IDENT.match(s, i)
+        return (m.group(0), m.end()) if m else (None, i)
+
+    def string(i):                       # at '"'; an unterminated string stops at the end of its line
+        i += 1
+        while i < n:
+            c = s[i]
+            if c == '"': return i + 1
+            if c == '\n': return i
+            i += 2 if c == '\\' else 1
+        return n
+
+    def regex(i):                        # at '/': /.../flags
+        i += 1; in_class = False
+        while i < n:
+            c = s[i]
+            if c == '\\': i += 2; continue
+            if c == '\n': return i
+            if c == '[': in_class = True
+            elif c == ']': in_class = False
+            elif c == '/' and not in_class:
+                i += 1
+                while i < n and s[i] in 'isg': i += 1
+                return i
+            i += 1
+        return n
+
+    def hexstr(i):                       # at '{': hex strings hold no nested braces but may hold comments
+        i += 1
+        while i < n:
+            if s.startswith('/*', i): j = s.find('*/', i + 2); i = j + 2 if j >= 0 else n; continue
+            if s.startswith('//', i): j = s.find('\n', i); i = j if j >= 0 else n; continue
+            i += 1
+            if s[i - 1] == '}': return i
+        return n
+
+    def body(i):                         # just after a rule's '{': index after its closing '}'
+        section, prev = None, ''
+        while True:
+            i = ws(i)
+            if i >= n: return n
+            c = s[i]
+            if c == '}': return i + 1
+            if c == '"': i = string(i); prev = 'str'; continue
+            if c == '/' and prev in ('=', 'matches'): i = regex(i); prev = 're'; continue
+            if c == '{' and section == 'strings' and prev == '=': i = hexstr(i); prev = 'hex'; continue
+            if c in '$#@!': _, i = ident(i + 1); prev = 'var'; continue
+            w, j = ident(i)
+            if w is not None:
+                i = ws(j)
+                if w in ('meta', 'strings', 'condition') and i < n and s[i] == ':': i += 1; section = w; prev = ':'; continue
+                prev = w; continue
+            prev = c; i += 1
+
+    count = 0
+    while True:
+        i = ws(i)
+        if i >= n: return count
+        if s[i] == '"': i = string(i); continue
+        w, j = ident(i)
+        if w is None: i += 1; continue
+        i = j
+        while w in ('private', 'global'):
+            i = ws(i); w, i = ident(i)
+        if w != 'rule': continue
+        name, i = ident(ws(i))
+        if name is None: continue
+        i = ws(i)
+        if i < n and s[i] == ':':
+            i += 1
+            while True:
+                t, k = ident(ws(i))
+                if t is None: break
+                i = k
+        i = ws(i)
+        if i >= n or s[i] != '{': continue
+        count += 1
+        i = body(i + 1)
 
 PLATFORM_MARKERS = {
     'Windows': re.compile(r'\bimport\s+"pe"|0x5A4D|\{\s*4D\s*5A|\.dll\b|\.exe\b|\bHKEY_|\\\\Windows|powershell|cmd\.exe|PE32', re.I),
