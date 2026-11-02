@@ -1,4 +1,4 @@
-// Deterministic correlation rule engine (design: docs/design/CORRELATION-ENGINE.md §5, PR #87, NOT yet approved). PURE: no database, no network, no clock.
+// Deterministic correlation rule engine (design: docs/design/CORRELATION-ENGINE.md §5, PR #87, contract v3 fa6711b approved by the owner). PURE: no database, no network, no clock.
 // Input: one snapshot of normalised source documents. Output: proposed relationships, a rejection report, retractions and conflicts. Same input, same bytes
 // (serialize()). Nothing here writes the graph: toGraph() only describes how a proposal maps onto the CURRENT INTEL 0004/0005 schema.
 //
@@ -79,12 +79,30 @@ const IDENT = /^[A-Za-z_][A-Za-z0-9_]*$/;
 const cmp = (a, b) => (a < b ? -1 : a > b ? 1 : 0);
 const cmpBy = (...keys) => (x, y) => { for (const k of keys) { const c = cmp(k(x), k(y)); if (c) return c; } return 0; };
 const isObj = (x) => x !== null && typeof x === 'object' && !Array.isArray(x);
+// Every metadata field is checked for its PRIMITIVE type before any regex or string coercion (Codex extraordinary review on d14cd19, MEDIUM): RegExp.test()
+// and template literals coerce, so ['cisa-kev'] passed SOURCE_ID and two wrappers with array ids counted as two independent sources, and
+// {"toString":null} threw a TypeError. `txt(re, x)` is the only way metadata reaches a regex.
+const txt = (re, x) => typeof x === 'string' && re.test(x);
+const MAX_URL = 512, MAX_META_KEY = 128, MAX_DEPTH = 64;
+const URLISH = /^[\x21-\x7e]{1,512}$/;
+/** True when `x` nests deeper than `max` or contains a cycle (iterative: never overflows the stack). Such a document is refused before any recursion. */
+function tooDeep(x, max = MAX_DEPTH) {
+  const stack = [[x, 0]], seen = new Set();
+  while (stack.length) {
+    const [v, d] = stack.pop();
+    if (v === null || typeof v !== 'object') continue;
+    if (d > max || seen.has(v)) return true;
+    seen.add(v);
+    for (const k of Object.keys(v)) stack.push([v[k], d + 1]);
+  }
+  return false;
+}
 // Every input value embedded in a report string goes through the SAME canonical serialisation as contentKey (sorted keys, sorted set-arrays, JSON number
 // formatting), capped at MAX_REPORT code points (Codex c4 fix round MEDIUM: {"id":..,"name":..} and {"name":..,"id":..} are one content but printed
 // differently, so input order chose the output bytes). The cap keeps the longest valid rule identity (534) intact.
 export const MAX_REPORT = 600;
 const str = (x) => {
-  const t = typeof x === 'string' ? x : JSON.stringify(canonSet(x)) ?? String(x), cp = [...t];
+  const t = typeof x === 'string' ? x : tooDeep(x) ? '[value nests too deeply or is cyclic]' : JSON.stringify(canonSet(x)) ?? String(jsonSafe(x)), cp = [...t];
   return cp.length > MAX_REPORT ? `${cp.slice(0, MAX_REPORT).join('')}...(${cp.length} code points)` : t;
 };
 
@@ -96,21 +114,23 @@ function kevMeta(w) {
   const d = w?.document;
   if (!isObj(d) || d.schema !== 'macguard.intel-kev/1') return { error: 'not a macguard.intel-kev/1 document' };
   const s = d.source;
-  if (!isObj(s) || !SOURCE_ID.test(s.id ?? '') || typeof s.url !== 'string' || !KEV_VERSION.test(s.catalog_version ?? '') || !TS.test(s.date_released ?? '') || !HEX64.test(s.upstream_sha256 ?? '')) return { error: 'source block incomplete' };
+  if (!isObj(s) || !txt(SOURCE_ID, s.id) || !txt(URLISH, s.url) || !txt(KEV_VERSION, s.catalog_version) || !txt(TS, s.date_released) || !txt(HEX64, s.upstream_sha256)) return { error: 'source block incomplete' };
   if ('chunk' in d) return { error: 'partial snapshot (loader chunk): absence cannot be inferred from it' };
   if (!Array.isArray(d.items)) return { error: 'items is not an array' };
+  if (tooDeep(d)) return { error: 'document nests too deeply or is cyclic' };
   const source_id = w.source_id ?? s.id;
-  if (!SOURCE_ID.test(source_id)) return { error: 'bad source_id' };
+  if (!txt(SOURCE_ID, source_id)) return { error: 'bad source_id' };
   return { kind: 'kev', source_id, original_source_id: s.id, version: s.catalog_version, order: [s.date_released, kevVersionKey(s.catalog_version)], content_sha256: s.upstream_sha256, doc: d };
 }
 function indexMeta(w) {
   const d = w?.document;
   if (!isObj(d) || d.schema !== 'macguard.search-index/1') return { error: 'not a macguard.search-index/1 document' };
-  const r = d.release, m = TAG.exec(r?.tag ?? '');
-  if (!m || !HEX64.test(r.manifest_sha256 ?? '')) return { error: 'release block incomplete' };
+  const r = d.release, m = isObj(r) && typeof r.tag === 'string' ? TAG.exec(r.tag) : null;
+  if (!m || !txt(HEX64, r.manifest_sha256)) return { error: 'release block incomplete' };
   if (!Array.isArray(d.entities) || !Array.isArray(d.assertions)) return { error: 'entities/assertions are not arrays' };
+  if (tooDeep(d)) return { error: 'document nests too deeply or is cyclic' };
   const source_id = w.source_id ?? YARA_SOURCE_ID;
-  if (!SOURCE_ID.test(source_id)) return { error: 'bad source_id' };
+  if (!txt(SOURCE_ID, source_id)) return { error: 'bad source_id' };
   return { kind: 'rule_index', source_id, original_source_id: null, version: r.tag, order: [`${m[1]}-${m[2].padStart(20, '0')}`, `${m[1]}-${m[2].padStart(20, '0')}`], content_sha256: r.manifest_sha256, doc: d };
 }
 
@@ -143,7 +163,7 @@ function evalIndex(s) {
     let why = null;
     if (typeof id !== 'string' || !isObj(e) || e.kind !== 'rule') why = 'malformed_entity';
     else if (ids.get(id) > 1) why = 'duplicate_rule_id';
-    else if (!isCanonical('yara_rule', id) || id !== `yara:${e.path}#${e.name}` || !HEX64.test(e.file_sha256 ?? '')) why = 'malformed_identifier';
+    else if (typeof e.path !== 'string' || typeof e.name !== 'string' || !isCanonical('yara_rule', id) || id !== `yara:${e.path}#${e.name}` || !txt(HEX64, e.file_sha256)) why = 'malformed_identifier';
     else if (`${e.path}#${e.name}`.length > DB_KEY_MAX) why = 'rule_key_exceeds_db_limit';
     if (why) { if (typeof id === 'string') bad.set(id, why); reject(null, str(id), why, why === 'rule_key_exceeds_db_limit' ? `rule key is ${`${e.path}#${e.name}`.length} characters; intel_entities.key allows ${DB_KEY_MAX} (refused, never truncated)` : undefined); continue; }
     rules.set(id, e);
@@ -158,11 +178,11 @@ function evalIndex(s) {
     const e = rules.get(a.subject);
     if (!e) { reject(rid, input, 'subject_not_in_index'); continue; }
     const p = a.provenance;
-    if (!isObj(p) || p.release_tag !== tag || p.path !== e.path || p.file_sha256 !== e.file_sha256 || !Number.isInteger(p.line) || p.line < 1) { reject(rid, input, 'provenance_mismatch'); continue; }
-    if (typeof a.meta_key !== 'string' || !IDENT.test(a.meta_key)) { reject(rid, input, 'malformed_meta_key'); continue; }
+    if (!isObj(p) || typeof p.release_tag !== 'string' || p.release_tag !== tag || typeof p.path !== 'string' || p.path !== e.path || typeof p.file_sha256 !== 'string' || p.file_sha256 !== e.file_sha256 || !Number.isSafeInteger(p.line) || p.line < 1) { reject(rid, input, 'provenance_mismatch'); continue; }
+    if (typeof a.meta_key !== 'string' || a.meta_key.length > MAX_META_KEY || !IDENT.test(a.meta_key)) { reject(rid, input, 'malformed_meta_key'); continue; }
     if (a.match !== 'whole_value' && a.match !== 'embedded') { reject(rid, input, 'malformed_match'); continue; }
     const kinds = rid === 'R-YARA-HASH-1' ? ['sha256', 'sha1', 'md5'] : ['cve'];
-    if (!kinds.includes(a.value_kind)) { reject(rid, input, 'value_kind_mismatch'); continue; }
+    if (typeof a.value_kind !== 'string' || !kinds.includes(a.value_kind)) { reject(rid, input, 'value_kind_mismatch'); continue; }
     if (!isCanonical(a.value_kind, a.value)) { reject(rid, input, 'malformed_identifier', `value is not a canonical ${a.value_kind} (intel_ids)`); continue; }
     if (a.value_kind === 'sha1' || a.value_kind === 'md5') { reject(rid, input, 'no_canonical_sample_identity_for_md5_sha1', 'the contract defines a sample only as sample:sha256:<hex>; md5/sha1 are never merged with it'); continue; }
     const key = a.meta_key.replace(/[A-Z]/g, (c) => c.toLowerCase());   // ASCII lower-casing only
@@ -290,10 +310,12 @@ export function correlate(snapshot = {}) {
 /** Order-insensitive content identity of a source document: keys sorted and every array sorted by its elements' canonical text (the engine reads all
  *  these arrays as sets), so a reordered copy is the same content and any changed value is different content. */
 function canonSet(x) {
-  if (Array.isArray(x)) return x.map(canonSet).map((y) => [JSON.stringify(y), y]).sort((a, b) => cmp(a[0], b[0])).map((p) => p[1]);
+  if (Array.isArray(x)) return x.map(canonSet).map((y) => [JSON.stringify(y) ?? '', y]).sort((a, b) => cmp(a[0], b[0])).map((p) => p[1]);
   if (isObj(x)) return Object.fromEntries(Object.keys(x).sort().map((k) => [k, canonSet(x[k])]));
-  return x;
+  return jsonSafe(x);
 }
+/** Non-JSON primitives (only a JS caller can pass them) as fixed markers, so JSON.stringify never throws (bigint) nor calls code (a toJSON function). */
+const jsonSafe = (x) => (typeof x === 'bigint' ? `[bigint ${x}]` : typeof x === 'function' ? '[function]' : typeof x === 'symbol' ? '[symbol]' : x);
 const contentKey = (doc) => JSON.stringify(canonSet(doc));
 
 /** Canonical value: object keys sorted, recursively. */

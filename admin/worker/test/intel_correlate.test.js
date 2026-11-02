@@ -45,18 +45,20 @@ for (const { name, c, expected } of CASES) {
   });
 }
 
-/** Independent tracer: the evidence locator must point at ONE input statement that names both endpoints of the relation. */
+/** Independent tracer: the evidence locator must point at ONE input statement that names both endpoints of the relation. Type-safe (strict equality and
+ *  typeof only, never coercion), so it can judge fuzzed inputs too. */
 function trace(input, rel, ev) {
+  const S = (x) => typeof x === 'string';
   if (rel.type === 'VULN_HAS_WEAKNESS') {
     const m = /#catalogVersion=([^;]+);cveID=([^;]+);cwe=(.+)$/.exec(ev.locator); if (!m) return false;
-    return (input.kev ?? []).some((w) => (w.source_id ?? w.document.source.id) === ev.source_id && w.document.source.id === ev.original_source_id && w.document.source.catalog_version === m[1]
-      && w.document.source.upstream_sha256 === ev.content_sha256 && w.document.items.some((it) => it.cve_id === m[2] && it.cwes.includes(m[3]))
-      && rel.from === `vulnerability:cve:${m[2]}` && rel.to === `weakness:cwe:${m[3]}`);
+    return (Array.isArray(input.kev) ? input.kev : []).some((w) => { const d = w?.document, s = d?.source; return S(s?.id) && (w.source_id ?? s.id) === ev.source_id && s.id === ev.original_source_id && s.catalog_version === m[1]
+      && s.upstream_sha256 === ev.content_sha256 && Array.isArray(d.items) && d.items.some((it) => it?.cve_id === m[2] && Array.isArray(it.cwes) && it.cwes.includes(m[3]))
+      && rel.from === `vulnerability:cve:${m[2]}` && rel.to === `weakness:cwe:${m[3]}`; });
   }
   const m = /^(rules-[0-9]+-[0-9]+)\/(.+):([0-9]+)#meta\.([A-Za-z_][A-Za-z0-9_]*)$/.exec(ev.locator); if (!m) return false;
-  return (input.rule_indexes ?? []).some((w) => (w.source_id ?? YARA_SOURCE_ID) === ev.source_id && w.document.release.tag === m[1] && w.document.assertions.some((a) =>
-    a.provenance.path === m[2] && a.provenance.line === +m[3] && a.meta_key === m[4] && a.provenance.file_sha256 === ev.content_sha256 && `rule:${a.subject}` === rel.from
-    && rel.to === (rel.type === 'RULE_REFERENCES_SAMPLE' ? `sample:sha256:${a.value}` : `vulnerability:cve:${a.value}`)));
+  return (Array.isArray(input.rule_indexes) ? input.rule_indexes : []).some((w) => { const d = w?.document; return (w.source_id ?? YARA_SOURCE_ID) === ev.source_id && d?.release?.tag === m[1] && Array.isArray(d.assertions) && d.assertions.some((a) =>
+    S(a?.subject) && S(a.value) && a.provenance?.path === m[2] && a.provenance.line === +m[3] && a.meta_key === m[4] && a.provenance.file_sha256 === ev.content_sha256 && `rule:${a.subject}` === rel.from
+    && rel.to === (rel.type === 'RULE_REFERENCES_SAMPLE' ? `sample:sha256:${a.value}` : `vulnerability:cve:${a.value}`)); });
 }
 
 test('invariants over the whole corpus: traceable evidence, allowed types and endpoints, no detection claims, no severity, no transitivity', () => {
@@ -207,4 +209,96 @@ test('toGraph: one DB relationship per original source; evidence and assessment 
   assert.equal(g.relationships[0].relate.source_id, 'cisa-kev'); assert.equal(g.relationships[0].relate.evidence.length, 2);
   assert.ok(g.relationships[0].relate.evidence.every((e) => e.kind === 'source_statement'));
   assert.deepEqual([g.relationships[0].assessment.confidence, g.relationships[0].assessment.verification], ['REPORTED', 'UNVERIFIED']);
+});
+
+// ---- Codex extraordinary review on d14cd19 (MEDIUM, intel_correlate.js kevMeta): metadata types are checked before any regex or coercion -------------
+const KEV_SRC = { id: 'cisa-kev', url: 'https://www.cisa.gov/kev.json', catalog_version: '2026.01.01', date_released: '2026-01-01T00:00:00.000Z', upstream_sha256: 'a'.repeat(64) };
+const kevDoc = (src, source_id) => ({ ...(source_id === undefined ? {} : { source_id }), document: { schema: 'macguard.intel-kev/1', source: src, items: [{ cve_id: 'CVE-2099-0901', cwes: ['CWE-79'] }] } });
+// Values a JSON document (or a JS caller) can put where a string is expected. Every one of them must be refused, never coerced.
+const label = (v) => (typeof v === 'string' ? `string(${v.length})` : typeof v === 'object' && v !== null ? `${Array.isArray(v) ? 'array' : 'object'} ${Object.keys(v)}` : typeof v);
+const CONFUSE = [['cisa-kev'], [['cisa-kev']], { toString: null }, { valueOf: null, toString: null }, { toString: () => 'cisa-kev' }, { valueOf: () => 'cisa-kev', toString: () => 'cisa-kev' },
+  { toJSON: null }, 42, 0, -1, 1e308, NaN, true, false, null, '', 'x'.repeat(100000), 'cisa-kev'.repeat(2000), 10n, Symbol('s'), () => 'cisa-kev'];
+
+test('regression (Codex d14cd19 MEDIUM): array source ids are refused, so two copies are never two independent sources; {toString:null} never throws', () => {
+  const two = correlate({ kev: [kevDoc({ ...KEV_SRC, id: ['cisa-kev'] }, 'copy-a'), kevDoc({ ...KEV_SRC, id: ['cisa-kev'] }, 'copy-b')] });
+  assert.equal(two.relations.length, 0, 'array document.source.id is not a source id');
+  assert.deepEqual(two.inputs.map((i) => [i.role, i.reason]), [['refused', 'source block incomplete'], ['refused', 'source block incomplete']]);
+  const ok = correlate({ kev: [kevDoc(KEV_SRC, 'copy-a'), kevDoc(KEV_SRC, 'copy-b')] });
+  assert.equal(ok.relations.length, 1); assert.equal(ok.relations[0].independent_sources, 1, 'two republishers of one original source are ONE independent source');
+  assert.doesNotThrow(() => correlate({ kev: [kevDoc({ ...KEV_SRC, id: { toString: null } })] }));
+  assert.equal(correlate({ kev: [kevDoc({ ...KEV_SRC, id: { toString: null } })] }).relations.length, 0);
+});
+
+test('type confusion: every metadata field of KEV and rule-index inputs accepts only its primitive type; the engine never throws', () => {
+  const ix = () => ({ document: { schema: 'macguard.search-index/1', release: { tag: 'rules-20260101-1', manifest_sha256: 'b'.repeat(64) },
+    entities: [{ id: 'yara:r/a.yar#R', kind: 'rule', path: 'r/a.yar', name: 'R', file_sha256: 'c'.repeat(64), source: 'community' }],
+    assertions: [{ type: 'rule_meta_mentions_cve', subject: 'yara:r/a.yar#R', value: 'CVE-2099-0902', value_kind: 'cve', meta_key: 'cve', match: 'whole_value', status: 'asserted_by_rule_metadata', provenance: { release_tag: 'rules-20260101-1', path: 'r/a.yar', file_sha256: 'c'.repeat(64), line: 3 } }] } });
+  const base = { kev: [kevDoc(KEV_SRC)], rule_indexes: [ix()] };
+  assert.equal(correlate(base).counts.asserted, 2, 'control: the untouched input asserts both relations');
+  const paths = [['kev', 0, 'source_id'], ['kev', 0, 'document', 'source', 'id'], ['kev', 0, 'document', 'source', 'url'], ['kev', 0, 'document', 'source', 'catalog_version'],
+    ['kev', 0, 'document', 'source', 'date_released'], ['kev', 0, 'document', 'source', 'upstream_sha256'], ['kev', 0, 'document', 'items', 0, 'cve_id'], ['kev', 0, 'document', 'items', 0, 'cwes', 0],
+    ['rule_indexes', 0, 'source_id'], ['rule_indexes', 0, 'document', 'release', 'tag'], ['rule_indexes', 0, 'document', 'release', 'manifest_sha256'],
+    ...['id', 'kind', 'path', 'name', 'file_sha256', 'source'].map((k) => ['rule_indexes', 0, 'document', 'entities', 0, k]),
+    ...['type', 'subject', 'value', 'value_kind', 'meta_key', 'match', 'status'].map((k) => ['rule_indexes', 0, 'document', 'assertions', 0, k]),
+    ...['release_tag', 'path', 'file_sha256', 'line'].map((k) => ['rule_indexes', 0, 'document', 'assertions', 0, 'provenance', k])];
+  for (const path of paths) for (const v of CONFUSE) {
+    const input = { kev: [kevDoc(KEV_SRC)], rule_indexes: [ix()] };
+    let o = input; for (const k of path.slice(0, -1)) o = o[k]; o[path.at(-1)] = v;
+    let out; assert.doesNotThrow(() => { out = correlate(input); }, `${path.join('.')} = ${label(v)}`);
+    assert.equal(serialize(correlate(input)), serialize(out), 'deterministic');
+    for (const r of out.relations) {
+      for (const e of r.evidence) for (const k of ['source_id', 'original_source_id', 'locator', 'content_sha256']) assert.equal(typeof e[k], 'string', `${path.join('.')}: ${k}`);
+      assert.equal(r.independent_sources, new Set(r.evidence.map((e) => e.original_source_id)).size);
+      assert.ok(r.evidence.every((e) => e.locator.length <= 1024), 'every locator fits intel_relationship_evidence.ref');
+    }
+    // a coerced value never yields an asserted relation that the untouched value would not give: the asserted set only shrinks
+    assert.ok(out.relations.filter((r) => r.state === 'asserted').every((r) => correlate(base).relations.some((b) => triple(b) === triple(r) && b.state === 'asserted')), path.join('.'));
+  }
+  // deep and cyclic values never overflow the stack
+  let deep = 'CWE-79'; for (let i = 0; i < 20000; i++) deep = [deep];
+  const cyc = { a: 1 }; cyc.self = cyc;
+  for (const v of [deep, cyc]) {
+    assert.doesNotThrow(() => correlate({ kev: [{ ...kevDoc(KEV_SRC), source_id: v }] }));
+    const d = kevDoc(KEV_SRC); d.document.items[0].cwes = [v]; assert.doesNotThrow(() => correlate({ kev: [d] }));
+    assert.equal(correlate({ kev: [d] }).relations.length, 0);
+  }
+});
+
+/** Seeded random mutations of the corpus: values replaced by type-confusion values, other corpus values or garbage; keys deleted; arrays duplicated. */
+function mutate(input, r) {
+  const x = structuredClone(input), slots = [];
+  (function walk(v) { if (v && typeof v === 'object') for (const k of Object.keys(v)) { slots.push([v, k]); walk(v[k]); } })(x);
+  const n = 1 + Math.floor(r() * 4);
+  for (let i = 0; i < n && slots.length; i++) {
+    const [o, k] = slots[Math.floor(r() * slots.length)], op = r();
+    if (op < 0.45) o[k] = CONFUSE[Math.floor(r() * CONFUSE.length)];
+    else if (op < 0.65) { const [o2, k2] = slots[Math.floor(r() * slots.length)]; o[k] = o2[k2]; }
+    else if (op < 0.8) { if (Array.isArray(o)) o.splice(Number(k), 1); else delete o[k]; }
+    else if (op < 0.9 && Array.isArray(o)) o.push(o[k]);
+    else if (typeof o[k] === 'string') o[k] = o[k].length > 1 ? o[k].slice(0, -1) + (r() < 0.5 ? '0' : o[k].at(-1).toUpperCase()) : '';
+  }
+  return x;
+}
+test('fuzz (seed 20261102, 600 iterations): mutated corpus inputs never throw, are deterministic, emit only allowed types, and every asserted relation traces to one input statement', () => {
+  const r = rng(20261102), allowed = new Set(Object.values(RULES).map((x) => x.type));
+  let asserted = 0;
+  for (let i = 0; i < 600; i++) {
+    const { name, c } = CASES[i % CASES.length], input = mutate(c.input, r);
+    let out; assert.doesNotThrow(() => { out = correlate(input); }, `${name} mutation ${i}`);
+    assert.equal(serialize(correlate(input)), serialize(out), `${name} mutation ${i}: deterministic`);
+    assert.doesNotThrow(() => JSON.parse(serialize(out)));
+    for (const rel of out.relations) {
+      assert.ok(allowed.has(rel.type) && RULES[rel.rule_id].type === rel.type, `${name} mutation ${i}: type ${rel.type}`);
+      assert.ok(!/^RULE_DETECTS|^ALIAS_OF|^INDICATOR_/.test(rel.type));
+      assert.equal(rel.independent_sources, new Set(rel.evidence.map((e) => e.original_source_id)).size);
+      for (const e of rel.evidence) assert.ok(['source_id', 'original_source_id', 'locator', 'content_sha256'].every((k) => typeof e[k] === 'string'), `${name} mutation ${i}: evidence types`);
+      if (rel.state !== 'asserted') continue;
+      asserted++;
+      for (const e of rel.evidence) {
+        let ok = false; try { ok = trace(input, rel, e); } catch { ok = false; }
+        assert.ok(ok, `${name} mutation ${i}: asserted evidence not traceable: ${e.locator}`);
+      }
+    }
+  }
+  assert.ok(asserted > 1000, `the fuzz keeps exercising asserted relations (${asserted})`);
 });
