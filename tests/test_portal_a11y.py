@@ -106,8 +106,11 @@ class LanguageOfParts(unittest.TestCase):
         self.assertIn('<h1><span lang="es">Documentación</span> · Documentation</h1>', src)
         self.assertIn('lang="es" hreflang="es">Leer en español</a>', src)
         for page, text in (('docs.html', h), ('build_docs.py', src)):
-            for delay in re.findall(r'http-equiv="refresh" content="(\d+);', text):
-                with self.subTest(page=page): self.assertEqual(delay, '0')
+            delays = re.findall(r'http-equiv="refresh" content="(\d+);', text)
+            with self.subTest(page=page): self.assertTrue(delays, 'a no-JavaScript redirect must exist'); self.assertEqual(set(delays), {'0'})
+        # docs/index.html also runs docs-redirect.js: its refresh must be JavaScript-off only, or a 0 s refresh can race the language choice
+        self.assertIn('<noscript><meta http-equiv="refresh" content="0;url=en/{first}.html"></noscript>', src)
+        self.assertEqual(src.count('http-equiv="refresh"'), 1)
 
     def test_the_english_half_of_the_404_page_is_marked(self):
         h = (WEB / '404.html').read_text()

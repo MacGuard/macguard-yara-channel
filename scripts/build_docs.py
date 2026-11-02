@@ -222,10 +222,11 @@ def build(out: pathlib.Path, site_for_context: pathlib.Path = None, strict=True)
             for d in used: report['diagrams'].setdefault(lang, []).append(d)
     first = pages[0]['slug']
     if first != 'overview': raise BuildError(f"the first documentation page must be 'overview' (web/docs-redirect.js sends readers there), got {first!r}")
-    # WCAG 2.2.1 (F41): no timed redirect; the no-JavaScript fallback redirects at once (docs-redirect.js runs first and picks the language).
+    # WCAG 2.2.1 (F41): no timed redirect. The 0 s fallback is inside <noscript>: with JavaScript, only docs-redirect.js navigates (it picks the
+    # language), so an immediate refresh can never race it and send a Spanish reader to en/; without JavaScript the fallback redirects at once.
     # WCAG 3.1.2: the Spanish parts of this English page carry lang="es".
     (out / 'index.html').write_text(f'''<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Documentation · MacGuard YARA Channel</title><link rel="stylesheet" href="../style.css">
-<meta http-equiv="refresh" content="0;url=en/{first}.html"><main style="max-width:640px;margin:60px auto;padding:0 16px"><h1><span lang="es">Documentación</span> · Documentation</h1><p><a href="es/{first}.html" lang="es" hreflang="es">Leer en español</a> · <a href="en/{first}.html" hreflang="en">Read in English</a></p>
+<noscript><meta http-equiv="refresh" content="0;url=en/{first}.html"></noscript><main style="max-width:640px;margin:60px auto;padding:0 16px"><h1><span lang="es">Documentación</span> · Documentation</h1><p><a href="es/{first}.html" lang="es" hreflang="es">Leer en español</a> · <a href="en/{first}.html" hreflang="en">Read in English</a></p>
 <script src="../docs-redirect.js"></script></main></html>''', encoding='utf-8')
     report['files'].append('index.html')
     return report
