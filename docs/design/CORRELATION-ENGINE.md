@@ -1,160 +1,177 @@
 # Threat Intelligence Hub: correlation engine (high-assurance contract)
 
-Status: **DESIGN**. Nothing in this document is deployed. It defines the contract that the code and the adversarial tests must meet before any correlation is shown as verified on rules.mac-guard.com.
+Status: **DESIGN v2**, after an independent review against the effective schema (§10). Nothing here is deployed.
+
+INTEL 0007 is **not** created until the owner approves this contract. Every mechanism marked **New (0007)** does not exist today. Everything else is cited from the effective schema: branch `feat/correlation-engine` = main + INTEL 0004 (`dff6854`) + 0005 (`feat/r1-canonical`) + `feat/hub-search-index` (#86).
 
 Guiding rule: **show "relation not verified" rather than publish a false connection.**
 
-## 1. What already exists and is reused (no parallel system)
+## 1. Reused pieces (no parallel system)
 
-| Piece | Where | Reused for |
+| Piece | Where (effective schema) | Role |
 |---|---|---|
-| Canonical graph: `intel_entities`, `intel_relationships` (immutable), `intel_relationship_evidence` (append-only), `intel_relationship_assessments` (append-only), `intel_relationship_state` (projection), 17 relationship types | INTEL 0004, `admin/worker/migrations-intel/0004_canonical_graph.sql`, `admin/worker/src/intel_graph.js` (branch `feat/intel-canonical-model` `dff6854`, **not on main**) | entity registry, typed relations, evidence registry, revision history |
-| Vulnerability model: weakness, package, `ALIAS_OF`, `VULN_HAS_WEAKNESS`, `RULE_DETECTS_CVE`, `RULE_DETECTS_CVE_BEHAVIOUR`, `INDICATOR_ASSOCIATED_WITH_CVE`, exploitation evidence (KEV), EPSS, severity assessments, version ranges | INTEL 0005 (`feat/r1-canonical` `59f2eae`, unreleased) | vulnerability side of the catalogue |
-| Source registry `macguard.intel-sources/1` (licences, APPROVED_PUBLIC / RETAINED) | `config/intel/sources.registry.json` (main) | source admission; nothing from a RETAINED source is published |
-| Shared identifier normaliser | `scripts/intel_ids.py` (`feat/hub-search-index`, in progress) | one normaliser for search **and** correlation (today there are five, with no shared test) |
-| Assertions extracted from signed YARA rule metadata | `scripts/rule_index.py` (`feat/hub-search-index`, in progress) | first real, verifiable assertions: rule ↔ hash and rule ↔ CVE **mentions** |
+| Entities `intel_entities` | 0004:20-33. Id is `type:namespace:key` (0004:31); key is 1–512 characters (0004:24) | canonical entity registry |
+| Relationships `intel_relationships` | 0004:59-78. **Immutable**: UPDATE and DELETE are refused. Endpoint types are checked against `intel_relationship_types` (0004:75) | typed relation catalogue (30 types: 17 in 0004 + 13 in 0005) |
+| Evidence `intel_relationship_evidence` | 0004:80-93. **Append-only.** Kinds include `source_statement`, `content_match`, `test_run` | evidence registry |
+| Assessments `intel_relationship_assessments` | 0004:95-110. **Append-only.** Confidence {CONFIRMED, REPORTED, INFERRED, DISPUTED, UNKNOWN} × verification {VERIFIED, UNVERIFIED, FAILED}; REPORTED needs a `source_statement` (0004:107) | revision history |
+| State projection `intel_relationship_state` | 0004:113. Writes outside the projection triggers are refused (0005:181) | current state |
+| ALIAS_OF guards | 0005:38-39: method limited to `asserted_by_source` or `manual`; aliases must cross namespaces | no alias merge without a source |
+| `RULE_DETECTS_CVE` needs a `test_run` | 0005:40 | partial critical-type guard |
+| Severity only on vulnerabilities | trigger `intel_severity_vuln_only` (0005:77) | rule 6 |
+| Source registry `config/intel/sources.registry.json` | JSON only, **not** in the database. Today one source is `APPROVED_PUBLIC`: `cisa-kev` | source admission |
+| Normalisers | `scripts/intel_ids.py` (Python, #86) for search and ingestion; `normalizeKey` (`intel_graph.js:57-79`, JS) on the database write path | identifier syntax (two implementations: see A5) |
+| `scripts/rule_index.py` (#86) | assertions taken from each signed rule's own `meta:` block, with `match: whole_value \| embedded` | input of the YARA rules (§5) |
 
-**Database.** Cloudflare D1 (SQLite) is enough. These sizes are order-of-magnitude estimates to be confirmed by measurement in C8:
+**Database.** D1 is sufficient: queries are one hop and the constraints are triggers. Sizes are estimates, measured in C8. A graph database adds nothing because transitivity is forbidden (rule 4).
 
-| Data | Approximate size |
+## 2. Identifiers and STIX 2.1 mapping
+
+| Entity (type:namespace:key) | STIX 2.1 | Notes |
+|---|---|---|
+| `vulnerability:cve:CVE-…` | SDO `vulnerability` + `external_references` | key is upper case; the same grammar on both normalisers (A5) |
+| `weakness:cwe:CWE-n` | `external_references` (cwe) | |
+| `rule:yara:<path>#<name>` | SDO `indicator` (`pattern_type: yara`) | `intel_ids` returns `yara:<path>#<name>`; the key is everything after `yara:`. A path is ≤ 400 characters and a name ≤ 128, so a key can reach **529 > 512** (0004:24). **New (0007):** either raise the key cap to 529, or refuse longer rules at ingestion. Never truncate. |
+| `sample:sha256:<hex>` | SCO `file.hashes` | MD5/SHA-1 mentions have **no** sample identity. They stay rule assertions with no relation until a source gives a record with the SHA-256 (A12). |
+| `malware_family:…`, `indicator:…` | SDO `malware`, SCO/SDO `indicator` | |
+| `poc_reference:…` | `external_references` | metadata only |
+
+**Confidence.** The schema vocabulary (CONFIRMED / REPORTED / INFERRED / DISPUTED / UNKNOWN) is the **only** one. The 0–100 STIX value is used only on export:
+
+| Schema value | STIX export |
 |---|---|
-| CVE records | ~3×10⁵ |
-| KEV entries | ~1.8×10³ |
-| YARA rules | ~10⁴ (10 021 declarations in `rules-20261101-41271797671`) |
-| Hashes in rule metadata | ~10⁴ (5 314 SHA-256 / 1 882 SHA-1 / 2 739 MD5) |
-| Edges | < 10⁷, with typical fan-out < 100 per entity |
+| CONFIRMED | 85 |
+| REPORTED | 50 |
+| INFERRED | 15 |
+| DISPUTED / UNKNOWN | 0 |
 
-- No query needs path traversal beyond one hop. Transitivity is **forbidden** (§3.4), so a graph database adds no capability.
-- The constraints that must hold are triggers and CHECKs, which D1 supports.
-- If C8 measures read-row budgets above the D1 quota, the answer is precomputed read models (as `intel_vuln_search` already does), not a new store.
+## 3. Normative state mapping (§4 states ↔ schema)
 
-## 2. Model (STIX 2.1 conceptual mapping)
-
-| MacGuard (INTEL 0004/0005) | STIX 2.1 | Notes |
+| Contract state | Schema representation | Public? |
 |---|---|---|
-| `vulnerability` (`vulnerability:cve:CVE-…`) | SDO `vulnerability` + `external_references` (source_name `cve`) | |
-| `weakness` | `external_references` (source_name `cwe`) | STIX has no CWE SDO |
-| `rule` (`rule:yara:<path>#<name>`) | SDO `indicator` (`pattern_type: yara`) | Identity is **path + name**. A rule name alone is not an id: 10 021 declarations but 8 022 unique names. |
-| `sample` (`sample:sha256:<hex>`) | SCO `file.hashes` | |
-| `indicator` (ip/domain/url) | SCO `ipv4-addr` / `domain-name` / `url` (+ SDO `indicator` when it is a detection) | |
-| `malware_family` | SDO `malware` (`is_family: true`) | |
-| `poc_reference` | SDO `vulnerability` `external_references` / custom `x-macguard-poc-reference` | **Metadata only**, never code |
-| `source`, `source_version` | SDO `identity` (`created_by_ref`) | |
-| relationship + evidence + assessment | SRO `relationship` (`relationship_type`, `created_by_ref`, `confidence`, `revoked`, `external_references`) | |
-| assessment `DISPUTED` / `UNKNOWN` | `revoked: true` is **only** for a retraction by the same creator; a contradiction stays visible | |
+| candidate | latest assessment UNKNOWN or INFERRED / UNVERIFIED; **New (0007):** lifecycle row `candidate` | never |
+| asserted | REPORTED / UNVERIFIED + ≥1 `source_statement` evidence from an approved source | yes, labelled "according to <source>" |
+| verified | CONFIRMED / VERIFIED. For a critical type, also an approved review (New, 0007) | yes |
+| disputed | DISPUTED, or sibling relations that contradict each other (§4.2) | yes, with every statement shown |
+| rejected | latest verification FAILED | never |
+| retracted | **New (0007):** an explicit lifecycle marker that only the original source or the proposer can set. Today a retraction cannot be told from "never assessed" (A2). | history only |
 
-**Confidence.** The levels are named and are mapped to the STIX 0–100 scale only for export:
-- `HIGH` = 85;
-- `MEDIUM` = 50;
-- `LOW` = 15;
-- `NONE` = 0.
+### 4.1 Mandatory rules: enforcement today vs New (0007)
 
-The UI always shows the name **and** the method, never a bare number.
-
-## 3. Mandatory rules and how each is enforced
-
-| # | Rule | Enforcement (where) | Test (C6 corpus) |
+| # | Rule | Today (proved on a scratch database built from 0001→0005) | New (0007) |
 |---|---|---|---|
-| 1 | No LLM as source of truth | `method` enum has no LLM value that can reach `verified`. `origin = 'ai_proposed'` rows can only be `candidate` (CHECK + trigger). | `ai_cannot_verify` |
-| 2 | No correlation by text similarity alone | Rule engine predicates operate only on **normalised identifiers** (`intel_ids.normalize`) and source-asserted fields; there is no fuzzy predicate. | `similar_names_not_linked`, `cve_similar_product_not_linked` |
-| 3 | Search hits are not relations | The search read model is a separate table and never writes `intel_relationships`. Search results carry `match: exact\|prefix\|partial` and no `relationship_type`. | `search_hit_creates_no_relation` |
-| 4 | No automatic transitivity | The API returns one-hop relations only. A path A→B→C is shown as "related via B (not a relation)" and is never materialised. There is no trigger or job that composes edges. | `transitive_false_positive` (rule→hash→CVE must NOT yield rule→CVE) |
-| 5 | No alias merge without evidence | `ALIAS_OF` requires evidence whose source states the alias explicitly (CVE record, GHSA aliases, source mapping). Same-name products, MD5/SHA-1/SHA-256 of "the same sample" without a single source record listing all three → no link. | `ambiguous_alias`, `hash_triplet_without_record` |
-| 6 | No CVSS for hashes or rules | Severity rows are allowed only for `vulnerability` (CHECK on entity type); a rule or sample sheet shows no CVSS. | `no_cvss_on_rule` |
-| 7 | A YARA rule that detects an artefact is not proof that it detects exploitation of a CVE | Two distinct types. `RULE_META_REFERENCES_CVE` (asserted by the rule's own metadata) and `RULE_DETECTS_CVE` / `RULE_DETECTS_CVE_BEHAVIOUR` (critical: need evidence of kind `test_evidence` against an exploitation artefact, or an explicit statement from the rule author/vendor, **plus** independent approval). | `meta_reference_is_not_detection` |
-| 8 | No relation published without evidence, provenance and method | Publication view `intel_relationship_public` = state `VERIFIED` or `ASSERTED` + ≥1 evidence row + source `APPROVED_PUBLIC` + method ∈ allowed set. Anything else is invisible to the static build and the anonymous API. | `no_evidence_not_published`, `retained_source_not_published` |
-| 9 | Retractions, contradictions and history are kept | Relationships are immutable, evidence and assessments append-only (INTEL 0004 triggers). Retraction = new assessment. Contradiction = two assessments from different sources, displayed as `DISPUTED` with both. | `retraction_kept`, `contradiction_both_visible` |
-| 10 | Proposer ≠ approver for critical relations | **New** (INTEL 0007): `intel_relationship_reviews(rel_id, proposer, approver, decision, at)` with CHECK `approver <> proposer`. Trigger: a critical type reaches `VERIFIED` only through an approved review. Approver identities `ai:*` are refused. | `same_actor_cannot_approve`, `ai_cannot_approve` |
+| 1 | No LLM as source of truth | **Not enforced.** An `ai:llm` source, method `correlated`, reached CONFIRMED/VERIFIED with raw SQL. The `correlated` guard exists only in JS `assess` (`intel_graph.js:125-129`). | Proposer and origin recorded at creation in an append-only side table written in the same batch. VERIFIED only by an approver from an **allow-list of authenticated human admins** (like 0002 `actor_id`), not a deny-list. `correlated` guard as a trigger. |
+| 2 | No text-similarity-only correlation | By convention only | Engine rule: identifiers from `intel_ids` only; exact key allow-lists (§5); `embedded` mentions never become asserted |
+| 3 | Search hits are not relations | Holds by construction: the search index has no writer to `intel_relationships`. The engine reads **rule_index assertions** (rule-metadata statements), never search results. | — |
+| 4 | No automatic transitivity | Holds: 0 triggers write relationships; `neighbours` is one hop (`intel_graph.js:139`) | engine test only |
+| 5 | No alias merge without evidence | ALIAS_OF method and cross-namespace guards (0005:38-39). But ALIAS_OF can be inserted with no evidence, and a `correlated` HASH_IDENTIFIES_SAMPLE was accepted. | ALIAS_OF and HASH_IDENTIFIES_SAMPLE need `source_statement` evidence; method limited to `asserted_by_source` |
+| 6 | No CVSS on hashes or rules | **Enforced by trigger** `intel_severity_vuln_only` (0005:77). EPSS history has no such guard. | vuln-only trigger on `intel_epss_history` and `intel_epss_latest`; DELETE guards |
+| 7 | A rule that detects an artefact does not detect a CVE's exploitation | Distinct types exist. `RULE_DETECTS_CVE` needs a `test_run` (0005:40); `RULE_DETECTS_CVE_BEHAVIOUR` and `INDICATOR_ASSOCIATED_WITH_CVE` do not. | Extend the `test_run` + review trigger to both. The engine emits only `RULE_ASSOCIATED_WITH_CVE` from metadata. |
+| 8 | No publication without evidence, provenance and method | **Not enforced.** A public UNKNOWN relation with zero evidence was accepted. `vulnerabilityRecord` (`intel_vuln.js:171-183`) filters on exposure only. Exposure is fixed at insert because relations are immutable. | View `intel_relationship_public` (state asserted/verified + evidence + approved source). **Every** reader (`vulnerabilityRecord`, `neighbours`, gateway search refresh) uses the view. Optionally refuse `exposure='public'` at insert. |
+| 9 | Keep retractions, contradictions and history | Relations immutable; evidence and assessments append-only (enforced). Retraction marker missing. Contradiction detection exists only for ALIAS_OF in JS (`intel_vuln.js:55-75`). | Retraction marker; contradiction view (§4.2) |
+| 10 | Proposer ≠ approver for critical relations | **Not enforced**: relationships have no proposer or actor column | `intel_relationship_reviews` with `approver <> proposer`. Proposer comes from the creation side table. The approver must be on the allow-list and equal NEW.actor of the VERIFIED assessment. |
 
-**Critical relation types** (rule 10 applies): `RULE_DETECTS_CVE`, `RULE_DETECTS_CVE_BEHAVIOUR`, `INDICATOR_ASSOCIATED_WITH_CVE`, `ALIAS_OF`, any type that links a PoC to a vulnerability as "exploits", and any malware ↔ vulnerability "exploits".
+**Critical types:** `RULE_DETECTS_CVE`, `RULE_DETECTS_CVE_BEHAVIOUR`, `INDICATOR_ASSOCIATED_WITH_CVE`, `ALIAS_OF`, and the future "exploits" types. The future types do not exist; adding them is New (0007+).
 
-## 4. Verification states (per relationship, current projection)
+### 4.2 Contradictions and de-duplication
+- **Contradiction.** `source_id` is part of a relationship's identity. Two sources asserting the same (type, from, to) therefore make two sibling relationships. They are in contradiction when their latest assessments disagree (one CONFIRMED or REPORTED, the other DISPUTED or FAILED).
+  - Today there is no negative statement ("does not detect"); a source expresses one through a DISPUTED assessment with `source_statement` evidence.
+  - **New (0007):** a view that groups siblings and flags disagreement.
+- **De-duplication.** **New (0007):**
+  - `original_source_id` on evidence, required on new rows;
+  - evidence `source_id` NOT NULL;
+  - uniqueness on (relationship_id, kind, ref, sha256).
+  - Today two identical evidence rows are accepted and counted twice.
 
-```
-candidate ──(source states it)──▶ asserted ──(independent method + review if critical)──▶ verified
-    │                                 │                                                    │
-    └──────────────▶ rejected         └──────▶ disputed (contradicting source) ◀───────────┘
-                                                        └──▶ retracted (creator withdrew; STIX revoked)
-```
+## 5. Deterministic rules (engine output uses existing types)
 
-The states mean the following:
-- **candidate:** proposed by a rule, an analyst or AI. Never public.
-- **asserted:** a single approved source states it, and the evidence is that statement (locator + content hash). Public, labelled "according to <source>".
-- **verified:** confirmed by a second independent method; for critical types, also approved by another actor.
-- **disputed:** sources disagree. Public with all statements shown.
-- **retracted:** the creator withdrew it. History stays visible.
-
-**Evidence de-duplication.** Every evidence row carries `original_source_id`. Two feeds that republish the same original (for example KEV copied by an aggregator) count as **one** independent source.
-
-## 5. Deterministic rule engine
-
-A rule is `(id, version, input entity kinds, predicate over normalised fields, output relationship_type, initial state)`. Rules are versioned in the repository and produce the same output for the same snapshot.
-
-First rule set, all **source-asserted**:
-
-| Rule id | Input | Output | Initial state |
+| Rule id | Input | Output type (existing) | Initial state |
 |---|---|---|---|
-| R-KEV-CWE-1 | KEV entry with a `cwes` field | `VULN_HAS_WEAKNESS` | asserted (CISA KEV) |
-| R-YARA-HASH-1 | rule `meta:` value matching a hash (via `intel_ids`), with key ∈ {hash, sha256, md5, sha1, sample, …} | `RULE_META_MENTIONS_SAMPLE` | asserted (rule author, through the signed release) |
-| R-YARA-CVE-1 | rule `meta:` / name / reference containing a normalised CVE | `RULE_META_REFERENCES_CVE` | asserted; **never** `RULE_DETECTS_CVE` |
+| R-KEV-CWE-1 | KEV entry `cwes` | `VULN_HAS_WEAKNESS` | asserted (`cisa-kev`, `source_statement`) |
+| R-YARA-HASH-1 | rule_index `rule_meta_mentions_hash`, match `whole_value`, SHA-256 only, meta key on the allow-list `hash`, `hash<N>`, `sha256`, `sample`, `samples` | `RULE_REFERENCES_SAMPLE` (0004:43) | asserted (rule author, through the signed release) |
+| R-YARA-CVE-1 | rule_index `rule_meta_mentions_cve`, match `whole_value`, meta key on the allow-list `cve`, `cves`, `vuln`, `vulnerability`, `reference` (when the value is a whole CVE id) | `RULE_ASSOCIATED_WITH_CVE` (0004:42), **never** `RULE_DETECTS_CVE*` | asserted |
 
-Unknown or malformed values produce **no** relation and an entry in the ingestion report.
+The rules never produce a relation from any of these:
+- an `embedded` mention (a CVE or hash inside free text);
+- an MD5 or SHA-1;
+- a key over 512 characters;
+- a rule name.
 
-## 6. AI (allowed role only)
+Each case goes to the rejection report with a reason. Same snapshot means the same bytes.
 
-AI may only do the following, and nothing more:
-- extract candidate entities;
-- propose relations (`origin = 'ai_proposed'`, state `candidate`);
-- search for evidence;
-- flag contradictions;
-- summarise **verified** relations, with each statement citing a relation id.
+**Source of the YARA release.** The registry has no entry for it. **Owner decision:** add `macguard-yara-release` to the registry, with licences DRL-1.1 / GPL-2.0 kept per source collection, approved for metadata-only assertions. Until then rule 8 hides every R-YARA relation.
 
-It never writes `asserted` or `verified`, and never approves. Rules 1 and 10 enforce this in the database, not only by convention.
+## 6. AI (restricted)
 
-## 7. Sheet API contract (`macguard.intel-sheet/1`, extends `contracts/v1/intel-vulnerability.schema.json`)
+AI may extract candidate entities, propose relations, search for evidence, flag contradictions, and summarise **verified** relations, citing the relation id.
+
+It never writes REPORTED or CONFIRMED and never approves. Enforcement today: none. **New (0007):** origin and proposer recorded, plus the approver allow-list (rules 1 and 10).
+
+## 7. Sheet API (`macguard.intel-sheet/1`)
 
 For each relation the sheet returns:
-- `relationship_type`, `from`, `to`;
-- `state` (§4) and `confidence` (named);
-- `method`, `rule_id` (if engine-made);
-- `evidence[]` (`source_id`, `original_source_id`, `locator`, `content_sha256`, `retrieved_at`);
-- `assessments[]` (history), `verified_at`, `reviewed_by` (critical only).
+- type, from, to;
+- contract state (§3) and confidence (schema vocabulary);
+- method and rule_id;
+- evidence: source_id, original_source_id (New), kind, ref, sha256, observed_at;
+- assessment history, verified_at, reviewed_by (critical types only).
 
-Relations are grouped into "verified", "asserted by a source", "disputed" and "hypotheses (not verified)". The last group is shown only to authenticated analysts, never in the public build.
+Relations are grouped as **verified / asserted / disputed / hypotheses**. Hypotheses go only to authenticated analysts.
 
-## 8. Validation corpus (C6) and acceptance
+**The sheet reads only the public view in anonymous and static builds.**
 
-The corpus is synthetic, plus real public data under its licence: KEV CC0, plus YARA rules from the signed release under DRL-1.1 / GPL-2.0, used only as identifiers and locators. The required cases are:
+## 8. Validation corpus and acceptance
+
+The corpus is synthetic, plus public data under its licence: KEV is CC0, and YARA metadata is used as identifiers and locators only. It must cover:
 - verified relations;
 - unrelated entities;
 - ambiguous aliases;
 - similar or malformed hashes;
+- Unicode digits;
 - CVEs with similar products;
 - generic rules;
-- wrong references;
+- wrong references (a CVE inside a URL);
 - contradicting sources;
 - retracted data;
 - duplicate evidence from one original source;
-- false transitive paths.
+- false transitivity.
 
-The engine is **not ready** until all of the following hold:
-- every row of §3 has a passing adversarial test;
-- the corpus shows zero false relations at the `asserted`/`verified` level;
-- every published relation in the corpus can be traced to evidence;
-- the logic, the triggers and the tests have had an independent Codex review with no BLOCKER/HIGH.
+The engine is **not ready** until all of these hold:
+- every row of §4.1 has a passing adversarial test, at the database level for "New (0007)" rows once 0007 exists;
+- zero false relations at asserted or verified;
+- JS↔Python normaliser parity;
+- an independent Codex review of the logic, the triggers and the tests with no BLOCKER/HIGH.
 
-## 9. Task specs (small, ordered)
+## 9. Task specs
 
 | Id | Scope | Depends on | Acceptance |
 |---|---|---|---|
-| C0 | This contract (docs only) | — | owner review |
-| C1 | `scripts/intel_ids.py` shared normaliser + adversarial tests | — | in progress on `feat/hub-search-index` |
-| C2 | Land INTEL 0004 (+0005) on main in small PRs (T7) | owner GO | migrations tested with rollback; nothing applied remotely |
-| C3 | INTEL 0007: reviews table, proposer≠approver CHECK, ai-approver refusal, critical-type trigger, `origin` column, `original_source_id` on evidence, public view | C2 | triggers proven by tests that attempt every forbidden write |
-| C4 | Rule engine R-KEV-CWE-1, R-YARA-HASH-1, R-YARA-CVE-1 (deterministic, versioned) | C1, C3, rule_index | same snapshot ⇒ same bytes; malformed values ⇒ no relation |
-| C5 | Sheet read model + `macguard.intel-sheet/1` contract tests | C3 | grouping by state; hypotheses never in anonymous output |
-| C6 | Adversarial corpus + tests for every §3 row | C3, C4 | zero false relations |
-| C7 | Codex independent review of C3–C6 | C6 | 0 BLOCKER/HIGH |
-| C8 | D1 sizing measurement (rows, read units per sheet) | C4 | numbers recorded; read models if over quota |
+| C0 | This contract | — | **owner approval** (v2) |
+| C1 | `intel_ids.py` (#86) | — | done; extraordinary Codex review MEDIUM fixed (`938bf26`) |
+| C2 | INTEL 0004 + 0005 to main in small PRs | owner GO | migrations and rollback tested; nothing applied remotely |
+| C3 | **INTEL 0007**, after C0 approval and only then. Contents: (a) freeze `intel_entity_types` and `intel_relationship_types` (no UPDATE/DELETE); (b) per-namespace key checks for cve, cwe, sha256, yara, plus the key-length decision; (c) creation side table with proposer and origin; (d) human-approver allow-list; (e) `intel_relationship_reviews`; (f) `correlated` guard; (g) critical-type triggers covering `_BEHAVIOUR` and `INDICATOR_*`; (h) `original_source_id`, evidence uniqueness, `source_id` NOT NULL; (i) source approval represented in the database; (j) retraction and lifecycle marker; (k) EPSS and version-range guards; (l) public view and contradiction view | C0, C2 | every forbidden write in §4.1 refused by a test |
+| C3b | JS `normalizeKey` `yara` case, plus a JS↔Python parity test with shared vectors | C1 | disagreements (CVE-2024-01234, CWE-0) resolved |
+| C4 | Pure engine R-KEV-CWE-1 / R-YARA-HASH-1 / R-YARA-CVE-1 | C1 | in progress (`feat/correlation-engine`, no migrations) |
+| C5 | Readers switched to the public view; sheet contract tests | C3 | anonymous output has no hypotheses |
+| C6 | Adversarial corpus and tests | C3, C4 | zero false relations |
+| C7 | Codex independent review | C6 | 0 BLOCKER/HIGH |
+| C8 | D1 sizing measurement | C4 | numbers recorded |
 
-Nothing here is applied to production, published, or used to make an "exploits"/"detects" claim without the gates above.
+## 10. Review record
+
+The v1 (`1ff0bb3`) was reviewed by an independent reviewer (AgC, 2026-11-02) against scratch databases built from 0001→0005, with forbidden writes attempted. Its amendments and where v2 addresses them:
+
+| Amendment | Addressed in |
+|---|---|
+| A1: type names that do not exist | §5 uses the existing 0004 types |
+| A2: no state mapping | §3 |
+| A3: two confidence vocabularies | §2: one vocabulary, export-only mapping |
+| A4: rule key 529 > 512 | §2, C3(b) |
+| A5: two normalisers | §1, C3b |
+| A6: source approval not in the database; no YARA release source | §5, C3(i) |
+| A7: no proposer/origin; deny-list approvers; critical-type gaps | rules 1, 7 and 10; C3(c)(d)(f)(g) |
+| A8: no evidence de-duplication | §4.2, C3(h) |
+| A9: type tables and EPSS guards | C3(a)(k) |
+| A10: readers bypass the public view | rule 8, §7, C5 |
+| A11: key lists and `embedded` policy not pinned | §5 |
+| A12: MD5/SHA-1 sample identity | §2 |
+| A13: "New" not marked; wording errors | throughout. The evidence kind is `test_run`; rule 6 is enforced by a trigger, not a CHECK. |
