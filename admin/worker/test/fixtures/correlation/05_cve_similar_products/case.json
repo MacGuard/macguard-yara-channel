@@ -1,0 +1,193 @@
+{
+ "description": "Two CVEs of the same vendor and product (and notes that mention each other) are not related to each other, and a rule that names only one of them is not associated with the other. Product, vendor and notes are never read; a rule about the product but naming no CVE gets no CVE.",
+ "input": {
+  "kev": [
+   {
+    "document": {
+     "schema": "macguard.intel-kev/1",
+     "source": {
+      "id": "cisa-kev",
+      "url": "https://www.cisa.gov/sites/default/files/feeds/known_exploited_vulnerabilities.json",
+      "license": "CC0-1.0",
+      "attribution": "Contains data from the CISA Known Exploited Vulnerabilities Catalog (CC0 1.0)",
+      "catalog_version": "2026.10.30",
+      "date_released": "2026-10-30T17:02:45.366Z",
+      "retrieved_at": "2026-10-30T17:02:45.366Z",
+      "upstream_sha256": "661f8e28f69a036dbbc53a346826dcdae4e5b47b281f269bd4074f194ad6c9b9"
+     },
+     "count": 2,
+     "items": [
+      {
+       "cve_id": "CVE-2021-44228",
+       "vendor": "Apache",
+       "product": "Log4j2",
+       "name": "Synthetic entry for CVE-2021-44228",
+       "date_added": "2026-01-01",
+       "short_description": "Synthetic description.",
+       "required_action": "Apply mitigations per vendor instructions.",
+       "due_date": "2026-01-22",
+       "known_ransomware_use": "Unknown",
+       "notes": "See also CVE-2021-45046; https://nvd.nist.gov/vuln/detail/CVE-2021-45046",
+       "cwes": [
+        "CWE-20",
+        "CWE-917"
+       ]
+      },
+      {
+       "cve_id": "CVE-2021-45046",
+       "vendor": "Apache",
+       "product": "Log4j2",
+       "name": "Synthetic entry for CVE-2021-45046",
+       "date_added": "2026-01-01",
+       "short_description": "Synthetic description.",
+       "required_action": "Apply mitigations per vendor instructions.",
+       "due_date": "2026-01-22",
+       "known_ransomware_use": "Unknown",
+       "notes": "Incomplete fix for CVE-2021-44228",
+       "cwes": [
+        "CWE-917"
+       ]
+      }
+     ]
+    }
+   }
+  ],
+  "rule_indexes": [
+   {
+    "document": {
+     "schema": "macguard.search-index/1",
+     "generator": "scripts/rule_index.py",
+     "release": {
+      "tag": "rules-20261102-1",
+      "manifest_sha256": "8b721e3ea826fa880b042854dfc9ea3fe9ef3a0d3ebd70ec9cd8c0d5144c117a",
+      "rules_root": null,
+      "files": 2
+     },
+     "note": "synthetic",
+     "counts": {},
+     "entities": [
+      {
+       "id": "yara:rules/community/synthetic/log4shell.yar#SYNTH_Log4Shell",
+       "kind": "rule",
+       "path": "rules/community/synthetic/log4shell.yar",
+       "name": "SYNTH_Log4Shell",
+       "tags": [],
+       "modifiers": [],
+       "line": 1,
+       "file_sha256": "45c143578b12508a1eb0b25c3eb23b3b469a816f6bd6bb68a0c4a116f2c915a2",
+       "source": "community",
+       "meta": {
+        "uuid": null,
+        "author": null,
+        "date": null,
+        "references": []
+       }
+      },
+      {
+       "id": "yara:rules/community/synthetic/log4j_generic.yar#SYNTH_Log4j_Product_Only",
+       "kind": "rule",
+       "path": "rules/community/synthetic/log4j_generic.yar",
+       "name": "SYNTH_Log4j_Product_Only",
+       "tags": [],
+       "modifiers": [],
+       "line": 1,
+       "file_sha256": "ba8468621c6fab7753808f3d6c3e5dded42f43d82577ae508c7117e81be443d6",
+       "source": "community",
+       "meta": {
+        "uuid": null,
+        "author": null,
+        "date": null,
+        "references": []
+       }
+      }
+     ],
+     "assertions": [
+      {
+       "id": "assert:29ef9e91af5c05d613077372ab1d3c33ad28ede9f8547ad87263c81d9288650d",
+       "type": "rule_meta_mentions_cve",
+       "subject": "yara:rules/community/synthetic/log4shell.yar#SYNTH_Log4Shell",
+       "value": "CVE-2021-44228",
+       "value_kind": "cve",
+       "meta_key": "cve",
+       "match": "whole_value",
+       "status": "asserted_by_rule_metadata",
+       "provenance": {
+        "release_tag": "rules-20261102-1",
+        "path": "rules/community/synthetic/log4shell.yar",
+        "file_sha256": "45c143578b12508a1eb0b25c3eb23b3b469a816f6bd6bb68a0c4a116f2c915a2",
+        "line": 2
+       }
+      },
+      {
+       "id": "assert:a3097a9377468db52c6042df70037c051d4297a207874ee876eb5fb812ee37ef",
+       "type": "rule_meta_mentions_hash",
+       "subject": "yara:rules/community/synthetic/log4shell.yar#SYNTH_Log4Shell",
+       "value": "52309cc647c4d239bae8581cf025308c490c46eb6008c7e358dd25a4a1fe5458",
+       "value_kind": "sha256",
+       "meta_key": "hash",
+       "match": "whole_value",
+       "status": "asserted_by_rule_metadata",
+       "provenance": {
+        "release_tag": "rules-20261102-1",
+        "path": "rules/community/synthetic/log4shell.yar",
+        "file_sha256": "45c143578b12508a1eb0b25c3eb23b3b469a816f6bd6bb68a0c4a116f2c915a2",
+        "line": 3
+       }
+      },
+      {
+       "id": "assert:d6e7355fa4ddeff8134b5978e688c487a41e1946ddf0a3d6bc1994e6a119f341",
+       "type": "rule_meta_mentions_hash",
+       "subject": "yara:rules/community/synthetic/log4j_generic.yar#SYNTH_Log4j_Product_Only",
+       "value": "d5a841baeeffef2aedc2778cb0929cf05a30b42b8066db080f12e349e76cef53",
+       "value_kind": "sha256",
+       "meta_key": "sample",
+       "match": "whole_value",
+       "status": "asserted_by_rule_metadata",
+       "provenance": {
+        "release_tag": "rules-20261102-1",
+        "path": "rules/community/synthetic/log4j_generic.yar",
+        "file_sha256": "ba8468621c6fab7753808f3d6c3e5dded42f43d82577ae508c7117e81be443d6",
+        "line": 2
+       }
+      }
+     ]
+    }
+   }
+  ]
+ },
+ "expect": {
+  "asserted": [
+   [
+    "VULN_HAS_WEAKNESS",
+    "vulnerability:cve:CVE-2021-44228",
+    "weakness:cwe:CWE-20"
+   ],
+   [
+    "VULN_HAS_WEAKNESS",
+    "vulnerability:cve:CVE-2021-44228",
+    "weakness:cwe:CWE-917"
+   ],
+   [
+    "VULN_HAS_WEAKNESS",
+    "vulnerability:cve:CVE-2021-45046",
+    "weakness:cwe:CWE-917"
+   ],
+   [
+    "RULE_ASSOCIATED_WITH_CVE",
+    "rule:yara:rules/community/synthetic/log4shell.yar#SYNTH_Log4Shell",
+    "vulnerability:cve:CVE-2021-44228"
+   ],
+   [
+    "RULE_REFERENCES_SAMPLE",
+    "rule:yara:rules/community/synthetic/log4shell.yar#SYNTH_Log4Shell",
+    "sample:sha256:52309cc647c4d239bae8581cf025308c490c46eb6008c7e358dd25a4a1fe5458"
+   ],
+   [
+    "RULE_REFERENCES_SAMPLE",
+    "rule:yara:rules/community/synthetic/log4j_generic.yar#SYNTH_Log4j_Product_Only",
+    "sample:sha256:d5a841baeeffef2aedc2778cb0929cf05a30b42b8066db080f12e349e76cef53"
+   ]
+  ],
+  "candidate": []
+ }
+}

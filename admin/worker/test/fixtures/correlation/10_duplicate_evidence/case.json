@@ -1,0 +1,212 @@
+{
+ "description": "Duplicate evidence from one original source counts once: the same KEV document delivered twice is one evidence row; an aggregator republishing KEV (source_id enisa-euvd-exploited, original cisa-kev) adds an evidence row but NOT an independent source; a rule repeating one hash under two keys (and one assertion duplicated verbatim) is one relation with independent_sources = 1.",
+ "input": {
+  "kev": [
+   {
+    "document": {
+     "schema": "macguard.intel-kev/1",
+     "source": {
+      "id": "cisa-kev",
+      "url": "https://www.cisa.gov/sites/default/files/feeds/known_exploited_vulnerabilities.json",
+      "license": "CC0-1.0",
+      "attribution": "Contains data from the CISA Known Exploited Vulnerabilities Catalog (CC0 1.0)",
+      "catalog_version": "2026.10.30",
+      "date_released": "2026-10-30T17:02:45.366Z",
+      "retrieved_at": "2026-10-30T17:02:45.366Z",
+      "upstream_sha256": "661f8e28f69a036dbbc53a346826dcdae4e5b47b281f269bd4074f194ad6c9b9"
+     },
+     "count": 1,
+     "items": [
+      {
+       "cve_id": "CVE-2099-0400",
+       "vendor": "ExampleVendor",
+       "product": "ExampleProduct",
+       "name": "Synthetic entry for CVE-2099-0400",
+       "date_added": "2026-01-01",
+       "short_description": "Synthetic description.",
+       "required_action": "Apply mitigations per vendor instructions.",
+       "due_date": "2026-01-22",
+       "known_ransomware_use": "Unknown",
+       "notes": "",
+       "cwes": [
+        "CWE-79"
+       ]
+      }
+     ]
+    }
+   },
+   {
+    "document": {
+     "schema": "macguard.intel-kev/1",
+     "source": {
+      "id": "cisa-kev",
+      "url": "https://www.cisa.gov/sites/default/files/feeds/known_exploited_vulnerabilities.json",
+      "license": "CC0-1.0",
+      "attribution": "Contains data from the CISA Known Exploited Vulnerabilities Catalog (CC0 1.0)",
+      "catalog_version": "2026.10.30",
+      "date_released": "2026-10-30T17:02:45.366Z",
+      "retrieved_at": "2026-10-30T17:02:45.366Z",
+      "upstream_sha256": "661f8e28f69a036dbbc53a346826dcdae4e5b47b281f269bd4074f194ad6c9b9"
+     },
+     "count": 1,
+     "items": [
+      {
+       "cve_id": "CVE-2099-0400",
+       "vendor": "ExampleVendor",
+       "product": "ExampleProduct",
+       "name": "Synthetic entry for CVE-2099-0400",
+       "date_added": "2026-01-01",
+       "short_description": "Synthetic description.",
+       "required_action": "Apply mitigations per vendor instructions.",
+       "due_date": "2026-01-22",
+       "known_ransomware_use": "Unknown",
+       "notes": "",
+       "cwes": [
+        "CWE-79"
+       ]
+      }
+     ]
+    }
+   },
+   {
+    "source_id": "enisa-euvd-exploited",
+    "document": {
+     "schema": "macguard.intel-kev/1",
+     "source": {
+      "id": "cisa-kev",
+      "url": "https://www.cisa.gov/sites/default/files/feeds/known_exploited_vulnerabilities.json",
+      "license": "CC0-1.0",
+      "attribution": "Contains data from the CISA Known Exploited Vulnerabilities Catalog (CC0 1.0)",
+      "catalog_version": "2026.10.30",
+      "date_released": "2026-10-30T17:02:45.366Z",
+      "retrieved_at": "2026-10-30T17:02:45.366Z",
+      "upstream_sha256": "41d7221f53efc5ebf92cceeb0f4c1ffc449fa751ebaaceae8fd9804e38d401e3"
+     },
+     "count": 1,
+     "items": [
+      {
+       "cve_id": "CVE-2099-0400",
+       "vendor": "ExampleVendor",
+       "product": "ExampleProduct",
+       "name": "Synthetic entry for CVE-2099-0400",
+       "date_added": "2026-01-01",
+       "short_description": "Synthetic description.",
+       "required_action": "Apply mitigations per vendor instructions.",
+       "due_date": "2026-01-22",
+       "known_ransomware_use": "Unknown",
+       "notes": "",
+       "cwes": [
+        "CWE-79"
+       ]
+      }
+     ]
+    }
+   }
+  ],
+  "rule_indexes": [
+   {
+    "document": {
+     "schema": "macguard.search-index/1",
+     "generator": "scripts/rule_index.py",
+     "release": {
+      "tag": "rules-20261102-1",
+      "manifest_sha256": "8b721e3ea826fa880b042854dfc9ea3fe9ef3a0d3ebd70ec9cd8c0d5144c117a",
+      "rules_root": null,
+      "files": 1
+     },
+     "note": "synthetic",
+     "counts": {},
+     "entities": [
+      {
+       "id": "yara:rules/community/synthetic/dup.yar#SYNTH_Duplicate",
+       "kind": "rule",
+       "path": "rules/community/synthetic/dup.yar",
+       "name": "SYNTH_Duplicate",
+       "tags": [],
+       "modifiers": [],
+       "line": 1,
+       "file_sha256": "ffd0b6bfdfad22673468570ad077d8fab610083e8609540a139cf9544577f670",
+       "source": "community",
+       "meta": {
+        "uuid": null,
+        "author": null,
+        "date": null,
+        "references": []
+       }
+      }
+     ],
+     "assertions": [
+      {
+       "id": "assert:6a95ea508985c74cf7332cce671f9f04c5ad9ab3f082ed0e53be5bd23845e257",
+       "type": "rule_meta_mentions_hash",
+       "subject": "yara:rules/community/synthetic/dup.yar#SYNTH_Duplicate",
+       "value": "3cdf81981734200c93372a3a0e09291da446be1ca026294170b6f82597b75e0d",
+       "value_kind": "sha256",
+       "meta_key": "hash1",
+       "match": "whole_value",
+       "status": "asserted_by_rule_metadata",
+       "provenance": {
+        "release_tag": "rules-20261102-1",
+        "path": "rules/community/synthetic/dup.yar",
+        "file_sha256": "ffd0b6bfdfad22673468570ad077d8fab610083e8609540a139cf9544577f670",
+        "line": 5
+       }
+      },
+      {
+       "id": "assert:64f408f5712ad8e28ea63486782762ddaefe192478e71e01d8785093087774c7",
+       "type": "rule_meta_mentions_hash",
+       "subject": "yara:rules/community/synthetic/dup.yar#SYNTH_Duplicate",
+       "value": "3cdf81981734200c93372a3a0e09291da446be1ca026294170b6f82597b75e0d",
+       "value_kind": "sha256",
+       "meta_key": "sample",
+       "match": "whole_value",
+       "status": "asserted_by_rule_metadata",
+       "provenance": {
+        "release_tag": "rules-20261102-1",
+        "path": "rules/community/synthetic/dup.yar",
+        "file_sha256": "ffd0b6bfdfad22673468570ad077d8fab610083e8609540a139cf9544577f670",
+        "line": 6
+       }
+      },
+      {
+       "id": "assert:6a95ea508985c74cf7332cce671f9f04c5ad9ab3f082ed0e53be5bd23845e257",
+       "type": "rule_meta_mentions_hash",
+       "subject": "yara:rules/community/synthetic/dup.yar#SYNTH_Duplicate",
+       "value": "3cdf81981734200c93372a3a0e09291da446be1ca026294170b6f82597b75e0d",
+       "value_kind": "sha256",
+       "meta_key": "hash1",
+       "match": "whole_value",
+       "status": "asserted_by_rule_metadata",
+       "provenance": {
+        "release_tag": "rules-20261102-1",
+        "path": "rules/community/synthetic/dup.yar",
+        "file_sha256": "ffd0b6bfdfad22673468570ad077d8fab610083e8609540a139cf9544577f670",
+        "line": 5
+       }
+      }
+     ]
+    }
+   }
+  ]
+ },
+ "expect": {
+  "asserted": [
+   [
+    "VULN_HAS_WEAKNESS",
+    "vulnerability:cve:CVE-2099-0400",
+    "weakness:cwe:CWE-79"
+   ],
+   [
+    "RULE_REFERENCES_SAMPLE",
+    "rule:yara:rules/community/synthetic/dup.yar#SYNTH_Duplicate",
+    "sample:sha256:3cdf81981734200c93372a3a0e09291da446be1ca026294170b6f82597b75e0d"
+   ]
+  ],
+  "candidate": [],
+  "evidence_rows": {
+   "VULN_HAS_WEAKNESS vulnerability:cve:CVE-2099-0400 weakness:cwe:CWE-79": 2,
+   "RULE_REFERENCES_SAMPLE rule:yara:rules/community/synthetic/dup.yar#SYNTH_Duplicate sample:sha256:3cdf81981734200c93372a3a0e09291da446be1ca026294170b6f82597b75e0d": 2
+  },
+  "independent_sources_all": 1
+ }
+}

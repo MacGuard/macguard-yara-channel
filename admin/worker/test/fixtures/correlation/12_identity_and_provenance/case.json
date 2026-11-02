@@ -1,0 +1,156 @@
+{
+ "description": "A valid rule identity can be 529 characters but intel_entities.key holds 512: such a rule is refused (never truncated) and its assertions with it; a 512-character key is accepted. Assertions whose subject is not in the index, whose provenance does not match the rule (forged file hash) or whose status is not asserted_by_rule_metadata are refused.",
+ "input": {
+  "rule_indexes": [
+   {
+    "document": {
+     "schema": "macguard.search-index/1",
+     "generator": "scripts/rule_index.py",
+     "release": {
+      "tag": "rules-20261102-1",
+      "manifest_sha256": "8b721e3ea826fa880b042854dfc9ea3fe9ef3a0d3ebd70ec9cd8c0d5144c117a",
+      "rules_root": null,
+      "files": 2
+     },
+     "note": "synthetic",
+     "counts": {},
+     "entities": [
+      {
+       "id": "yara:rules/ddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd/eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee/fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff/gggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggg.yar#Nxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+       "kind": "rule",
+       "path": "rules/ddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd/eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee/fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff/gggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggg.yar",
+       "name": "Nxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+       "tags": [],
+       "modifiers": [],
+       "line": 1,
+       "file_sha256": "4f221f49ccdc5d3aaeebfa11ab3aec8e8c4c45bf3f6606274d8de6210a3d66ff",
+       "source": "community",
+       "meta": {
+        "uuid": null,
+        "author": null,
+        "date": null,
+        "references": []
+       }
+      },
+      {
+       "id": "yara:rules/ddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd/eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee/fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff/ggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggg.yar#Nxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+       "kind": "rule",
+       "path": "rules/ddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd/eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee/fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff/ggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggg.yar",
+       "name": "Nxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+       "tags": [],
+       "modifiers": [],
+       "line": 1,
+       "file_sha256": "9279cf6870f00d282d8bfcba89a630409c68d1ec413bdf083ac03ad5c85a32eb",
+       "source": "community",
+       "meta": {
+        "uuid": null,
+        "author": null,
+        "date": null,
+        "references": []
+       }
+      }
+     ],
+     "assertions": [
+      {
+       "id": "assert:3b4c6866aa73546d532ff93b17a73622c9a99d9bf58e253c092d4517f78c28b9",
+       "type": "rule_meta_mentions_hash",
+       "subject": "yara:rules/ddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd/eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee/fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff/gggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggg.yar#Nxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+       "value": "557154826bd7f3eccac4d8f74428c1d4aa4cef54ebb4b8df52b0ea0c55512691",
+       "value_kind": "sha256",
+       "meta_key": "hash",
+       "match": "whole_value",
+       "status": "asserted_by_rule_metadata",
+       "provenance": {
+        "release_tag": "rules-20261102-1",
+        "path": "rules/ddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd/eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee/fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff/gggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggg.yar",
+        "file_sha256": "4f221f49ccdc5d3aaeebfa11ab3aec8e8c4c45bf3f6606274d8de6210a3d66ff",
+        "line": 2
+       }
+      },
+      {
+       "id": "assert:e2d620d57cd68fe5aefbc9aa02e8631991bb96cce44e98f1b0f00b0f6015641f",
+       "type": "rule_meta_mentions_hash",
+       "subject": "yara:rules/ddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd/eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee/fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff/ggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggg.yar#Nxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+       "value": "08f3fca7d1e9448f25e706f2cfcb76285493b5775950c0881a00853a8fa7bfb5",
+       "value_kind": "sha256",
+       "meta_key": "hash",
+       "match": "whole_value",
+       "status": "asserted_by_rule_metadata",
+       "provenance": {
+        "release_tag": "rules-20261102-1",
+        "path": "rules/ddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd/eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee/fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff/ggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggg.yar",
+        "file_sha256": "9279cf6870f00d282d8bfcba89a630409c68d1ec413bdf083ac03ad5c85a32eb",
+        "line": 2
+       }
+      },
+      {
+       "id": "assert:e224ddc6b55af8b2a88404a0b6cb2617db0dfc25b3584a4dd7c4358d911e91f5",
+       "type": "rule_meta_mentions_hash",
+       "subject": "yara:rules/community/x/absent.yar#Absent",
+       "value": "8aa2789fd608c178d964f67bf21c133bafef0bc640133adac4ad38ec9d6d875d",
+       "value_kind": "sha256",
+       "meta_key": "hash",
+       "match": "whole_value",
+       "status": "asserted_by_rule_metadata",
+       "provenance": {
+        "release_tag": "rules-20261102-1",
+        "path": "rules/community/x/absent.yar",
+        "file_sha256": "2d711642b726b04401627ca9fbac32f5c8530fb1903cc4db02258717921a4881",
+        "line": 3
+       }
+      },
+      {
+       "id": "assert:e2d620d57cd68fe5aefbc9aa02e8631991bb96cce44e98f1b0f00b0f6015641f",
+       "type": "rule_meta_mentions_hash",
+       "subject": "yara:rules/ddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd/eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee/fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff/ggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggg.yar#Nxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+       "value": "73a8901f06b0200267cfad6eb802d2ca00dd47a080dd26eaaa54605bb0f8cae2",
+       "value_kind": "sha256",
+       "meta_key": "hash",
+       "match": "whole_value",
+       "status": "asserted_by_rule_metadata",
+       "provenance": {
+        "release_tag": "rules-20261102-1",
+        "path": "rules/ddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd/eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee/fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff/ggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggg.yar",
+        "file_sha256": "ccdd35168ab474fa5764a526cfb83621351e23682c5075b2e18d56bddf96aa30",
+        "line": 2
+       }
+      },
+      {
+       "id": "assert:e2d620d57cd68fe5aefbc9aa02e8631991bb96cce44e98f1b0f00b0f6015641f",
+       "type": "rule_meta_mentions_hash",
+       "subject": "yara:rules/ddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd/eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee/fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff/ggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggg.yar#Nxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+       "value": "37173abc0006cf93535de84490075cbad249eacb2d70487f2f51137036b192f8",
+       "value_kind": "sha256",
+       "meta_key": "hash",
+       "match": "whole_value",
+       "status": "correlated",
+       "provenance": {
+        "release_tag": "rules-20261102-1",
+        "path": "rules/ddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd/eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee/fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff/ggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggg.yar",
+        "file_sha256": "9279cf6870f00d282d8bfcba89a630409c68d1ec413bdf083ac03ad5c85a32eb",
+        "line": 2
+       }
+      }
+     ]
+    }
+   }
+  ]
+ },
+ "expect": {
+  "asserted": [
+   [
+    "RULE_REFERENCES_SAMPLE",
+    "rule:yara:rules/ddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd/eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee/fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff/ggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggg.yar#Nxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+    "sample:sha256:08f3fca7d1e9448f25e706f2cfcb76285493b5775950c0881a00853a8fa7bfb5"
+   ]
+  ],
+  "candidate": [],
+  "rejections": {
+   "rule_key_exceeds_db_limit": 1,
+   "subject_rejected": 1,
+   "subject_not_in_index": 1,
+   "provenance_mismatch": 1,
+   "bad_status": 1
+  }
+ }
+}

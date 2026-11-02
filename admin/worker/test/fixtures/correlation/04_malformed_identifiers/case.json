@@ -1,0 +1,392 @@
+{
+ "description": "Similar hashes stay separate (one character apart: two samples, no fuzzy merge). 63/65 hex, non-hex, upper case, Unicode digits, prefixes, whitespace and zero-width characters are not canonical SHA-256 values: no relation. A 64-hex value labelled md5 is a kind mismatch. Malformed or non-canonical CVE and CWE ids (leading zero, Arabic-Indic digits, lower case, CWE-0, NVD-CWE-noinfo, CWE-00079, fullwidth digits) produce no relation.",
+ "input": {
+  "kev": [
+   {
+    "document": {
+     "schema": "macguard.intel-kev/1",
+     "source": {
+      "id": "cisa-kev",
+      "url": "https://www.cisa.gov/sites/default/files/feeds/known_exploited_vulnerabilities.json",
+      "license": "CC0-1.0",
+      "attribution": "Contains data from the CISA Known Exploited Vulnerabilities Catalog (CC0 1.0)",
+      "catalog_version": "2026.10.30",
+      "date_released": "2026-10-30T17:02:45.366Z",
+      "retrieved_at": "2026-10-30T17:02:45.366Z",
+      "upstream_sha256": "661f8e28f69a036dbbc53a346826dcdae4e5b47b281f269bd4074f194ad6c9b9"
+     },
+     "count": 2,
+     "items": [
+      {
+       "cve_id": "CVE-２０２１-0001",
+       "vendor": "ExampleVendor",
+       "product": "ExampleProduct",
+       "name": "Synthetic entry for CVE-２０２１-0001",
+       "date_added": "2026-01-01",
+       "short_description": "Synthetic description.",
+       "required_action": "Apply mitigations per vendor instructions.",
+       "due_date": "2026-01-22",
+       "known_ransomware_use": "Unknown",
+       "notes": "",
+       "cwes": [
+        "CWE-79"
+       ]
+      },
+      {
+       "cve_id": "CVE-2099-0002",
+       "vendor": "ExampleVendor",
+       "product": "ExampleProduct",
+       "name": "Synthetic entry for CVE-2099-0002",
+       "date_added": "2026-01-01",
+       "short_description": "Synthetic description.",
+       "required_action": "Apply mitigations per vendor instructions.",
+       "due_date": "2026-01-22",
+       "known_ransomware_use": "Unknown",
+       "notes": "",
+       "cwes": [
+        "CWE-0",
+        "NVD-CWE-noinfo",
+        "CWE-00079",
+        "cwe-79",
+        "CWE-７９",
+        "CWE-20"
+       ]
+      }
+     ]
+    }
+   }
+  ],
+  "rule_indexes": [
+   {
+    "document": {
+     "schema": "macguard.search-index/1",
+     "generator": "scripts/rule_index.py",
+     "release": {
+      "tag": "rules-20261102-1",
+      "manifest_sha256": "8b721e3ea826fa880b042854dfc9ea3fe9ef3a0d3ebd70ec9cd8c0d5144c117a",
+      "rules_root": null,
+      "files": 1
+     },
+     "note": "synthetic",
+     "counts": {},
+     "entities": [
+      {
+       "id": "yara:rules/community/synthetic/hashes.yar#SYNTH_Malformed_Hashes",
+       "kind": "rule",
+       "path": "rules/community/synthetic/hashes.yar",
+       "name": "SYNTH_Malformed_Hashes",
+       "tags": [],
+       "modifiers": [],
+       "line": 1,
+       "file_sha256": "14c2881b815d39622d794182ef52d941c182edc3ee5d294cb03c3a15be971904",
+       "source": "community",
+       "meta": {
+        "uuid": null,
+        "author": null,
+        "date": null,
+        "references": []
+       }
+      }
+     ],
+     "assertions": [
+      {
+       "id": "assert:1b47346514d4c803e9826d884593930661686175cf894f40729a1c447d3403cb",
+       "type": "rule_meta_mentions_hash",
+       "subject": "yara:rules/community/synthetic/hashes.yar#SYNTH_Malformed_Hashes",
+       "value": "3bbeb47c53c998f35aabb8bc739ba268c00e7367db6dff019d4c9db24fb9ab47",
+       "value_kind": "sha256",
+       "meta_key": "hash1",
+       "match": "whole_value",
+       "status": "asserted_by_rule_metadata",
+       "provenance": {
+        "release_tag": "rules-20261102-1",
+        "path": "rules/community/synthetic/hashes.yar",
+        "file_sha256": "14c2881b815d39622d794182ef52d941c182edc3ee5d294cb03c3a15be971904",
+        "line": 2
+       }
+      },
+      {
+       "id": "assert:25dfb05402432acb7f6b3a298b33e19e899bfa7690dee13ab2373fc42aecd2f1",
+       "type": "rule_meta_mentions_hash",
+       "subject": "yara:rules/community/synthetic/hashes.yar#SYNTH_Malformed_Hashes",
+       "value": "3bbeb47c53c998f35aabb8bc739ba268c00e7367db6dff019d4c9db24fb9ab40",
+       "value_kind": "sha256",
+       "meta_key": "hash2",
+       "match": "whole_value",
+       "status": "asserted_by_rule_metadata",
+       "provenance": {
+        "release_tag": "rules-20261102-1",
+        "path": "rules/community/synthetic/hashes.yar",
+        "file_sha256": "14c2881b815d39622d794182ef52d941c182edc3ee5d294cb03c3a15be971904",
+        "line": 3
+       }
+      },
+      {
+       "id": "assert:b9dfa16b602c85c15383e00a20388d2c01ca5ff0684e770c4a952f6e0d0c28bf",
+       "type": "rule_meta_mentions_hash",
+       "subject": "yara:rules/community/synthetic/hashes.yar#SYNTH_Malformed_Hashes",
+       "value": "3bbeb47c53c998f35aabb8bc739ba268c00e7367db6dff019d4c9db24fb9ab4",
+       "value_kind": "sha256",
+       "meta_key": "hash3",
+       "match": "whole_value",
+       "status": "asserted_by_rule_metadata",
+       "provenance": {
+        "release_tag": "rules-20261102-1",
+        "path": "rules/community/synthetic/hashes.yar",
+        "file_sha256": "14c2881b815d39622d794182ef52d941c182edc3ee5d294cb03c3a15be971904",
+        "line": 4
+       }
+      },
+      {
+       "id": "assert:dc8786bca4a4f4e76cee00bdfb6e80f08c02920c16e5a3dd5985372a419d3149",
+       "type": "rule_meta_mentions_hash",
+       "subject": "yara:rules/community/synthetic/hashes.yar#SYNTH_Malformed_Hashes",
+       "value": "3bbeb47c53c998f35aabb8bc739ba268c00e7367db6dff019d4c9db24fb9ab47a",
+       "value_kind": "sha256",
+       "meta_key": "hash4",
+       "match": "whole_value",
+       "status": "asserted_by_rule_metadata",
+       "provenance": {
+        "release_tag": "rules-20261102-1",
+        "path": "rules/community/synthetic/hashes.yar",
+        "file_sha256": "14c2881b815d39622d794182ef52d941c182edc3ee5d294cb03c3a15be971904",
+        "line": 5
+       }
+      },
+      {
+       "id": "assert:b5e1e10e90c99d8a011ddaa414344e9804e34574ac8780af1813c85f9b70edb5",
+       "type": "rule_meta_mentions_hash",
+       "subject": "yara:rules/community/synthetic/hashes.yar#SYNTH_Malformed_Hashes",
+       "value": "3bbeb47c53c998f35aabb8bc739ba268c00e7367db6dff019d4c9db24fb9ab4g",
+       "value_kind": "sha256",
+       "meta_key": "hash5",
+       "match": "whole_value",
+       "status": "asserted_by_rule_metadata",
+       "provenance": {
+        "release_tag": "rules-20261102-1",
+        "path": "rules/community/synthetic/hashes.yar",
+        "file_sha256": "14c2881b815d39622d794182ef52d941c182edc3ee5d294cb03c3a15be971904",
+        "line": 6
+       }
+      },
+      {
+       "id": "assert:bf9b4becd5fbe7880d881c1bb713db4b2d5bdf1ecd2f60fa97a3c047fc020b58",
+       "type": "rule_meta_mentions_hash",
+       "subject": "yara:rules/community/synthetic/hashes.yar#SYNTH_Malformed_Hashes",
+       "value": "3BBEB47C53C998F35AABB8BC739BA268C00E7367DB6DFF019D4C9DB24FB9AB47",
+       "value_kind": "sha256",
+       "meta_key": "hash6",
+       "match": "whole_value",
+       "status": "asserted_by_rule_metadata",
+       "provenance": {
+        "release_tag": "rules-20261102-1",
+        "path": "rules/community/synthetic/hashes.yar",
+        "file_sha256": "14c2881b815d39622d794182ef52d941c182edc3ee5d294cb03c3a15be971904",
+        "line": 7
+       }
+      },
+      {
+       "id": "assert:61da5ce2b518552e1c59af4528d6a8bddc4eb9981cd036bddeba0c72a6decde9",
+       "type": "rule_meta_mentions_hash",
+       "subject": "yara:rules/community/synthetic/hashes.yar#SYNTH_Malformed_Hashes",
+       "value": "０bbeb47c53c998f35aabb8bc739ba268c00e7367db6dff019d4c9db24fb9ab47",
+       "value_kind": "sha256",
+       "meta_key": "hash7",
+       "match": "whole_value",
+       "status": "asserted_by_rule_metadata",
+       "provenance": {
+        "release_tag": "rules-20261102-1",
+        "path": "rules/community/synthetic/hashes.yar",
+        "file_sha256": "14c2881b815d39622d794182ef52d941c182edc3ee5d294cb03c3a15be971904",
+        "line": 8
+       }
+      },
+      {
+       "id": "assert:ed54f8f2b3e4a640b194cb8eee9e72ee98085580aad403f5869c1d4490f3e849",
+       "type": "rule_meta_mentions_hash",
+       "subject": "yara:rules/community/synthetic/hashes.yar#SYNTH_Malformed_Hashes",
+       "value": "٠bbeb47c53c998f35aabb8bc739ba268c00e7367db6dff019d4c9db24fb9ab47",
+       "value_kind": "sha256",
+       "meta_key": "hash8",
+       "match": "whole_value",
+       "status": "asserted_by_rule_metadata",
+       "provenance": {
+        "release_tag": "rules-20261102-1",
+        "path": "rules/community/synthetic/hashes.yar",
+        "file_sha256": "14c2881b815d39622d794182ef52d941c182edc3ee5d294cb03c3a15be971904",
+        "line": 9
+       }
+      },
+      {
+       "id": "assert:dda03af96f1bef429c0d4d5dfc9a6a09834b523e62f72218bd69d0d06469146e",
+       "type": "rule_meta_mentions_hash",
+       "subject": "yara:rules/community/synthetic/hashes.yar#SYNTH_Malformed_Hashes",
+       "value": "sha256:3bbeb47c53c998f35aabb8bc739ba268c00e7367db6dff019d4c9db24fb9ab47",
+       "value_kind": "sha256",
+       "meta_key": "hash9",
+       "match": "whole_value",
+       "status": "asserted_by_rule_metadata",
+       "provenance": {
+        "release_tag": "rules-20261102-1",
+        "path": "rules/community/synthetic/hashes.yar",
+        "file_sha256": "14c2881b815d39622d794182ef52d941c182edc3ee5d294cb03c3a15be971904",
+        "line": 10
+       }
+      },
+      {
+       "id": "assert:3920d863c34131bb5c12325d1b6516ff6f31965885b9ce8b21b3a85020ab7f2e",
+       "type": "rule_meta_mentions_hash",
+       "subject": "yara:rules/community/synthetic/hashes.yar#SYNTH_Malformed_Hashes",
+       "value": "3bbeb47c53c998f35aabb8bc739ba268c00e7367db6dff019d4c9db24fb9ab47 ",
+       "value_kind": "sha256",
+       "meta_key": "hash10",
+       "match": "whole_value",
+       "status": "asserted_by_rule_metadata",
+       "provenance": {
+        "release_tag": "rules-20261102-1",
+        "path": "rules/community/synthetic/hashes.yar",
+        "file_sha256": "14c2881b815d39622d794182ef52d941c182edc3ee5d294cb03c3a15be971904",
+        "line": 11
+       }
+      },
+      {
+       "id": "assert:e3b4933501704e4334e2e51aaf98a2b06222d0e20bf8bdba234ec4d1e8c4bb95",
+       "type": "rule_meta_mentions_hash",
+       "subject": "yara:rules/community/synthetic/hashes.yar#SYNTH_Malformed_Hashes",
+       "value": "",
+       "value_kind": "sha256",
+       "meta_key": "hash11",
+       "match": "whole_value",
+       "status": "asserted_by_rule_metadata",
+       "provenance": {
+        "release_tag": "rules-20261102-1",
+        "path": "rules/community/synthetic/hashes.yar",
+        "file_sha256": "14c2881b815d39622d794182ef52d941c182edc3ee5d294cb03c3a15be971904",
+        "line": 12
+       }
+      },
+      {
+       "id": "assert:5d693b4e90139a29aa4723742fb12d62671d58a78206168ca01a9c120084e145",
+       "type": "rule_meta_mentions_hash",
+       "subject": "yara:rules/community/synthetic/hashes.yar#SYNTH_Malformed_Hashes",
+       "value": "3bbeb47c53c998f35aabb8bc739ba268​c00e7367db6dff019d4c9db24fb9ab47",
+       "value_kind": "sha256",
+       "meta_key": "hash12",
+       "match": "whole_value",
+       "status": "asserted_by_rule_metadata",
+       "provenance": {
+        "release_tag": "rules-20261102-1",
+        "path": "rules/community/synthetic/hashes.yar",
+        "file_sha256": "14c2881b815d39622d794182ef52d941c182edc3ee5d294cb03c3a15be971904",
+        "line": 13
+       }
+      },
+      {
+       "id": "assert:80f02957496e6d58b62c5e7ae94d0472e1a010178ca072271a9205e4fa167986",
+       "type": "rule_meta_mentions_hash",
+       "subject": "yara:rules/community/synthetic/hashes.yar#SYNTH_Malformed_Hashes",
+       "value": "3bbeb47c53c998f35aabb8bc739ba268c00e7367db6dff019d4c9db24fb9ab47",
+       "value_kind": "md5",
+       "meta_key": "hash20",
+       "match": "whole_value",
+       "status": "asserted_by_rule_metadata",
+       "provenance": {
+        "release_tag": "rules-20261102-1",
+        "path": "rules/community/synthetic/hashes.yar",
+        "file_sha256": "14c2881b815d39622d794182ef52d941c182edc3ee5d294cb03c3a15be971904",
+        "line": 14
+       }
+      },
+      {
+       "id": "assert:769bc6aecef65340b7bf0bfc4e6a868936d4dd5c240f92434329a66e04478677",
+       "type": "rule_meta_mentions_cve",
+       "subject": "yara:rules/community/synthetic/hashes.yar#SYNTH_Malformed_Hashes",
+       "value": "CVE-2024-01234",
+       "value_kind": "cve",
+       "meta_key": "cve",
+       "match": "whole_value",
+       "status": "asserted_by_rule_metadata",
+       "provenance": {
+        "release_tag": "rules-20261102-1",
+        "path": "rules/community/synthetic/hashes.yar",
+        "file_sha256": "14c2881b815d39622d794182ef52d941c182edc3ee5d294cb03c3a15be971904",
+        "line": 15
+       }
+      },
+      {
+       "id": "assert:2a4687a76c0e1f2dd3232c9228642ffcb7f880b4c7ef8a33e584b9032bff66f5",
+       "type": "rule_meta_mentions_cve",
+       "subject": "yara:rules/community/synthetic/hashes.yar#SYNTH_Malformed_Hashes",
+       "value": "CVE-٢٠٢٤-1234",
+       "value_kind": "cve",
+       "meta_key": "cve",
+       "match": "whole_value",
+       "status": "asserted_by_rule_metadata",
+       "provenance": {
+        "release_tag": "rules-20261102-1",
+        "path": "rules/community/synthetic/hashes.yar",
+        "file_sha256": "14c2881b815d39622d794182ef52d941c182edc3ee5d294cb03c3a15be971904",
+        "line": 16
+       }
+      },
+      {
+       "id": "assert:b01c470b18ffbc48ba9ef73cd36d339e451480b19626ef0153fcdf625b67ce85",
+       "type": "rule_meta_mentions_cve",
+       "subject": "yara:rules/community/synthetic/hashes.yar#SYNTH_Malformed_Hashes",
+       "value": "cve-2024-1234",
+       "value_kind": "cve",
+       "meta_key": "cve",
+       "match": "whole_value",
+       "status": "asserted_by_rule_metadata",
+       "provenance": {
+        "release_tag": "rules-20261102-1",
+        "path": "rules/community/synthetic/hashes.yar",
+        "file_sha256": "14c2881b815d39622d794182ef52d941c182edc3ee5d294cb03c3a15be971904",
+        "line": 17
+       }
+      },
+      {
+       "id": "assert:ec02f87df6e36897b6d58c87f7ded9ac995e4ef1eb97f95d4932e5ec5ef8a192",
+       "type": "rule_meta_mentions_cve",
+       "subject": "yara:rules/community/synthetic/hashes.yar#SYNTH_Malformed_Hashes",
+       "value": "CVE-2024-123",
+       "value_kind": "cve",
+       "meta_key": "cve",
+       "match": "whole_value",
+       "status": "asserted_by_rule_metadata",
+       "provenance": {
+        "release_tag": "rules-20261102-1",
+        "path": "rules/community/synthetic/hashes.yar",
+        "file_sha256": "14c2881b815d39622d794182ef52d941c182edc3ee5d294cb03c3a15be971904",
+        "line": 18
+       }
+      }
+     ]
+    }
+   }
+  ]
+ },
+ "expect": {
+  "asserted": [
+   [
+    "VULN_HAS_WEAKNESS",
+    "vulnerability:cve:CVE-2099-0002",
+    "weakness:cwe:CWE-20"
+   ],
+   [
+    "RULE_REFERENCES_SAMPLE",
+    "rule:yara:rules/community/synthetic/hashes.yar#SYNTH_Malformed_Hashes",
+    "sample:sha256:3bbeb47c53c998f35aabb8bc739ba268c00e7367db6dff019d4c9db24fb9ab47"
+   ],
+   [
+    "RULE_REFERENCES_SAMPLE",
+    "rule:yara:rules/community/synthetic/hashes.yar#SYNTH_Malformed_Hashes",
+    "sample:sha256:3bbeb47c53c998f35aabb8bc739ba268c00e7367db6dff019d4c9db24fb9ab40"
+   ]
+  ],
+  "candidate": [],
+  "rejections": {
+   "malformed_identifier": 21
+  }
+ }
+}

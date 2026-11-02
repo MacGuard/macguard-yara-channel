@@ -1,0 +1,435 @@
+{
+ "description": "Regression, clone first: one KEV catalogue version delivered twice with the same claimed upstream_sha256 but a different CWE list (cisa-kev) is refused whatever the input order; so is one release tag with the same manifest_sha256 but a different assertion; a reordered identical copy is deduplicated, not a conflict; between two versions released at the same instant the later version string wins.",
+ "input": {
+  "kev": [
+   {
+    "document": {
+     "schema": "macguard.intel-kev/1",
+     "source": {
+      "id": "cisa-kev",
+      "url": "https://www.cisa.gov/sites/default/files/feeds/known_exploited_vulnerabilities.json",
+      "license": "CC0-1.0",
+      "attribution": "Contains data from the CISA Known Exploited Vulnerabilities Catalog (CC0 1.0)",
+      "catalog_version": "2026.10.30",
+      "date_released": "2026-10-30T17:02:45.366Z",
+      "retrieved_at": "2026-10-30T17:02:45.366Z",
+      "upstream_sha256": "48070c5f103fb0dacd4cef83cf141cee60f22c75229e31e183f441b9be32fff9"
+     },
+     "count": 3,
+     "items": [
+      {
+       "cve_id": "CVE-2023-27351",
+       "vendor": "PaperCut",
+       "product": "NG/MF",
+       "name": "Synthetic entry for CVE-2023-27351",
+       "date_added": "2026-04-20",
+       "short_description": "Synthetic description.",
+       "required_action": "Apply mitigations per vendor instructions.",
+       "due_date": "2026-01-22",
+       "known_ransomware_use": "Unknown",
+       "notes": "",
+       "cwes": [
+        "CWE-89"
+       ]
+      },
+      {
+       "cve_id": "CVE-2025-10035",
+       "vendor": "Fortra",
+       "product": "GoAnywhere MFT",
+       "name": "Synthetic entry for CVE-2025-10035",
+       "date_added": "2025-09-29",
+       "short_description": "Synthetic description.",
+       "required_action": "Apply mitigations per vendor instructions.",
+       "due_date": "2026-01-22",
+       "known_ransomware_use": "Unknown",
+       "notes": "",
+       "cwes": [
+        "CWE-502",
+        "CWE-77"
+       ]
+      },
+      {
+       "cve_id": "CVE-2018-19943",
+       "vendor": "QNAP",
+       "product": "Network Attached Storage (NAS)",
+       "name": "Synthetic entry for CVE-2018-19943",
+       "date_added": "2022-05-24",
+       "short_description": "Synthetic description.",
+       "required_action": "Apply mitigations per vendor instructions.",
+       "due_date": "2026-01-22",
+       "known_ransomware_use": "Unknown",
+       "notes": "",
+       "cwes": [
+        "CWE-79",
+        "CWE-80"
+       ]
+      }
+     ]
+    }
+   },
+   {
+    "document": {
+     "schema": "macguard.intel-kev/1",
+     "source": {
+      "id": "cisa-kev",
+      "url": "https://www.cisa.gov/sites/default/files/feeds/known_exploited_vulnerabilities.json",
+      "license": "CC0-1.0",
+      "attribution": "Contains data from the CISA Known Exploited Vulnerabilities Catalog (CC0 1.0)",
+      "catalog_version": "2026.10.30",
+      "date_released": "2026-10-30T17:02:45.366Z",
+      "retrieved_at": "2026-10-30T17:02:45.366Z",
+      "upstream_sha256": "48070c5f103fb0dacd4cef83cf141cee60f22c75229e31e183f441b9be32fff9"
+     },
+     "count": 3,
+     "items": [
+      {
+       "cve_id": "CVE-2023-27351",
+       "vendor": "PaperCut",
+       "product": "NG/MF",
+       "name": "Synthetic entry for CVE-2023-27351",
+       "date_added": "2026-04-20",
+       "short_description": "Synthetic description.",
+       "required_action": "Apply mitigations per vendor instructions.",
+       "due_date": "2026-01-22",
+       "known_ransomware_use": "Unknown",
+       "notes": "",
+       "cwes": [
+        "CWE-287"
+       ]
+      },
+      {
+       "cve_id": "CVE-2025-10035",
+       "vendor": "Fortra",
+       "product": "GoAnywhere MFT",
+       "name": "Synthetic entry for CVE-2025-10035",
+       "date_added": "2025-09-29",
+       "short_description": "Synthetic description.",
+       "required_action": "Apply mitigations per vendor instructions.",
+       "due_date": "2026-01-22",
+       "known_ransomware_use": "Unknown",
+       "notes": "",
+       "cwes": [
+        "CWE-502",
+        "CWE-77"
+       ]
+      },
+      {
+       "cve_id": "CVE-2018-19943",
+       "vendor": "QNAP",
+       "product": "Network Attached Storage (NAS)",
+       "name": "Synthetic entry for CVE-2018-19943",
+       "date_added": "2022-05-24",
+       "short_description": "Synthetic description.",
+       "required_action": "Apply mitigations per vendor instructions.",
+       "due_date": "2026-01-22",
+       "known_ransomware_use": "Unknown",
+       "notes": "",
+       "cwes": [
+        "CWE-79",
+        "CWE-80"
+       ]
+      }
+     ]
+    }
+   },
+   {
+    "source_id": "synthetic-list-t",
+    "document": {
+     "schema": "macguard.intel-kev/1",
+     "source": {
+      "id": "synthetic-list-t",
+      "url": "https://www.cisa.gov/sites/default/files/feeds/known_exploited_vulnerabilities.json",
+      "license": "CC0-1.0",
+      "attribution": "Contains data from the CISA Known Exploited Vulnerabilities Catalog (CC0 1.0)",
+      "catalog_version": "2026.10.30",
+      "date_released": "2026-10-30T17:02:45.366Z",
+      "retrieved_at": "2026-10-30T17:02:45.366Z",
+      "upstream_sha256": "f1369055110c2cb9900ceac5e12499719131ec311fb71cfba7669e50f360b366"
+     },
+     "count": 1,
+     "items": [
+      {
+       "cve_id": "CVE-2099-0600",
+       "vendor": "ExampleVendor",
+       "product": "ExampleProduct",
+       "name": "Synthetic entry for CVE-2099-0600",
+       "date_added": "2026-01-01",
+       "short_description": "Synthetic description.",
+       "required_action": "Apply mitigations per vendor instructions.",
+       "due_date": "2026-01-22",
+       "known_ransomware_use": "Unknown",
+       "notes": "",
+       "cwes": [
+        "CWE-20"
+       ]
+      }
+     ]
+    }
+   },
+   {
+    "source_id": "synthetic-list-t",
+    "document": {
+     "schema": "macguard.intel-kev/1",
+     "source": {
+      "id": "synthetic-list-t",
+      "url": "https://www.cisa.gov/sites/default/files/feeds/known_exploited_vulnerabilities.json",
+      "license": "CC0-1.0",
+      "attribution": "Contains data from the CISA Known Exploited Vulnerabilities Catalog (CC0 1.0)",
+      "catalog_version": "2026.10.30.1",
+      "date_released": "2026-10-30T17:02:45.366Z",
+      "retrieved_at": "2026-10-30T17:02:45.366Z",
+      "upstream_sha256": "5d7e6f67238d8803dae7c1808203ca4b9d1ca9f0fbd075ae05ecced9f3c0a57e"
+     },
+     "count": 1,
+     "items": [
+      {
+       "cve_id": "CVE-2099-0600",
+       "vendor": "ExampleVendor",
+       "product": "ExampleProduct",
+       "name": "Synthetic entry for CVE-2099-0600",
+       "date_added": "2026-01-01",
+       "short_description": "Synthetic description.",
+       "required_action": "Apply mitigations per vendor instructions.",
+       "due_date": "2026-01-22",
+       "known_ransomware_use": "Unknown",
+       "notes": "",
+       "cwes": [
+        "CWE-22"
+       ]
+      }
+     ]
+    }
+   }
+  ],
+  "rule_indexes": [
+   {
+    "source_id": "synthetic-release-ok",
+    "document": {
+     "schema": "macguard.search-index/1",
+     "generator": "scripts/rule_index.py",
+     "release": {
+      "tag": "rules-20261102-7",
+      "manifest_sha256": "4bbb0a41c05e485de6bc8193435d20bb282c736105fd08e5aad446a730ad0d5c",
+      "rules_root": null,
+      "files": 1
+     },
+     "note": "synthetic",
+     "counts": {},
+     "entities": [
+      {
+       "id": "yara:rules/community/synthetic/conflict.yar#SYNTH_Conflict",
+       "kind": "rule",
+       "path": "rules/community/synthetic/conflict.yar",
+       "name": "SYNTH_Conflict",
+       "tags": [],
+       "modifiers": [],
+       "line": 1,
+       "file_sha256": "bab46593033c693b5cb8cb5df0dd8487930a8f6d5dd30733c71d2c32b4c5b08e",
+       "source": "community",
+       "meta": {
+        "uuid": null,
+        "author": null,
+        "date": null,
+        "references": []
+       }
+      }
+     ],
+     "assertions": [
+      {
+       "id": "assert:243f98abff2a84cf63b7ff3cbfcf69086f56850c07fb4045a7cb1aa2afa29482",
+       "type": "rule_meta_mentions_hash",
+       "subject": "yara:rules/community/synthetic/conflict.yar#SYNTH_Conflict",
+       "value": "91d34dda1ea67a901dbb8693c6f59599028b12b59f12ded56e172f5944606404",
+       "value_kind": "sha256",
+       "meta_key": "hash",
+       "match": "whole_value",
+       "status": "asserted_by_rule_metadata",
+       "provenance": {
+        "release_tag": "rules-20261102-7",
+        "path": "rules/community/synthetic/conflict.yar",
+        "file_sha256": "bab46593033c693b5cb8cb5df0dd8487930a8f6d5dd30733c71d2c32b4c5b08e",
+        "line": 2
+       }
+      }
+     ]
+    }
+   },
+   {
+    "document": {
+     "schema": "macguard.search-index/1",
+     "generator": "scripts/rule_index.py",
+     "release": {
+      "tag": "rules-20261102-5",
+      "manifest_sha256": "faa798ba5b25fdfb0aeedc13d424ab21da195087b2abf996f454fc46229d00ae",
+      "rules_root": null,
+      "files": 1
+     },
+     "note": "synthetic",
+     "counts": {},
+     "entities": [
+      {
+       "id": "yara:rules/community/synthetic/conflict.yar#SYNTH_Conflict",
+       "kind": "rule",
+       "path": "rules/community/synthetic/conflict.yar",
+       "name": "SYNTH_Conflict",
+       "tags": [],
+       "modifiers": [],
+       "line": 1,
+       "file_sha256": "bab46593033c693b5cb8cb5df0dd8487930a8f6d5dd30733c71d2c32b4c5b08e",
+       "source": "community",
+       "meta": {
+        "uuid": null,
+        "author": null,
+        "date": null,
+        "references": []
+       }
+      }
+     ],
+     "assertions": [
+      {
+       "id": "assert:9bc6bad03cd57a55bdd5ff7619f93b748060c1bc86a2308d46fcfd53b28a2901",
+       "type": "rule_meta_mentions_hash",
+       "subject": "yara:rules/community/synthetic/conflict.yar#SYNTH_Conflict",
+       "value": "6177a869c9e5e081b1534c86570f6cb14878e69958faa2973eb94c37a6442abd",
+       "value_kind": "sha256",
+       "meta_key": "hash",
+       "match": "whole_value",
+       "status": "asserted_by_rule_metadata",
+       "provenance": {
+        "release_tag": "rules-20261102-5",
+        "path": "rules/community/synthetic/conflict.yar",
+        "file_sha256": "bab46593033c693b5cb8cb5df0dd8487930a8f6d5dd30733c71d2c32b4c5b08e",
+        "line": 2
+       }
+      }
+     ]
+    }
+   },
+   {
+    "document": {
+     "schema": "macguard.search-index/1",
+     "generator": "scripts/rule_index.py",
+     "release": {
+      "tag": "rules-20261102-5",
+      "manifest_sha256": "faa798ba5b25fdfb0aeedc13d424ab21da195087b2abf996f454fc46229d00ae",
+      "rules_root": null,
+      "files": 1
+     },
+     "note": "synthetic",
+     "counts": {},
+     "entities": [
+      {
+       "id": "yara:rules/community/synthetic/conflict.yar#SYNTH_Conflict",
+       "kind": "rule",
+       "path": "rules/community/synthetic/conflict.yar",
+       "name": "SYNTH_Conflict",
+       "tags": [],
+       "modifiers": [],
+       "line": 1,
+       "file_sha256": "bab46593033c693b5cb8cb5df0dd8487930a8f6d5dd30733c71d2c32b4c5b08e",
+       "source": "community",
+       "meta": {
+        "uuid": null,
+        "author": null,
+        "date": null,
+        "references": []
+       }
+      }
+     ],
+     "assertions": [
+      {
+       "id": "assert:e64ac06265ead97b61a9b1da6744a236fd6d7976a334a0cd7dfb0aa1fb7e70f4",
+       "type": "rule_meta_mentions_hash",
+       "subject": "yara:rules/community/synthetic/conflict.yar#SYNTH_Conflict",
+       "value": "9ab02ab40ab24a98cefa2aa870d3f8ba2702db7a6f9f2ecd2fc3cd57f310ead7",
+       "value_kind": "sha256",
+       "meta_key": "hash",
+       "match": "whole_value",
+       "status": "asserted_by_rule_metadata",
+       "provenance": {
+        "release_tag": "rules-20261102-5",
+        "path": "rules/community/synthetic/conflict.yar",
+        "file_sha256": "bab46593033c693b5cb8cb5df0dd8487930a8f6d5dd30733c71d2c32b4c5b08e",
+        "line": 2
+       }
+      }
+     ]
+    }
+   },
+   {
+    "document": {
+     "schema": "macguard.search-index/1",
+     "generator": "scripts/rule_index.py",
+     "release": {
+      "tag": "rules-20261102-5",
+      "manifest_sha256": "faa798ba5b25fdfb0aeedc13d424ab21da195087b2abf996f454fc46229d00ae",
+      "rules_root": null,
+      "files": 1
+     },
+     "note": "synthetic",
+     "counts": {},
+     "entities": [
+      {
+       "id": "yara:rules/community/synthetic/conflict.yar#SYNTH_Conflict",
+       "kind": "rule",
+       "path": "rules/community/synthetic/conflict.yar",
+       "name": "SYNTH_Conflict",
+       "tags": [],
+       "modifiers": [],
+       "line": 1,
+       "file_sha256": "bab46593033c693b5cb8cb5df0dd8487930a8f6d5dd30733c71d2c32b4c5b08e",
+       "source": "community",
+       "meta": {
+        "uuid": null,
+        "author": null,
+        "date": null,
+        "references": []
+       }
+      }
+     ],
+     "assertions": [
+      {
+       "id": "assert:9bc6bad03cd57a55bdd5ff7619f93b748060c1bc86a2308d46fcfd53b28a2901",
+       "type": "rule_meta_mentions_hash",
+       "subject": "yara:rules/community/synthetic/conflict.yar#SYNTH_Conflict",
+       "value": "6177a869c9e5e081b1534c86570f6cb14878e69958faa2973eb94c37a6442abd",
+       "value_kind": "sha256",
+       "meta_key": "hash",
+       "match": "whole_value",
+       "status": "asserted_by_rule_metadata",
+       "provenance": {
+        "release_tag": "rules-20261102-5",
+        "path": "rules/community/synthetic/conflict.yar",
+        "file_sha256": "bab46593033c693b5cb8cb5df0dd8487930a8f6d5dd30733c71d2c32b4c5b08e",
+        "line": 2
+       }
+      }
+     ]
+    }
+   }
+  ]
+ },
+ "expect": {
+  "asserted": [
+   [
+    "VULN_HAS_WEAKNESS",
+    "vulnerability:cve:CVE-2099-0600",
+    "weakness:cwe:CWE-22"
+   ],
+   [
+    "RULE_REFERENCES_SAMPLE",
+    "rule:yara:rules/community/synthetic/conflict.yar#SYNTH_Conflict",
+    "sample:sha256:91d34dda1ea67a901dbb8693c6f59599028b12b59f12ded56e172f5944606404"
+   ]
+  ],
+  "candidate": [],
+  "retracted": [
+   [
+    "VULN_HAS_WEAKNESS",
+    "vulnerability:cve:CVE-2099-0600",
+    "weakness:cwe:CWE-20"
+   ]
+  ],
+  "refused_inputs": 2
+ }
+}

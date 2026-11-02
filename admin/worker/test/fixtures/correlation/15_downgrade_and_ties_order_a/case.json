@@ -1,0 +1,417 @@
+{
+ "description": "Regression, oldest first: a SHA-256 asserted under meta.sha256 in rules-20260101-1 and present only inside meta.description in rules-20260102-2 is retracted at the asserted level (downgraded_in_latest_snapshot) and emitted as a candidate; a CWE dropped by the latest KEV catalogue is retracted (absent). Non-canonical rules-20260101-01 and 2026.10.30.01 are refused at input; a KEV source whose higher version was released earlier is refused (snapshot_order_inconsistent).",
+ "input": {
+  "kev": [
+   {
+    "document": {
+     "schema": "macguard.intel-kev/1",
+     "source": {
+      "id": "cisa-kev",
+      "url": "https://www.cisa.gov/sites/default/files/feeds/known_exploited_vulnerabilities.json",
+      "license": "CC0-1.0",
+      "attribution": "Contains data from the CISA Known Exploited Vulnerabilities Catalog (CC0 1.0)",
+      "catalog_version": "2026.10.30",
+      "date_released": "2026-10-30T17:02:45.366Z",
+      "retrieved_at": "2026-10-30T17:02:45.366Z",
+      "upstream_sha256": "661f8e28f69a036dbbc53a346826dcdae4e5b47b281f269bd4074f194ad6c9b9"
+     },
+     "count": 1,
+     "items": [
+      {
+       "cve_id": "CVE-2099-0700",
+       "vendor": "ExampleVendor",
+       "product": "ExampleProduct",
+       "name": "Synthetic entry for CVE-2099-0700",
+       "date_added": "2026-01-01",
+       "short_description": "Synthetic description.",
+       "required_action": "Apply mitigations per vendor instructions.",
+       "due_date": "2026-01-22",
+       "known_ransomware_use": "Unknown",
+       "notes": "",
+       "cwes": [
+        "CWE-79"
+       ]
+      }
+     ]
+    }
+   },
+   {
+    "document": {
+     "schema": "macguard.intel-kev/1",
+     "source": {
+      "id": "cisa-kev",
+      "url": "https://www.cisa.gov/sites/default/files/feeds/known_exploited_vulnerabilities.json",
+      "license": "CC0-1.0",
+      "attribution": "Contains data from the CISA Known Exploited Vulnerabilities Catalog (CC0 1.0)",
+      "catalog_version": "2026.10.31",
+      "date_released": "2026-10-31T10:00:00.000Z",
+      "retrieved_at": "2026-10-31T10:00:00.000Z",
+      "upstream_sha256": "5f933b59cd206cabf0f1586a9e4b8d60c96a895e179391419ae8058836167159"
+     },
+     "count": 1,
+     "items": [
+      {
+       "cve_id": "CVE-2099-0700",
+       "vendor": "ExampleVendor",
+       "product": "ExampleProduct",
+       "name": "Synthetic entry for CVE-2099-0700",
+       "date_added": "2026-01-01",
+       "short_description": "Synthetic description.",
+       "required_action": "Apply mitigations per vendor instructions.",
+       "due_date": "2026-01-22",
+       "known_ransomware_use": "Unknown",
+       "notes": "",
+       "cwes": [
+        "CWE-89"
+       ]
+      }
+     ]
+    }
+   },
+   {
+    "source_id": "synthetic-list-v",
+    "document": {
+     "schema": "macguard.intel-kev/1",
+     "source": {
+      "id": "synthetic-list-v",
+      "url": "https://www.cisa.gov/sites/default/files/feeds/known_exploited_vulnerabilities.json",
+      "license": "CC0-1.0",
+      "attribution": "Contains data from the CISA Known Exploited Vulnerabilities Catalog (CC0 1.0)",
+      "catalog_version": "2026.10.30.01",
+      "date_released": "2026-10-30T17:02:45.366Z",
+      "retrieved_at": "2026-10-30T17:02:45.366Z",
+      "upstream_sha256": "07ca746fb1097b93bd3046a072a8e8339e81ffc0ee72d64d94dd9ac6fb90baa2"
+     },
+     "count": 1,
+     "items": [
+      {
+       "cve_id": "CVE-2099-0701",
+       "vendor": "ExampleVendor",
+       "product": "ExampleProduct",
+       "name": "Synthetic entry for CVE-2099-0701",
+       "date_added": "2026-01-01",
+       "short_description": "Synthetic description.",
+       "required_action": "Apply mitigations per vendor instructions.",
+       "due_date": "2026-01-22",
+       "known_ransomware_use": "Unknown",
+       "notes": "",
+       "cwes": [
+        "CWE-20"
+       ]
+      }
+     ]
+    }
+   },
+   {
+    "source_id": "synthetic-list-w",
+    "document": {
+     "schema": "macguard.intel-kev/1",
+     "source": {
+      "id": "synthetic-list-w",
+      "url": "https://www.cisa.gov/sites/default/files/feeds/known_exploited_vulnerabilities.json",
+      "license": "CC0-1.0",
+      "attribution": "Contains data from the CISA Known Exploited Vulnerabilities Catalog (CC0 1.0)",
+      "catalog_version": "2026.10.31",
+      "date_released": "2026-10-30T10:00:00.000Z",
+      "retrieved_at": "2026-10-30T10:00:00.000Z",
+      "upstream_sha256": "e2e5e799a8c5eb9554fba1e336afe73577e06b72fb337924a20664e8fe476bcd"
+     },
+     "count": 1,
+     "items": [
+      {
+       "cve_id": "CVE-2099-0702",
+       "vendor": "ExampleVendor",
+       "product": "ExampleProduct",
+       "name": "Synthetic entry for CVE-2099-0702",
+       "date_added": "2026-01-01",
+       "short_description": "Synthetic description.",
+       "required_action": "Apply mitigations per vendor instructions.",
+       "due_date": "2026-01-22",
+       "known_ransomware_use": "Unknown",
+       "notes": "",
+       "cwes": [
+        "CWE-20"
+       ]
+      }
+     ]
+    }
+   },
+   {
+    "source_id": "synthetic-list-w",
+    "document": {
+     "schema": "macguard.intel-kev/1",
+     "source": {
+      "id": "synthetic-list-w",
+      "url": "https://www.cisa.gov/sites/default/files/feeds/known_exploited_vulnerabilities.json",
+      "license": "CC0-1.0",
+      "attribution": "Contains data from the CISA Known Exploited Vulnerabilities Catalog (CC0 1.0)",
+      "catalog_version": "2026.10.30",
+      "date_released": "2026-10-31T10:00:00.000Z",
+      "retrieved_at": "2026-10-31T10:00:00.000Z",
+      "upstream_sha256": "6970196d5691215bbcfbf1a2b1dc468aef8fe920128737457893ceb03e01b2b6"
+     },
+     "count": 1,
+     "items": [
+      {
+       "cve_id": "CVE-2099-0702",
+       "vendor": "ExampleVendor",
+       "product": "ExampleProduct",
+       "name": "Synthetic entry for CVE-2099-0702",
+       "date_added": "2026-01-01",
+       "short_description": "Synthetic description.",
+       "required_action": "Apply mitigations per vendor instructions.",
+       "due_date": "2026-01-22",
+       "known_ransomware_use": "Unknown",
+       "notes": "",
+       "cwes": [
+        "CWE-22"
+       ]
+      }
+     ]
+    }
+   }
+  ],
+  "rule_indexes": [
+   {
+    "document": {
+     "schema": "macguard.search-index/1",
+     "generator": "scripts/rule_index.py",
+     "release": {
+      "tag": "rules-20260101-1",
+      "manifest_sha256": "252fa48578afa2c6c4f9d51572441de4a29cc0a1bcee3927689fc8b000561844",
+      "rules_root": null,
+      "files": 1
+     },
+     "note": "synthetic",
+     "counts": {},
+     "entities": [
+      {
+       "id": "yara:rules/community/synthetic/downgrade.yar#SYNTH_Downgrade",
+       "kind": "rule",
+       "path": "rules/community/synthetic/downgrade.yar",
+       "name": "SYNTH_Downgrade",
+       "tags": [],
+       "modifiers": [],
+       "line": 1,
+       "file_sha256": "39d1af2e5d3aebfc5731fb2afb10a843add614e525c648a73d719bae5430fded",
+       "source": "community",
+       "meta": {
+        "uuid": null,
+        "author": null,
+        "date": null,
+        "references": []
+       }
+      }
+     ],
+     "assertions": [
+      {
+       "id": "assert:7d0f51420dda48be67ceb8fa7baad39ce4cd102193ca28215a39f7d9c35c5279",
+       "type": "rule_meta_mentions_hash",
+       "subject": "yara:rules/community/synthetic/downgrade.yar#SYNTH_Downgrade",
+       "value": "aee7a196de7ffda4a0c32db6ce24540101ed139974cb712a95cb69e3737d46e7",
+       "value_kind": "sha256",
+       "meta_key": "sha256",
+       "match": "whole_value",
+       "status": "asserted_by_rule_metadata",
+       "provenance": {
+        "release_tag": "rules-20260101-1",
+        "path": "rules/community/synthetic/downgrade.yar",
+        "file_sha256": "39d1af2e5d3aebfc5731fb2afb10a843add614e525c648a73d719bae5430fded",
+        "line": 2
+       }
+      }
+     ]
+    }
+   },
+   {
+    "document": {
+     "schema": "macguard.search-index/1",
+     "generator": "scripts/rule_index.py",
+     "release": {
+      "tag": "rules-20260102-2",
+      "manifest_sha256": "93d47ada3618902af340560c8f66aabd883b7e76d27d17891bfa873b6729c27d",
+      "rules_root": null,
+      "files": 1
+     },
+     "note": "synthetic",
+     "counts": {},
+     "entities": [
+      {
+       "id": "yara:rules/community/synthetic/downgrade.yar#SYNTH_Downgrade",
+       "kind": "rule",
+       "path": "rules/community/synthetic/downgrade.yar",
+       "name": "SYNTH_Downgrade",
+       "tags": [],
+       "modifiers": [],
+       "line": 1,
+       "file_sha256": "39d1af2e5d3aebfc5731fb2afb10a843add614e525c648a73d719bae5430fded",
+       "source": "community",
+       "meta": {
+        "uuid": null,
+        "author": null,
+        "date": null,
+        "references": []
+       }
+      }
+     ],
+     "assertions": [
+      {
+       "id": "assert:3f4c5fa229317414cf3996f1f663e73e7ec3c31eaefdf29695de2b23943a6b9f",
+       "type": "rule_meta_mentions_hash",
+       "subject": "yara:rules/community/synthetic/downgrade.yar#SYNTH_Downgrade",
+       "value": "aee7a196de7ffda4a0c32db6ce24540101ed139974cb712a95cb69e3737d46e7",
+       "value_kind": "sha256",
+       "meta_key": "description",
+       "match": "embedded",
+       "status": "asserted_by_rule_metadata",
+       "provenance": {
+        "release_tag": "rules-20260102-2",
+        "path": "rules/community/synthetic/downgrade.yar",
+        "file_sha256": "39d1af2e5d3aebfc5731fb2afb10a843add614e525c648a73d719bae5430fded",
+        "line": 2
+       }
+      }
+     ]
+    }
+   },
+   {
+    "source_id": "synthetic-release-tie",
+    "document": {
+     "schema": "macguard.search-index/1",
+     "generator": "scripts/rule_index.py",
+     "release": {
+      "tag": "rules-20260101-1",
+      "manifest_sha256": "03374fc903dbefaf56ef5e91f2e1cdb6466a9dba3ef09ec688710d09c7dda813",
+      "rules_root": null,
+      "files": 1
+     },
+     "note": "synthetic",
+     "counts": {},
+     "entities": [
+      {
+       "id": "yara:rules/community/synthetic/tie.yar#SYNTH_Tie",
+       "kind": "rule",
+       "path": "rules/community/synthetic/tie.yar",
+       "name": "SYNTH_Tie",
+       "tags": [],
+       "modifiers": [],
+       "line": 1,
+       "file_sha256": "4625edb8313c6221611e9dd1e9a357760c691c12c20c703618306f4c71cc3725",
+       "source": "community",
+       "meta": {
+        "uuid": null,
+        "author": null,
+        "date": null,
+        "references": []
+       }
+      }
+     ],
+     "assertions": [
+      {
+       "id": "assert:7741d4a185a9b7eca7a4f550e008f16918ad99fd07f0c53b1d28dc21536c41f3",
+       "type": "rule_meta_mentions_hash",
+       "subject": "yara:rules/community/synthetic/tie.yar#SYNTH_Tie",
+       "value": "b969ad36ab33a702058289630cdacbd9cf6adc19d2f4e5e0bab772289dff9c56",
+       "value_kind": "sha256",
+       "meta_key": "hash",
+       "match": "whole_value",
+       "status": "asserted_by_rule_metadata",
+       "provenance": {
+        "release_tag": "rules-20260101-1",
+        "path": "rules/community/synthetic/tie.yar",
+        "file_sha256": "4625edb8313c6221611e9dd1e9a357760c691c12c20c703618306f4c71cc3725",
+        "line": 2
+       }
+      }
+     ]
+    }
+   },
+   {
+    "source_id": "synthetic-release-tie",
+    "document": {
+     "schema": "macguard.search-index/1",
+     "generator": "scripts/rule_index.py",
+     "release": {
+      "tag": "rules-20260101-01",
+      "manifest_sha256": "2c296cd38fee0039e309737146b209cc02956019796fe88cdd68dd4a2798d9d7",
+      "rules_root": null,
+      "files": 1
+     },
+     "note": "synthetic",
+     "counts": {},
+     "entities": [
+      {
+       "id": "yara:rules/community/synthetic/tie.yar#SYNTH_Tie",
+       "kind": "rule",
+       "path": "rules/community/synthetic/tie.yar",
+       "name": "SYNTH_Tie",
+       "tags": [],
+       "modifiers": [],
+       "line": 1,
+       "file_sha256": "4625edb8313c6221611e9dd1e9a357760c691c12c20c703618306f4c71cc3725",
+       "source": "community",
+       "meta": {
+        "uuid": null,
+        "author": null,
+        "date": null,
+        "references": []
+       }
+      }
+     ],
+     "assertions": [
+      {
+       "id": "assert:cd28384910c48321a559800edf0b7ac14c498119fce49b5862b638093d1800da",
+       "type": "rule_meta_mentions_hash",
+       "subject": "yara:rules/community/synthetic/tie.yar#SYNTH_Tie",
+       "value": "2b7f95c427d25df567826255d9389c50563c6bd4fde783041778494f8a525eb8",
+       "value_kind": "sha256",
+       "meta_key": "hash",
+       "match": "whole_value",
+       "status": "asserted_by_rule_metadata",
+       "provenance": {
+        "release_tag": "rules-20260101-01",
+        "path": "rules/community/synthetic/tie.yar",
+        "file_sha256": "4625edb8313c6221611e9dd1e9a357760c691c12c20c703618306f4c71cc3725",
+        "line": 2
+       }
+      }
+     ]
+    }
+   }
+  ]
+ },
+ "expect": {
+  "asserted": [
+   [
+    "VULN_HAS_WEAKNESS",
+    "vulnerability:cve:CVE-2099-0700",
+    "weakness:cwe:CWE-89"
+   ],
+   [
+    "RULE_REFERENCES_SAMPLE",
+    "rule:yara:rules/community/synthetic/tie.yar#SYNTH_Tie",
+    "sample:sha256:b969ad36ab33a702058289630cdacbd9cf6adc19d2f4e5e0bab772289dff9c56"
+   ]
+  ],
+  "candidate": [
+   [
+    "RULE_REFERENCES_SAMPLE",
+    "rule:yara:rules/community/synthetic/downgrade.yar#SYNTH_Downgrade",
+    "sample:sha256:aee7a196de7ffda4a0c32db6ce24540101ed139974cb712a95cb69e3737d46e7"
+   ]
+  ],
+  "retracted": [
+   [
+    "RULE_REFERENCES_SAMPLE",
+    "rule:yara:rules/community/synthetic/downgrade.yar#SYNTH_Downgrade",
+    "sample:sha256:aee7a196de7ffda4a0c32db6ce24540101ed139974cb712a95cb69e3737d46e7"
+   ],
+   [
+    "VULN_HAS_WEAKNESS",
+    "vulnerability:cve:CVE-2099-0700",
+    "weakness:cwe:CWE-79"
+   ]
+  ],
+  "refused_inputs": 4
+ }
+}

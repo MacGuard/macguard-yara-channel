@@ -1,0 +1,291 @@
+{
+ "description": "No alias merge without a source record: md5/sha1/sha256 of \"the same sample\" are never joined (md5/sha1 have no canonical sample identity and are refused); two rules with the same name in different files are two rules; a GCVE-0 id is not silently turned into a CVE; two related CVEs are never aliases.",
+ "input": {
+  "kev": [
+   {
+    "document": {
+     "schema": "macguard.intel-kev/1",
+     "source": {
+      "id": "cisa-kev",
+      "url": "https://www.cisa.gov/sites/default/files/feeds/known_exploited_vulnerabilities.json",
+      "license": "CC0-1.0",
+      "attribution": "Contains data from the CISA Known Exploited Vulnerabilities Catalog (CC0 1.0)",
+      "catalog_version": "2026.10.30",
+      "date_released": "2026-10-30T17:02:45.366Z",
+      "retrieved_at": "2026-10-30T17:02:45.366Z",
+      "upstream_sha256": "661f8e28f69a036dbbc53a346826dcdae4e5b47b281f269bd4074f194ad6c9b9"
+     },
+     "count": 2,
+     "items": [
+      {
+       "cve_id": "GCVE-0-2021-44228",
+       "vendor": "ExampleVendor",
+       "product": "ExampleProduct",
+       "name": "Synthetic entry for GCVE-0-2021-44228",
+       "date_added": "2026-01-01",
+       "short_description": "Synthetic description.",
+       "required_action": "Apply mitigations per vendor instructions.",
+       "due_date": "2026-01-22",
+       "known_ransomware_use": "Unknown",
+       "notes": "",
+       "cwes": [
+        "CWE-917"
+       ]
+      },
+      {
+       "cve_id": "CVE-2021-44228",
+       "vendor": "ExampleVendor",
+       "product": "ExampleProduct",
+       "name": "Synthetic entry for CVE-2021-44228",
+       "date_added": "2026-01-01",
+       "short_description": "Synthetic description.",
+       "required_action": "Apply mitigations per vendor instructions.",
+       "due_date": "2026-01-22",
+       "known_ransomware_use": "Unknown",
+       "notes": "",
+       "cwes": [
+        "CWE-917"
+       ]
+      }
+     ]
+    }
+   }
+  ],
+  "rule_indexes": [
+   {
+    "document": {
+     "schema": "macguard.search-index/1",
+     "generator": "scripts/rule_index.py",
+     "release": {
+      "tag": "rules-20261102-1",
+      "manifest_sha256": "8b721e3ea826fa880b042854dfc9ea3fe9ef3a0d3ebd70ec9cd8c0d5144c117a",
+      "rules_root": null,
+      "files": 5
+     },
+     "note": "synthetic",
+     "counts": {},
+     "entities": [
+      {
+       "id": "yara:rules/community/synthetic/triplet.yar#SYNTH_Hash_Triplet",
+       "kind": "rule",
+       "path": "rules/community/synthetic/triplet.yar",
+       "name": "SYNTH_Hash_Triplet",
+       "tags": [],
+       "modifiers": [],
+       "line": 1,
+       "file_sha256": "68e08af3ceb9ae9dc0ae7a1060c5d5556270ba3e6b9d4371661731236ef38d39",
+       "source": "community",
+       "meta": {
+        "uuid": null,
+        "author": null,
+        "date": null,
+        "references": []
+       }
+      },
+      {
+       "id": "yara:rules/community/a/same.yar#SYNTH_Same_Name",
+       "kind": "rule",
+       "path": "rules/community/a/same.yar",
+       "name": "SYNTH_Same_Name",
+       "tags": [],
+       "modifiers": [],
+       "line": 1,
+       "file_sha256": "e4aa3f8266724638c3a4455327f570439ba0fe2bbd2262ef61d8afc26bdd19f5",
+       "source": "community",
+       "meta": {
+        "uuid": null,
+        "author": null,
+        "date": null,
+        "references": []
+       }
+      },
+      {
+       "id": "yara:rules/community/b/same.yar#SYNTH_Same_Name",
+       "kind": "rule",
+       "path": "rules/community/b/same.yar",
+       "name": "SYNTH_Same_Name",
+       "tags": [],
+       "modifiers": [],
+       "line": 1,
+       "file_sha256": "2fe5ab842fe30c35c0d76bcf7bd1babd5872ac1cf59b1cb3daa940bbff8eb629",
+       "source": "community",
+       "meta": {
+        "uuid": null,
+        "author": null,
+        "date": null,
+        "references": []
+       }
+      },
+      {
+       "id": "yara:rules/community/synthetic/log4j.yar#SYNTH_Log4j_A",
+       "kind": "rule",
+       "path": "rules/community/synthetic/log4j.yar",
+       "name": "SYNTH_Log4j_A",
+       "tags": [],
+       "modifiers": [],
+       "line": 1,
+       "file_sha256": "4ae29d63c854fe136b76d84c7826088199bb88e98dd227484b75baaaf82580b9",
+       "source": "community",
+       "meta": {
+        "uuid": null,
+        "author": null,
+        "date": null,
+        "references": []
+       }
+      },
+      {
+       "id": "yara:rules/community/synthetic/log4j.yar#SYNTH_Log4j_B",
+       "kind": "rule",
+       "path": "rules/community/synthetic/log4j.yar",
+       "name": "SYNTH_Log4j_B",
+       "tags": [],
+       "modifiers": [],
+       "line": 1,
+       "file_sha256": "4ae29d63c854fe136b76d84c7826088199bb88e98dd227484b75baaaf82580b9",
+       "source": "community",
+       "meta": {
+        "uuid": null,
+        "author": null,
+        "date": null,
+        "references": []
+       }
+      }
+     ],
+     "assertions": [
+      {
+       "id": "assert:c4daded0500cc6a8ede9043cd29a2e63a72c4f1c8a8e716a17892eaf5aedc60b",
+       "type": "rule_meta_mentions_hash",
+       "subject": "yara:rules/community/synthetic/triplet.yar#SYNTH_Hash_Triplet",
+       "value": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+       "value_kind": "md5",
+       "meta_key": "md5",
+       "match": "whole_value",
+       "status": "asserted_by_rule_metadata",
+       "provenance": {
+        "release_tag": "rules-20261102-1",
+        "path": "rules/community/synthetic/triplet.yar",
+        "file_sha256": "68e08af3ceb9ae9dc0ae7a1060c5d5556270ba3e6b9d4371661731236ef38d39",
+        "line": 2
+       }
+      },
+      {
+       "id": "assert:7ef2119be02453f0a3cf51ecbc6321fbdb30edeb6d10b906364794bf3f9c5e19",
+       "type": "rule_meta_mentions_hash",
+       "subject": "yara:rules/community/synthetic/triplet.yar#SYNTH_Hash_Triplet",
+       "value": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+       "value_kind": "sha1",
+       "meta_key": "sha1",
+       "match": "whole_value",
+       "status": "asserted_by_rule_metadata",
+       "provenance": {
+        "release_tag": "rules-20261102-1",
+        "path": "rules/community/synthetic/triplet.yar",
+        "file_sha256": "68e08af3ceb9ae9dc0ae7a1060c5d5556270ba3e6b9d4371661731236ef38d39",
+        "line": 3
+       }
+      },
+      {
+       "id": "assert:f1252359c696ae8d2123c8005e02bceec0cc6a15c62eed45d5eb447ab587adde",
+       "type": "rule_meta_mentions_hash",
+       "subject": "yara:rules/community/synthetic/triplet.yar#SYNTH_Hash_Triplet",
+       "value": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+       "value_kind": "sha256",
+       "meta_key": "sha256",
+       "match": "whole_value",
+       "status": "asserted_by_rule_metadata",
+       "provenance": {
+        "release_tag": "rules-20261102-1",
+        "path": "rules/community/synthetic/triplet.yar",
+        "file_sha256": "68e08af3ceb9ae9dc0ae7a1060c5d5556270ba3e6b9d4371661731236ef38d39",
+        "line": 4
+       }
+      },
+      {
+       "id": "assert:45cb6629f58fdd209f8c4062d031d09705e8d2b12c8993db25216cf5f767be25",
+       "type": "rule_meta_mentions_hash",
+       "subject": "yara:rules/community/a/same.yar#SYNTH_Same_Name",
+       "value": "50a83732fc4f63fa49c45b2971833eca0ca47fa766d56bdc7ca1830f7c7e1c73",
+       "value_kind": "sha256",
+       "meta_key": "hash",
+       "match": "whole_value",
+       "status": "asserted_by_rule_metadata",
+       "provenance": {
+        "release_tag": "rules-20261102-1",
+        "path": "rules/community/a/same.yar",
+        "file_sha256": "e4aa3f8266724638c3a4455327f570439ba0fe2bbd2262ef61d8afc26bdd19f5",
+        "line": 2
+       }
+      },
+      {
+       "id": "assert:e906b05f73cec6dff0a7c65d304b421021cedcf2de24ad73c16b60b846d1dc25",
+       "type": "rule_meta_mentions_cve",
+       "subject": "yara:rules/community/synthetic/log4j.yar#SYNTH_Log4j_A",
+       "value": "CVE-2021-44228",
+       "value_kind": "cve",
+       "meta_key": "cve",
+       "match": "whole_value",
+       "status": "asserted_by_rule_metadata",
+       "provenance": {
+        "release_tag": "rules-20261102-1",
+        "path": "rules/community/synthetic/log4j.yar",
+        "file_sha256": "4ae29d63c854fe136b76d84c7826088199bb88e98dd227484b75baaaf82580b9",
+        "line": 2
+       }
+      },
+      {
+       "id": "assert:5a8344a21344bf274cd1bd8a8b5ae2a48105dcd6d69ccf548faf72304bfff37d",
+       "type": "rule_meta_mentions_cve",
+       "subject": "yara:rules/community/synthetic/log4j.yar#SYNTH_Log4j_B",
+       "value": "CVE-2021-45046",
+       "value_kind": "cve",
+       "meta_key": "cve",
+       "match": "whole_value",
+       "status": "asserted_by_rule_metadata",
+       "provenance": {
+        "release_tag": "rules-20261102-1",
+        "path": "rules/community/synthetic/log4j.yar",
+        "file_sha256": "4ae29d63c854fe136b76d84c7826088199bb88e98dd227484b75baaaf82580b9",
+        "line": 2
+       }
+      }
+     ]
+    }
+   }
+  ]
+ },
+ "expect": {
+  "asserted": [
+   [
+    "VULN_HAS_WEAKNESS",
+    "vulnerability:cve:CVE-2021-44228",
+    "weakness:cwe:CWE-917"
+   ],
+   [
+    "RULE_REFERENCES_SAMPLE",
+    "rule:yara:rules/community/synthetic/triplet.yar#SYNTH_Hash_Triplet",
+    "sample:sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+   ],
+   [
+    "RULE_REFERENCES_SAMPLE",
+    "rule:yara:rules/community/a/same.yar#SYNTH_Same_Name",
+    "sample:sha256:50a83732fc4f63fa49c45b2971833eca0ca47fa766d56bdc7ca1830f7c7e1c73"
+   ],
+   [
+    "RULE_ASSOCIATED_WITH_CVE",
+    "rule:yara:rules/community/synthetic/log4j.yar#SYNTH_Log4j_A",
+    "vulnerability:cve:CVE-2021-44228"
+   ],
+   [
+    "RULE_ASSOCIATED_WITH_CVE",
+    "rule:yara:rules/community/synthetic/log4j.yar#SYNTH_Log4j_B",
+    "vulnerability:cve:CVE-2021-45046"
+   ]
+  ],
+  "candidate": [],
+  "rejections": {
+   "no_canonical_sample_identity_for_md5_sha1": 2,
+   "malformed_identifier": 1,
+   "no_assertions": 1
+  }
+ }
+}

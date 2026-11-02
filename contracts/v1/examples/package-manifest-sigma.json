@@ -1,0 +1,15 @@
+{
+ "schema": "macguard.package-manifest/1",
+ "package": { "id": "package:sigma:sigma-core@2026.11.01", "family": "sigma", "tier": "premium", "name": "sigma-core", "version": "2026.11.01", "created_at": "2026-11-01T10:00:00Z", "release_tag": null,
+  "engine": { "name": "sigma-cli", "min_version": "1.0.0", "syntax_version": "sigma-2.0" }, "format": "sigma-yaml", "platforms": ["linux", "macos", "windows"], "previous": null },
+ "files": [ { "path": "rules/sigma/proc_creation_example.yml", "sha256": "0000000000000000000000000000000000000000000000000000000000000001", "bytes": 812, "source": "synthetic-fixture", "licence": "DRL-1.1" } ],
+ "rules_root": "0000000000000000000000000000000000000000000000000000000000000002",
+ "log": { "origin": "rules.mac-guard.com/log", "size": 274, "root": "0000000000000000000000000000000000000000000000000000000000000003" },
+ "status": "PUBLISHED",
+ "validation": { "state": "SYNTAX_CHECKED", "engine": "sigma-cli 1.0.0 (syntax only: not engine-tested)", "checked": 1 },
+ "sources": [ { "id": "synthetic-fixture", "licence": "DRL-1.1" } ],
+ "stats": { "files": 1, "items": 1, "expanded_bytes": 812 },
+ "related_vulnerabilities": [],
+ "changes": { "added": 1, "removed": 0, "modified": 0 },
+ "evidence": { "candidate_run_id": "0", "candidate_workflow_sha": "", "publish_run_url": "" }
+}
